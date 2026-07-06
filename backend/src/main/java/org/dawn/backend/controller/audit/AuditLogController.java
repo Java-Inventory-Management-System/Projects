@@ -25,7 +25,7 @@ public class AuditLogController {
     private final AuditLogService auditLogService;
 
     @GetMapping
-    @PreAuthorize("hasRole('ADMIN') or hasRole('SALES')")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER') or hasRole('SALES')")
     public ResponseObject<ResponsePage<AuditLog>> list(
             @RequestParam(required = false) String action,
             @RequestParam(required = false) String entity,
