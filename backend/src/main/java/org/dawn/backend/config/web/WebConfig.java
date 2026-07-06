@@ -1,4 +1,4 @@
-package org.dawn.backend.config;
+package org.dawn.backend.config.web;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Configuration;
