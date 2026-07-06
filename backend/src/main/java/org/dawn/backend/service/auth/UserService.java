@@ -2,7 +2,9 @@ package org.dawn.backend.service.auth;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.dawn.backend.config.anno.AuditLog;
 import org.dawn.backend.config.web.response.ResponsePage;
+import org.dawn.backend.constant.shared.LogConstant;
 import org.dawn.backend.constant.auth.URole;
 import org.dawn.backend.constant.shared.ActiveStatus;
 import org.dawn.backend.constant.shared.Message;
@@ -57,6 +59,7 @@ public class UserService {
     }
 
     @Transactional
+    @AuditLog(action = LogConstant.Action.CREATE_USER, entity = LogConstant.Entity.USER)
     public CreateUserResponse createUser(RegisterRequest request) {
         if (URole.ADMIN.name().equalsIgnoreCase(request.roleName())) {
             throw new PermissionDeniedException(Message.User.CANNOT_ASSIGN_ADMIN_ROLE);
@@ -126,6 +129,7 @@ public class UserService {
     }
 
     @Transactional
+    @AuditLog(action = LogConstant.Action.UPDATE_STATUS, entity = LogConstant.Entity.USER, entityClass = User.class)
     public UserResponse updateStatus(Long id, Boolean status) {
         if (Objects.equals(id, SecurityUtils.getCurrentUserId())) {
             throw new PermissionDeniedException(Message.User.CANNOT_UPDATE_YOURSELF);
@@ -141,6 +145,7 @@ public class UserService {
     }
 
     @Transactional
+    @AuditLog(action = LogConstant.Action.UPDATE_INFO, entity = LogConstant.Entity.USER, entityClass = User.class)
     public UserResponse updateInfo(Long id, UpdateInfoRequest request) {
         User user = userRepository
                 .findById(id)
@@ -164,6 +169,7 @@ public class UserService {
     }
 
     @Transactional
+    @AuditLog(action = LogConstant.Action.UPDATE_ROLE, entity = LogConstant.Entity.USER, entityClass = User.class)
     public UserResponse updateRole(Long id, URole roleName) {
         if (Objects.equals(id, SecurityUtils.getCurrentUserId())) {
             throw new PermissionDeniedException(Message.User.CANNOT_CHANGE_OWN_ROLE);

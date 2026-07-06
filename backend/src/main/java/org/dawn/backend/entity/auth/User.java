@@ -1,6 +1,7 @@
 package org.dawn.backend.entity.auth;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import io.swagger.v3.oas.annotations.Hidden;
 import jakarta.persistence.*;
 import lombok.*;
@@ -18,6 +19,7 @@ import java.time.Instant;
 @Hidden
 @EqualsAndHashCode(callSuper = true, exclude = "role")
 @ToString(callSuper = true, exclude = {"password", "role"})
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class User extends AuditableEntity {
 
     @Column(name = "username", nullable = false, unique = true, length = 100)
