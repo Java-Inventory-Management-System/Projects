@@ -2,6 +2,8 @@ package org.dawn.backend.service.auth;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.dawn.backend.config.anno.AuditLog;
+import org.dawn.backend.constant.shared.LogConstant;
 import org.dawn.backend.constant.shared.Message;
 import org.dawn.backend.controller.auth.request.ChangePasswordRequest;
 import org.dawn.backend.controller.auth.request.ForgotPasswordRequest;
@@ -76,6 +78,7 @@ public class AuthService {
                 .build();
     }
 
+    @AuditLog(action = LogConstant.Action.RESET_PASSWORD, entity = LogConstant.Entity.USER, entityClass = User.class)
     public String resetPassword(Long id) {
         User user = userRepository
                 .findById(id)
@@ -90,6 +93,7 @@ public class AuthService {
         return tempPwd;
     }
 
+    @AuditLog(action = LogConstant.Action.CHANGE_PASSWORD, entity = LogConstant.Entity.USER)
     public String changePassword(String username, ChangePasswordRequest request) {
         log.info("Get username from change password: {}", username);
         User user = userRepository
@@ -110,6 +114,7 @@ public class AuthService {
         return "Change password success";
     }
 
+    @AuditLog(action = LogConstant.Action.RESET_PASSWORD, entity = LogConstant.Entity.USER)
     public String forgotPassword(ForgotPasswordRequest req) {
         String email = req.email();
         if (email == null || email.isBlank()) {
@@ -138,6 +143,7 @@ public class AuthService {
         return "Email đặt lại mật khẩu đã được gửi";
     }
 
+    @AuditLog(action = LogConstant.Action.RESET_PASSWORD, entity = LogConstant.Entity.USER)
     public String resetPasswordByToken(ResetPasswordTokenRequest req) {
         if (req.token() == null || req.token().isBlank()) {
             throw new ApiException(Message.Common.INVALID_TOKEN);
