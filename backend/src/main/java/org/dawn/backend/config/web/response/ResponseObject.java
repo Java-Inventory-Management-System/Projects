@@ -1,4 +1,4 @@
-package org.dawn.backend.config.response;
+package org.dawn.backend.config.web.response;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.Value;
