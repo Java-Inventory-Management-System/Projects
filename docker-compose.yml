@@ -1,19 +1,56 @@
 networks:
   network:
     driver: bridge
+
 services:
   mysql:
     container_name: mysql
     image: mysql:8.4.5
     restart: always
     environment:
-      MYSQL_DATABASE: demo
+      MYSQL_DATABASE: inventory_db
       MYSQL_ROOT_PASSWORD: 123456
     command:
       - mysqld
       - --max_allowed_packet=128M
       - --innodb_buffer_pool_size=256M
     ports:
-      - '3007:3306'
+      - '3307:3306'
     volumes:
       - ./data/mysql:/var/lib/mysql
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost" ]
+      timeout: 20s
+      retries: 10
+    networks:
+      - network
+
+  backend:
+    container_name: backend
+    build:
+      context: ./backend
+    restart: always
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      DB_URL: jdbc:mysql://mysql:3306/inventory_db?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      DB_USER: root
+      DB_PASS: 123456
+      DB_DRIVER: com.mysql.cj.jdbc.Driver
+      JWT_SECRET: ${JWT_SECRET:-my-secret-key-change-in-production}
+      JWT_EXPIRATION: ${JWT_EXPIRATION:-3600000}
+      JWT_REFRESH_EXPIRATION: ${JWT_REFRESH_EXPIRATION:-86400000}
+      JWT_COOKIE_NAME: ${JWT_COOKIE_NAME:-jwt}
+      JWT_COOKIE_REFRESH_NAME: ${JWT_COOKIE_REFRESH_NAME:-refresh_jwt}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
+      MAIL_ENABLED: ${MAIL_ENABLED:-false}
+      MAIL_HOST: ${MAIL_HOST:-localhost}
+      MAIL_PORT: ${MAIL_PORT:-587}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_FROM: ${MAIL_FROM:-noreply@localhost}
+    ports:
+      - '8888:8888'
+    networks:
+      - network
