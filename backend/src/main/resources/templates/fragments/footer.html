@@ -1,0 +1,5 @@
+<div th:fragment="footer">
+    <footer style="text-align: center; color: #95a5a6; font-size: 14px; margin-top: 15px">
+        <p>&copy; <span th:text="${#dates.format(#dates.createNow(),'yyyy')}"></span></p>
+    </footer>
+</div>
