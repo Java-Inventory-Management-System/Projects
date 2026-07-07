@@ -58,6 +58,21 @@ public class Message {
         public static final String PASSWORD_TOO_SHORT = "Password must be at least 6 characters";
     }
 
+    // Catalog
+    public static final class Catalog {
+        private Catalog() {
+        }
+
+        public static final String BRAND_NOT_FOUND = "Brand not found";
+        public static final String BRAND_NAME_EXISTS = "Brand name already exists";
+        public static final String CATEGORY_NOT_FOUND = "Category not found";
+        public static final String SUPPLIER_NOT_FOUND = "Supplier not found";
+        public static final String PRODUCT_NOT_FOUND = "Product not found";
+        public static final String SKU_ALREADY_EXISTS = "SKU already exists";
+        public static final String IMAGE_NOT_FOUND = "Image not found";
+        public static final String INVALID_UNIT_TRACKING = "Product unit %s requires tracking_type = %s";
+    }
+
     // User
     public static final class User {
         private User() {
