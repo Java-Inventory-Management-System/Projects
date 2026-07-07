@@ -1,69 +1,48 @@
-# React + TypeScript + Vite
+# Warehouse Management — Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Hệ thống quản lý kho nội bộ. React 19 + TypeScript + Tailwind v4 + shadcn/ui.
 
-Currently, two official plugins are available:
+## Bắt đầu
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Stack
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+Vite 7 · React Router v6 · TanStack React Query · Zustand · Axios · Recharts · React Hook Form + Zod
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+## Structure
+
 ```
+src/
+├── components/ui/     # shadcn/ui
+├── contexts/          # AuthProvider + mock users
+├── pages/             # login, dashboard, 403, 404
+├── lib/navigation.ts  # role-based nav items
+└── router.tsx         # flat routing + PageGuard
+```
+
+## Mock users
+
+| Role | Username |
+|---|---|
+| Admin | `admin` |
+| Manager | `manager` |
+| Sales | `sales` |
+| Stock | `stock` |
+
+Password bất kỳ.
+
+## Vibe code
+
+Project có sẵn **Impeccable** (design) + **Ponytail** (code minimalism).
+
+```
+/impeccable craft <page>    # plan + build
+/impeccable critique <page> # UX review
+/ponytail-review            # check code thừa
+```
+
+Tham khảo `PRODUCT.md` và `DESIGN.md` cho design decisions.
