@@ -102,8 +102,8 @@ public class UserService {
                 .fullName(request.fullName())
                 .email(email)
                 .password(passwordEncoder.encode(tempPass))
-                .status(request.status() != null ? request.status() : "NEW")
-                .role(role)
+                .status(request.status() != null ? request.status() : ActiveStatus.NEW.name())
+                .roleId(role.getId())
                 .isPasswordReset(true)
                 .build();
         User savedUser = userRepository.save(user);
@@ -138,7 +138,6 @@ public class UserService {
                 .findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException(Message.User.USERNAME_NOT_FOUND));
         user.setIsDeleted(!status);
-        user.setStatus(status ? ActiveStatus.ACTIVE.name() : ActiveStatus.INACTIVE.name());
         User savedUser = userRepository.save(user);
         return UserMappingHelper.map(savedUser);
     }
@@ -194,6 +193,6 @@ public class UserService {
                 .findByName(URole.valueOf(roleName))
                 .orElseThrow(() -> new ResourceNotFoundException(Message.User.ROLE_NOT_FOUND));
 
-        return userRepository.existsByRole_Name(role.getName().toString());
+        return userRepository.existsByRole_Name(role.getName().name());
     }
 }
