@@ -1,17 +1,18 @@
+
 ## 4. Nghiệp vụ chi tiết
 
-### 4.1. Nhập kho
+### 4.1. Nghiệp vụ Nhập kho
 
 1. **Khởi tạo phiếu nhập**: chọn nhà cung cấp, số hóa đơn/chứng từ tham chiếu (nếu có), ngày nhập.
 2. **Thêm sản phẩm vào phiếu**: mỗi dòng gồm sản phẩm, số lượng, đơn giá nhập, **số tháng bảo hành** (`warranty_months`). Phiếu hỗ trợ nhiều dòng sản phẩm khác nhau (form động).
 3. **Nhập serial number**: nhập tay, import file Excel/CSV, hoặc quét barcode (nếu có thiết bị). Nếu sản phẩm không có serial gốc, hệ thống tự sinh mã nội bộ duy nhất. Validate: số lượng serial khớp số lượng khai báo, không trùng serial đang tồn tại trong hệ thống. Nếu import file bị lỗi 1 phần (vd 2/100 dòng trùng serial), hệ thống **skip dòng lỗi và nhập các dòng còn lại**, trả về danh sách lỗi cho người dùng.
 4. **Gán vị trí**: chọn vị trí (kệ/ngăn) cho từng dòng sản phẩm hoặc cho cả lô. Hệ thống gợi ý vị trí trống hoặc vị trí đã chứa sản phẩm cùng loại.
 5. **Upload ảnh** (tùy chọn): gắn ảnh lô hàng/sản phẩm qua Cloudinary.
-6. **Xác nhận phiếu nhập** (trong 1 transaction): tạo các `product_units` trạng thái `in_stock`, gắn `imported_at` = thời điểm xác nhận (mốc tính FIFO), gắn `location_id`; lưu phiếu nhập `completed`; ghi audit log.
+6. **Xác nhận phiếu nhập** (trong 1 transaction): tạo các `product_units` trạng thái `in_stock`, gắn `imported_at` = thời điểm xác nhận (mốc tính FIFO), gắn `location_id`; phiếu chuyển `pending_approval` (chưa `completed`); ghi audit log. **Các `product_units` từ phiếu `pending_approval` chưa được xuất kho** — hệ thống chặn export cho tới khi phiếu được duyệt.
 7. **Sửa serial sau xác nhận** (nếu nhập sai): API riêng cho phép sửa serial của `product_unit` nếu chưa xuất và không trong bảo hành. Ghi audit log (giá trị cũ → mới).
-8. **Duyệt** (tùy chọn): có thể thêm bước `pending` → Quản lý kho duyệt → `completed` nếu cần kiểm soát chặt.
+8. **Duyệt** (bắt buộc): Quản lý kho kiểm tra phiếu và duyệt → phiếu chuyển `completed`, ghi `approved_by` (≠ `created_by`). Nếu từ chối → phiếu chuyển `cancelled`, các `product_units` liên quan chuyển `removed`. Ghi audit log.
 
-### 4.2. Xuất kho
+### 4.2. Nghiệp vụ Xuất kho
 
 1. **Khởi tạo phiếu xuất**: chọn lý do xuất (bán hàng, xuất nội bộ, trả nhà cung cấp, hủy hàng lỗi); nếu xuất bán, chọn khách hàng từ danh sách `customers` (hoặc tạo mới nếu chưa có).
 2. **Thêm sản phẩm cần xuất**: chọn sản phẩm, số lượng; hệ thống kiểm tra tồn kho ngay tại bước này. Nếu tồn không đủ, hệ thống báo số lượng tối đa có thể xuất, nhân viên có thể chọn **xuất partial** (chỉ xuất số lượng có sẵn).
@@ -25,10 +26,11 @@
    ```
    > **Về gom vị trí:** sort chính luôn là `imported_at ASC` để đảm bảo FIFO. Sau khi có danh sách serial, UI gợi ý nhóm theo `location_id` để nhân viên lấy hàng cùng kệ một lượt, nhưng thứ tự ưu tiên xuất trước vẫn là hàng nhập trước.
    > Danh sách serial được chọn hiển thị cho nhân viên xem trước khi xác nhận.
-4. **Xác nhận phiếu xuất** (trong 1 transaction): cập nhật `product_units.status` → `sold`; nếu lý do xuất là bán hàng, set `warranty_start_date` = ngày xuất và tính `warranty_expires_at`; lưu phiếu xuất `completed`; ghi audit log.
-5. **Đối chiếu thực tế**: nhân viên lấy hàng theo đúng serial hệ thống đã chọn; cần cơ chế "đổi serial thay thế" trước khi hoàn tất nếu serial thực tế không khớp.
+4. **Xuất tạm (reserve)**: hệ thống tạm giữ serial đã chọn, phiếu chuyển `pending_approval`; ghi audit log. Các serial này bị khoá (FOR UPDATE), không phiếu xuất khác lấy được.
+5. **Duyệt phiếu xuất**: Quản lý kho duyệt → phiếu chuyển `completed`, ghi `approved_by` (≠ `created_by`). Nếu từ chối → phiếu `cancelled`, các serial được giải phóng. Khi duyệt: cập nhật `product_units.status` → `sold`; nếu lý do xuất là bán hàng, set `warranty_start_date` = ngày xuất và tính `warranty_expires_at`; ghi audit log.
+6. **Đối chiếu thực tế**: nhân viên lấy hàng theo đúng serial hệ thống đã chọn; cần cơ chế "đổi serial thay thế" trước khi hoàn tất nếu serial thực tế không khớp.
 
-### 4.3. Bảo hành
+### 4.3. Nghiệp vụ Quản lý bảo hành
 
 1. **Tra cứu bảo hành theo serial**: nhập/quét serial → hiển thị sản phẩm, ngày mua, còn/hết hạn bảo hành, lịch sử xử lý bảo hành trước đó.
 2. **Tiếp nhận yêu cầu**: nhân viên nhập serial khách mang tới, hệ thống kiểm tra serial tồn tại và còn hạn bảo hành, ghi nhận mô tả lỗi. Nếu có thể, xác minh khách qua tên/SĐT trong hệ thống.
@@ -42,11 +44,11 @@
 
    - **Từ chối**: hết hạn bảo hành hoặc lỗi do người dùng — ghi rõ lý do.
 
-   - **Trả nhà cung cấp**: nếu lỗi do nhà sản xuất, không sửa được tại chỗ và không có RMA, chuyển `product_unit.status = 'returned_to_supplier'` (transition đã định nghĩa ở mục 2, không cần cột timestamp riêng — nếu sau này cần biết chính xác ngày trả, dùng `updated_at` của `product_unit` hoặc bảng audit log).
+   - **Trả nhà cung cấp**: nếu lỗi do nhà sản xuất, không sửa được tại chỗ và không có RMA, chuyển `product_unit.status = 'returned_to_supplier'` trực tiếp từ `sold` (không qua `defective`). Hệ thống tự động tạo `export_receipt` ngầm với `reason='return_supplier'` để có chứng từ kế toán (nếu cần audit trail xuất hàng).
 
 5. **Hoàn tất**: cập nhật `warranty_requests.status = completed`, ghi hướng xử lý thực tế, nhân viên xử lý, ngày hoàn tất, ghi audit log.
 
-### 4.4. Điều chỉnh tồn kho
+### 4.4. Nghiệp vụ Điều chỉnh tồn kho thủ công
 
 1. **Phát hiện vấn đề**: nhân viên phát hiện hàng hỏng, mất, hoặc thừa trong kho ngoài luồng kiểm kê.
 2. **Tạo phiếu điều chỉnh**: chọn loại (`damaged` — hỏng trong kho, `lost` — mất, `found` — thừa), chọn sản phẩm/serial liên quan, nhập số lượng, mô tả lý do (bắt buộc), upload ảnh minh chứng (tùy chọn).
@@ -54,7 +56,7 @@
    - `damaged`: chuyển `product_unit.status` → `damaged_in_storage`. Hàng hỏng được cách ly (có thể trả NCC hoặc thanh lý).
    - `lost`: chuyển `product_unit.status` → `lost`. Không thể khôi phục.
    - `found`: nếu serial đã tồn tại trong hệ thống và đang ở trạng thái `lost`/`sold` → kiểm tra đối chiếu. Nếu không có serial → tạo `product_unit` mới với trạng thái `in_stock`, ghi chú nguồn gốc "found during adjustment".
-4. **Duyệt (4-eyes principle)**: Chỉ Quản lý kho/Admin mới duyệt được. **Người duyệt bắt buộc khác người tạo** (`created_by ≠ approved_by`). Bắt buộc nhập lý do xác nhận.
+4. **Duyệt**: chỉ Quản lý kho/Admin mới duyệt được. Bắt buộc nhập lý do xác nhận.
 5. **Hoàn tất**: cập nhật trạng thái phiếu `approved`/`rejected`, ghi audit log.
 
 ---
@@ -77,6 +79,7 @@
 | Xuất không đủ hàng (partial)                           | Hệ thống báo số lượng tối đa có thể xuất, nhân viên chọn giảm số lượng hoặc hủy dòng. Không cho phép tồn âm                                                                                                                                                                                                                    |
 | Hàng hỏng trong quá trình lưu kho                      | Tạo phiếu điều chỉnh loại `damaged` → chuyển `product_unit.status` → `damaged_in_storage`, cách ly hàng hỏng                                                                                                                                                                                                                   |
 | Kiểm kê phát hiện hàng thừa                            | Nếu có serial cụ thể → tạo `product_unit` mới, ghi chú `found during stock check`. Nếu không rõ serial → tạo bản ghi tổng, chờ xử lý sau                                                                                                                                                                                       |
+| Kiểm kê phát hiện thiếu (missing)                      | Chuyển `product_unit.status` → `lost` ngay trong phiếu kiểm kê (không cần tạo adjustment riêng). Nếu sau này tìm thấy → adjustment `type=found` để đưa về `in_stock`. Ghi audit log.                                                                                                                                    |
 | Import serial file lỗi 1 phần                          | Skip dòng lỗi (trùng/định dạng sai), nhập các dòng còn lại. Trả về danh sách lỗi chi tiết cho người dùng                                                                                                                                                                                                                       |
 | Ký tự serial gây nhầm lẫn                              | Khi tra cứu bảo hành, hỗ trợ tìm gần đúng: O/0, I/l. Hoặc chuẩn hóa đầu vào (vd loại bỏ ký tự đặc biệt)                                                                                                                                                                                                                        |
 | Khách mất hóa đơn/không nhớ SĐT                        | Tra cứu theo serial, yêu cầu xác minh qua thông tin bổ sung (tên khách hàng, ngày mua gần đúng)                                                                                                                                                                                                                                |
@@ -90,27 +93,31 @@
 
 ## 6. Phân quyền chi tiết
 
-| Chức năng                        | Admin     | Quản lý kho     | Nhân viên          |
-| -------------------------------- | --------- | --------------- | ------------------ |
-| Quản lý người dùng               | ✅ CRUD   | ❌              | ❌                 |
-| Xem audit log                    | ✅ Tất cả | ✅ Kho của mình | ❌                 |
-| CRUD danh mục (SP, DM, NCC)      | ✅        | ✅              | ❌                 |
-| Quản lý vị trí kho               | ✅        | ✅              | ❌                 |
-| Quản lý khách hàng               | ✅        | ✅              | ✅ Xem + thêm      |
-| Tạo phiếu nhập                   | ✅        | ✅              | ✅                 |
-| Duyệt phiếu nhập (nếu cần)       | ✅        | ✅              | ❌                 |
-| Sửa serial sau nhập              | ✅        | ✅              | ❌                 |
-| Tạo phiếu xuất                   | ✅        | ✅              | ✅                 |
-| Hủy phiếu nhập/xuất              | ✅        | ✅              | ❌                 |
-| Xem tồn kho                      | ✅        | ✅              | ✅                 |
-| Điều chỉnh min_stock             | ✅        | ✅              | ❌                 |
-| Tạo phiếu kiểm kê                | ✅        | ✅              | ✅                 |
-| Duyệt kiểm kê lệch               | ✅        | ✅              | ❌                 |
-| Điều chỉnh tồn thủ công          | ✅ Tạo (cần duyệt — ⛔ không tự duyệt) | ✅ Tạo (cần duyệt — ⛔ không tự duyệt) | ✅ Tạo (cần duyệt) |
-| Tra cứu bảo hành                 | ✅        | ✅              | ✅                 |
-| Xử lý bảo hành (đổi/sửa/từ chối) | ✅        | ✅              | ❌                 |
-| Dashboard & Báo cáo              | ✅        | ✅              | ❌                 |
+> **Cập nhật (xem ADR mục 7.9):** Admin được tách thành vai trò *giám sát + quản trị hệ thống*, không còn tham gia khởi tạo giao dịch nghiệp vụ hàng ngày. Các dòng có dấu `*` áp dụng ràng buộc `created_by ≠ approved_by` — người duyệt không được là người đã tạo phiếu, bất kể role.
 
-> **4-eyes principle** (chi tiết tại US-42): Với các hành động cần duyệt (điều chỉnh tồn, kiểm kê lệch), người tạo và người duyệt **bắt buộc khác nhau** — áp dụng cho tất cả role, kể cả Admin. Invariant `created_by ≠ approved_by` được enforce ở Service layer + kiểm tra bằng ArchUnit.
+| Chức năng                                     | Admin                       | Quản lý kho                  | Nhân viên          |
+| ---------------------------------------------- | --------------------------- | ------------------------------ | ------------------ |
+| Quản lý người dùng                             | ✅ CRUD                      | ❌                              | ❌                 |
+| Xem audit log                                  | ✅ Tất cả (vai trò giám sát) | ✅ Vận hành trong ca của mình  | ❌                 |
+| Cấu hình hệ thống (ngưỡng dead-stock, tồn âm)  | ✅                           | ❌                              | ❌                 |
+| CRUD danh mục (SP, DM, NCC)                    | ❌                           | ✅                              | ❌                 |
+| Quản lý vị trí kho                             | ❌                           | ✅                              | ❌                 |
+| Quản lý khách hàng                             | ❌                           | ✅                              | ✅ Xem + thêm      |
+| Tạo phiếu nhập                                 | ❌                           | ✅                              | ✅                 |
+| Duyệt phiếu nhập *                              | ✅ (escalation)              | ✅ *                            | ❌                 |
+| Sửa serial sau nhập                            | ❌                           | ✅                              | ❌                 |
+| Tạo phiếu xuất                                 | ❌                           | ✅                              | ✅                 |
+| Duyệt phiếu xuất *                              | ✅ (escalation)              | ✅ *                            | ❌                 |
+| Hủy phiếu nhập/xuất                            | ✅ (backup)                  | ✅                              | ❌                 |
+| Xem tồn kho                                    | ✅                           | ✅                              | ✅                 |
+| Điều chỉnh min_stock                           | ✅ (cấu hình)                | ✅                              | ❌                 |
+| Tạo phiếu kiểm kê                               | ❌                           | ✅                              | ✅                 |
+| Duyệt kiểm kê lệch *                           | ✅ (escalation)              | ✅ *                            | ❌                 |
+| Tạo phiếu điều chỉnh tồn thủ công              | ❌                           | ✅                              | ✅ (cần duyệt)     |
+| Duyệt phiếu điều chỉnh tồn thủ công *          | ✅ (escalation)              | ✅ *                            | ❌                 |
+| Tra cứu bảo hành                               | ✅                           | ✅                              | ✅                 |
+| Xử lý bảo hành (đổi/sửa/từ chối)               | ❌                           | ✅                              | ❌                 |
+| Dashboard & Báo cáo                            | ✅ (chỉ xem)                 | ✅                              | ❌                 |
 
----
+**\*** Ràng buộc `created_by ≠ approved_by`: nếu Quản lý kho là người tạo phiếu, họ không được tự duyệt phiếu đó — hệ thống tự động escalate lên Admin. Nếu doanh nghiệp có từ 2 Quản lý kho trở lên, một QL khác cũng có thể duyệt thay cho nhau, không bắt buộc phải là Admin.
+
