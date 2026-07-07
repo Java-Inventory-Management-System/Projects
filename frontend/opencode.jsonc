@@ -1,0 +1,14 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "codegraph": {
+      "type": "local",
+      "command": ["codegraph", "serve", "--mcp"],
+      "enabled": true,
+    },
+  },
+  "plugin": ["@dietrichgebert/ponytail"],
+  "skills": {
+    "paths": ["node_modules/@dietrichgebert/ponytail/.opencode/skills"],
+  },
+}
