@@ -343,7 +343,7 @@ Phát sinh từ review SAD: Admin toàn quyền trong thiết kế gốc (sectio
 | 9   | Location granularity (bin-level) có cần thiết không              | US-04           | Over-engineering, vi phạm YAGNI                  |
 | 10  | Số ảnh tối đa "5" chưa rõ nguồn                                  | US-27           | Constraint tùy tiện, không traceable             |
 | 11  | 4 role có cố định vĩnh viễn hay cần CRUD                         | US-37           | Có thể làm dư tính năng không cần thiết          |
-| 12  | Không có luồng escalation/backup duyệt khi QL vắng            | US-20, US-42    | Nghẽn quy trình vì thiếu người duyệt             |
+| 12  | Không có luồng escalation/backup duyệt khi QL vắng               | US-20, US-42    | Nghẽn quy trình vì thiếu người duyệt             |
 
 ### 8.14 Gap ở tầng domain-model gốc (cần bổ sung ERD/bảng trước khi implement, không chỉ thêm story)
 

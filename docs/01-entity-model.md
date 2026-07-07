@@ -314,23 +314,24 @@ erDiagram
 ```
 
 **Quy tắc chuyển trạng thái:**
-| Từ | Sang | Điều kiện/Kích hoạt |
-|---|---|---|
-| `in_stock` | `sold` | Xuất kho (bán hàng / nội bộ) |
-| `in_stock` | `defective` | Phát hiện lỗi khi nhập hoặc trong kho |
-| `in_stock` | `damaged_in_storage` | Hỏng trong quá trình lưu kho (điều chỉnh) |
-| `in_stock` | `lost` | Mất hàng (điều chỉnh tồn, có duyệt) |
-| `sold` | `returned` | Khách trả hàng |
-| `sold` | `under_repair` | Nhận bảo hành — sửa chữa |
-| `sold` | `sent_to_manufacturer` | Gửi hãng bảo hành (RMA) |
-| `under_repair` | `sold` | Sửa xong, trả lại khách |
-| `under_repair` | `defective` | Không sửa được |
-| `sent_to_manufacturer` | `sold` | Hãng trả hàng đã sửa xong |
-| `sent_to_manufacturer` | `defective` | Hãng từ chối BH |
-| `defective` | `returned_to_supplier` | Trả nhà cung cấp |
-| `returned` | `in_stock` | Hàng trả đủ điều kiện nhập lại kho |
-| `returned` | `defective` | Hàng trả bị lỗi |
-| `in_stock` | `removed` | Hủy phiếu nhập sau khi đã xác nhận (unit chưa từng xuất kho) |
+
+| Từ                     | Sang                   | Điều kiện/Kích hoạt                                          |
+| ---------------------- | ---------------------- | ------------------------------------------------------------ |
+| `in_stock`             | `sold`                 | Xuất kho (bán hàng / nội bộ)                                 |
+| `in_stock`             | `defective`            | Phát hiện lỗi khi nhập hoặc trong kho                        |
+| `in_stock`             | `damaged_in_storage`   | Hỏng trong quá trình lưu kho (điều chỉnh)                    |
+| `in_stock`             | `lost`                 | Mất hàng (điều chỉnh tồn, có duyệt)                          |
+| `sold`                 | `returned`             | Khách trả hàng                                               |
+| `sold`                 | `under_repair`         | Nhận bảo hành — sửa chữa                                     |
+| `sold`                 | `sent_to_manufacturer` | Gửi hãng bảo hành (RMA)                                      |
+| `under_repair`         | `sold`                 | Sửa xong, trả lại khách                                      |
+| `under_repair`         | `defective`            | Không sửa được                                               |
+| `sent_to_manufacturer` | `sold`                 | Hãng trả hàng đã sửa xong                                    |
+| `sent_to_manufacturer` | `defective`            | Hãng từ chối BH                                              |
+| `defective`            | `returned_to_supplier` | Trả nhà cung cấp                                             |
+| `returned`             | `in_stock`             | Hàng trả đủ điều kiện nhập lại kho                           |
+| `returned`             | `defective`            | Hàng trả bị lỗi                                              |
+| `in_stock`             | `removed`              | Hủy phiếu nhập sau khi đã xác nhận (unit chưa từng xuất kho) |
 
 > **`removed` là state cuối (terminal)** — không có transition đi ra khỏi `removed`. Nếu hủy phiếu nhập bị nhấn nhầm, giải pháp là tạo lại phiếu nhập mới, **không** revert `removed → in_stock` (để giữ tính một chiều của hành động hủy, tránh phá vỡ audit trail).
 > `removed` **không tính vào tồn kho khả dụng** — loại trừ khỏi công thức COUNT/SUM bên dưới, tương tự `defective`, `lost`, `damaged_in_storage`.

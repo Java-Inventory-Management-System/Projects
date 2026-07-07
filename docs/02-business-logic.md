@@ -90,26 +90,26 @@
 
 ## 6. Phân quyền chi tiết
 
-| Chức năng                        | Admin     | Quản lý kho     | Nhân viên          |
-| -------------------------------- | --------- | --------------- | ------------------ |
-| Quản lý người dùng               | ✅ CRUD   | ❌              | ❌                 |
-| Xem audit log                    | ✅ Tất cả | ✅ Kho của mình | ❌                 |
-| CRUD danh mục (SP, DM, NCC)      | ✅        | ✅              | ❌                 |
-| Quản lý vị trí kho               | ✅        | ✅              | ❌                 |
-| Quản lý khách hàng               | ✅        | ✅              | ✅ Xem + thêm      |
-| Tạo phiếu nhập                   | ✅        | ✅              | ✅                 |
-| Duyệt phiếu nhập (nếu cần)       | ✅        | ✅              | ❌                 |
-| Sửa serial sau nhập              | ✅        | ✅              | ❌                 |
-| Tạo phiếu xuất                   | ✅        | ✅              | ✅                 |
-| Hủy phiếu nhập/xuất              | ✅        | ✅              | ❌                 |
-| Xem tồn kho                      | ✅        | ✅              | ✅                 |
-| Điều chỉnh min_stock             | ✅        | ✅              | ❌                 |
-| Tạo phiếu kiểm kê                | ✅        | ✅              | ✅                 |
-| Duyệt kiểm kê lệch               | ✅        | ✅              | ❌                 |
+| Chức năng                        | Admin                                  | Quản lý kho                            | Nhân viên          |
+| -------------------------------- | -------------------------------------- | -------------------------------------- | ------------------ |
+| Quản lý người dùng               | ✅ CRUD                                | ❌                                     | ❌                 |
+| Xem audit log                    | ✅ Tất cả                              | ✅ Kho của mình                        | ❌                 |
+| CRUD danh mục (SP, DM, NCC)      | ✅                                     | ✅                                     | ❌                 |
+| Quản lý vị trí kho               | ✅                                     | ✅                                     | ❌                 |
+| Quản lý khách hàng               | ✅                                     | ✅                                     | ✅ Xem + thêm      |
+| Tạo phiếu nhập                   | ✅                                     | ✅                                     | ✅                 |
+| Duyệt phiếu nhập (nếu cần)       | ✅                                     | ✅                                     | ❌                 |
+| Sửa serial sau nhập              | ✅                                     | ✅                                     | ❌                 |
+| Tạo phiếu xuất                   | ✅                                     | ✅                                     | ✅                 |
+| Hủy phiếu nhập/xuất              | ✅                                     | ✅                                     | ❌                 |
+| Xem tồn kho                      | ✅                                     | ✅                                     | ✅                 |
+| Điều chỉnh min_stock             | ✅                                     | ✅                                     | ❌                 |
+| Tạo phiếu kiểm kê                | ✅                                     | ✅                                     | ✅                 |
+| Duyệt kiểm kê lệch               | ✅                                     | ✅                                     | ❌                 |
 | Điều chỉnh tồn thủ công          | ✅ Tạo (cần duyệt — ⛔ không tự duyệt) | ✅ Tạo (cần duyệt — ⛔ không tự duyệt) | ✅ Tạo (cần duyệt) |
-| Tra cứu bảo hành                 | ✅        | ✅              | ✅                 |
-| Xử lý bảo hành (đổi/sửa/từ chối) | ✅        | ✅              | ❌                 |
-| Dashboard & Báo cáo              | ✅        | ✅              | ❌                 |
+| Tra cứu bảo hành                 | ✅                                     | ✅                                     | ✅                 |
+| Xử lý bảo hành (đổi/sửa/từ chối) | ✅                                     | ✅                                     | ❌                 |
+| Dashboard & Báo cáo              | ✅                                     | ✅                                     | ❌                 |
 
 > **4-eyes principle** (chi tiết tại US-42): Với các hành động cần duyệt (điều chỉnh tồn, kiểm kê lệch), người tạo và người duyệt **bắt buộc khác nhau** — áp dụng cho tất cả role, kể cả Admin. Invariant `created_by ≠ approved_by` được enforce ở Service layer + kiểm tra bằng ArchUnit.
 
