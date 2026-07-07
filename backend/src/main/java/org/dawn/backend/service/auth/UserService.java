@@ -4,9 +4,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dawn.backend.config.anno.AuditLog;
 import org.dawn.backend.config.web.response.ResponsePage;
-import org.dawn.backend.constant.shared.LogConstant;
 import org.dawn.backend.constant.auth.URole;
 import org.dawn.backend.constant.shared.ActiveStatus;
+import org.dawn.backend.constant.shared.LogConstant;
 import org.dawn.backend.constant.shared.Message;
 import org.dawn.backend.controller.auth.request.RegisterRequest;
 import org.dawn.backend.controller.auth.request.UpdateInfoRequest;
@@ -23,7 +23,6 @@ import org.dawn.backend.repository.auth.UserRepository;
 import org.dawn.backend.utils.SecurityUtils;
 import org.dawn.backend.utils.UserUtils;
 import org.springframework.data.domain.Pageable;
-import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -183,8 +182,8 @@ public class UserService {
                 .findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException(Message.User.USERNAME_NOT_FOUND));
 
-        Role role = roleRepository.findByName(roleName).orElse(user.getRole());
-        user.setRole(role);
+        Role role = roleRepository.findByName(roleName).orElseThrow(() -> new ResourceNotFoundException(Message.User.ROLE_NOT_FOUND));
+        user.setRoleId(role.getId());
 
         User savedUser = userRepository.save(user);
         return UserMappingHelper.map(savedUser);
