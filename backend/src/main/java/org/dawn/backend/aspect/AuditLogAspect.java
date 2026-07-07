@@ -1,6 +1,6 @@
 package org.dawn.backend.aspect;
 
-import tools.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.EntityManager;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -15,6 +15,8 @@ import org.dawn.backend.entity.auth.UserDetailsImpl;
 import org.dawn.backend.service.audit.AuditLogService;
 import org.dawn.backend.utils.SecurityUtils;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
@@ -45,15 +47,33 @@ public class AuditLogAspect {
                 entityId = resolveResultId(result);
             }
             String newValue = serializeResult(result);
-            auditLogService.save(auditLog.action(), auditLog.entity(), entityId,
-                    user, ip, requestId, LogConstant.Status.SUCCESS, null,
-                    oldValue, newValue);
+            String finalEntityId = entityId;
+            if (TransactionSynchronizationManager.isActualTransactionActive()) {
+                TransactionSynchronizationManager.registerSynchronization(
+                        new TransactionSynchronization() {
+                            @Override
+                            public void afterCommit() {
+                                try {
+                                    auditLogService.save(auditLog.action(), auditLog.entity(), finalEntityId,
+                                            user, ip, requestId, LogConstant.Status.SUCCESS, null,
+                                            oldValue, newValue);
+                                } catch (Exception ex) {
+                                    log.error("Audit log afterCommit failed: {}", ex.getMessage());
+                                }
+                            }
+                        });
+            } else {
+                auditLogService.save(auditLog.action(), auditLog.entity(), finalEntityId,
+                        user, ip, requestId, LogConstant.Status.SUCCESS, null,
+                        oldValue, newValue);
+            }
             return result;
         } catch (Throwable e) {
             if (entityId == null || entityId.isEmpty()) {
                 entityId = resolveResultId(null);
             }
-            auditLogService.save(auditLog.action(), auditLog.entity(), entityId,
+            String finalEntityId = entityId;
+            auditLogService.save(auditLog.action(), auditLog.entity(), finalEntityId,
                     user, ip, requestId, LogConstant.Status.FAILED, e.getMessage(),
                     oldValue, null);
             throw e;

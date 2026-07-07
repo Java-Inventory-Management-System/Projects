@@ -14,7 +14,7 @@ import org.dawn.backend.entity.base.AuditableEntity;
 @EqualsAndHashCode(callSuper = true)
 public class Category extends AuditableEntity {
 
-    @Column(name = "name", nullable = false, length = 100)
+    @Column(name = "name", nullable = false, unique = true, length = 100)
     private String name;
 
     @Column(name = "description", columnDefinition = "TEXT")

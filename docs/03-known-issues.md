@@ -100,14 +100,15 @@ CREATE TABLE audit_logs (
 
 | #   | Hành động                 | entity_type      | old_value        | new_value                    |
 | --- | ------------------------- | ---------------- | ---------------- | ---------------------------- |
-| 1   | Nhập kho (completed)      | IMPORT_RECEIPT   | null             | JSON phiếu + items + serials |
+| 1   | Nhập kho (NV xác nhận)    | IMPORT_RECEIPT   | null             | JSON phiếu + items + serials; status=pending→pending_approval |
 | 2   | Sửa serial sau nhập       | PRODUCT_UNIT     | serial cũ        | serial mới                   |
-| 3   | Duyệt phiếu nhập          | IMPORT_RECEIPT   | status=pending   | status=completed             |
-| 4   | Xuất kho (completed)      | EXPORT_RECEIPT   | null             | JSON phiếu + items + serials |
+| 3   | Duyệt phiếu nhập          | IMPORT_RECEIPT   | status=pending_approval | status=completed, approved_by |
+| 4   | Xuất kho (QL duyệt)       | EXPORT_RECEIPT   | null             | JSON phiếu + items + serials; status=pending_approval→completed |
 | 5   | Hủy phiếu nhập            | IMPORT_RECEIPT   | status=completed | status=cancelled             |
 | 6   | Hủy phiếu xuất            | EXPORT_RECEIPT   | status=completed | status=cancelled             |
 | 7   | Điều chỉnh tồn (approved) | STOCK_ADJUSTMENT | status=pending   | status=approved              |
 | 8   | Kiểm kê (approved)        | STOCK_CHECK      | null             | diff summary                 |
+| 15  | Kiểm kê — chuyển missing→lost | PRODUCT_UNIT | status=in_stock  | status=lost, stock_check_id  |
 | 9   | Bảo hành (hoàn tất)       | WARRANTY_REQUEST | trạng thái cũ    | resolution + serial thay đổi |
 | 10  | Đổi role user             | USER             | role cũ          | role mới                     |
 | 11  | Khóa/mở user              | USER             | is_active cũ     | is_active mới                |
@@ -279,4 +280,21 @@ private void validateUnitTrackingType(Product product) {
 
 **Lưu ý:** Khi thêm UOM mới trong tương lai, phải cập nhật cả mapping này và các service xuất/nhập/kiểm kê có logic phân nhánh theo tracking_type.
 
----
+### 7.9. Phân quyền Admin — tách vai trò giám sát khỏi vận hành nghiệp vụ (Separation of Duties)
+
+**Vấn đề:** Bảng phân quyền ban đầu (mục 6) cho Admin ✅ ở toàn bộ 18/18 chức năng — bao gồm cả tạo và tự duyệt mọi giao dịch nghiệp vụ (nhập/xuất/điều chỉnh tồn/bảo hành), đồng thời là người duy nhất xem toàn bộ audit log. Trong thực tế Admin là người được thuê (system admin/IT), không phải chủ sở hữu doanh nghiệp — cho một nhân viên vừa hành động vừa tự giám sát chính mình tạo lỗ hổng gian lận nội bộ (embezzlement) mà không ai trong hệ thống phát hiện được, vì người có khả năng gây ra sai phạm cũng chính là người duy nhất xem log để phát hiện sai phạm.
+
+**Root cause:** Elicitation ban đầu không hỏi rõ "Admin trong hệ thống này thực chất đóng vai trò gì trong doanh nghiệp thật", nên mặc định gán ✅ toàn bộ cho role có `level` cao nhất — nhầm lẫn giữa "quyền hệ thống cao nhất" và "được tin tưởng tuyệt đối về nghiệp vụ".
+
+**Quyết định:** Tách Admin thành vai trò **giám sát + quản trị hệ thống** (quản lý user, cấu hình hệ thống, xem toàn bộ audit log, làm approver dự phòng khi cần escalation), loại bỏ quyền **khởi tạo** giao dịch nghiệp vụ hàng ngày (nhập/xuất/điều chỉnh tồn/danh mục/bảo hành) khỏi Admin. Quản lý kho (QL) chịu trách nhiệm vận hành thực tế.
+
+Áp dụng ràng buộc **`created_by ≠ approved_by`** cho mọi luồng có bước duyệt (phiếu nhập, phiếu xuất, kiểm kê lệch, điều chỉnh tồn thủ công) — người duyệt không được là người đã tạo phiếu, bất kể role. Khi chỉ có 1 QL và họ là người tạo, hệ thống escalate lên Admin duyệt thay — đây là lý do Admin vẫn giữ ✅ ở các dòng "Duyệt...", nhưng không còn ✅ ở dòng "Tạo...".
+
+**Đã cân nhắc và loại bỏ:** thêm role Owner/Chủ sở hữu riêng đứng trên Admin. Bị loại vì ở quy mô 1 kho của dự án này, chưa có use case nào cho thấy Owner cần hành vi khác biệt rõ ràng so với Admin sau khi Admin đã được tách vai trò giám sát — thêm role này sẽ là over-engineering, vi phạm YAGNI (lỗi #6 trong checklist SAD).
+
+**Hệ quả kỹ thuật:**
+- Cần enforce `approved_by != created_by` ở service layer cho `import_receipts`, `export_receipts`, `stock_checks`, `stock_adjustments` trước khi cho phép chuyển status sang `approved`/`completed`.
+- **Gap đã xử lý:** `import_receipts` và `export_receipts` trước đây chưa có cột `approved_by` trong ERD (mục 1) — chỉ có `created_by`. Đã bổ sung cột `approved_by BIGINT NULL FK` vào cả hai bảng để service layer có thể kiểm tra `approved_by != created_by` khi chuyển status sang `completed` qua bước duyệt.
+- Phù hợp làm invariant test bằng ArchUnit hoặc unit test tầng service (đúng mục tiêu học nâng cao đã đề ra cho WMS sample project).
+- Trade-off chấp nhận: nếu chỉ có 1 QL, escalate lên Admin nghĩa là Admin phải tham gia duyệt trong tình huống này — chấp nhận được vì đây là exception/backup, không phải luồng vận hành chính.
+

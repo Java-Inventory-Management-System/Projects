@@ -60,15 +60,15 @@
 
 ## Stock Adjustment & Check
 
-| ID    | Yêu cầu                                       | Loại | Nguồn     | Pri    | Actor | US           |
-| ----- | --------------------------------------------- | ---- | --------- | ------ | ----- | ------------ |
-| RQ-34 | Tạo phiếu điều chỉnh tồn                      | F    | Phỏng vấn | Must   | NV    | US-19        |
-| RQ-35 | Duyệt phiếu điều chỉnh (4-eyes)               | F    | Phỏng vấn | Must   | QL/AD | US-20, US-42 |
-| RQ-36 | Found không rõ serial (fallback)              | F    | Phỏng vấn | Should | HT    | US-21        |
-| RQ-37 | Tạo phiếu kiểm kê                             | F    | Phỏng vấn | Should | QL    | US-22        |
-| RQ-38 | Ghi nhận trạng thái thực tế khi kiểm kê       | F    | Phỏng vấn | Should | NV    | US-23        |
-| RQ-39 | Duyệt kết quả kiểm kê lệch                    | F    | Phỏng vấn | Should | QL/AD | US-24        |
-| RQ-40 | Xử lý hàng thừa khi kiểm kê (có/không serial) | F    | Phỏng vấn | Should | NV    | US-34        |
+| ID | Yêu cầu | Loại | Nguồn | Pri | Actor | US |
+|---|---|---|---|---|---|---|
+| RQ-34 | Tạo phiếu điều chỉnh tồn | F | Phỏng vấn | Must | NV | US-19 |
+| RQ-35 | Duyệt phiếu điều chỉnh (4-eyes) | F | Phỏng vấn | Must | QL/AD | US-20 |
+| RQ-36 | Found không rõ serial (fallback) | F | Phỏng vấn | Should | HT | US-21 |
+| RQ-37 | Tạo phiếu kiểm kê | F | Phỏng vấn | Should | QL | US-22 |
+| RQ-38 | Ghi nhận trạng thái thực tế khi kiểm kê | F | Phỏng vấn | Should | NV | US-23 |
+| RQ-39 | Duyệt kết quả kiểm kê lệch | F | Phỏng vấn | Should | QL/AD | US-24 |
+| RQ-40 | Xử lý hàng thừa khi kiểm kê (có/không serial) | F | Phỏng vấn | Should | NV | US-34 |
 
 ## Audit & Monitoring
 
@@ -82,11 +82,11 @@
 
 ## Non-functional
 
-| ID    | Yêu cầu                                    | Loại | Nguồn         | Pri  | Actor | US    |
-| ----- | ------------------------------------------ | ---- | ------------- | ---- | ----- | ----- |
-| RQ-46 | 4-eyes principle: created_by ≠ approved_by | N    | SAD review    | Must | HT    | US-42 |
-| RQ-47 | Không cho phép tồn âm (mặc định)           | N    | Domain review | Must | HT    | US-10 |
-| RQ-48 | Mapping unit ↔ tracking_type cứng          | T    | Domain review | Must | HT    | US-26 |
+| ID | Yêu cầu | Loại | Nguồn | Pri | Actor | US |
+|---|---|---|---|---|---|---|
+| RQ-46 | 4-eyes principle: created_by ≠ approved_by | N | SAD review | Must | HT | US-20, US-42, ADR 7.9 |
+| RQ-47 | Không cho phép tồn âm (mặc định) | N | Domain review | Must | HT | US-10 |
+| RQ-48 | Mapping unit ↔ tracking_type cứng | T | Domain review | Must | HT | US-26 |
 
 ## Gaps chưa có US
 
