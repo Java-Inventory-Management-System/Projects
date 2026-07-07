@@ -13,7 +13,7 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @AllArgsConstructor
 @SuperBuilder
-@EqualsAndHashCode(callSuper = true)
+@EqualsAndHashCode(callSuper = true, exclude = {"brand", "category"})
 @ToString(callSuper = true, exclude = {"brand", "category"})
 public class Product extends AuditableEntity {
 

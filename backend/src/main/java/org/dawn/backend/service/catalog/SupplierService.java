@@ -9,6 +9,7 @@ import org.dawn.backend.constant.shared.Message;
 import org.dawn.backend.controller.catalog.request.SupplierRequest;
 import org.dawn.backend.controller.catalog.response.SupplierResponse;
 import org.dawn.backend.entity.catalog.Supplier;
+import org.dawn.backend.exception.wrapper.InvalidRequestException;
 import org.dawn.backend.exception.wrapper.ResourceNotFoundException;
 import org.dawn.backend.repository.catalog.SupplierRepository;
 import org.springframework.data.domain.Pageable;
@@ -38,6 +39,9 @@ public class SupplierService {
     @Transactional
     @AuditLog(action = LogConstant.Action.CREATE_SUPPLIER, entity = LogConstant.Entity.SUPPLIER)
     public SupplierResponse create(SupplierRequest request) {
+        if (request.name() == null || request.name().isBlank()) {
+            throw new InvalidRequestException(Message.Catalog.SUPPLIER_NAME_REQUIRED);
+        }
         Supplier supplier = Supplier.builder()
                 .name(request.name())
                 .contactPerson(request.contactPerson())

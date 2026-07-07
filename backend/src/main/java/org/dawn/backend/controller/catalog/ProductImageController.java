@@ -29,12 +29,12 @@ public class ProductImageController {
     @DeleteMapping("/{id}")
     public ResponseObject<Void> delete(@PathVariable Long id) {
         productImageService.delete(id);
-        return ResponseObject.success(null);
+        return ResponseObject.deleted();
     }
 
     @DeleteMapping("/product/{productId}")
     public ResponseObject<Void> deleteByProductId(@PathVariable Long productId) {
         productImageService.deleteByProductId(productId);
-        return ResponseObject.success(null);
+        return ResponseObject.deleted();
     }
 }
