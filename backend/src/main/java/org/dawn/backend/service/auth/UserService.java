@@ -183,8 +183,8 @@ public class UserService {
                 .findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException(Message.User.USERNAME_NOT_FOUND));
 
-        Role role = roleRepository.findByName(roleName).orElse(user.getRole());
-        user.setRole(role);
+        Role role = roleRepository.findByName(roleName).orElseThrow(() -> new ResourceNotFoundException(Message.User.ROLE_NOT_FOUND));
+        user.setRoleId(role.getId());
 
         User savedUser = userRepository.save(user);
         return UserMappingHelper.map(savedUser);
