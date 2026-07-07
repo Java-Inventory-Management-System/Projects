@@ -40,7 +40,7 @@ public class CategoryService {
     @AuditLog(action = LogConstant.Action.CREATE_CATEGORY, entity = LogConstant.Entity.CATEGORY)
     public CategoryResponse create(CategoryRequest request) {
         if (request.name() == null || request.name().isBlank()) {
-            throw new InvalidRequestException("Category name is required");
+            throw new InvalidRequestException(Message.Catalog.CATEGORY_NAME_REQUIRED);
         }
         Category category = Category.builder()
                 .name(request.name().trim())

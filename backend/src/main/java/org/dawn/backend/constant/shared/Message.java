@@ -65,9 +65,14 @@ public class Message {
 
         public static final String BRAND_NOT_FOUND = "Brand not found";
         public static final String BRAND_NAME_EXISTS = "Brand name already exists";
+        public static final String BRAND_NAME_REQUIRED = "Brand name is required";
         public static final String CATEGORY_NOT_FOUND = "Category not found";
+        public static final String CATEGORY_NAME_REQUIRED = "Category name is required";
         public static final String SUPPLIER_NOT_FOUND = "Supplier not found";
+        public static final String SUPPLIER_NAME_REQUIRED = "Supplier name is required";
         public static final String PRODUCT_NOT_FOUND = "Product not found";
+        public static final String PRODUCT_NAME_REQUIRED = "Product name is required";
+        public static final String SKU_REQUIRED = "SKU is required";
         public static final String SKU_ALREADY_EXISTS = "SKU already exists";
         public static final String IMAGE_NOT_FOUND = "Image not found";
         public static final String INVALID_UNIT_TRACKING = "Product unit %s requires tracking_type = %s";
