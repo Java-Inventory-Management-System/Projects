@@ -1,8 +1,6 @@
 # Warehouse Management — Frontend
 
-Hệ thống quản lý kho nội bộ. React 19 + TypeScript + Tailwind v4 + shadcn/ui.
-
-## Bắt đầu
+Quản lý kho nội bộ. React 19 + TypeScript + Tailwind v4 + shadcn/ui.
 
 ```bash
 npm install
@@ -17,11 +15,12 @@ Vite 7 · React Router v6 · TanStack React Query · Zustand · Axios · Rechart
 
 ```
 src/
-├── components/ui/     # shadcn/ui
+├── components/ui/     # shadcn/ui (Button, Table, Dialog, Form...)
+│            /layout/  # AppShell, Sidebar, Topbar, ProtectedRoute
 ├── contexts/          # AuthProvider + mock users
+├── lib/               # cn(), navigation.ts (nav items + role filter)
 ├── pages/             # login, dashboard, 403, 404
-├── lib/navigation.ts  # role-based nav items
-└── router.tsx         # flat routing + PageGuard
+└── router.tsx         # Flat routing + PageGuard
 ```
 
 ## Mock users
@@ -33,16 +32,38 @@ src/
 | Sales | `sales` |
 | Stock | `stock` |
 
-Password bất kỳ.
+Password any.
 
 ## Vibe code
 
-Project có sẵn **Impeccable** (design) + **Ponytail** (code minimalism).
-
+**Impeccable** — gọi khi cần:
 ```
-/impeccable craft <page>    # plan + build
+/impeccable craft <page>    # shape → build
 /impeccable critique <page> # UX review
-/ponytail-review            # check code thừa
+/impeccable polish <page>   # final pass
+/impeccable audit           # design audit
+```
+List đầy đủ: `/impeccable` + Enter.
+
+**Ponytail** — tự động active (mode `full`). Gõ khi cần:
+```
+/ponytail              # xem mode
+/ponytail lite|ultra   # nới/thắt
+/ponytail-review       # review code thừa
 ```
 
-Tham khảo `PRODUCT.md` và `DESIGN.md` cho design decisions.
+Design principles: `PRODUCT.md` · `DESIGN.md`
+
+## Workflow
+
+```
+/impeccable craft <page>  → build
+/ponytail-review          → gọn code
+/impeccable polish <page> → ship
+```
+
+Trước commit: `/impeccable audit` + `/ponytail-audit`.
+
+## API
+
+Base: `http://localhost:8888/api/v1`
