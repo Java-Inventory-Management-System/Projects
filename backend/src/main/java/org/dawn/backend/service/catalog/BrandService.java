@@ -41,7 +41,7 @@ public class BrandService {
     @AuditLog(action = LogConstant.Action.CREATE_BRAND, entity = LogConstant.Entity.BRAND)
     public BrandResponse create(BrandRequest request) {
         if (request.name() == null || request.name().isBlank()) {
-            throw new InvalidRequestException("Brand name is required");
+            throw new InvalidRequestException(Message.Catalog.BRAND_NAME_REQUIRED);
         }
         if (brandRepository.existsByNameIgnoreCase(request.name().trim())) {
             throw new ResourceAlreadyExistedException(Message.Catalog.BRAND_NAME_EXISTS);
