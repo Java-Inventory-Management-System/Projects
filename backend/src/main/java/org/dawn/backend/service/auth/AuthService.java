@@ -14,7 +14,8 @@ import org.dawn.backend.controller.auth.response.TokenRefreshResponse;
 import org.dawn.backend.entity.auth.PasswordResetToken;
 import org.dawn.backend.entity.auth.RefreshToken;
 import org.dawn.backend.entity.auth.User;
-import org.dawn.backend.exception.ApiException;
+import org.dawn.backend.constant.shared.ActiveStatus;
+import org.dawn.backend.exception.wrapper.InvalidRequestException;
 import org.dawn.backend.exception.wrapper.PermissionDeniedException;
 import org.dawn.backend.exception.wrapper.ResourceNotFoundException;
 import org.dawn.backend.repository.auth.PasswordResetTokenRepository;
@@ -25,6 +26,7 @@ import org.dawn.backend.utils.UserUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -57,7 +59,7 @@ public class AuthService {
             throw new PermissionDeniedException(Message.Auth.INVALID_PASSWORD);
         }
 
-        if (Boolean.TRUE.equals(user.getIsDeleted()) || !"ACTIVE".equalsIgnoreCase(user.getStatus())) {
+        if (Boolean.TRUE.equals(user.getIsDeleted()) || !ActiveStatus.ACTIVE.name().equalsIgnoreCase(user.getStatus())) {
             throw new PermissionDeniedException(Message.User.USER_INACTIVE);
         }
 
@@ -78,6 +80,7 @@ public class AuthService {
                 .build();
     }
 
+    @Transactional
     @AuditLog(action = LogConstant.Action.RESET_PASSWORD, entity = LogConstant.Entity.USER, entityClass = User.class)
     public String resetPassword(Long id) {
         User user = userRepository
@@ -104,7 +107,7 @@ public class AuthService {
         }
 
         if (!request.newPassword().equals(request.confirmPassword())) {
-            throw new ApiException(Message.User.PASSWORD_NOT_MATCH);
+            throw new InvalidRequestException(Message.User.PASSWORD_NOT_MATCH);
         }
 
         user.setPassword(passwordEncoder.encode(request.newPassword()));
@@ -118,7 +121,7 @@ public class AuthService {
     public String forgotPassword(ForgotPasswordRequest req) {
         String email = req.email();
         if (email == null || email.isBlank()) {
-            throw new ApiException(Message.User.EMAIL_NOT_EMPTY);
+            throw new InvalidRequestException(Message.User.EMAIL_NOT_EMPTY);
         }
 
         User user = userRepository
@@ -146,13 +149,13 @@ public class AuthService {
     @AuditLog(action = LogConstant.Action.RESET_PASSWORD, entity = LogConstant.Entity.USER)
     public String resetPasswordByToken(ResetPasswordTokenRequest req) {
         if (req.token() == null || req.token().isBlank()) {
-            throw new ApiException(Message.Common.INVALID_TOKEN);
+            throw new InvalidRequestException(Message.Common.INVALID_TOKEN);
         }
         if (!req.newPassword().equals(req.confirmPassword())) {
-            throw new ApiException(Message.Common.PASSWORD_NOT_MATCH);
+            throw new InvalidRequestException(Message.Common.PASSWORD_NOT_MATCH);
         }
         if (req.newPassword().length() < 6) {
-            throw new ApiException(Message.Common.PASSWORD_TOO_SHORT);
+            throw new InvalidRequestException(Message.Common.PASSWORD_TOO_SHORT);
         }
 
         PasswordResetToken resetToken = passwordResetTokenRepository
@@ -160,10 +163,10 @@ public class AuthService {
                 .orElseThrow(() -> new ResourceNotFoundException(Message.Auth.TOKEN_INVALID_OR_EXPIRED));
 
         if (Boolean.TRUE.equals(resetToken.getUsed())) {
-            throw new ApiException(Message.Auth.TOKEN_ALREADY_USED);
+            throw new InvalidRequestException(Message.Auth.TOKEN_ALREADY_USED);
         }
         if (resetToken.getExpiryDate().isBefore(Instant.now())) {
-            throw new ApiException(Message.Auth.TOKEN_EXPIRED);
+            throw new InvalidRequestException(Message.Auth.TOKEN_EXPIRED);
         }
 
         User user = userRepository
@@ -188,7 +191,11 @@ public class AuthService {
                 .map(refreshTokenService::verifyExpiration)
                 .map(RefreshToken::getUser)
                 .map(user -> {
-                    String jwtCookie = jwtUtils.generateToken(user.getUsername());
+                    String jwtCookie = jwtUtils.generateToken(
+                            user.getId(),
+                            user.getUsername(),
+                            user.getEmail(),
+                            user.getRole().getName().name());
                     return TokenRefreshResponse
                             .builder()
                             .accessToken(jwtCookie)

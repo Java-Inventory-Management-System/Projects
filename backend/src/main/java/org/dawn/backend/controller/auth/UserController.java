@@ -5,6 +5,7 @@ import org.dawn.backend.config.web.response.ResponseObject;
 import org.dawn.backend.config.web.response.ResponsePage;
 import org.dawn.backend.constant.auth.URole;
 import org.dawn.backend.controller.auth.request.RegisterRequest;
+import org.dawn.backend.controller.auth.request.ToggleActiveRequest;
 import org.dawn.backend.controller.auth.request.UpdateInfoRequest;
 import org.dawn.backend.controller.auth.response.CreateUserResponse;
 import org.dawn.backend.controller.auth.response.UserResponse;
@@ -40,8 +41,8 @@ public class UserController {
     }
 
     @PutMapping("/{id}/status")
-    public ResponseObject<UserResponse> updateStatus(@PathVariable Long id, @RequestBody Boolean status) {
-        return ResponseObject.success(userService.updateStatus(id, status));
+    public ResponseObject<UserResponse> updateStatus(@PathVariable Long id, @RequestBody ToggleActiveRequest request) {
+        return ResponseObject.success(userService.updateStatus(id, request.active()));
     }
 
     @PutMapping("/{id}/role")

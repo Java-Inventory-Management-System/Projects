@@ -54,10 +54,10 @@ public class ProductService {
     @AuditLog(action = LogConstant.Action.CREATE_PRODUCT, entity = LogConstant.Entity.PRODUCT)
     public ProductResponse create(ProductRequest request) {
         if (request.name() == null || request.name().isBlank()) {
-            throw new InvalidRequestException("Product name is required");
+            throw new InvalidRequestException(Message.Catalog.PRODUCT_NAME_REQUIRED);
         }
         if (request.sku() == null || request.sku().isBlank()) {
-            throw new InvalidRequestException("SKU is required");
+            throw new InvalidRequestException(Message.Catalog.SKU_REQUIRED);
         }
         if (productRepository.existsBySku(request.sku().trim())) {
             throw new ResourceAlreadyExistedException(Message.Catalog.SKU_ALREADY_EXISTS);
