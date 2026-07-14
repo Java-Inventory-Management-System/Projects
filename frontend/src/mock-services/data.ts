@@ -8,6 +8,7 @@ import type {
   CustomerResponse,
   ImportReceipt,
   ExportReceipt,
+  LocationResponse,
 } from "@/utils/types"
 
 // ==================== BRANDS ====================
@@ -39,6 +40,43 @@ export const categories: CategoryResponse[] = [
   { id: 6, name: "Storage", description: "SSD, HDD, NVMe", isActive: true, createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z" },
   { id: 7, name: "Case", description: "Vỏ máy tính", isActive: true, createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z" },
   { id: 8, name: "Cooling", description: "Tản nhiệt, quạt", isActive: true, createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z" },
+]
+
+// ==================== LOCATIONS ====================
+
+export const locations: LocationResponse[] = [
+  { id: 1, zoneCode: "A", shelfCode: "01", binCode: "01", fullCode: "A-01-01", description: "CPU Intel", isActive: true, createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z" },
+  { id: 2, zoneCode: "A", shelfCode: "01", binCode: "02", fullCode: "A-01-02", description: "CPU Intel", isActive: true, createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z" },
+  { id: 3, zoneCode: "A", shelfCode: "02", binCode: "01", fullCode: "A-02-01", description: "CPU AMD", isActive: true, createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z" },
+  { id: 4, zoneCode: "A", shelfCode: "02", binCode: "02", fullCode: "A-02-02", description: "CPU AMD", isActive: true, createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z" },
+  { id: 5, zoneCode: "B", shelfCode: "01", binCode: "01", fullCode: "B-01-01", description: "GPU ASUS", isActive: true, createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z" },
+  { id: 6, zoneCode: "B", shelfCode: "01", binCode: "02", fullCode: "B-01-02", description: "GPU Gigabyte", isActive: true, createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z" },
+  { id: 7, zoneCode: "B", shelfCode: "02", binCode: "01", fullCode: "B-02-01", description: "GPU MSI", isActive: true, createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z" },
+  { id: 8, zoneCode: "B", shelfCode: "02", binCode: "02", fullCode: "B-02-02", description: "GPU ASUS TUF", isActive: true, createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z" },
+  { id: 9, zoneCode: "C", shelfCode: "01", binCode: "01", fullCode: "C-01-01", description: "SSD Samsung", isActive: true, createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z" },
+  { id: 10, zoneCode: "C", shelfCode: "01", binCode: "02", fullCode: "C-01-02", description: "SSD Samsung", isActive: true, createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z" },
+  { id: 11, zoneCode: "C", shelfCode: "02", binCode: "01", fullCode: "C-02-01", description: "SSD WD", isActive: true, createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z" },
+  { id: 12, zoneCode: "C", shelfCode: "02", binCode: "02", fullCode: "C-02-02", description: "SSD Samsung 980", isActive: true, createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z" },
+  { id: 13, zoneCode: "C", shelfCode: "03", binCode: "01", fullCode: "C-03-01", description: "SSD WD Blue", isActive: true, createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z" },
+  { id: 14, zoneCode: "D", shelfCode: "01", binCode: "01", fullCode: "D-01-01", description: "RAM Corsair", isActive: true, createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z" },
+  { id: 15, zoneCode: "D", shelfCode: "01", binCode: "02", fullCode: "D-01-02", description: "RAM Corsair Dominator", isActive: true, createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z" },
+  { id: 16, zoneCode: "D", shelfCode: "02", binCode: "01", fullCode: "D-02-01", description: "RAM G.Skill", isActive: true, createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z" },
+  { id: 17, zoneCode: "E", shelfCode: "01", binCode: "01", fullCode: "E-01-01", description: "Mainboard ASUS ROG", isActive: true, createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z" },
+  { id: 18, zoneCode: "E", shelfCode: "01", binCode: "02", fullCode: "E-01-02", description: "Mainboard Gigabyte", isActive: true, createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z" },
+  { id: 19, zoneCode: "E", shelfCode: "02", binCode: "01", fullCode: "E-02-01", description: "Mainboard MSI", isActive: true, createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z" },
+  { id: 20, zoneCode: "E", shelfCode: "02", binCode: "02", fullCode: "E-02-02", description: "Mainboard ASUS Prime", isActive: true, createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z" },
+  { id: 21, zoneCode: "F", shelfCode: "01", binCode: "01", fullCode: "F-01-01", description: "PSU Seasonic Focus", isActive: true, createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z" },
+  { id: 22, zoneCode: "F", shelfCode: "01", binCode: "02", fullCode: "F-01-02", description: "PSU Corsair RM", isActive: true, createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z" },
+  { id: 23, zoneCode: "F", shelfCode: "02", binCode: "01", fullCode: "F-02-01", description: "PSU Seasonic Prime", isActive: true, createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z" },
+  { id: 24, zoneCode: "G", shelfCode: "01", binCode: "01", fullCode: "G-01-01", description: "Case Corsair 4000D White", isActive: true, createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z" },
+  { id: 25, zoneCode: "G", shelfCode: "01", binCode: "02", fullCode: "G-01-02", description: "Case Corsair 4000D Black", isActive: true, createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z" },
+  { id: 26, zoneCode: "G", shelfCode: "02", binCode: "01", fullCode: "G-02-01", description: "Case ASUS Helios", isActive: true, createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z" },
+  { id: 27, zoneCode: "H", shelfCode: "01", binCode: "01", fullCode: "H-01-01", description: "Cooling Corsair AIO", isActive: true, createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z" },
+  { id: 28, zoneCode: "H", shelfCode: "01", binCode: "02", fullCode: "H-01-02", description: "Cooling Cooler Master", isActive: true, createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z" },
+  { id: 29, zoneCode: "H", shelfCode: "02", binCode: "01", fullCode: "H-02-01", description: "Cooling ASUS ROG", isActive: true, createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z" },
+  { id: 30, zoneCode: "H", shelfCode: "02", binCode: "02", fullCode: "H-02-02", description: "Cooling Noctua", isActive: true, createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z" },
+  { id: 31, zoneCode: "I", shelfCode: "01", binCode: "01", fullCode: "I-01-01", description: "Linh kiện lẻ — chờ phân loại", isActive: true, createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z" },
+  { id: 32, zoneCode: "X", shelfCode: "01", binCode: "01", fullCode: "X-01-01", description: "Khu vực cách ly — hàng hỏng/lỗi", isActive: true, createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z" },
 ]
 
 // ==================== PRODUCTS ====================
@@ -147,8 +185,8 @@ export const importReceipts: ImportReceipt[] = [
     status: "completed", createdBy: 4, createdByName: "Lê Văn C — Nhân viên kho", approvedBy: 2, approvedByName: "Nguyễn Văn A — Quản lý kho",
     note: null, totalAmount: 28996000, createdAt: "2026-07-01T09:00:00Z", updatedAt: "2026-07-01T14:00:00Z",
     items: [
-      { id: 1, productId: 1, productName: "Intel Core i7-14700K", productSku: "CPU-INT-001", quantity: 10, unitPrice: 9499000, warrantyMonths: 36 },
-      { id: 2, productId: 2, productName: "Intel Core i5-14600K", productSku: "CPU-INT-002", quantity: 15, unitPrice: 6999000, warrantyMonths: 36 },
+      { id: 1, productId: 1, productName: "Intel Core i7-14700K", productSku: "CPU-INT-001", quantity: 10, unitPrice: 9499000, warrantyMonths: 36, locationId: 1, locationCode: "A-01-01" },
+      { id: 2, productId: 2, productName: "Intel Core i5-14600K", productSku: "CPU-INT-002", quantity: 15, unitPrice: 6999000, warrantyMonths: 36, locationId: 2, locationCode: "A-01-02" },
     ],
   },
   {
@@ -156,8 +194,8 @@ export const importReceipts: ImportReceipt[] = [
     status: "pending_approval", createdBy: 6, createdByName: "Nguyễn Văn Hùng", approvedBy: null, approvedByName: null,
     note: "Đợi QL kiểm tra số lượng thực tế", totalAmount: 42984000, createdAt: "2026-07-05T10:30:00Z", updatedAt: "2026-07-05T10:30:00Z",
     items: [
-      { id: 3, productId: 12, productName: "Corsair Vengeance DDR5 32GB 5600MHz", productSku: "RAM-COR-001", quantity: 20, unitPrice: 2499000, warrantyMonths: 24 },
-      { id: 4, productId: 20, productName: "Corsair RM850x 850W", productSku: "PSU-COR-001", quantity: 10, unitPrice: 2999000, warrantyMonths: 60 },
+      { id: 3, productId: 12, productName: "Corsair Vengeance DDR5 32GB 5600MHz", productSku: "RAM-COR-001", quantity: 20, unitPrice: 2499000, warrantyMonths: 24, locationId: 14, locationCode: "D-01-01" },
+      { id: 4, productId: 20, productName: "Corsair RM850x 850W", productSku: "PSU-COR-001", quantity: 10, unitPrice: 2999000, warrantyMonths: 60, locationId: 22, locationCode: "F-01-02" },
     ],
   },
   {
@@ -165,8 +203,8 @@ export const importReceipts: ImportReceipt[] = [
     status: "draft", createdBy: 4, createdByName: "Lê Văn C — Nhân viên kho", approvedBy: null, approvedByName: null,
     note: null, totalAmount: 24450000, createdAt: "2026-07-10T08:00:00Z", updatedAt: "2026-07-10T08:00:00Z",
     items: [
-      { id: 5, productId: 9, productName: "Samsung 990 Pro 1TB NVMe", productSku: "STO-SAM-001", quantity: 15, unitPrice: 3899000, warrantyMonths: 60 },
-      { id: 6, productId: 10, productName: "Samsung 870 EVO 500GB SATA", productSku: "STO-SAM-002", quantity: 30, unitPrice: 1599000, warrantyMonths: 36 },
+      { id: 5, productId: 9, productName: "Samsung 990 Pro 1TB NVMe", productSku: "STO-SAM-001", quantity: 15, unitPrice: 3899000, warrantyMonths: 60, locationId: 9, locationCode: "C-01-01" },
+      { id: 6, productId: 10, productName: "Samsung 870 EVO 500GB SATA", productSku: "STO-SAM-002", quantity: 30, unitPrice: 1599000, warrantyMonths: 36, locationId: 10, locationCode: "C-01-02" },
     ],
   },
 ]
