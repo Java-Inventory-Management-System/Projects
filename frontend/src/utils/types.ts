@@ -58,6 +58,22 @@ export interface CatalogResponse {
   updatedAt: string
 }
 
+export type BrandResponse = CatalogResponse
+export type CategoryResponse = CatalogResponse
+
+// ============ Inventory Item (tồn kho tổng hợp) ============
+
+export interface InventoryItem {
+  id: number
+  productId: number
+  productName: string
+  productSku: string
+  quantity: number
+  minStock: number
+  location: string
+  updatedAt: string
+}
+
 // ============ Product ============
 
 export interface ProductResponse {

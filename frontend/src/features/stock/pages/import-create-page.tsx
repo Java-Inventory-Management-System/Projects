@@ -1,7 +1,10 @@
 import { useEffect, useState, useMemo } from "react"
 import { useNavigate } from "react-router-dom"
 import { useAuthStore } from "@/store/auth-store"
-import { createImportReceipt, getProducts, getLocations, getSuppliers, suggestLocation } from "@/mock-services"
+import { createImportReceipt } from "@/features/stock/services/import-service"
+import { getProducts } from "@/features/stock/services/product-service"
+import { getLocations, suggestLocation } from "@/features/stock/services/location-service"
+import { getSuppliers } from "@/features/stock/services/supplier-service"
 import type { ProductResponse, LocationResponse, SupplierResponse, ResponsePage } from "@/utils/types"
 import { toast } from "@/utils/toast"
 import { Badge } from "@/components/ui/badge"
@@ -71,7 +74,7 @@ export function ImportCreatePage() {
       toast.error("Sản phẩm này đã có trong phiếu")
       return
     }
-    const suggested = suggestLocation(product.id, product.categoryId, locations)
+    const suggested = suggestLocation(product.categoryId, locations)
     setItems((prev) => [
       ...prev,
       {
@@ -266,7 +269,7 @@ export function ImportCreatePage() {
               {items.map((item) => {
                 const serialCount = item.serials.length
                 const serialOk = serialCount === item.quantity
-                const suggested = suggestLocation(item.productId, item.categoryId, locations)
+                const suggested = suggestLocation(item.categoryId, locations)
                 return (
                   <TableRow key={item.tempId}>
                     <TableCell className="font-medium text-sm">{item.productName}</TableCell>
