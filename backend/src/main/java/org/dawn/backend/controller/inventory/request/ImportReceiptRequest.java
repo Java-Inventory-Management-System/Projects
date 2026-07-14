@@ -14,7 +14,7 @@ public record ImportReceiptRequest(
             BigDecimal quantity,
             BigDecimal unitPrice,
             Integer warrantyMonths,
-            String serialNumber,
+            List<String> serialNumbers,
             Long locationId
     ) {}
 }
