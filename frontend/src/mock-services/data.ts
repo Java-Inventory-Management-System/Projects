@@ -9,6 +9,7 @@ import type {
   ImportReceipt,
   ExportReceipt,
   LocationResponse,
+  SupplierResponse,
 } from "@/utils/types"
 
 // ==================== BRANDS ====================
@@ -175,6 +176,17 @@ export const customers: CustomerResponse[] = [
   { id: 4, name: "Trần Thị Lan", phone: "0918234567", email: null, address: null, note: "KH mới", isActive: true, createdAt: "2026-05-20T00:00:00Z", updatedAt: "2026-05-20T00:00:00Z" },
   { id: 5, name: "Công ty TNHH Thiết bị số Hoàng Gia", phone: "02834567890", email: "sales@hoanggia.vn", address: "321 Nguyễn Thị Minh Khai, Q.3, TP.HCM", note: null, isActive: true, createdAt: "2026-04-01T00:00:00Z", updatedAt: "2026-04-01T00:00:00Z" },
   { id: 6, name: "Phạm Hoàng Quân", phone: "0978563412", email: null, address: "654 Lý Tự Trọng, Q.10, TP.HCM", note: null, isActive: false, createdAt: "2026-06-01T00:00:00Z", updatedAt: "2026-06-01T00:00:00Z" },
+]
+
+// ==================== SUPPLIERS ====================
+
+export const suppliers: SupplierResponse[] = [
+  { id: 1, name: "Intel Vietnam", contactPerson: "John Smith", phone: "02812345678", email: "sales@intel.vn", address: "Số 1, Lê Duẩn, Q.1, TP.HCM", taxCode: "1234567890", note: null, isActive: true, createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z" },
+  { id: 2, name: "Corsair Asia Pte Ltd", contactPerson: "Sarah Lee", phone: "02823456789", email: "orders@corsair.sg", address: "2 Jurong East, Singapore", taxCode: null, note: "NCC quốc tế, cần đặt trước 7 ngày", isActive: true, createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z" },
+  { id: 3, name: "Samsung Vina", contactPerson: "Trần Văn A", phone: "02834567890", email: "samsung@sam.vn", address: "123 Nguyễn Văn Linh, Q.7, TP.HCM", taxCode: "0987654321", note: null, isActive: true, createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z" },
+  { id: 4, name: "ASUS Technology Vietnam", contactPerson: "Phạm Văn B", phone: "02845678901", email: "asus@asus.vn", address: "456 Lê Lợi, Q.1, TP.HCM", taxCode: null, note: null, isActive: true, createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z" },
+  { id: 5, name: "Western Digital Vietnam", contactPerson: "Lê Thị C", phone: "02856789012", email: "wd@wd.vn", address: "789 Nguyễn Thị Minh Khai, Q.3, TP.HCM", taxCode: null, note: null, isActive: true, createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z" },
+  { id: 6, name: "Gigabyte Technology", contactPerson: null, phone: null, email: null, address: null, taxCode: null, note: "NCC mới — chờ cập nhật thông tin", isActive: true, createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z" },
 ]
 
 // ==================== IMPORT RECEIPTS ====================

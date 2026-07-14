@@ -11,6 +11,7 @@ import type {
   ImportReceipt,
   ExportReceipt,
   LocationResponse,
+  SupplierResponse,
 } from "@/utils/types"
 import {
   brands,
@@ -23,6 +24,7 @@ import {
   importReceipts,
   exportReceipts,
   locations,
+  suppliers,
 } from "./data"
 
 function delay(ms = 250) {
@@ -40,6 +42,26 @@ function paginate<T>(items: T[], page: number, size: number): ResponsePage<T> {
       totalPages: Math.ceil(items.length / size),
     },
   }
+}
+
+// ponytail: quy tắc gợi ý vị trí theo danh mục — backend sẽ trả về thực tế sau
+export const categoryZone: Record<number, string> = {
+  1: "A", 2: "D", 3: "B", 4: "E",
+  5: "F", 6: "C", 7: "G", 8: "H",
+}
+
+export function suggestLocation(categoryId: number | null, locs: LocationResponse[], fallbackCode = "I-01-01"): LocationResponse | null {
+  if (!categoryId) return locs.find((l) => l.fullCode === fallbackCode) ?? null
+  const zone = categoryZone[categoryId]
+  if (!zone) return locs.find((l) => l.fullCode === fallbackCode) ?? null
+  return locs.find((l) => l.zoneCode === zone && l.isActive) ?? null
+}
+
+// ==================== Suppliers ====================
+
+export async function getSuppliers(): Promise<SupplierResponse[]> {
+  await delay(100)
+  return suppliers.filter((s) => s.isActive)
 }
 
 // ==================== Locations ====================

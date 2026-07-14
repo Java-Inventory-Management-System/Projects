@@ -1,8 +1,8 @@
 import { useEffect, useState, useMemo } from "react"
 import { useNavigate } from "react-router-dom"
 import { useAuthStore } from "@/store/auth-store"
-import { createImportReceipt, getProducts, getLocations } from "@/mock-services"
-import type { ProductResponse, LocationResponse, ResponsePage } from "@/utils/types"
+import { createImportReceipt, getProducts, getLocations, getSuppliers, suggestLocation } from "@/mock-services"
+import type { ProductResponse, LocationResponse, SupplierResponse, ResponsePage } from "@/utils/types"
 import { toast } from "@/utils/toast"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -40,27 +40,6 @@ interface LineItem {
   locationId: string
 }
 
-const suppliers = [
-  { id: 1, name: "Intel Vietnam" },
-  { id: 2, name: "Corsair Asia Pte Ltd" },
-  { id: 3, name: "Samsung Vina" },
-  { id: 4, name: "ASUS Technology Vietnam" },
-  { id: 5, name: "Western Digital Vietnam" },
-]
-
-const categoryZone: Record<number, string> = {
-  1: "A", 2: "D", 3: "B", 4: "E",
-  5: "F", 6: "C", 7: "G", 8: "H",
-}
-
-// ponytail: mock suggestion — backend sẽ query location thực tế
-function suggestLocation(productId: number, categoryId: number | null, locs: LocationResponse[]): LocationResponse | null {
-  if (!categoryId) return locs.find((l) => l.fullCode === "I-01-01") ?? null
-  const zone = categoryZone[categoryId]
-  if (!zone) return locs.find((l) => l.fullCode === "I-01-01") ?? null
-  return locs.find((l) => l.zoneCode === zone && l.isActive) ?? null
-}
-
 export function ImportCreatePage() {
   const user = useAuthStore((s) => s.user)
   const navigate = useNavigate()
@@ -69,6 +48,7 @@ export function ImportCreatePage() {
   const [note, setNote] = useState("")
   const [items, setItems] = useState<LineItem[]>([])
   const [products, setProducts] = useState<ProductResponse[]>([])
+  const [suppliers, setSuppliers] = useState<SupplierResponse[]>([])
   const [locations, setLocations] = useState<LocationResponse[]>([])
   const [selectedProductId, setSelectedProductId] = useState("")
   const [submitting, setSubmitting] = useState(false)
@@ -77,6 +57,7 @@ export function ImportCreatePage() {
 
   useEffect(() => {
     getProducts(0, 100).then((res: ResponsePage<ProductResponse>) => setProducts(res.content))
+    getSuppliers().then(setSuppliers)
     getLocations().then(setLocations)
   }, [])
 
