@@ -1,7 +1,7 @@
 import { NavLink } from "react-router-dom"
-import { cn } from "@/lib/utils"
-import { useAuth } from "@/contexts/auth-context"
-import { filterNavItems, navItems } from "@/lib/navigation"
+import { cn } from "@/utils/cn"
+import { useAuthStore } from "@/store/auth-store"
+import { filterNavItems, navItems } from "@/utils/navigation"
 
 interface SidebarProps {
   collapsed: boolean
@@ -10,7 +10,7 @@ interface SidebarProps {
 }
 
 export function Sidebar({ collapsed, onNavigate }: SidebarProps) {
-  const { user } = useAuth()
+  const user = useAuthStore((s) => s.user)
   if (!user) return null
 
   const items = filterNavItems(navItems, user.role)

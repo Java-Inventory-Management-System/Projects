@@ -1,18 +1,18 @@
 import { Navigate, createBrowserRouter } from "react-router-dom"
 import type { ReactNode } from "react"
-import { AppShell } from "@/components/layout/app-shell"
-import { ProtectedRoute } from "@/components/layout/protected-route"
-import { useAuth } from "@/contexts/auth-context"
-import { LoginPage } from "@/pages/login"
-import { DashboardPage } from "@/pages/dashboard"
-import { ProductsPage } from "@/pages/products"
-import { InventoryPage } from "@/pages/inventory"
-import { ForbiddenPage } from "@/pages/forbidden"
-import { NotFoundPage } from "@/pages/not-found"
-import type { URole } from "@/lib/navigation"
+import { AppShell } from "@/layouts/app-shell"
+import { ProtectedRoute } from "@/layouts/protected-route"
+import { useAuthStore } from "@/store/auth-store"
+import { LoginPage } from "@/features/auth/pages/login-page"
+import { DashboardPage } from "@/features/dashboard/pages/dashboard-page"
+import { ProductsPage } from "@/features/products/pages/products-page"
+import { InventoryPage } from "@/features/inventory/pages/inventory-page"
+import { ForbiddenPage } from "@/features/common/pages/forbidden-page"
+import { NotFoundPage } from "@/features/common/pages/not-found-page"
+import type { URole } from "@/utils/navigation"
 
 function PageGuard({ roles, children }: { roles: URole[]; children: ReactNode }) {
-  const { hasRole } = useAuth()
+  const hasRole = useAuthStore((s) => s.hasRole)
   if (!hasRole(roles)) return <Navigate to="/403" replace />
   return <>{children}</>
 }

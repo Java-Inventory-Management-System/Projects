@@ -8,9 +8,10 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
-import { useAuth } from "@/contexts/auth-context"
+import { useAuthStore } from "@/store/auth-store"
 import { useNavigate } from "react-router-dom"
 import { LogOut, User, ChevronLeft, ChevronRight, Menu } from "lucide-react"
+import type { URole } from "@/utils/navigation"
 
 interface TopbarProps {
   collapsed: boolean
@@ -18,8 +19,16 @@ interface TopbarProps {
   onMobileOpen: () => void
 }
 
+const roleLabel: Record<URole, string> = {
+  ADMIN: "Admin",
+  MANAGER: "Quản lý kho",
+  SALES: "Nhân viên bán hàng",
+  STOCK: "Nhân viên kho",
+}
+
 export function Topbar({ collapsed, onToggle, onMobileOpen }: TopbarProps) {
-  const { user, logout } = useAuth()
+  const user = useAuthStore((s) => s.user)
+  const logout = useAuthStore((s) => s.logout)
   const navigate = useNavigate()
   if (!user) return null
 
@@ -69,11 +78,11 @@ export function Topbar({ collapsed, onToggle, onMobileOpen }: TopbarProps) {
             <User className="size-4 text-muted-foreground" />
             <div className="flex flex-col">
               <span className="text-sm font-medium">{user.displayName}</span>
-              <span className="text-xs text-muted-foreground font-normal">{user.role}</span>
+              <span className="text-xs text-muted-foreground font-normal">{roleLabel[user.role]}</span>
             </div>
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={() => navigate("/login")}>
+          <DropdownMenuItem onClick={() => { logout(); navigate("/login") }}>
             <LogOut className="size-4" />
             <span>Logout</span>
           </DropdownMenuItem>

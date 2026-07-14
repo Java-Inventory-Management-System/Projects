@@ -1,19 +1,13 @@
 import { useEffect, useState } from "react"
-import { getInventoryStats } from "@/lib/mock-data"
-
-interface Stats {
-  totalProducts: number
-  totalItems: number
-  lowStockCount: number
-  activeProducts: number
-}
+import { getDashboardStats } from "@/mock-services"
+import type { DashboardStats } from "@/utils/types"
 
 export function DashboardPage() {
-  const [stats, setStats] = useState<Stats | null>(null)
+  const [stats, setStats] = useState<DashboardStats | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    getInventoryStats().then((data) => {
+    getDashboardStats().then((data) => {
       setStats(data)
       setLoading(false)
     })

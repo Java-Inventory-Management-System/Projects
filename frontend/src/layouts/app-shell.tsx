@@ -1,13 +1,15 @@
-import { useState } from "react"
 import { Outlet } from "react-router-dom"
 import { Sidebar } from "./sidebar"
 import { Topbar } from "./topbar"
 import { Sheet, SheetContent } from "@/components/ui/sheet"
 import { Sidebar as MobileSidebar } from "./sidebar"
+import { useUIStore } from "@/store/ui-store"
 
 export function AppShell() {
-  const [collapsed, setCollapsed] = useState(false)
-  const [mobileOpen, setMobileOpen] = useState(false)
+  const collapsed = useUIStore((s) => s.sidebarCollapsed)
+  const mobileOpen = useUIStore((s) => s.mobileOpen)
+  const toggleSidebar = useUIStore((s) => s.toggleSidebar)
+  const setMobileOpen = useUIStore((s) => s.setMobileOpen)
 
   return (
     <div
@@ -24,7 +26,7 @@ export function AppShell() {
         <div className="fixed inset-y-0 left-0 z-30"
           style={{ width: collapsed ? "var(--sidebar-w-collapsed)" : "var(--sidebar-w)" }}
         >
-          <Sidebar collapsed={collapsed} onToggle={() => setCollapsed((c) => !c)} />
+          <Sidebar collapsed={collapsed} onToggle={toggleSidebar} />
         </div>
       </div>
 
@@ -37,7 +39,7 @@ export function AppShell() {
       <div className="flex min-w-0 flex-1 flex-col">
         <Topbar
           collapsed={collapsed}
-          onToggle={() => setCollapsed((c) => !c)}
+          onToggle={toggleSidebar}
           onMobileOpen={() => setMobileOpen(true)}
         />
         <main className="flex-1 p-6">
