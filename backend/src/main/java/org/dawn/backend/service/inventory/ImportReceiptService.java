@@ -104,7 +104,7 @@ public class ImportReceiptService {
         ImportReceipt receipt = ImportReceipt.builder()
                 .receiptCode(receiptCode)
                 .supplierId(request.supplierId())
-                .status(ImportReceiptStatus.COMPLETED.name())
+                .status(ImportReceiptStatus.PENDING_APPROVAL.name())
                 .note(request.note())
                 .createdBy(userId)
                 .build();
