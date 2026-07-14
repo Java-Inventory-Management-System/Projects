@@ -148,26 +148,34 @@ public class ImportReceiptService {
                         .build();
                 productUnitRepository.save(pu);
             } else {
-                String serial = itemReq.serialNumber();
-                if (serial == null || serial.isBlank()) {
+                List<String> serials = itemReq.serialNumbers();
+                if (serials == null || serials.isEmpty()) {
                     throw new InvalidRequestException(Message.Inventory.SERIAL_REQUIRED_FOR_SERIALIZED);
                 }
-                if (productUnitRepository.existsBySerialNumber(serial.trim())) {
-                    throw new ResourceAlreadyExistedException(Message.Inventory.SERIAL_ALREADY_EXISTS);
+                if (serials.size() != qty.intValue()) {
+                    throw new InvalidRequestException("Serial count must match quantity");
                 }
-                ProductUnit su = ProductUnit.builder()
-                        .serialNumber(serial.trim())
-                        .productId(itemReq.productId())
-                        .trackingType(trackingType)
-                        .initialQuantity(null)
-                        .remainingQuantity(null)
-                        .importReceiptItemId(item.getId())
-                        .locationId(itemReq.locationId())
-                        .status(ProductUnitStatus.IN_STOCK.name())
-                        .importedAt(Instant.now())
-                        .warrantyMonths(itemReq.warrantyMonths())
-                        .build();
-                productUnitRepository.save(su);
+                for (String serial : serials) {
+                    if (serial == null || serial.isBlank()) {
+                        throw new InvalidRequestException("Serial number cannot be blank");
+                    }
+                    if (productUnitRepository.existsBySerialNumber(serial.trim())) {
+                        throw new ResourceAlreadyExistedException(Message.Inventory.SERIAL_ALREADY_EXISTS);
+                    }
+                    ProductUnit su = ProductUnit.builder()
+                            .serialNumber(serial.trim())
+                            .productId(itemReq.productId())
+                            .trackingType(trackingType)
+                            .initialQuantity(null)
+                            .remainingQuantity(null)
+                            .importReceiptItemId(item.getId())
+                            .locationId(itemReq.locationId())
+                            .status(ProductUnitStatus.IN_STOCK.name())
+                            .importedAt(Instant.now())
+                            .warrantyMonths(itemReq.warrantyMonths())
+                            .build();
+                    productUnitRepository.save(su);
+                }
             }
 
             BigDecimal lineTotal = itemReq.unitPrice() != null
