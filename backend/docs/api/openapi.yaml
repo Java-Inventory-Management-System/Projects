@@ -1,0 +1,1462 @@
+openapi: "3.0.3"
+info:
+  title: Backend API
+  description: API documentation for the backend service
+  version: "1.0.0"
+servers:
+  - url: http://localhost:8888
+    description: Local development
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    RefreshCookie:
+      type: apiKey
+      in: cookie
+      name: refreshToken
+
+  schemas:
+    # =========================== COMMON ===========================
+    ResponseObject:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 200
+        message:
+          type: string
+          example: Success
+        data:
+          nullable: true
+
+    ResponsePage:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            type: object
+        pagination:
+          $ref: "#/components/schemas/Pagination"
+
+    Pagination:
+      type: object
+      properties:
+        pageNumber:
+          type: integer
+          example: 0
+        pageSize:
+          type: integer
+          example: 20
+        totalElements:
+          type: integer
+          example: 100
+        totalPages:
+          type: integer
+          example: 5
+
+    ExceptionMessage:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+          example: "14-07-2026 10:30:00"
+        status:
+          type: integer
+          example: 400
+        message:
+          type: string
+          example: Validation failed
+
+    URole:
+      type: string
+      enum: [ADMIN, MANAGER, SALES, STOCK]
+
+    # =========================== AUTH ===========================
+    LoginRequest:
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+          example: johndoe
+        password:
+          type: string
+          format: password
+          example: "******"
+
+    JwtResponse:
+      type: object
+      properties:
+        accessToken:
+          type: string
+        refreshToken:
+          type: string
+        userId:
+          type: integer
+        username:
+          type: string
+        isPasswordReset:
+          type: boolean
+
+    TokenRefreshResponse:
+      type: object
+      properties:
+        accessToken:
+          type: string
+
+    ForgotPasswordRequest:
+      type: object
+      required: [email]
+      properties:
+        email:
+          type: string
+          format: email
+          example: user@example.com
+
+    ResetPasswordTokenRequest:
+      type: object
+      required: [token, newPassword, confirmPassword]
+      properties:
+        token:
+          type: string
+        newPassword:
+          type: string
+          format: password
+        confirmPassword:
+          type: string
+          format: password
+
+    ChangePasswordRequest:
+      type: object
+      required: [oldPassword, newPassword, confirmPassword]
+      properties:
+        oldPassword:
+          type: string
+          format: password
+        newPassword:
+          type: string
+          format: password
+        confirmPassword:
+          type: string
+          format: password
+
+    # =========================== USER ===========================
+    RegisterRequest:
+      type: object
+      required: [fullName, email, roleName, status]
+      properties:
+        fullName:
+          type: string
+          example: John Doe
+        email:
+          type: string
+          format: email
+        roleName:
+          $ref: "#/components/schemas/URole"
+        status:
+          type: string
+          example: ACTIVE
+
+    UserResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        username:
+          type: string
+        fullName:
+          type: string
+        email:
+          type: string
+        role:
+          $ref: "#/components/schemas/URole"
+        status:
+          type: string
+        gender:
+          type: integer
+          nullable: true
+        dob:
+          type: string
+          format: date-time
+          nullable: true
+        phoneNumber:
+          type: string
+          nullable: true
+        isPasswordReset:
+          type: boolean
+        isDeleted:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateUserResponse:
+      allOf:
+        - $ref: "#/components/schemas/UserResponse"
+        - type: object
+          properties:
+            tempPassword:
+              type: string
+
+    UpdateInfoRequest:
+      type: object
+      properties:
+        fullName:
+          type: string
+        gender:
+          type: integer
+          nullable: true
+        dob:
+          type: string
+          format: date-time
+          nullable: true
+        phoneNumber:
+          type: string
+          nullable: true
+
+    ToggleActiveRequest:
+      type: object
+      required: [active]
+      properties:
+        active:
+          type: boolean
+
+    # =========================== BRAND ===========================
+    BrandRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+
+    BrandResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    # =========================== CATEGORY ===========================
+    CategoryRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+
+    CategoryResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    # =========================== PRODUCT ===========================
+    ProductRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        sku:
+          type: string
+        barcode:
+          type: string
+        brandId:
+          type: integer
+        categoryId:
+          type: integer
+        description:
+          type: string
+        unit:
+          type: string
+        trackingType:
+          type: string
+        sellPrice:
+          type: number
+          format: decimal
+        minStock:
+          type: integer
+
+    ProductResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        sku:
+          type: string
+          nullable: true
+        barcode:
+          type: string
+          nullable: true
+        brandId:
+          type: integer
+          nullable: true
+        brandName:
+          type: string
+          nullable: true
+        categoryId:
+          type: integer
+          nullable: true
+        categoryName:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        unit:
+          type: string
+          nullable: true
+        trackingType:
+          type: string
+          nullable: true
+        sellPrice:
+          type: number
+          format: decimal
+          nullable: true
+        minStock:
+          type: integer
+          nullable: true
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    # =========================== SUPPLIER ===========================
+    SupplierRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        contactPerson:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+          format: email
+        address:
+          type: string
+        taxCode:
+          type: string
+        note:
+          type: string
+
+    SupplierResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        contactPerson:
+          type: string
+          nullable: true
+        phone:
+          type: string
+          nullable: true
+        email:
+          type: string
+          nullable: true
+        address:
+          type: string
+          nullable: true
+        taxCode:
+          type: string
+          nullable: true
+        note:
+          type: string
+          nullable: true
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    # =========================== PRODUCT IMAGE ===========================
+    ProductImageRequest:
+      type: object
+      required: [productId, url]
+      properties:
+        productId:
+          type: integer
+        url:
+          type: string
+          format: uri
+        isPrimary:
+          type: boolean
+        sortOrder:
+          type: integer
+
+    ProductImageResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        productId:
+          type: integer
+        url:
+          type: string
+        isPrimary:
+          type: boolean
+        sortOrder:
+          type: integer
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    # =========================== AUDIT LOG ===========================
+    AuditLog:
+      type: object
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+          nullable: true
+        username:
+          type: string
+          nullable: true
+        ipAddress:
+          type: string
+          nullable: true
+        requestId:
+          type: string
+          nullable: true
+        action:
+          type: string
+        entityName:
+          type: string
+        entityId:
+          type: string
+          nullable: true
+        oldValue:
+          type: string
+          nullable: true
+          description: JSON string
+        newValue:
+          type: string
+          nullable: true
+          description: JSON string
+        status:
+          type: string
+        errorMsg:
+          type: string
+          nullable: true
+      createdAt:
+        type: string
+        format: date-time
+
+  parameters:
+    pageParam:
+      name: page
+      in: query
+      description: Page number (0-indexed)
+      schema:
+        type: integer
+        default: 0
+    sizeParam:
+      name: size
+      in: query
+      description: Page size
+      schema:
+        type: integer
+        default: 20
+    sortParam:
+      name: sort
+      in: query
+      description: Sort field (e.g. `name,asc`)
+      schema:
+        type: string
+
+paths:
+  # =========================== AUTH ===========================
+  /api/v1/auth/login:
+    post:
+      tags: [Auth]
+      summary: Login with credentials
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Login successful
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+                description: HttpOnly refresh token cookie
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/JwtResponse"
+        "400":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExceptionMessage"
+
+  /api/v1/auth/refresh-token:
+    post:
+      tags: [Auth]
+      summary: Refresh access token
+      operationId: refreshToken
+      parameters:
+        - name: refreshToken
+          in: cookie
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Token refreshed
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/TokenRefreshResponse"
+
+  /api/v1/auth/forgot-password:
+    post:
+      tags: [Auth]
+      summary: Send password reset email
+      operationId: forgotPassword
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ForgotPasswordRequest"
+      responses:
+        "200":
+          description: Reset email sent
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        type: string
+
+  /api/v1/auth/reset-password:
+    post:
+      tags: [Auth]
+      summary: Reset password with token
+      operationId: resetPasswordByToken
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResetPasswordTokenRequest"
+      responses:
+        "200":
+          description: Password reset successful
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        type: string
+
+  /api/v1/auth/change-password:
+    put:
+      tags: [Auth]
+      summary: Change current user's password
+      operationId: changePassword
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChangePasswordRequest"
+      responses:
+        "200":
+          description: Password changed
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        type: string
+
+  /api/v1/auth/{id}/reset-password:
+    put:
+      tags: [Auth]
+      summary: Admin force-reset user password
+      operationId: adminResetPassword
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Returns temp password
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        type: string
+
+  # =========================== USER ===========================
+  /api/v1/user:
+    get:
+      tags: [User]
+      summary: List users (paginated)
+      operationId: listUsers
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: sort
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/ResponsePage"
+    post:
+      tags: [User]
+      summary: Create a new user
+      operationId: createUser
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/CreateUserResponse"
+
+  /api/v1/user/{id}:
+    get:
+      tags: [User]
+      summary: Get user detail
+      operationId: getUser
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/UserResponse"
+
+  /api/v1/user/{id}/info:
+    put:
+      tags: [User]
+      summary: Update user's personal info
+      operationId: updateUserInfo
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateInfoRequest"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/UserResponse"
+
+  /api/v1/user/{id}/status:
+    put:
+      tags: [User]
+      summary: Activate or deactivate a user
+      operationId: updateUserStatus
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ToggleActiveRequest"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/UserResponse"
+
+  /api/v1/user/{id}/role:
+    put:
+      tags: [User]
+      summary: Update user's role
+      operationId: updateUserRole
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/URole"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/UserResponse"
+
+  # =========================== BRAND ===========================
+  /api/v1/brand:
+    get:
+      tags: [Brand]
+      summary: List brands (paginated)
+      operationId: listBrands
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/pageParam"
+        - $ref: "#/components/parameters/sizeParam"
+        - $ref: "#/components/parameters/sortParam"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/ResponsePage"
+    post:
+      tags: [Brand]
+      summary: Create a brand
+      operationId: createBrand
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BrandRequest"
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/BrandResponse"
+
+  /api/v1/brand/{id}:
+    get:
+      tags: [Brand]
+      summary: Get brand detail
+      operationId: getBrand
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/BrandResponse"
+    put:
+      tags: [Brand]
+      summary: Update a brand
+      operationId: updateBrand
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BrandRequest"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/BrandResponse"
+
+  /api/v1/brand/{id}/toggle-active:
+    put:
+      tags: [Brand]
+      summary: Toggle brand active status
+      operationId: toggleBrandActive
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/BrandResponse"
+
+  # =========================== CATEGORY ===========================
+  /api/v1/category:
+    get:
+      tags: [Category]
+      summary: List categories (paginated)
+      operationId: listCategories
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/pageParam"
+        - $ref: "#/components/parameters/sizeParam"
+        - $ref: "#/components/parameters/sortParam"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/ResponsePage"
+    post:
+      tags: [Category]
+      summary: Create a category
+      operationId: createCategory
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CategoryRequest"
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/CategoryResponse"
+
+  /api/v1/category/{id}:
+    get:
+      tags: [Category]
+      summary: Get category detail
+      operationId: getCategory
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/CategoryResponse"
+    put:
+      tags: [Category]
+      summary: Update a category
+      operationId: updateCategory
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CategoryRequest"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/CategoryResponse"
+
+  /api/v1/category/{id}/toggle-active:
+    put:
+      tags: [Category]
+      summary: Toggle category active status
+      operationId: toggleCategoryActive
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/CategoryResponse"
+
+  # =========================== PRODUCT ===========================
+  /api/v1/product:
+    get:
+      tags: [Product]
+      summary: List products (paginated)
+      operationId: listProducts
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/pageParam"
+        - $ref: "#/components/parameters/sizeParam"
+        - $ref: "#/components/parameters/sortParam"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/ResponsePage"
+    post:
+      tags: [Product]
+      summary: Create a product
+      operationId: createProduct
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductRequest"
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/ProductResponse"
+
+  /api/v1/product/{id}:
+    get:
+      tags: [Product]
+      summary: Get product detail
+      operationId: getProduct
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/ProductResponse"
+    put:
+      tags: [Product]
+      summary: Update a product
+      operationId: updateProduct
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductRequest"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/ProductResponse"
+
+  /api/v1/product/{id}/toggle-active:
+    put:
+      tags: [Product]
+      summary: Toggle product active status
+      operationId: toggleProductActive
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/ProductResponse"
+
+  # =========================== SUPPLIER ===========================
+  /api/v1/supplier:
+    get:
+      tags: [Supplier]
+      summary: List suppliers (paginated)
+      operationId: listSuppliers
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/pageParam"
+        - $ref: "#/components/parameters/sizeParam"
+        - $ref: "#/components/parameters/sortParam"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/ResponsePage"
+    post:
+      tags: [Supplier]
+      summary: Create a supplier
+      operationId: createSupplier
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SupplierRequest"
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/SupplierResponse"
+
+  /api/v1/supplier/{id}:
+    get:
+      tags: [Supplier]
+      summary: Get supplier detail
+      operationId: getSupplier
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/SupplierResponse"
+    put:
+      tags: [Supplier]
+      summary: Update a supplier
+      operationId: updateSupplier
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SupplierRequest"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/SupplierResponse"
+
+  /api/v1/supplier/{id}/toggle-active:
+    put:
+      tags: [Supplier]
+      summary: Toggle supplier active status
+      operationId: toggleSupplierActive
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/SupplierResponse"
+
+  # =========================== PRODUCT IMAGE ===========================
+  /api/v1/product-image:
+    post:
+      tags: [Product Image]
+      summary: Add image to product
+      operationId: createProductImage
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductImageRequest"
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/ProductImageResponse"
+
+  /api/v1/product-image/product/{productId}:
+    get:
+      tags: [Product Image]
+      summary: List images for a product
+      operationId: getProductImages
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: productId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/ProductImageResponse"
+    delete:
+      tags: [Product Image]
+      summary: Delete all images for a product
+      operationId: deleteProductImagesByProductId
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: productId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseObject"
+
+  /api/v1/product-image/{id}:
+    delete:
+      tags: [Product Image]
+      summary: Delete a single product image
+      operationId: deleteProductImage
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseObject"
+
+  # =========================== AUDIT LOG ===========================
+  /api/v1/audit-logs:
+    get:
+      tags: [Audit Log]
+      summary: Search audit logs (paginated)
+      operationId: searchAuditLogs
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: action
+          in: query
+          schema:
+            type: string
+        - name: entity
+          in: query
+          schema:
+            type: string
+        - name: userId
+          in: query
+          schema:
+            type: integer
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - $ref: "#/components/parameters/pageParam"
+        - $ref: "#/components/parameters/sizeParam"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/ResponsePage"
+
