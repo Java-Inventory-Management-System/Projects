@@ -1,12 +1,13 @@
 import { RouterProvider } from "react-router-dom"
-import { AuthProvider } from "@/contexts/auth-context"
-import { router } from "@/router"
+import { router } from "@/routes"
+import { Toaster } from "@/components/ui/sonner"
 
 function App() {
   return (
-    <AuthProvider>
+    <>
       <RouterProvider router={router} />
-    </AuthProvider>
+      <Toaster />
+    </>
   )
 }
 
