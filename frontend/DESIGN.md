@@ -1,10 +1,10 @@
 <!-- SEED: re-run /impeccable document once there's code to capture the actual tokens and components. -->
 ---
-name: QuickMeal Warehouse
+name: Warehouse
 description: Internal warehouse management system
 ---
 
-# Design System: QuickMeal Warehouse
+# Design System: Warehouse
 
 ## 1. Overview
 
