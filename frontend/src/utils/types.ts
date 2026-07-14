@@ -194,6 +194,8 @@ export interface ImportReceiptItem {
   quantity: number
   unitPrice: number
   warrantyMonths: number
+  locationId: number | null
+  locationCode: string | null
 }
 
 // ============ Export Receipt ============

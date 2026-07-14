@@ -10,6 +10,7 @@ import type {
   CustomerResponse,
   ImportReceipt,
   ExportReceipt,
+  LocationResponse,
 } from "@/utils/types"
 import {
   brands,
@@ -21,6 +22,7 @@ import {
   customers,
   importReceipts,
   exportReceipts,
+  locations,
 } from "./data"
 
 function delay(ms = 250) {
@@ -38,6 +40,13 @@ function paginate<T>(items: T[], page: number, size: number): ResponsePage<T> {
       totalPages: Math.ceil(items.length / size),
     },
   }
+}
+
+// ==================== Locations ====================
+
+export async function getLocations(): Promise<LocationResponse[]> {
+  await delay(100)
+  return locations.filter((l) => l.isActive)
 }
 
 // ==================== Brands ====================
@@ -161,8 +170,30 @@ export async function createImportReceipt(
   data: Omit<ImportReceipt, "id" | "receiptCode" | "status" | "approvedBy" | "approvedByName" | "createdAt" | "updatedAt" | "createdByName">,
   userId: number,
   userName: string,
+  serialMap?: Record<number, string[]>,
 ): Promise<ImportReceipt> {
   await delay(300)
+
+  // Check duplicate serials system-wide
+  if (serialMap) {
+    const allExistingSerials = new Set<string>()
+    for (const r of importReceipts) {
+      for (const line of r.items) {
+        // Simulate existing serials — in real backend would query product_units table
+        for (let i = 0; i < line.quantity; i++) {
+          allExistingSerials.add(`${line.productSku}-SERIAL-${line.id}-${i}`)
+        }
+      }
+    }
+    for (const [, serials] of Object.entries(serialMap)) {
+      for (const serial of serials) {
+        if (allExistingSerials.has(serial)) {
+          throw new Error(`Serial "${serial}" đã tồn tại trong hệ thống`)
+        }
+      }
+    }
+  }
+
   const now = new Date()
   const dateStr = now.toISOString().slice(0, 10).replace(/-/g, "")
   const seq = String(importReceipts.filter((r) => r.receiptCode.includes(dateStr)).length + 1).padStart(3, "0")
@@ -177,7 +208,7 @@ export async function createImportReceipt(
     approvedByName: null,
     createdAt: now.toISOString(),
     updatedAt: now.toISOString(),
-    items: data.items.map((item, idx) => ({ ...item, id: nextImportItemId++ })),
+    items: data.items.map((item) => ({ ...item, id: nextImportItemId++ })),
   }
   importReceipts.push(receipt)
   return receipt
