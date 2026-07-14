@@ -232,6 +232,10 @@ public class ImportReceiptService {
                 if (!ProductUnitStatus.IN_STOCK.name().equals(unit.getStatus())) {
                     throw new InvalidRequestException(Message.Inventory.IMPORT_CANNOT_CANCEL_UNITS_EXPORTED);
                 }
+                boolean isBulk = unit.getInitialQuantity() != null;
+                if (isBulk && unit.getRemainingQuantity().compareTo(unit.getInitialQuantity()) != 0) {
+                    throw new InvalidRequestException(Message.Inventory.IMPORT_CANNOT_CANCEL_UNITS_EXPORTED);
+                }
             }
         }
 
