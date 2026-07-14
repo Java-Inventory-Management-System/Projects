@@ -20,6 +20,19 @@ public class LogConstant {
         public static final String CREATE_PRODUCT = "CREATE_PRODUCT";
         public static final String UPDATE_PRODUCT = "UPDATE_PRODUCT";
         public static final String TOGGLE_PRODUCT = "TOGGLE_PRODUCT";
+        public static final String CONFIRM_IMPORT = "CONFIRM_IMPORT";
+        public static final String APPROVE_IMPORT = "APPROVE_IMPORT";
+        public static final String CANCEL_IMPORT = "CANCEL_IMPORT";
+        public static final String EDIT_SERIAL = "EDIT_SERIAL";
+        public static final String CREATE_LOCATION = "CREATE_LOCATION";
+        public static final String UPDATE_LOCATION = "UPDATE_LOCATION";
+        public static final String TOGGLE_LOCATION = "TOGGLE_LOCATION";
+        public static final String CREATE_CUSTOMER = "CREATE_CUSTOMER";
+        public static final String UPDATE_CUSTOMER = "UPDATE_CUSTOMER";
+        public static final String TOGGLE_CUSTOMER = "TOGGLE_CUSTOMER";
+        public static final String CREATE_EXPORT = "CREATE_EXPORT";
+        public static final String APPROVE_EXPORT = "APPROVE_EXPORT";
+        public static final String CANCEL_EXPORT = "CANCEL_EXPORT";
     }
 
     public static class Entity {
@@ -28,6 +41,11 @@ public class LogConstant {
         public static final String CATEGORY = "CATEGORY";
         public static final String SUPPLIER = "SUPPLIER";
         public static final String PRODUCT = "PRODUCT";
+        public static final String IMPORT_RECEIPT = "IMPORT_RECEIPT";
+        public static final String PRODUCT_UNIT = "PRODUCT_UNIT";
+        public static final String LOCATION = "LOCATION";
+        public static final String CUSTOMER = "CUSTOMER";
+        public static final String EXPORT_RECEIPT = "EXPORT_RECEIPT";
     }
 
     public static class Status {

@@ -31,6 +31,7 @@ spring:
     locations: classpath:db/migration
     validate-on-migrate: false
     baseline-on-migrate: true
+
   # Mail
   mail:
     enabled: ${MAIL_ENABLED}

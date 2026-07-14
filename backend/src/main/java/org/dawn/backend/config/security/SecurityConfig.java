@@ -37,6 +37,7 @@ public class SecurityConfig {
 
     private static final String[] PUBLIC_URL = {
             "/api/v1/auth/**",
+            "/auth/**",
     };
 
     private final AuthEntryPointJwt unauthorizedHandler;
