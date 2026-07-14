@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { getExportReceipts } from "@/mock-services"
+import { getExportReceipts } from "@/features/stock/services/export-service"
 import type { ExportReceipt, ResponsePage } from "@/utils/types"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"

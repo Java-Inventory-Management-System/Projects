@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { useAuthStore } from "@/store/auth-store"
-import { getImportReceipts } from "@/mock-services"
+import { getImportReceipts } from "@/features/stock/services/import-service"
 import type { ImportReceipt, ResponsePage } from "@/utils/types"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
