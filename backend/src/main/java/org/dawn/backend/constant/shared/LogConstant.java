@@ -33,6 +33,10 @@ public class LogConstant {
         public static final String CREATE_EXPORT = "CREATE_EXPORT";
         public static final String APPROVE_EXPORT = "APPROVE_EXPORT";
         public static final String CANCEL_EXPORT = "CANCEL_EXPORT";
+        public static final String CREATE_STOCK_CHECK = "CREATE_STOCK_CHECK";
+        public static final String COMPLETE_STOCK_CHECK = "COMPLETE_STOCK_CHECK";
+        public static final String APPROVE_STOCK_CHECK = "APPROVE_STOCK_CHECK";
+        public static final String REJECT_STOCK_CHECK = "REJECT_STOCK_CHECK";
     }
 
     public static class Entity {
@@ -46,6 +50,8 @@ public class LogConstant {
         public static final String LOCATION = "LOCATION";
         public static final String CUSTOMER = "CUSTOMER";
         public static final String EXPORT_RECEIPT = "EXPORT_RECEIPT";
+        public static final String STOCK_CHECK = "STOCK_CHECK";
+        public static final String STOCK_CHECK_ITEM = "STOCK_CHECK_ITEM";
     }
 
     public static class Status {
