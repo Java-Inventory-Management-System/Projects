@@ -21,8 +21,8 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination"
-import { getInventory } from "@/lib/mock-data"
-import type { InventoryItem, Pagination as PaginationType } from "@/lib/types"
+import { getInventory } from "@/mock-services"
+import type { InventoryItem, ResponsePage } from "@/utils/types"
 
 export function InventoryPage() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -30,7 +30,7 @@ export function InventoryPage() {
   const search = searchParams.get("q") ?? ""
 
   const [items, setItems] = useState<InventoryItem[]>([])
-  const [pagination, setPagination] = useState<PaginationType | null>(null)
+  const [pagination, setPagination] = useState<ResponsePage["pagination"] | null>(null)
   const [loading, setLoading] = useState(true)
   const [searchInput, setSearchInput] = useState(search)
 

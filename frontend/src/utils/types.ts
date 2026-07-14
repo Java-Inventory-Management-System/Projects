@@ -95,17 +95,73 @@ export interface SupplierResponse {
   updatedAt: string
 }
 
-// ============ Inventory (UI mock) ============
+// ============ Customer ============
 
-export interface InventoryItem {
+export interface CustomerResponse {
   id: number
+  name: string
+  phone: string | null
+  email: string | null
+  address: string | null
+  note: string | null
+  isActive: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+// ============ Location ============
+
+export interface LocationResponse {
+  id: number
+  zoneCode: string
+  shelfCode: string
+  binCode: string
+  fullCode: string
+  description: string | null
+  isActive: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+// ============ Product Unit (Inventory) ============
+
+export interface ProductUnit {
+  id: number
+  serialNumber: string
   productId: number
   productName: string
   productSku: string
-  quantity: number
-  minStock: number
-  location: string | null
-  updatedAt: string
+  trackingType: "serialized" | "bulk"
+  initialQuantity: number | null
+  remainingQuantity: number | null
+  locationId: number | null
+  locationCode: string | null
+  status: ProductUnitStatus
+  importedAt: string
+  warrantyMonths: number | null
+  createdAt: string
+}
+
+export type ProductUnitStatus =
+  | "in_stock"
+  | "sold"
+  | "defective"
+  | "damaged_in_storage"
+  | "lost"
+  | "under_repair"
+  | "sent_to_manufacturer"
+  | "returned"
+  | "returned_to_supplier"
+  | "removed"
+  | "disposed"
+
+// ============ Dashboard ============
+
+export interface DashboardStats {
+  totalProducts: number
+  totalItems: number
+  lowStockCount: number
+  activeProducts: number
 }
 
 // ============ Audit Log ============

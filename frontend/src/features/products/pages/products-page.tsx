@@ -28,8 +28,8 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination"
-import { getProducts, getBrands, getCategories } from "@/lib/mock-data"
-import type { ProductResponse, BrandResponse, CategoryResponse, Pagination as PaginationType } from "@/lib/types"
+import { getProducts, getBrands, getCategories } from "@/mock-services"
+import type { ProductResponse, BrandResponse, CategoryResponse, ResponsePage } from "@/utils/types"
 
 export function ProductsPage() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -39,7 +39,7 @@ export function ProductsPage() {
   const categoryId = searchParams.get("categoryId") ? Number(searchParams.get("categoryId")) : undefined
 
   const [products, setProducts] = useState<ProductResponse[]>([])
-  const [pagination, setPagination] = useState<PaginationType | null>(null)
+  const [pagination, setPagination] = useState<ResponsePage["pagination"] | null>(null)
   const [loading, setLoading] = useState(true)
   const [brands, setBrands] = useState<BrandResponse[]>([])
   const [categories, setCategories] = useState<CategoryResponse[]>([])
