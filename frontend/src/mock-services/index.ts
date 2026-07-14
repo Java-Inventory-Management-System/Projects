@@ -7,8 +7,21 @@ import type {
   InventoryItem,
   DashboardStats,
   ResponsePage,
+  CustomerResponse,
+  ImportReceipt,
+  ExportReceipt,
 } from "@/utils/types"
-import { brands, categories, products, users, inventoryItems, auditLogs } from "./data"
+import {
+  brands,
+  categories,
+  products,
+  users,
+  inventoryItems,
+  auditLogs,
+  customers,
+  importReceipts,
+  exportReceipts,
+} from "./data"
 
 function delay(ms = 250) {
   return new Promise((r) => setTimeout(r, ms))
@@ -104,6 +117,107 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     lowStockCount: lowStock.length,
     activeProducts: products.filter((p) => p.isActive).length,
   }
+}
+
+// ==================== Customers ====================
+
+export async function getCustomers(page = 0, size = 20, search?: string): Promise<ResponsePage<CustomerResponse>> {
+  await delay(100)
+  let filtered = customers.filter((c) => c.isActive)
+  if (search) {
+    const q = search.toLowerCase()
+    filtered = filtered.filter(
+      (c) => c.name.toLowerCase().includes(q) || (c.phone ?? "").includes(q),
+    )
+  }
+  return paginate(filtered, page, size)
+}
+
+export async function createCustomer(data: Omit<CustomerResponse, "id" | "createdAt" | "updatedAt" | "isActive">): Promise<CustomerResponse> {
+  await delay(200)
+  const customer: CustomerResponse = {
+    ...data,
+    id: customers.length + 1,
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  }
+  customers.push(customer)
+  return customer
+}
+
+// ==================== Import Receipts ====================
+
+export async function getImportReceipts(page = 0, size = 20): Promise<ResponsePage<ImportReceipt>> {
+  await delay()
+  const sorted = [...importReceipts].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+  return paginate(sorted, page, size)
+}
+
+let nextImportId = importReceipts.length + 1
+let nextImportItemId = importReceipts.reduce((max, r) => Math.max(max, ...r.items.map((i) => i.id)), 0) + 1
+
+export async function createImportReceipt(
+  data: Omit<ImportReceipt, "id" | "receiptCode" | "status" | "approvedBy" | "approvedByName" | "createdAt" | "updatedAt" | "createdByName">,
+  userId: number,
+  userName: string,
+): Promise<ImportReceipt> {
+  await delay(300)
+  const now = new Date()
+  const dateStr = now.toISOString().slice(0, 10).replace(/-/g, "")
+  const seq = String(importReceipts.filter((r) => r.receiptCode.includes(dateStr)).length + 1).padStart(3, "0")
+  const receipt: ImportReceipt = {
+    ...data,
+    id: nextImportId++,
+    receiptCode: `IMP-${dateStr}-${seq}`,
+    status: "draft",
+    createdBy: userId,
+    createdByName: userName,
+    approvedBy: null,
+    approvedByName: null,
+    createdAt: now.toISOString(),
+    updatedAt: now.toISOString(),
+    items: data.items.map((item, idx) => ({ ...item, id: nextImportItemId++ })),
+  }
+  importReceipts.push(receipt)
+  return receipt
+}
+
+// ==================== Export Receipts ====================
+
+export async function getExportReceipts(page = 0, size = 20): Promise<ResponsePage<ExportReceipt>> {
+  await delay()
+  const sorted = [...exportReceipts].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+  return paginate(sorted, page, size)
+}
+
+let nextExportId = exportReceipts.length + 1
+let nextExportItemId = exportReceipts.reduce((max, r) => Math.max(max, ...r.items.map((i) => i.id)), 0) + 1
+
+export async function createExportReceipt(
+  data: Omit<ExportReceipt, "id" | "receiptCode" | "status" | "approvedBy" | "approvedByName" | "createdAt" | "updatedAt" | "createdByName">,
+  userId: number,
+  userName: string,
+): Promise<ExportReceipt> {
+  await delay(300)
+  const now = new Date()
+  const dateStr = now.toISOString().slice(0, 10).replace(/-/g, "")
+  const seq = String(exportReceipts.filter((r) => r.receiptCode.includes(dateStr)).length + 1).padStart(3, "0")
+  const receipt: ExportReceipt = {
+    ...data,
+    id: nextExportId++,
+    receiptCode: `EXP-${dateStr}-${seq}`,
+    status: "draft",
+    createdBy: userId,
+    createdByName: userName,
+    approvedBy: null,
+    approvedByName: null,
+    createdAt: now.toISOString(),
+    updatedAt: now.toISOString(),
+    items: data.items.map((item, idx) => ({ ...item, id: nextExportItemId++ })),
+  }
+  exportReceipts.push(receipt)
+  return receipt
 }
 
 // ==================== Audit Logs ====================
