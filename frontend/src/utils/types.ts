@@ -164,6 +164,69 @@ export interface DashboardStats {
   activeProducts: number
 }
 
+// ============ Import Receipt ============
+
+export interface ImportReceipt {
+  id: number
+  receiptCode: string
+  supplierId: number
+  supplierName: string
+  referenceDoc: string | null
+  status: ImportReceiptStatus
+  createdBy: number
+  createdByName: string
+  approvedBy: number | null
+  approvedByName: string | null
+  note: string | null
+  totalAmount: number
+  createdAt: string
+  updatedAt: string
+  items: ImportReceiptItem[]
+}
+
+export type ImportReceiptStatus = "draft" | "pending_approval" | "completed" | "cancelled"
+
+export interface ImportReceiptItem {
+  id: number
+  productId: number
+  productName: string
+  productSku: string
+  quantity: number
+  unitPrice: number
+  warrantyMonths: number
+}
+
+// ============ Export Receipt ============
+
+export interface ExportReceipt {
+  id: number
+  receiptCode: string
+  reason: ExportReason
+  customerId: number | null
+  customerName: string | null
+  status: ExportReceiptStatus
+  createdBy: number
+  createdByName: string
+  approvedBy: number | null
+  approvedByName: string | null
+  note: string | null
+  createdAt: string
+  updatedAt: string
+  items: ExportReceiptItem[]
+}
+
+export type ExportReason = "sale" | "internal" | "return_supplier" | "disposal"
+export type ExportReceiptStatus = "draft" | "pending_approval" | "completed" | "cancelled"
+
+export interface ExportReceiptItem {
+  id: number
+  productId: number
+  productName: string
+  productSku: string
+  quantity: number
+  unitPrice: number
+}
+
 // ============ Audit Log ============
 
 export interface AuditLog {

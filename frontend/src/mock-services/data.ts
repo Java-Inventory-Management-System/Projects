@@ -5,6 +5,9 @@ import type {
   InventoryItem,
   UserResponse,
   AuditLog,
+  CustomerResponse,
+  ImportReceipt,
+  ExportReceipt,
 } from "@/utils/types"
 
 // ==================== BRANDS ====================
@@ -123,6 +126,79 @@ export const inventoryItems: InventoryItem[] = [
   { id: 28, productId: 28, productName: "Samsung 980 Pro 500GB NVMe", productSku: "STO-SAM-003", quantity: 18, minStock: 10, location: "C-02-02", updatedAt: "2026-07-14T08:00:00Z" },
   { id: 29, productId: 29, productName: "WD Blue SN580 1TB NVMe", productSku: "STO-WD-002", quantity: 22, minStock: 10, location: "C-03-01", updatedAt: "2026-07-14T08:00:00Z" },
   { id: 30, productId: 30, productName: "Noctua NH-D15 chromax.black", productSku: "CLN-NOC-001", quantity: 5, minStock: 5, location: "H-02-02", updatedAt: "2026-07-14T08:00:00Z" },
+]
+
+// ==================== CUSTOMERS ====================
+
+export const customers: CustomerResponse[] = [
+  { id: 1, name: "Công ty TNHH ABC", phone: "02812345678", email: "info@abc.vn", address: "123 Nguyễn Huệ, Q.1, TP.HCM", note: null, isActive: true, createdAt: "2026-01-15T00:00:00Z", updatedAt: "2026-01-15T00:00:00Z" },
+  { id: 2, name: "Cửa hàng PC Plus", phone: "02823456789", email: null, address: "456 Lê Lợi, Q.1, TP.HCM", note: "KH quen, thường mua số lượng lớn", isActive: true, createdAt: "2026-02-01T00:00:00Z", updatedAt: "2026-02-01T00:00:00Z" },
+  { id: 3, name: "Nguyễn Văn Minh", phone: "0909123456", email: "minhnv@gmail.com", address: "789 Trần Hưng Đạo, Q.5, TP.HCM", note: null, isActive: true, createdAt: "2026-03-10T00:00:00Z", updatedAt: "2026-03-10T00:00:00Z" },
+  { id: 4, name: "Trần Thị Lan", phone: "0918234567", email: null, address: null, note: "KH mới", isActive: true, createdAt: "2026-05-20T00:00:00Z", updatedAt: "2026-05-20T00:00:00Z" },
+  { id: 5, name: "Công ty TNHH Thiết bị số Hoàng Gia", phone: "02834567890", email: "sales@hoanggia.vn", address: "321 Nguyễn Thị Minh Khai, Q.3, TP.HCM", note: null, isActive: true, createdAt: "2026-04-01T00:00:00Z", updatedAt: "2026-04-01T00:00:00Z" },
+  { id: 6, name: "Phạm Hoàng Quân", phone: "0978563412", email: null, address: "654 Lý Tự Trọng, Q.10, TP.HCM", note: null, isActive: false, createdAt: "2026-06-01T00:00:00Z", updatedAt: "2026-06-01T00:00:00Z" },
+]
+
+// ==================== IMPORT RECEIPTS ====================
+
+export const importReceipts: ImportReceipt[] = [
+  {
+    id: 1, receiptCode: "IMP-20260701-001", supplierId: 1, supplierName: "Intel Vietnam", referenceDoc: "HD/INTEL/0726-01",
+    status: "completed", createdBy: 4, createdByName: "Lê Văn C — Nhân viên kho", approvedBy: 2, approvedByName: "Nguyễn Văn A — Quản lý kho",
+    note: null, totalAmount: 28996000, createdAt: "2026-07-01T09:00:00Z", updatedAt: "2026-07-01T14:00:00Z",
+    items: [
+      { id: 1, productId: 1, productName: "Intel Core i7-14700K", productSku: "CPU-INT-001", quantity: 10, unitPrice: 9499000, warrantyMonths: 36 },
+      { id: 2, productId: 2, productName: "Intel Core i5-14600K", productSku: "CPU-INT-002", quantity: 15, unitPrice: 6999000, warrantyMonths: 36 },
+    ],
+  },
+  {
+    id: 2, receiptCode: "IMP-20260705-001", supplierId: 2, supplierName: "Corsair Asia Pte Ltd", referenceDoc: null,
+    status: "pending_approval", createdBy: 6, createdByName: "Nguyễn Văn Hùng", approvedBy: null, approvedByName: null,
+    note: "Đợi QL kiểm tra số lượng thực tế", totalAmount: 42984000, createdAt: "2026-07-05T10:30:00Z", updatedAt: "2026-07-05T10:30:00Z",
+    items: [
+      { id: 3, productId: 12, productName: "Corsair Vengeance DDR5 32GB 5600MHz", productSku: "RAM-COR-001", quantity: 20, unitPrice: 2499000, warrantyMonths: 24 },
+      { id: 4, productId: 20, productName: "Corsair RM850x 850W", productSku: "PSU-COR-001", quantity: 10, unitPrice: 2999000, warrantyMonths: 60 },
+    ],
+  },
+  {
+    id: 3, receiptCode: "IMP-20260710-001", supplierId: 3, supplierName: "Samsung Vina", referenceDoc: null,
+    status: "draft", createdBy: 4, createdByName: "Lê Văn C — Nhân viên kho", approvedBy: null, approvedByName: null,
+    note: null, totalAmount: 24450000, createdAt: "2026-07-10T08:00:00Z", updatedAt: "2026-07-10T08:00:00Z",
+    items: [
+      { id: 5, productId: 9, productName: "Samsung 990 Pro 1TB NVMe", productSku: "STO-SAM-001", quantity: 15, unitPrice: 3899000, warrantyMonths: 60 },
+      { id: 6, productId: 10, productName: "Samsung 870 EVO 500GB SATA", productSku: "STO-SAM-002", quantity: 30, unitPrice: 1599000, warrantyMonths: 36 },
+    ],
+  },
+]
+
+// ==================== EXPORT RECEIPTS ====================
+
+export const exportReceipts: ExportReceipt[] = [
+  {
+    id: 1, receiptCode: "EXP-20260702-001", reason: "sale", customerId: 1, customerName: "Công ty TNHH ABC",
+    status: "completed", createdBy: 4, createdByName: "Lê Văn C — Nhân viên kho", approvedBy: 2, approvedByName: "Nguyễn Văn A — Quản lý kho",
+    note: null, createdAt: "2026-07-02T14:00:00Z", updatedAt: "2026-07-02T16:00:00Z",
+    items: [
+      { id: 1, productId: 1, productName: "Intel Core i7-14700K", productSku: "CPU-INT-001", quantity: 3, unitPrice: 11499000 },
+      { id: 2, productId: 9, productName: "Samsung 990 Pro 1TB NVMe", productSku: "STO-SAM-001", quantity: 5, unitPrice: 4899000 },
+    ],
+  },
+  {
+    id: 2, receiptCode: "EXP-20260708-001", reason: "sale", customerId: 3, customerName: "Nguyễn Văn Minh",
+    status: "pending_approval", createdBy: 6, createdByName: "Nguyễn Văn Hùng", approvedBy: null, approvedByName: null,
+    note: "Chờ duyệt xuất", createdAt: "2026-07-08T11:00:00Z", updatedAt: "2026-07-08T11:00:00Z",
+    items: [
+      { id: 3, productId: 5, productName: "ASUS ROG Strix RTX 4060 OC 8GB", productSku: "GPU-ASU-001", quantity: 2, unitPrice: 15299000 },
+    ],
+  },
+  {
+    id: 3, receiptCode: "EXP-20260712-001", reason: "internal", customerId: null, customerName: null,
+    status: "draft", createdBy: 4, createdByName: "Lê Văn C — Nhân viên kho", approvedBy: null, approvedByName: null,
+    note: "Xuất nội bộ — bàn giao phòng kỹ thuật", createdAt: "2026-07-12T09:00:00Z", updatedAt: "2026-07-12T09:00:00Z",
+    items: [
+      { id: 4, productId: 22, productName: "Corsair 4000D Airflow", productSku: "CSE-COR-001", quantity: 1, unitPrice: 0 },
+    ],
+  },
 ]
 
 // ==================== AUDIT LOGS ====================
