@@ -121,18 +121,19 @@ public class ExportReceiptService {
                 available = productUnitRepository.findAvailableForExport(itemReq.productId());
             }
 
-            int needed = itemReq.quantity();
-            int availableQty = isBulk
-                    ? available.stream().mapToInt(u -> u.getRemainingQuantity().intValue()).sum()
-                    : available.size();
+            BigDecimal needed = itemReq.quantity();
+            BigDecimal availableQty = isBulk
+                    ? available.stream().map(ProductUnit::getRemainingQuantity)
+                            .reduce(BigDecimal.ZERO, BigDecimal::add)
+                    : BigDecimal.valueOf(available.size());
 
-            if (availableQty < needed) {
+            if (availableQty.compareTo(needed) < 0) {
                 throw new InvalidRequestException(
                         Message.format(Message.Inventory.INSUFFICIENT_STOCK, product.getName(), availableQty, needed));
             }
 
             BigDecimal totalPrice = itemReq.unitPrice() != null
-                    ? itemReq.unitPrice().multiply(BigDecimal.valueOf(needed))
+                    ? itemReq.unitPrice().multiply(needed)
                     : BigDecimal.ZERO;
 
             ExportReceiptItem item = ExportReceiptItem.builder()
@@ -144,29 +145,30 @@ public class ExportReceiptService {
                     .build();
             item = exportReceiptItemRepository.save(item);
 
-            int remaining = needed;
+            BigDecimal remaining = needed;
             if (isBulk) {
                 for (ProductUnit pu : available) {
-                    if (remaining <= 0) break;
-                    BigDecimal take = pu.getRemainingQuantity().min(BigDecimal.valueOf(remaining));
+                    if (remaining.compareTo(BigDecimal.ZERO) <= 0) break;
+                    BigDecimal take = pu.getRemainingQuantity().min(remaining);
                     exportReceiptItemUnitRepository.save(ExportReceiptItemUnit.builder()
                             .exportReceiptItemId(item.getId())
                             .productUnitId(pu.getId())
                             .quantity(take)
                             .sellPrice(itemReq.unitPrice())
                             .build());
-                    remaining -= take.intValue();
+                    remaining = remaining.subtract(take);
                 }
             } else {
+                int remainingInt = needed.intValue();
                 for (ProductUnit pu : available) {
-                    if (remaining <= 0) break;
+                    if (remainingInt <= 0) break;
                     exportReceiptItemUnitRepository.save(ExportReceiptItemUnit.builder()
                             .exportReceiptItemId(item.getId())
                             .productUnitId(pu.getId())
                             .quantity(BigDecimal.ONE)
                             .sellPrice(itemReq.unitPrice())
                             .build());
-                    remaining--;
+                    remainingInt--;
                 }
             }
 

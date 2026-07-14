@@ -121,11 +121,12 @@ public class ImportReceiptService {
             String unit = product.getUnit();
             String trackingType = product.getTrackingType();
             boolean isBulk = BULK_UNITS.contains(unit);
+            BigDecimal qty = itemReq.quantity();
 
             ImportReceiptItem item = ImportReceiptItem.builder()
                     .receiptId(receiptId)
                     .productId(itemReq.productId())
-                    .quantity(itemReq.quantity())
+                    .quantity(qty)
                     .unitPrice(itemReq.unitPrice())
                     .warrantyMonths(itemReq.warrantyMonths())
                     .build();
@@ -137,8 +138,8 @@ public class ImportReceiptService {
                         .serialNumber(null)
                         .productId(itemReq.productId())
                         .trackingType(trackingType)
-                        .initialQuantity(BigDecimal.valueOf(itemReq.quantity()))
-                        .remainingQuantity(BigDecimal.valueOf(itemReq.quantity()))
+                        .initialQuantity(qty)
+                        .remainingQuantity(qty)
                         .importReceiptItemId(item.getId())
                         .locationId(itemReq.locationId())
                         .status(ProductUnitStatus.IN_STOCK.name())
@@ -170,7 +171,7 @@ public class ImportReceiptService {
             }
 
             BigDecimal lineTotal = itemReq.unitPrice() != null
-                    ? itemReq.unitPrice().multiply(BigDecimal.valueOf(itemReq.quantity()))
+                    ? itemReq.unitPrice().multiply(qty)
                     : BigDecimal.ZERO;
             totalAmount = totalAmount.add(lineTotal);
         }

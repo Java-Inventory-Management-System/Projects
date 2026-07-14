@@ -25,7 +25,7 @@ public record ImportReceiptResponse(
             Long productId,
             String productName,
             String productSku,
-            Integer quantity,
+            BigDecimal quantity,
             BigDecimal unitPrice,
             Integer warrantyMonths,
             Integer createdUnits

@@ -11,7 +11,7 @@ public record ImportReceiptRequest(
 ) {
     public record ImportItemRequest(
             Long productId,
-            Integer quantity,
+            BigDecimal quantity,
             BigDecimal unitPrice,
             Integer warrantyMonths,
             String serialNumber,

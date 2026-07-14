@@ -23,8 +23,8 @@ public class ExportReceiptItem extends BaseEntity {
     @Column(name = "product_id", nullable = false)
     private Long productId;
 
-    @Column(name = "quantity", nullable = false)
-    private Integer quantity;
+    @Column(name = "quantity", nullable = false, precision = 15, scale = 2)
+    private BigDecimal quantity;
 
     @Column(name = "unit_price", precision = 15, scale = 2)
     private BigDecimal unitPrice;
