@@ -177,7 +177,7 @@ export function ExportCreatePage() {
       </div>
 
       {items.length > 0 && (
-        <div className="rounded-lg border">
+        <div className="rounded-lg border overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
