@@ -107,8 +107,14 @@ export function ImportCreatePage() {
   }
 
   const totalAmount = items.reduce((sum, i) => sum + i.quantity * i.unitPrice, 0)
-  const allSerialsComplete = items.every((i) => i.serials.length >= i.quantity)
-  const missingSerials = items.filter((i) => i.serials.length < i.quantity)
+  const serialIssues = items
+    .map((i) => {
+      if (i.serials.length < i.quantity) return { name: i.productName, issue: `thiếu ${i.quantity - i.serials.length} serial` }
+      if (i.serials.length > i.quantity) return { name: i.productName, issue: `thừa ${i.serials.length - i.quantity} serial` }
+      return null
+    })
+    .filter(Boolean) as { name: string; issue: string }[]
+  const allSerialsOk = serialIssues.length === 0
 
   const handleSubmit = async () => {
     if (!supplierId) {
@@ -119,8 +125,8 @@ export function ImportCreatePage() {
       toast.error("Chưa có sản phẩm nào trong phiếu")
       return
     }
-    if (!allSerialsComplete) {
-      toast.error(`Còn ${missingSerials.length} sản phẩm chưa nhập đủ serial`)
+    if (!allSerialsOk) {
+      toast.error(serialIssues.map((s) => `${s.name}: ${s.issue}`).join("\n"))
       return
     }
     if (!user) return
