@@ -26,7 +26,7 @@ public record ExportReceiptResponse(
             Long productId,
             String productName,
             String productSku,
-            Integer quantity,
+            BigDecimal quantity,
             BigDecimal unitPrice
     ) {}
 }
