@@ -100,6 +100,11 @@ public class Message {
         public static final String EXPORT_RECEIPT_NOT_FOUND = "Export receipt not found";
         public static final String EXPORT_ALREADY_CANCELLED = "Export receipt already cancelled";
         public static final String INSUFFICIENT_STOCK = "Insufficient stock for {0}: available {1}, needed {2}";
+        public static final String STOCK_CHECK_NOT_FOUND = "Stock check not found";
+        public static final String STOCK_CHECK_ALREADY_APPROVED = "Stock check already approved";
+        public static final String STOCK_CHECK_ALREADY_REJECTED = "Stock check already rejected";
+        public static final String STOCK_CHECK_ALREADY_COMPLETED = "Stock check already completed";
+        public static final String STOCK_CHECK_ITEMS_REQUIRED = "At least one stock check item is required";
     }
 
     // User
