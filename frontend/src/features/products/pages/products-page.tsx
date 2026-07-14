@@ -127,7 +127,7 @@ export function ProductsPage() {
         )}
       </div>
 
-      <div className="rounded-lg border">
+      <div className="rounded-lg border overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
@@ -187,17 +187,35 @@ export function ProductsPage() {
                 className={page === 0 ? "pointer-events-none opacity-50" : "cursor-pointer"}
               />
             </PaginationItem>
-            {Array.from({ length: pagination.totalPages }).map((_, i) => (
-              <PaginationItem key={i}>
-                <PaginationLink
-                  isActive={i === page}
-                  onClick={() => updateParams({ page: String(i) })}
-                  className="cursor-pointer"
-                >
-                  {i + 1}
-                </PaginationLink>
-              </PaginationItem>
-            ))}
+            {(() => {
+              const t = pagination.totalPages, c = page
+              const pages: (number | "ellipsis")[] = []
+              if (t <= 7) { for (let i = 0; i < t; i++) pages.push(i) }
+              else {
+                pages.push(0)
+                if (c > 3) pages.push("ellipsis")
+                for (let i = Math.max(1, c - 2); i <= Math.min(t - 2, c + 2); i++) pages.push(i)
+                if (c < t - 4) pages.push("ellipsis")
+                pages.push(t - 1)
+              }
+              return pages.map((p, i) =>
+                p === "ellipsis" ? (
+                  <PaginationItem key={`e${i}`}>
+                    <span className="px-2 text-muted-foreground">...</span>
+                  </PaginationItem>
+                ) : (
+                  <PaginationItem key={p}>
+                    <PaginationLink
+                      isActive={p === c}
+                      onClick={() => updateParams({ page: String(p) })}
+                      className="cursor-pointer"
+                    >
+                      {p + 1}
+                    </PaginationLink>
+                  </PaginationItem>
+                )
+              )
+            })()}
             <PaginationItem>
               <PaginationNext
                 onClick={() => updateParams({ page: String(Math.min(pagination.totalPages - 1, page + 1)) })}
