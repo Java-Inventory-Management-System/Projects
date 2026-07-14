@@ -43,7 +43,7 @@ CREATE TABLE import_receipt_items (
     id              BIGINT AUTO_INCREMENT PRIMARY KEY,
     receipt_id      BIGINT        NOT NULL,
     product_id      BIGINT        NOT NULL,
-    quantity        INT           NOT NULL,
+    quantity        DECIMAL(15,2) NOT NULL,
     unit_price      DECIMAL(15,2),
     warranty_months INT,
     CONSTRAINT fk_import_item_receipt FOREIGN KEY (receipt_id) REFERENCES import_receipts(id),
@@ -59,7 +59,7 @@ CREATE TABLE product_units (
     remaining_quantity  DECIMAL(15,2),
     import_receipt_item_id BIGINT    NOT NULL,
     location_id         BIGINT,
-    status              VARCHAR(20)   NOT NULL DEFAULT 'IN_STOCK',
+    status              VARCHAR(30)   NOT NULL DEFAULT 'IN_STOCK',
     imported_at         TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     warranty_months     INT,
     warranty_start_date TIMESTAMP,
@@ -77,8 +77,8 @@ CREATE TABLE product_units (
 CREATE TABLE product_unit_status_logs (
     id              BIGINT AUTO_INCREMENT PRIMARY KEY,
     product_unit_id BIGINT      NOT NULL,
-    from_status     VARCHAR(20),
-    to_status       VARCHAR(20) NOT NULL,
+    from_status     VARCHAR(30),
+    to_status       VARCHAR(30) NOT NULL,
     source_type     VARCHAR(30) NOT NULL,
     source_id       BIGINT,
     changed_by      BIGINT      NOT NULL,
@@ -87,4 +87,69 @@ CREATE TABLE product_unit_status_logs (
     CONSTRAINT fk_status_log_changed_by FOREIGN KEY (changed_by) REFERENCES users(id),
     INDEX idx_status_log_unit (product_unit_id),
     INDEX idx_status_log_source (source_type, source_id)
+);
+
+CREATE TABLE export_receipts (
+    id            BIGINT AUTO_INCREMENT PRIMARY KEY,
+    receipt_code  VARCHAR(32)   NOT NULL UNIQUE,
+    reason        VARCHAR(30)   NOT NULL,
+    customer_id   BIGINT,
+    total_amount  DECIMAL(15,2),
+    status        VARCHAR(20)   NOT NULL DEFAULT 'PENDING_APPROVAL',
+    note          TEXT,
+    created_by    BIGINT        NOT NULL,
+    approved_by   BIGINT,
+    created_at    TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at    TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_export_customer FOREIGN KEY (customer_id) REFERENCES customers(id),
+    CONSTRAINT fk_export_created_by FOREIGN KEY (created_by) REFERENCES users(id),
+    CONSTRAINT fk_export_approved_by FOREIGN KEY (approved_by) REFERENCES users(id)
+);
+
+CREATE TABLE export_receipt_items (
+    id              BIGINT AUTO_INCREMENT PRIMARY KEY,
+    receipt_id      BIGINT        NOT NULL,
+    product_id      BIGINT        NOT NULL,
+    quantity        DECIMAL(15,2) NOT NULL,
+    unit_price      DECIMAL(15,2),
+    total_price     DECIMAL(15,2),
+    CONSTRAINT fk_export_item_receipt FOREIGN KEY (receipt_id) REFERENCES export_receipts(id),
+    CONSTRAINT fk_export_item_product FOREIGN KEY (product_id) REFERENCES products(id)
+);
+
+CREATE TABLE export_receipt_item_units (
+    id                      BIGINT AUTO_INCREMENT PRIMARY KEY,
+    export_receipt_item_id  BIGINT        NOT NULL,
+    product_unit_id         BIGINT        NOT NULL,
+    quantity                DECIMAL(15,2) NOT NULL DEFAULT 1,
+    sell_price              DECIMAL(15,2),
+    CONSTRAINT fk_export_item_unit_item FOREIGN KEY (export_receipt_item_id) REFERENCES export_receipt_items(id),
+    CONSTRAINT fk_export_item_unit_unit FOREIGN KEY (product_unit_id) REFERENCES product_units(id)
+);
+
+CREATE TABLE stock_checks (
+    id             BIGINT AUTO_INCREMENT PRIMARY KEY,
+    check_code     VARCHAR(32)   NOT NULL UNIQUE,
+    status         VARCHAR(20)   NOT NULL DEFAULT 'PENDING',
+    note           TEXT,
+    created_by     BIGINT        NOT NULL,
+    approved_by    BIGINT,
+    approval_note  TEXT,
+    created_at     TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at     TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_sc_created_by  FOREIGN KEY (created_by)  REFERENCES users(id),
+    CONSTRAINT fk_sc_approved_by FOREIGN KEY (approved_by) REFERENCES users(id)
+);
+
+CREATE TABLE stock_check_items (
+    id                BIGINT AUTO_INCREMENT PRIMARY KEY,
+    stock_check_id    BIGINT        NOT NULL,
+    product_unit_id   BIGINT        NOT NULL,
+    expected_status   VARCHAR(30),
+    actual_status     VARCHAR(30),
+    counted_quantity  DECIMAL(15,2),
+    difference        VARCHAR(20),
+    note              TEXT,
+    CONSTRAINT fk_sci_check FOREIGN KEY (stock_check_id)  REFERENCES stock_checks(id),
+    CONSTRAINT fk_sci_unit  FOREIGN KEY (product_unit_id) REFERENCES product_units(id)
 );
