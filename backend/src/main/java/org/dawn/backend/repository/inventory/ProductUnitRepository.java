@@ -23,6 +23,12 @@ public interface ProductUnitRepository extends JpaRepository<ProductUnit, Long> 
     Page<ProductUnit> findByProductId(Long productId, Pageable pageable);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("SELECT p FROM ProductUnit p WHERE p.productId = ?1 AND p.status = 'IN_STOCK' ORDER BY p.importedAt ASC")
+    @Query(value = """
+            SELECT pu.* FROM product_units pu
+            JOIN import_receipt_items iri ON pu.import_receipt_item_id = iri.id
+            JOIN import_receipts ir ON iri.receipt_id = ir.id
+            WHERE pu.product_id = ?1 AND pu.status = 'IN_STOCK' AND ir.status = 'COMPLETED'
+            ORDER BY pu.imported_at ASC
+            """, nativeQuery = true)
     List<ProductUnit> findAvailableForExport(Long productId);
 }
