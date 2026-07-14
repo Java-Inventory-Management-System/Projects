@@ -5,6 +5,8 @@ import { ProtectedRoute } from "@/components/layout/protected-route"
 import { useAuth } from "@/contexts/auth-context"
 import { LoginPage } from "@/pages/login"
 import { DashboardPage } from "@/pages/dashboard"
+import { ProductsPage } from "@/pages/products"
+import { InventoryPage } from "@/pages/inventory"
 import { ForbiddenPage } from "@/pages/forbidden"
 import { NotFoundPage } from "@/pages/not-found"
 import type { URole } from "@/lib/navigation"
@@ -46,8 +48,8 @@ export const router = createBrowserRouter([
         element: <AppShell />,
         children: [
           { index: true, element: <DashboardPage /> },
-          { path: "products", element: <Placeholder title="Products" roles={["ADMIN", "MANAGER", "SALES", "STOCK"]} /> },
-          { path: "inventory", element: <Placeholder title="Inventory" roles={["ADMIN", "MANAGER", "STOCK"]} /> },
+          { path: "products", element: <PageGuard roles={["ADMIN", "MANAGER", "SALES", "STOCK"]}><ProductsPage /></PageGuard> },
+          { path: "inventory", element: <PageGuard roles={["ADMIN", "MANAGER", "STOCK"]}><InventoryPage /></PageGuard> },
           { path: "reports", element: <Placeholder title="Reports" roles={["ADMIN", "MANAGER"]} /> },
           { path: "users", element: <Placeholder title="Users" roles={["ADMIN"]} /> },
           { path: "audit", element: <Placeholder title="Audit" roles={["ADMIN"]} /> },

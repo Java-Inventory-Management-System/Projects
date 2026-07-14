@@ -18,7 +18,7 @@ export function Sidebar({ collapsed, onNavigate }: SidebarProps) {
   return (
     <aside
       data-collapsed={collapsed}
-      className="bg-sidebar text-sidebar-foreground flex flex-col border-r transition-[width] duration-200 ease-out"
+      className="bg-sidebar text-sidebar-foreground flex h-full flex-col border-r transition-[width] duration-200 ease-out"
       style={{ width: collapsed ? "var(--sidebar-w-collapsed)" : "var(--sidebar-w)" }}
     >
       <div className="flex h-14 items-center gap-2 border-b px-4">

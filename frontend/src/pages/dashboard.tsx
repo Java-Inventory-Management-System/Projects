@@ -1,4 +1,24 @@
+import { useEffect, useState } from "react"
+import { getInventoryStats } from "@/lib/mock-data"
+
+interface Stats {
+  totalProducts: number
+  totalItems: number
+  lowStockCount: number
+  activeProducts: number
+}
+
 export function DashboardPage() {
+  const [stats, setStats] = useState<Stats | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    getInventoryStats().then((data) => {
+      setStats(data)
+      setLoading(false)
+    })
+  }, [])
+
   return (
     <div className="space-y-6">
       <div>
@@ -7,10 +27,10 @@ export function DashboardPage() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Total Products" value="—" />
-        <StatCard label="Low Stock Items" value="—" />
-        <StatCard label="Pending Orders" value="—" />
-        <StatCard label="Active Users" value="—" />
+        <StatCard label="Total Products" value={loading ? "..." : String(stats?.totalProducts ?? "—")} />
+        <StatCard label="Active Products" value={loading ? "..." : String(stats?.activeProducts ?? "—")} />
+        <StatCard label="Total Stock Items" value={loading ? "..." : String(stats?.totalItems ?? "—")} />
+        <StatCard label="Low Stock Alerts" value={loading ? "..." : String(stats?.lowStockCount ?? "—")} />
       </div>
     </div>
   )

@@ -10,28 +10,31 @@ export function AppShell() {
   const [mobileOpen, setMobileOpen] = useState(false)
 
   return (
-    <div className="flex min-h-screen">
+    <div
+      className="flex min-h-screen"
+      style={{
+        "--sidebar-w": "240px",
+        "--sidebar-w-collapsed": "56px",
+      } as React.CSSProperties}
+    >
       <div
-        style={{
-          "--sidebar-w": "240px",
-          "--sidebar-w-collapsed": "56px",
-        } as React.CSSProperties}
+        className="hidden shrink-0 md:block transition-[width] duration-200 ease-out"
+        style={{ width: collapsed ? "var(--sidebar-w-collapsed)" : "var(--sidebar-w)" }}
       >
-        <div className="hidden md:flex fixed inset-y-0 left-0 z-30">
+        <div className="fixed inset-y-0 left-0 z-30"
+          style={{ width: collapsed ? "var(--sidebar-w-collapsed)" : "var(--sidebar-w)" }}
+        >
           <Sidebar collapsed={collapsed} onToggle={() => setCollapsed((c) => !c)} />
         </div>
-
-        <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-          <SheetContent side="left" className="w-[240px] p-0">
-            <MobileSidebar collapsed={false} onToggle={() => setMobileOpen(false)} onNavigate={() => setMobileOpen(false)} />
-          </SheetContent>
-        </Sheet>
       </div>
 
-      <div
-        className="flex flex-1 flex-col transition-[margin] duration-200 ease-out"
-        style={{ marginLeft: collapsed ? "var(--sidebar-w-collapsed)" : "var(--sidebar-w)" }}
-      >
+      <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+        <SheetContent side="left" className="w-[240px] p-0">
+          <MobileSidebar collapsed={false} onToggle={() => setMobileOpen(false)} onNavigate={() => setMobileOpen(false)} />
+        </SheetContent>
+      </Sheet>
+
+      <div className="flex min-w-0 flex-1 flex-col">
         <Topbar
           collapsed={collapsed}
           onToggle={() => setCollapsed((c) => !c)}
