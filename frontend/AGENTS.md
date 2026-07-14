@@ -88,4 +88,31 @@ features/stock/services/*.ts   ← proxy re-export (swap real API sau)
 - Tất cả types phải định nghĩa trong `utils/types.ts` trước khi dùng
 - Ko import type undefined — build sẽ fail
 
+### 4. Dev workflow
+
+- **Luôn build trước commit**: `npm run build` (hoặc `npm run lint` nếu có)
+- **Commit atomic**: mỗi commit = 1 concern (feat/fix/refactor/docs riêng)
+- **Stage cụ thể**: `git add path/to/file`, ko dùng `git add .`
+- **Read AGENTS.md** trước mỗi phiên làm việc để biết convention hiện tại
+- **Ponytail**: ưu tiên giải pháp ngắn nhất, ko over-engineering, hỏi nếu cần thêm
+- **Codegraph**: tra cứu cấu trúc (symbol, callers, flow) trước grep
+
+### 5. Git commit convention (Windows cmd)
+
+Windows cmd KHÔNG hỗ trợ `\n` trong chuỗi, nên commit multi-line dùng:
+
+```
+git commit -m "type(scope): short description (max 72 chars)"
+-m "  - Detail 1: what changed"
+-m "  - Detail 2: why changed"
+-m "  - Detail 3: ponytail notes nếu có"
+```
+
+- Dùng dấu `"` kép (single quote ko hoạt động trên Windows)
+- Type: `feat` (tính năng), `fix` (bug), `refactor` (tái cấu trúc), `docs` (tài liệu), `chore` (vặt)
+- Scope: `frontend` — tên module (stock, inventory, products, ui, types, mock, ...)
+- Description: tiếng Việt, ngắn gọn, đủ hiểu
+- Detail lines: prefix `- `, mô tả cụ thể thay đổi
+- **Ko dùng** commit multi-line kiểu Bash (`-m $'line1\nline2'`) — sai syntax trên cmd
+
 <!-- RUNTIME_CONVENTIONS_END -->
