@@ -54,3 +54,38 @@ The MCP server returns "not initialized." Ask the user: _"I notice this project 
 **Design principles:** Thực dụng > hoàn mỹ, tốc độ là tính năng, rõ ràng > trang trí, professional không hào nhoáng, role-appropriate density.
 
 <!-- DESIGN_CONTEXT_END -->
+
+<!-- RUNTIME_CONVENTIONS_START -->
+
+## Runtime Conventions (từ buổi dev ngày 14/07/2026)
+
+### 1. Mock data architecture
+
+```
+mock-services/data.ts          ← seed data (thuần data, ko logic)
+mock-services/index.ts         ← CRUD functions + business logic mock
+features/stock/services/*.ts   ← proxy re-export (swap real API sau)
+```
+
+- `data.ts` chỉ chứa seed data, mỗi entity một mảng export
+- `index.ts` chứa tất cả async functions, không gọi API thật, các function chậm dùng `await delay(100)`
+- Mỗi feature có `services/` dir chứa proxy files re-export từ `@/mock-services`
+- Page files **ko bao giờ** import trực tiếp từ `@/mock-services` — phải qua proxy `features/*/services/*`
+- Page files **ko bao giờ** có hardcoded mock data arrays — gọi service function để fetch
+
+### 2. UI component conventions
+
+- **Table containers**: Luôn có `overflow-x-auto` trên wrapper `rounded-lg border`
+- **Pagination**: Dùng windowed page numbers (current ± 2, first + last, ellipsis), ko render hết `totalPages`
+- **Select**: `SelectContent` dùng `max-h-[50vh]` thay vì `--radix-select-content-available-height` (Radix variable unreliable)
+- **Toast**: Dùng `sonner` qua wrapper `utils/toast.ts`, `Toaster` trong `App.tsx`
+
+### 3. Types
+
+- `BrandResponse` = `type BrandResponse = CatalogResponse` (cùng shape)
+- `CategoryResponse` = `type CategoryResponse = CatalogResponse`
+- `InventoryItem` = interface riêng (tổng hợp tồn kho, khác `ProductUnit`)
+- Tất cả types phải định nghĩa trong `utils/types.ts` trước khi dùng
+- Ko import type undefined — build sẽ fail
+
+<!-- RUNTIME_CONVENTIONS_END -->

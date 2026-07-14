@@ -7,3 +7,9 @@
 #   - Xuất kho
 #   - (sau này) Kiểm kê
 #   - (sau này) Điều chỉnh
+
+# Search/Filter product khi thêm vào phiếu nhập/xuất
+# Hiện tại: dropdown Select đổ hết products, user lặn lội tìm thủ công
+# Cần: combobox có search (gõ tên/sku) + filter theo brand/category
+# Ví dụ: dùng shadcn Command + Popover để làm searchable select
+# Ảnh hưởng: import-create-page.tsx, export-create-page.tsx
