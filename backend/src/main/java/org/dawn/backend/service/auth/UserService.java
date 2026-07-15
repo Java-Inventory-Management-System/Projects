@@ -104,6 +104,7 @@ public class UserService {
                 .password(passwordEncoder.encode(tempPass))
                 .status(request.status() != null ? request.status() : ActiveStatus.NEW.name())
                 .roleId(role.getId())
+                .role(role)
                 .isPasswordReset(true)
                 .build();
         User savedUser = userRepository.save(user);

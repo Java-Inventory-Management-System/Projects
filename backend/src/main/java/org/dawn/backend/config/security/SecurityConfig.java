@@ -6,6 +6,7 @@ import org.dawn.backend.service.auth.UserDetailService;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -18,7 +19,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.authentication.logout.LogoutHandler;
-
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity(securedEnabled = true, jsr250Enabled = true)
@@ -97,10 +97,13 @@ public class SecurityConfig {
 
     private void configAuth(AuthorizeHttpRequestsConfigurer<HttpSecurity>.AuthorizationManagerRequestMatcherRegistry config) {
         config
-
                 .requestMatchers(SWAGGER_URL)
                 .permitAll()
-                .requestMatchers(PUBLIC_URL)
+                .requestMatchers(HttpMethod.POST, "/api/v1/auth/**")
+                .permitAll()
+                .requestMatchers("/auth/**")
+                .permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/v1/auth/login")
                 .permitAll()
                 .anyRequest()
                 .authenticated();
