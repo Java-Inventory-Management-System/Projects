@@ -78,6 +78,35 @@ public class Message {
         public static final String INVALID_UNIT_TRACKING = "Product unit %s requires tracking_type = %s";
     }
 
+    // Inventory
+    public static final class Inventory {
+        private Inventory() {}
+
+        public static final String LOCATION_NOT_FOUND = "Location not found";
+        public static final String LOCATION_CODE_EXISTS = "Location code already exists";
+        public static final String CUSTOMER_NOT_FOUND = "Customer not found";
+        public static final String IMPORT_RECEIPT_NOT_FOUND = "Import receipt not found";
+        public static final String IMPORT_ITEM_NOT_FOUND = "Import receipt item not found";
+        public static final String RECEIPT_CODE_EXISTS = "Receipt code already exists";
+        public static final String PRODUCT_UNIT_NOT_FOUND = "Product unit not found";
+        public static final String SERIAL_ALREADY_EXISTS = "Serial number already exists";
+        public static final String IMPORT_ALREADY_COMPLETED = "Import receipt already completed";
+        public static final String IMPORT_ALREADY_CANCELLED = "Import receipt already cancelled";
+        public static final String IMPORT_CANNOT_CANCEL_UNITS_EXPORTED = "Cannot cancel: some units have been exported";
+        public static final String CREATOR_CANNOT_APPROVE = "Creator cannot approve their own transaction";
+        public static final String SERIAL_REQUIRED_FOR_SERIALIZED = "Serial number is required for serialized products";
+        public static final String SERIAL_NOT_ALLOWED_FOR_BULK = "Serial number not allowed for bulk products";
+        public static final String INVALID_UNIT_TRACKING = "Product unit %s requires tracking_type = %s";
+        public static final String EXPORT_RECEIPT_NOT_FOUND = "Export receipt not found";
+        public static final String EXPORT_ALREADY_CANCELLED = "Export receipt already cancelled";
+        public static final String INSUFFICIENT_STOCK = "Insufficient stock for {0}: available {1}, needed {2}";
+        public static final String STOCK_CHECK_NOT_FOUND = "Stock check not found";
+        public static final String STOCK_CHECK_ALREADY_APPROVED = "Stock check already approved";
+        public static final String STOCK_CHECK_ALREADY_REJECTED = "Stock check already rejected";
+        public static final String STOCK_CHECK_ALREADY_COMPLETED = "Stock check already completed";
+        public static final String STOCK_CHECK_ITEMS_REQUIRED = "At least one stock check item is required";
+    }
+
     // User
     public static final class User {
         private User() {
