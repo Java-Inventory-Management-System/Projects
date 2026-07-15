@@ -217,18 +217,21 @@ export async function createImportReceipt(
   const now = new Date()
   const dateStr = now.toISOString().slice(0, 10).replace(/-/g, "")
   const seq = String(importReceipts.filter((r) => r.receiptCode.includes(dateStr)).length + 1).padStart(3, "0")
+  const items = data.items.map((item) => ({ ...item, id: nextImportItemId++, createdUnits: item.quantity }))
+  const totalAmount = items.reduce((s, i) => s + i.quantity * i.unitPrice, 0)
   const receipt: ImportReceipt = {
     ...data,
     id: nextImportId++,
     receiptCode: `IMP-${dateStr}-${seq}`,
     status: "PENDING",
+    totalAmount,
     createdBy: userId,
     createdByName: userName,
     approvedBy: null,
     approvedByName: null,
     createdAt: now.toISOString(),
     updatedAt: now.toISOString(),
-    items: data.items.map((item) => ({ ...item, id: nextImportItemId++, createdUnits: item.quantity })),
+    items,
   }
   importReceipts.push(receipt)
   return receipt
@@ -262,18 +265,21 @@ export async function createExportReceipt(
   const now = new Date()
   const dateStr = now.toISOString().slice(0, 10).replace(/-/g, "")
   const seq = String(exportReceipts.filter((r) => r.receiptCode.includes(dateStr)).length + 1).padStart(3, "0")
+  const items = data.items.map((item) => ({ ...item, id: nextExportItemId++ }))
+  const totalAmount = items.reduce((s, i) => s + i.quantity * i.unitPrice, 0)
   const receipt: ExportReceipt = {
     ...data,
     id: nextExportId++,
     receiptCode: `EXP-${dateStr}-${seq}`,
     status: "PENDING_APPROVAL",
+    totalAmount,
     createdBy: userId,
     createdByName: userName,
     approvedBy: null,
     approvedByName: null,
     createdAt: now.toISOString(),
     updatedAt: now.toISOString(),
-    items: data.items.map((item, idx) => ({ ...item, id: nextExportItemId++ })),
+    items,
   }
   exportReceipts.push(receipt)
   return receipt
