@@ -15,7 +15,7 @@ import type {
   ProductUnit,
 } from "@/utils/types"
 import { brands, categories, locations, users, auditLogs } from "./data"
-import { generateMockData } from "./generator"
+import { SEED, generateMockData } from "./generator"
 
 const {
   products,
@@ -25,7 +25,7 @@ const {
   exportReceipts,
   productUnits,
   inventoryItems,
-} = generateMockData()
+} = generateMockData(SEED)
 
 function delay(ms = 250) {
   return new Promise((r) => setTimeout(r, ms))

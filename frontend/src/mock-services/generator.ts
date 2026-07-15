@@ -13,6 +13,8 @@ import type {
 } from "@/utils/types"
 import { brands, categories, locations, users } from "./data"
 
+export const SEED = 42
+
 type Rng = () => number
 
 function mulberry32(seed: number): Rng {
@@ -272,8 +274,8 @@ export interface GeneratedData {
   inventoryItems: InventoryItem[]
 }
 
-export function generateMockData(): GeneratedData {
-  const rng = mulberry32(42)
+export function generateMockData(seed = SEED): GeneratedData {
+  const rng = mulberry32(seed)
   const products: ProductResponse[] = []
   const skuCounter: Record<string, number> = {}
 
