@@ -1,19 +1,12 @@
 import type {
   BrandResponse,
   CategoryResponse,
-  ProductResponse,
-  InventoryItem,
   UserResponse,
   AuditLog,
-  CustomerResponse,
-  ImportReceipt,
-  ExportReceipt,
   LocationResponse,
-  SupplierResponse,
-  ProductUnit,
 } from "@/utils/types"
 
-// ==================== BRANDS ====================
+// ==================== BRANDS (hardcoded) ====================
 
 export const brands: BrandResponse[] = [
   { id: 1, name: "ASUS", description: "Mainboard, GPU, linh kiện cao cấp", isActive: true, createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z" },
@@ -31,7 +24,7 @@ export const brands: BrandResponse[] = [
   { id: 13, name: "Kingston", description: "RAM, SSD", isActive: false, createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z" },
 ]
 
-// ==================== CATEGORIES ====================
+// ==================== CATEGORIES (hardcoded) ====================
 
 export const categories: CategoryResponse[] = [
   { id: 1, name: "CPU", description: "Bộ vi xử lý Intel, AMD", isActive: true, createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z" },
@@ -44,7 +37,7 @@ export const categories: CategoryResponse[] = [
   { id: 8, name: "Cooling", description: "Tản nhiệt, quạt", isActive: true, createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z" },
 ]
 
-// ==================== LOCATIONS ====================
+// ==================== LOCATIONS (hardcoded) ====================
 
 export const locations: LocationResponse[] = [
   { id: 1, zoneCode: "A", shelfCode: "01", binCode: "01", fullCode: "A-01-01", description: "CPU Intel", isActive: true, createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z" },
@@ -74,51 +67,14 @@ export const locations: LocationResponse[] = [
   { id: 25, zoneCode: "G", shelfCode: "01", binCode: "02", fullCode: "G-01-02", description: "Case Corsair 4000D Black", isActive: true, createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z" },
   { id: 26, zoneCode: "G", shelfCode: "02", binCode: "01", fullCode: "G-02-01", description: "Case ASUS Helios", isActive: true, createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z" },
   { id: 27, zoneCode: "H", shelfCode: "01", binCode: "01", fullCode: "H-01-01", description: "Cooling Corsair AIO", isActive: true, createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z" },
-  { id: 28, zoneCode: "H", shelfCode: "01", binCode: "02", fullCode: "H-01-02", description: "Cooling Cooler Master", isActive: true, createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z" },
+  { id: 28, zoneCode: "H", shelfCode: "01", binCode: "02", fullCode: "H-02-01", description: "Cooling Cooler Master", isActive: true, createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z" },
   { id: 29, zoneCode: "H", shelfCode: "02", binCode: "01", fullCode: "H-02-01", description: "Cooling ASUS ROG", isActive: true, createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z" },
   { id: 30, zoneCode: "H", shelfCode: "02", binCode: "02", fullCode: "H-02-02", description: "Cooling Noctua", isActive: true, createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z" },
   { id: 31, zoneCode: "I", shelfCode: "01", binCode: "01", fullCode: "I-01-01", description: "Linh kiện lẻ — chờ phân loại", isActive: true, createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z" },
   { id: 32, zoneCode: "X", shelfCode: "01", binCode: "01", fullCode: "X-01-01", description: "Khu vực cách ly — hàng hỏng/lỗi", isActive: true, createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z" },
 ]
 
-// ==================== PRODUCTS ====================
-
-export const products: ProductResponse[] = [
-  { id: 1, name: "Intel Core i7-14700K", sku: "CPU-INT-001", barcode: "8801791990741", brandId: 4, brandName: "Intel", categoryId: 1, categoryName: "CPU", description: "20 nhân 28 luồng, 5.6GHz", unit: "piece", trackingType: "serialized", sellPrice: 11499000, minStock: 5, isActive: true, createdAt: "2026-01-15T00:00:00Z", updatedAt: "2026-03-01T00:00:00Z" },
-  { id: 2, name: "Intel Core i5-14600K", sku: "CPU-INT-002", barcode: "8801791990758", brandId: 4, brandName: "Intel", categoryId: 1, categoryName: "CPU", description: "14 nhân 20 luồng, 5.3GHz", unit: "piece", trackingType: "serialized", sellPrice: 8499000, minStock: 5, isActive: true, createdAt: "2026-01-15T00:00:00Z", updatedAt: "2026-03-01T00:00:00Z" },
-  { id: 3, name: "AMD Ryzen 7 7800X3D", sku: "CPU-AMD-001", barcode: "7301435145403", brandId: 5, brandName: "AMD", categoryId: 1, categoryName: "CPU", description: "8 nhân 16 luồng, 5.0GHz, 3D V-Cache", unit: "piece", trackingType: "serialized", sellPrice: 12499000, minStock: 5, isActive: true, createdAt: "2026-01-20T00:00:00Z", updatedAt: "2026-03-05T00:00:00Z" },
-  { id: 4, name: "AMD Ryzen 5 7600", sku: "CPU-AMD-002", barcode: "7301435145410", brandId: 5, brandName: "AMD", categoryId: 1, categoryName: "CPU", description: "6 nhân 12 luồng, 5.1GHz", unit: "piece", trackingType: "serialized", sellPrice: 5999000, minStock: 5, isActive: true, createdAt: "2026-01-20T00:00:00Z", updatedAt: "2026-03-05T00:00:00Z" },
-  { id: 5, name: "ASUS ROG Strix RTX 4060 OC 8GB", sku: "GPU-ASU-001", barcode: "4711081809696", brandId: 1, brandName: "ASUS", categoryId: 3, categoryName: "GPU", description: "NVIDIA GeForce RTX 4060, 8GB GDDR6", unit: "piece", trackingType: "serialized", sellPrice: 15299000, minStock: 3, isActive: true, createdAt: "2026-02-01T00:00:00Z", updatedAt: "2026-03-10T00:00:00Z" },
-  { id: 6, name: "Gigabyte RTX 4070 Gaming OC 12GB", sku: "GPU-GIG-001", barcode: "4719331335252", brandId: 2, brandName: "Gigabyte", categoryId: 3, categoryName: "GPU", description: "NVIDIA GeForce RTX 4070, 12GB GDDR6X", unit: "piece", trackingType: "serialized", sellPrice: 20999000, minStock: 3, isActive: true, createdAt: "2026-02-01T00:00:00Z", updatedAt: "2026-03-10T00:00:00Z" },
-  { id: 7, name: "MSI RTX 4060 Ventus 2X 8GB", sku: "GPU-MSI-001", barcode: "4719072770996", brandId: 3, brandName: "MSI", categoryId: 3, categoryName: "GPU", description: "NVIDIA GeForce RTX 4060, 8GB GDDR6", unit: "piece", trackingType: "serialized", sellPrice: 13599000, minStock: 3, isActive: true, createdAt: "2026-02-05T00:00:00Z", updatedAt: "2026-03-12T00:00:00Z" },
-  { id: 8, name: "ASUS TUF Gaming RTX 4070 Ti 16GB", sku: "GPU-ASU-002", barcode: "4711081809702", brandId: 1, brandName: "ASUS", categoryId: 3, categoryName: "GPU", description: "NVIDIA GeForce RTX 4070 Ti, 16GB GDDR6X", unit: "piece", trackingType: "serialized", sellPrice: 26999000, minStock: 2, isActive: true, createdAt: "2026-02-05T00:00:00Z", updatedAt: "2026-03-12T00:00:00Z" },
-  { id: 9, name: "Samsung 990 Pro 1TB NVMe", sku: "STO-SAM-001", barcode: "8801647780469", brandId: 6, brandName: "Samsung", categoryId: 6, categoryName: "Storage", description: "PCIe 4.0 NVMe, đọc 7450MB/s", unit: "piece", trackingType: "serialized", sellPrice: 4899000, minStock: 10, isActive: true, createdAt: "2026-02-10T00:00:00Z", updatedAt: "2026-03-15T00:00:00Z" },
-  { id: 10, name: "Samsung 870 EVO 500GB SATA", sku: "STO-SAM-002", barcode: "8801647775335", brandId: 6, brandName: "Samsung", categoryId: 6, categoryName: "Storage", description: "SATA III, đọc 560MB/s", unit: "piece", trackingType: "serialized", sellPrice: 2199000, minStock: 10, isActive: true, createdAt: "2026-02-10T00:00:00Z", updatedAt: "2026-03-15T00:00:00Z" },
-  { id: 11, name: "WD Black SN850X 2TB NVMe", sku: "STO-WD-001", barcode: "7180378869301", brandId: 8, brandName: "Western Digital", categoryId: 6, categoryName: "Storage", description: "PCIe 4.0 NVMe, đọc 7300MB/s", unit: "piece", trackingType: "serialized", sellPrice: 6799000, minStock: 5, isActive: true, createdAt: "2026-02-12T00:00:00Z", updatedAt: "2026-03-18T00:00:00Z" },
-  { id: 12, name: "Corsair Vengeance DDR5 32GB 5600MHz", sku: "RAM-COR-001", barcode: "8435911058841", brandId: 7, brandName: "Corsair", categoryId: 2, categoryName: "RAM", description: "DDR5, 32GB (2x16GB), 5600MHz", unit: "piece", trackingType: "serialized", sellPrice: 3199000, minStock: 10, isActive: true, createdAt: "2026-02-15T00:00:00Z", updatedAt: "2026-03-20T00:00:00Z" },
-  { id: 13, name: "Corsair Dominator DDR5 64GB 5200MHz", sku: "RAM-COR-002", barcode: "8435911058858", brandId: 7, brandName: "Corsair", categoryId: 2, categoryName: "RAM", description: "DDR5, 64GB (2x32GB), 5200MHz", unit: "piece", trackingType: "serialized", sellPrice: 5499000, minStock: 5, isActive: true, createdAt: "2026-02-15T00:00:00Z", updatedAt: "2026-03-20T00:00:00Z" },
-  { id: 14, name: "G.Skill Trident Z5 DDR5 32GB 6000MHz", sku: "RAM-GSK-001", barcode: "4713294112293", brandId: 10, brandName: "G.Skill", categoryId: 2, categoryName: "RAM", description: "DDR5, 32GB (2x16GB), 6000MHz CL30", unit: "piece", trackingType: "serialized", sellPrice: 3499000, minStock: 10, isActive: true, createdAt: "2026-02-18T00:00:00Z", updatedAt: "2026-03-22T00:00:00Z" },
-  { id: 15, name: "ASUS ROG Strix Z790-E Gaming", sku: "MB-ASU-001", barcode: "4711081808835", brandId: 1, brandName: "ASUS", categoryId: 4, categoryName: "Mainboard", description: "LGA1700, DDR5, PCIe 5.0, WiFi 6E", unit: "piece", trackingType: "serialized", sellPrice: 11999000, minStock: 3, isActive: true, createdAt: "2026-02-20T00:00:00Z", updatedAt: "2026-03-25T00:00:00Z" },
-  { id: 16, name: "Gigabyte Z790 Aorus Elite AX", sku: "MB-GIG-001", barcode: "4719331335269", brandId: 2, brandName: "Gigabyte", categoryId: 4, categoryName: "Mainboard", description: "LGA1700, DDR5, PCIe 5.0, WiFi 6E", unit: "piece", trackingType: "serialized", sellPrice: 8499000, minStock: 3, isActive: true, createdAt: "2026-02-20T00:00:00Z", updatedAt: "2026-03-25T00:00:00Z" },
-  { id: 17, name: "MSI MAG Z790 Tomahawk", sku: "MB-MSI-001", barcode: "4719072771009", brandId: 3, brandName: "MSI", categoryId: 4, categoryName: "Mainboard", description: "LGA1700, DDR5, PCIe 5.0", unit: "piece", trackingType: "serialized", sellPrice: 9499000, minStock: 3, isActive: true, createdAt: "2026-02-22T00:00:00Z", updatedAt: "2026-03-28T00:00:00Z" },
-  { id: 18, name: "ASUS Prime B760-PLUS", sku: "MB-ASU-002", barcode: "4711081808842", brandId: 1, brandName: "ASUS", categoryId: 4, categoryName: "Mainboard", description: "LGA1700, DDR5, PCIe 4.0", unit: "piece", trackingType: "serialized", sellPrice: 5499000, minStock: 5, isActive: true, createdAt: "2026-02-22T00:00:00Z", updatedAt: "2026-03-28T00:00:00Z" },
-  { id: 19, name: "Seasonic Focus GX-750 750W", sku: "PSU-SEA-001", barcode: "4711176752019", brandId: 9, brandName: "Seasonic", categoryId: 5, categoryName: "PSU", description: "750W, Gold, Fully Modular", unit: "piece", trackingType: "serialized", sellPrice: 2999000, minStock: 5, isActive: true, createdAt: "2026-02-25T00:00:00Z", updatedAt: "2026-04-01T00:00:00Z" },
-  { id: 20, name: "Corsair RM850x 850W", sku: "PSU-COR-001", barcode: "8435911058865", brandId: 7, brandName: "Corsair", categoryId: 5, categoryName: "PSU", description: "850W, Gold, Fully Modular", unit: "piece", trackingType: "serialized", sellPrice: 3899000, minStock: 5, isActive: true, createdAt: "2026-02-25T00:00:00Z", updatedAt: "2026-04-01T00:00:00Z" },
-  { id: 21, name: "Seasonic Prime TX-1000 1000W", sku: "PSU-SEA-002", barcode: "4711176752026", brandId: 9, brandName: "Seasonic", categoryId: 5, categoryName: "PSU", description: "1000W, Titanium, Fully Modular", unit: "piece", trackingType: "serialized", sellPrice: 6999000, minStock: 3, isActive: true, createdAt: "2026-02-28T00:00:00Z", updatedAt: "2026-04-02T00:00:00Z" },
-  { id: 22, name: "Corsair 4000D Airflow", sku: "CSE-COR-001", barcode: "8435911058872", brandId: 7, brandName: "Corsair", categoryId: 7, categoryName: "Case", description: "Mid Tower, Tempered Glass, White", unit: "piece", trackingType: "serialized", sellPrice: 2499000, minStock: 3, isActive: true, createdAt: "2026-03-01T00:00:00Z", updatedAt: "2026-04-05T00:00:00Z" },
-  { id: 23, name: "Corsair 4000D Airflow Black", sku: "CSE-COR-002", barcode: "8435911058889", brandId: 7, brandName: "Corsair", categoryId: 7, categoryName: "Case", description: "Mid Tower, Tempered Glass, Black", unit: "piece", trackingType: "serialized", sellPrice: 2499000, minStock: 3, isActive: true, createdAt: "2026-03-01T00:00:00Z", updatedAt: "2026-04-05T00:00:00Z" },
-  { id: 24, name: "ASUS ROG Helios", sku: "CSE-ASU-001", barcode: "4711081808859", brandId: 1, brandName: "ASUS", categoryId: 7, categoryName: "Case", description: "Full Tower, Tempered Glass, RGB", unit: "piece", trackingType: "serialized", sellPrice: 8999000, minStock: 2, isActive: true, createdAt: "2026-03-01T00:00:00Z", updatedAt: "2026-04-05T00:00:00Z" },
-  { id: 25, name: "Corsair H150i Elite Capellix 360mm", sku: "CLN-COR-001", barcode: "8435911058896", brandId: 7, brandName: "Corsair", categoryId: 8, categoryName: "Cooling", description: "AIO 360mm, RGB", unit: "piece", trackingType: "serialized", sellPrice: 5999000, minStock: 3, isActive: true, createdAt: "2026-03-05T00:00:00Z", updatedAt: "2026-04-10T00:00:00Z" },
-  { id: 26, name: "Cooler Master MasterLiquid ML360L", sku: "CLN-CM-001", barcode: "4711176752033", brandId: 11, brandName: "Cooler Master", categoryId: 8, categoryName: "Cooling", description: "AIO 360mm, ARGB", unit: "piece", trackingType: "serialized", sellPrice: 3499000, minStock: 3, isActive: true, createdAt: "2026-03-05T00:00:00Z", updatedAt: "2026-04-10T00:00:00Z" },
-  { id: 27, name: "ASUS ROG Ryujin III 360", sku: "CLN-ASU-001", barcode: "4711081808866", brandId: 1, brandName: "ASUS", categoryId: 8, categoryName: "Cooling", description: "AIO 360mm, LCD display", unit: "piece", trackingType: "serialized", sellPrice: 8999000, minStock: 2, isActive: true, createdAt: "2026-03-08T00:00:00Z", updatedAt: "2026-04-12T00:00:00Z" },
-  { id: 28, name: "Samsung 980 Pro 500GB NVMe", sku: "STO-SAM-003", barcode: "8801647775342", brandId: 6, brandName: "Samsung", categoryId: 6, categoryName: "Storage", description: "PCIe 4.0 NVMe, đọc 6900MB/s", unit: "piece", trackingType: "serialized", sellPrice: 3499000, minStock: 10, isActive: true, createdAt: "2026-03-10T00:00:00Z", updatedAt: "2026-04-15T00:00:00Z" },
-  { id: 29, name: "WD Blue SN580 1TB NVMe", sku: "STO-WD-002", barcode: "7180378869318", brandId: 8, brandName: "Western Digital", categoryId: 6, categoryName: "Storage", description: "PCIe 4.0 NVMe, đọc 4150MB/s", unit: "piece", trackingType: "serialized", sellPrice: 2999000, minStock: 10, isActive: true, createdAt: "2026-03-10T00:00:00Z", updatedAt: "2026-04-15T00:00:00Z" },
-  { id: 30, name: "Noctua NH-D15 chromax.black", sku: "CLN-NOC-001", barcode: "4711176752040", brandId: 12, brandName: "Noctua", categoryId: 8, categoryName: "Cooling", description: "Tản nhiệt khí dual tower, black", unit: "piece", trackingType: "serialized", sellPrice: 2999000, minStock: 5, isActive: true, createdAt: "2026-03-12T00:00:00Z", updatedAt: "2026-04-18T00:00:00Z" },
-  { id: 31, name: "Cooler Master Hyper 212 Halo", sku: "CLN-CM-002", barcode: "4711176752057", brandId: 11, brandName: "Cooler Master", categoryId: 8, categoryName: "Cooling", description: "Tản nhiệt khí single tower, ARGB", unit: "piece", trackingType: "serialized", sellPrice: 1599000, minStock: 10, isActive: true, createdAt: "2026-03-12T00:00:00Z", updatedAt: "2026-04-18T00:00:00Z" },
-  { id: 32, name: "Corsair Vengeance DDR4 32GB 3200MHz", sku: "RAM-COR-003", barcode: "8435911058902", brandId: 7, brandName: "Corsair", categoryId: 2, categoryName: "RAM", description: "DDR4, 32GB (2x16GB), 3200MHz", unit: "piece", trackingType: "serialized", sellPrice: 2299000, minStock: 10, isActive: false, createdAt: "2026-03-15T00:00:00Z", updatedAt: "2026-04-20T00:00:00Z" },
-]
-
-// ==================== USERS ====================
+// ==================== USERS (hardcoded) ====================
 
 export const users: UserResponse[] = [
   { id: 1, username: "admin", fullName: "System Admin", email: "admin@warehouse.com", role: "ADMIN", status: "ACTIVE", gender: null, dob: null, phoneNumber: null, isPasswordReset: false, isDeleted: false, createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z" },
@@ -133,238 +89,7 @@ export const users: UserResponse[] = [
   { id: 10, username: "dangthilan", fullName: "Đặng Thị Lan", email: "landt@warehouse.com", role: "SALES", status: "ACTIVE", gender: 0, dob: "1997-07-30T00:00:00Z", phoneNumber: "0967890123", isPasswordReset: true, isDeleted: true, createdAt: "2026-02-15T00:00:00Z", updatedAt: "2026-03-15T00:00:00Z" },
 ]
 
-// ==================== INVENTORY (simplified product_units) ====================
-
-export const inventoryItems: InventoryItem[] = [
-  { id: 1, productId: 1, productName: "Intel Core i7-14700K", productSku: "CPU-INT-001", quantity: 12, minStock: 5, location: "A-01-01", updatedAt: "2026-07-14T08:00:00Z" },
-  { id: 2, productId: 2, productName: "Intel Core i5-14600K", productSku: "CPU-INT-002", quantity: 8, minStock: 5, location: "A-01-02", updatedAt: "2026-07-14T08:00:00Z" },
-  { id: 3, productId: 3, productName: "AMD Ryzen 7 7800X3D", productSku: "CPU-AMD-001", quantity: 6, minStock: 5, location: "A-02-01", updatedAt: "2026-07-14T08:00:00Z" },
-  { id: 4, productId: 4, productName: "AMD Ryzen 5 7600", productSku: "CPU-AMD-002", quantity: 15, minStock: 5, location: "A-02-02", updatedAt: "2026-07-14T08:00:00Z" },
-  { id: 5, productId: 5, productName: "ASUS ROG Strix RTX 4060 OC 8GB", productSku: "GPU-ASU-001", quantity: 4, minStock: 3, location: "B-01-01", updatedAt: "2026-07-14T08:00:00Z" },
-  { id: 6, productId: 6, productName: "Gigabyte RTX 4070 Gaming OC 12GB", productSku: "GPU-GIG-001", quantity: 2, minStock: 3, location: "B-01-02", updatedAt: "2026-07-14T08:00:00Z" },
-  { id: 7, productId: 7, productName: "MSI RTX 4060 Ventus 2X 8GB", productSku: "GPU-MSI-001", quantity: 7, minStock: 3, location: "B-02-01", updatedAt: "2026-07-14T08:00:00Z" },
-  { id: 8, productId: 8, productName: "ASUS TUF Gaming RTX 4070 Ti 16GB", productSku: "GPU-ASU-002", quantity: 1, minStock: 2, location: "B-02-02", updatedAt: "2026-07-14T08:00:00Z" },
-  { id: 9, productId: 9, productName: "Samsung 990 Pro 1TB NVMe", productSku: "STO-SAM-001", quantity: 25, minStock: 10, location: "C-01-01", updatedAt: "2026-07-14T08:00:00Z" },
-  { id: 10, productId: 10, productName: "Samsung 870 EVO 500GB SATA", productSku: "STO-SAM-002", quantity: 30, minStock: 10, location: "C-01-02", updatedAt: "2026-07-14T08:00:00Z" },
-  { id: 11, productId: 11, productName: "WD Black SN850X 2TB NVMe", productSku: "STO-WD-001", quantity: 8, minStock: 5, location: "C-02-01", updatedAt: "2026-07-14T08:00:00Z" },
-  { id: 12, productId: 12, productName: "Corsair Vengeance DDR5 32GB 5600MHz", productSku: "RAM-COR-001", quantity: 20, minStock: 10, location: "D-01-01", updatedAt: "2026-07-14T08:00:00Z" },
-  { id: 13, productId: 13, productName: "Corsair Dominator DDR5 64GB 5200MHz", productSku: "RAM-COR-002", quantity: 6, minStock: 5, location: "D-01-02", updatedAt: "2026-07-14T08:00:00Z" },
-  { id: 14, productId: 14, productName: "G.Skill Trident Z5 DDR5 32GB 6000MHz", productSku: "RAM-GSK-001", quantity: 15, minStock: 10, location: "D-02-01", updatedAt: "2026-07-14T08:00:00Z" },
-  { id: 15, productId: 15, productName: "ASUS ROG Strix Z790-E Gaming", productSku: "MB-ASU-001", quantity: 3, minStock: 3, location: "E-01-01", updatedAt: "2026-07-14T08:00:00Z" },
-  { id: 16, productId: 16, productName: "Gigabyte Z790 Aorus Elite AX", productSku: "MB-GIG-001", quantity: 5, minStock: 3, location: "E-01-02", updatedAt: "2026-07-14T08:00:00Z" },
-  { id: 17, productId: 17, productName: "MSI MAG Z790 Tomahawk", productSku: "MB-MSI-001", quantity: 4, minStock: 3, location: "E-02-01", updatedAt: "2026-07-14T08:00:00Z" },
-  { id: 18, productId: 18, productName: "ASUS Prime B760-PLUS", productSku: "MB-ASU-002", quantity: 10, minStock: 5, location: "E-02-02", updatedAt: "2026-07-14T08:00:00Z" },
-  { id: 19, productId: 19, productName: "Seasonic Focus GX-750 750W", productSku: "PSU-SEA-001", quantity: 7, minStock: 5, location: "F-01-01", updatedAt: "2026-07-14T08:00:00Z" },
-  { id: 20, productId: 20, productName: "Corsair RM850x 850W", productSku: "PSU-COR-001", quantity: 4, minStock: 5, location: "F-01-02", updatedAt: "2026-07-14T08:00:00Z" },
-  { id: 21, productId: 21, productName: "Seasonic Prime TX-1000 1000W", productSku: "PSU-SEA-002", quantity: 2, minStock: 3, location: "F-02-01", updatedAt: "2026-07-14T08:00:00Z" },
-  { id: 22, productId: 22, productName: "Corsair 4000D Airflow", productSku: "CSE-COR-001", quantity: 5, minStock: 3, location: "G-01-01", updatedAt: "2026-07-14T08:00:00Z" },
-  { id: 23, productId: 23, productName: "Corsair 4000D Airflow Black", productSku: "CSE-COR-002", quantity: 3, minStock: 3, location: "G-01-02", updatedAt: "2026-07-14T08:00:00Z" },
-  { id: 24, productId: 24, productName: "ASUS ROG Helios", productSku: "CSE-ASU-001", quantity: 1, minStock: 2, location: "G-02-01", updatedAt: "2026-07-14T08:00:00Z" },
-  { id: 25, productId: 25, productName: "Corsair H150i Elite Capellix 360mm", productSku: "CLN-COR-001", quantity: 4, minStock: 3, location: "H-01-01", updatedAt: "2026-07-14T08:00:00Z" },
-  { id: 26, productId: 26, productName: "Cooler Master MasterLiquid ML360L", productSku: "CLN-CM-001", quantity: 6, minStock: 3, location: "H-01-02", updatedAt: "2026-07-14T08:00:00Z" },
-  { id: 27, productId: 27, productName: "ASUS ROG Ryujin III 360", productSku: "CLN-ASU-001", quantity: 2, minStock: 2, location: "H-02-01", updatedAt: "2026-07-14T08:00:00Z" },
-  { id: 28, productId: 28, productName: "Samsung 980 Pro 500GB NVMe", productSku: "STO-SAM-003", quantity: 18, minStock: 10, location: "C-02-02", updatedAt: "2026-07-14T08:00:00Z" },
-  { id: 29, productId: 29, productName: "WD Blue SN580 1TB NVMe", productSku: "STO-WD-002", quantity: 22, minStock: 10, location: "C-03-01", updatedAt: "2026-07-14T08:00:00Z" },
-  { id: 30, productId: 30, productName: "Noctua NH-D15 chromax.black", productSku: "CLN-NOC-001", quantity: 5, minStock: 5, location: "H-02-02", updatedAt: "2026-07-14T08:00:00Z" },
-]
-
-// ==================== CUSTOMERS ====================
-
-export const customers: CustomerResponse[] = [
-  { id: 1, name: "Công ty TNHH ABC", phone: "02812345678", email: "info@abc.vn", address: "123 Nguyễn Huệ, Q.1, TP.HCM", note: null, isActive: true, createdAt: "2026-01-15T00:00:00Z", updatedAt: "2026-01-15T00:00:00Z" },
-  { id: 2, name: "Cửa hàng PC Plus", phone: "02823456789", email: null, address: "456 Lê Lợi, Q.1, TP.HCM", note: "KH quen, thường mua số lượng lớn", isActive: true, createdAt: "2026-02-01T00:00:00Z", updatedAt: "2026-02-01T00:00:00Z" },
-  { id: 3, name: "Nguyễn Văn Minh", phone: "0909123456", email: "minhnv@gmail.com", address: "789 Trần Hưng Đạo, Q.5, TP.HCM", note: null, isActive: true, createdAt: "2026-03-10T00:00:00Z", updatedAt: "2026-03-10T00:00:00Z" },
-  { id: 4, name: "Trần Thị Lan", phone: "0918234567", email: null, address: null, note: "KH mới", isActive: true, createdAt: "2026-05-20T00:00:00Z", updatedAt: "2026-05-20T00:00:00Z" },
-  { id: 5, name: "Công ty TNHH Thiết bị số Hoàng Gia", phone: "02834567890", email: "sales@hoanggia.vn", address: "321 Nguyễn Thị Minh Khai, Q.3, TP.HCM", note: null, isActive: true, createdAt: "2026-04-01T00:00:00Z", updatedAt: "2026-04-01T00:00:00Z" },
-  { id: 6, name: "Phạm Hoàng Quân", phone: "0978563412", email: null, address: "654 Lý Tự Trọng, Q.10, TP.HCM", note: null, isActive: false, createdAt: "2026-06-01T00:00:00Z", updatedAt: "2026-06-01T00:00:00Z" },
-]
-
-// ==================== SUPPLIERS ====================
-
-export const suppliers: SupplierResponse[] = [
-  { id: 1, name: "Intel Vietnam", contactPerson: "John Smith", phone: "02812345678", email: "sales@intel.vn", address: "Số 1, Lê Duẩn, Q.1, TP.HCM", taxCode: "1234567890", note: null, isActive: true, createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z" },
-  { id: 2, name: "Corsair Asia Pte Ltd", contactPerson: "Sarah Lee", phone: "02823456789", email: "orders@corsair.sg", address: "2 Jurong East, Singapore", taxCode: null, note: "NCC quốc tế, cần đặt trước 7 ngày", isActive: true, createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z" },
-  { id: 3, name: "Samsung Vina", contactPerson: "Trần Văn A", phone: "02834567890", email: "samsung@sam.vn", address: "123 Nguyễn Văn Linh, Q.7, TP.HCM", taxCode: "0987654321", note: null, isActive: true, createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z" },
-  { id: 4, name: "ASUS Technology Vietnam", contactPerson: "Phạm Văn B", phone: "02845678901", email: "asus@asus.vn", address: "456 Lê Lợi, Q.1, TP.HCM", taxCode: null, note: null, isActive: true, createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z" },
-  { id: 5, name: "Western Digital Vietnam", contactPerson: "Lê Thị C", phone: "02856789012", email: "wd@wd.vn", address: "789 Nguyễn Thị Minh Khai, Q.3, TP.HCM", taxCode: null, note: null, isActive: true, createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z" },
-  { id: 6, name: "Gigabyte Technology", contactPerson: null, phone: null, email: null, address: null, taxCode: null, note: "NCC mới — chờ cập nhật thông tin", isActive: true, createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z" },
-]
-
-// ==================== IMPORT RECEIPTS ====================
-
-export const importReceipts: ImportReceipt[] = [
-  {
-    id: 1, receiptCode: "IMP-20260701-001", supplierId: 1, supplierName: "Intel Vietnam",
-    status: "COMPLETED", createdBy: 4, createdByName: "Lê Văn C — Nhân viên kho", approvedBy: 2, approvedByName: "Nguyễn Văn A — Quản lý kho",
-    note: null, totalAmount: 28996000, createdAt: "2026-07-01T09:00:00Z", updatedAt: "2026-07-01T14:00:00Z",
-    items: [
-      { id: 1, productId: 1, productName: "Intel Core i7-14700K", productSku: "CPU-INT-001", quantity: 10, unitPrice: 9499000, warrantyMonths: 36, createdUnits: 10 },
-      { id: 2, productId: 2, productName: "Intel Core i5-14600K", productSku: "CPU-INT-002", quantity: 15, unitPrice: 6999000, warrantyMonths: 36, createdUnits: 15 },
-    ],
-  },
-  {
-    id: 2, receiptCode: "IMP-20260705-001", supplierId: 2, supplierName: "Corsair Asia Pte Ltd",
-    status: "PENDING_APPROVAL", createdBy: 6, createdByName: "Nguyễn Văn Hùng", approvedBy: null, approvedByName: null,
-    note: "Đợi QL kiểm tra số lượng thực tế", totalAmount: 42984000, createdAt: "2026-07-05T10:30:00Z", updatedAt: "2026-07-05T10:30:00Z",
-    items: [
-      { id: 3, productId: 12, productName: "Corsair Vengeance DDR5 32GB 5600MHz", productSku: "RAM-COR-001", quantity: 20, unitPrice: 2499000, warrantyMonths: 24, createdUnits: 20 },
-      { id: 4, productId: 20, productName: "Corsair RM850x 850W", productSku: "PSU-COR-001", quantity: 10, unitPrice: 2999000, warrantyMonths: 60, createdUnits: 10 },
-    ],
-  },
-  {
-    id: 3, receiptCode: "IMP-20260710-001", supplierId: 3, supplierName: "Samsung Vina",
-    status: "PENDING", createdBy: 4, createdByName: "Lê Văn C — Nhân viên kho", approvedBy: null, approvedByName: null,
-    note: null, totalAmount: 24450000, createdAt: "2026-07-10T08:00:00Z", updatedAt: "2026-07-10T08:00:00Z",
-    items: [
-      { id: 5, productId: 9, productName: "Samsung 990 Pro 1TB NVMe", productSku: "STO-SAM-001", quantity: 15, unitPrice: 3899000, warrantyMonths: 60, createdUnits: 15 },
-      { id: 6, productId: 10, productName: "Samsung 870 EVO 500GB SATA", productSku: "STO-SAM-002", quantity: 30, unitPrice: 1599000, warrantyMonths: 36, createdUnits: 30 },
-    ],
-  },
-  {
-    id: 4, receiptCode: "IMP-20260714-001", supplierId: 4, supplierName: "ASUS Technology Vietnam",
-    status: "COMPLETED", createdBy: 4, createdByName: "Lê Văn C — Nhân viên kho", approvedBy: 2, approvedByName: "Nguyễn Văn A — Quản lý kho",
-    note: "Nhập đợt hàng tháng 7 — mainboard ASUS, GPU ASUS & Gigabyte, CPU Intel & AMD. Toàn bộ hàng đã kiểm đếm và nhập kho đầy đủ. Còn thiếu 5 thùng GPU ASUS TUF Gaming sẽ về đợt sau.",
-    totalAmount: 258456000, createdAt: "2026-07-14T09:00:00Z", updatedAt: "2026-07-14T15:30:00Z",
-    items: [
-      { id: 7, productId: 15, productName: "ASUS ROG Strix Z790-E Gaming", productSku: "MB-ASU-001", quantity: 5, unitPrice: 8999000, warrantyMonths: 24, createdUnits: 5 },
-      { id: 8, productId: 16, productName: "Gigabyte Z790 Aorus Elite AX", productSku: "MB-GIG-001", quantity: 8, unitPrice: 7499000, warrantyMonths: 24, createdUnits: 8 },
-      { id: 9, productId: 17, productName: "MSI MAG Z790 Tomahawk", productSku: "MB-MSI-001", quantity: 6, unitPrice: 7999000, warrantyMonths: 24, createdUnits: 6 },
-      { id: 10, productId: 5, productName: "ASUS ROG Strix RTX 4060 OC 8GB", productSku: "GPU-ASU-001", quantity: 10, unitPrice: 13499000, warrantyMonths: 36, createdUnits: 10 },
-      { id: 11, productId: 6, productName: "Gigabyte RTX 4070 Gaming OC 12GB", productSku: "GPU-GIG-001", quantity: 4, unitPrice: 18999000, warrantyMonths: 36, createdUnits: 4 },
-      { id: 12, productId: 7, productName: "MSI RTX 4060 Ventus 2X 8GB", productSku: "GPU-MSI-001", quantity: 8, unitPrice: 11999000, warrantyMonths: 36, createdUnits: 8 },
-      { id: 13, productId: 8, productName: "ASUS TUF Gaming RTX 4070 Ti 16GB", productSku: "GPU-ASU-002", quantity: 3, unitPrice: 24999000, warrantyMonths: 36, createdUnits: 3 },
-      { id: 14, productId: 1, productName: "Intel Core i7-14700K", productSku: "CPU-INT-001", quantity: 10, unitPrice: 9999000, warrantyMonths: 36, createdUnits: 10 },
-      { id: 15, productId: 3, productName: "AMD Ryzen 7 7800X3D", productSku: "CPU-AMD-001", quantity: 5, unitPrice: 11499000, warrantyMonths: 36, createdUnits: 5 },
-      { id: 16, productId: 9, productName: "Samsung 990 Pro 1TB NVMe", productSku: "STO-SAM-001", quantity: 15, unitPrice: 4299000, warrantyMonths: 60, createdUnits: 15 },
-    ],
-  },
-  {
-    id: 5, receiptCode: "IMP-20260715-001", supplierId: 5, supplierName: "Western Digital Vietnam",
-    status: "PENDING_APPROVAL", createdBy: 6, createdByName: "Nguyễn Văn Hùng", approvedBy: null, approvedByName: null,
-    note: "Đơn hàng WD tháng 7 — cần kiểm tra hàng tồn kho trước khi duyệt vì số lượng nhập lớn hơn đơn đặt hàng 15%. Đề nghị QL kiểm tra thực tế số lượng SSD SN850X và SN580. Bộ phận kho đã nhận đủ hàng nhưng chưa kiểm đếm xong do thiếu nhân sự.",
-    totalAmount: 159216000, createdAt: "2026-07-15T10:00:00Z", updatedAt: "2026-07-15T10:00:00Z",
-    items: [
-      { id: 17, productId: 11, productName: "WD Black SN850X 2TB NVMe", productSku: "STO-WD-001", quantity: 10, unitPrice: 5999000, warrantyMonths: 60, createdUnits: 10 },
-      { id: 18, productId: 28, productName: "Samsung 980 Pro 500GB NVMe", productSku: "STO-SAM-003", quantity: 12, unitPrice: 2999000, warrantyMonths: 60, createdUnits: 12 },
-      { id: 19, productId: 29, productName: "WD Blue SN580 1TB NVMe", productSku: "STO-WD-002", quantity: 20, unitPrice: 2499000, warrantyMonths: 36, createdUnits: 20 },
-      { id: 20, productId: 9, productName: "Samsung 990 Pro 1TB NVMe", productSku: "STO-SAM-001", quantity: 8, unitPrice: 4599000, warrantyMonths: 60, createdUnits: 8 },
-      { id: 21, productId: 10, productName: "Samsung 870 EVO 500GB SATA", productSku: "STO-SAM-002", quantity: 15, unitPrice: 1899000, warrantyMonths: 36, createdUnits: 15 },
-      { id: 22, productId: 7, productName: "MSI RTX 4060 Ventus 2X 8GB", productSku: "GPU-MSI-001", quantity: 5, unitPrice: 12999000, warrantyMonths: 36, createdUnits: 5 },
-      { id: 23, productId: 12, productName: "Corsair Vengeance DDR5 32GB 5600MHz", productSku: "RAM-COR-001", quantity: 20, unitPrice: 2799000, warrantyMonths: 24, createdUnits: 20 },
-      { id: 24, productId: 14, productName: "G.Skill Trident Z5 DDR5 32GB 6000MHz", productSku: "RAM-GSK-001", quantity: 10, unitPrice: 3199000, warrantyMonths: 24, createdUnits: 10 },
-    ],
-  },
-]
-
-// ==================== EXPORT RECEIPTS ====================
-
-export const exportReceipts: ExportReceipt[] = [
-  {
-    id: 1, receiptCode: "EXP-20260702-001", reason: "SALE", customerId: 1, customerName: "Công ty TNHH ABC",
-    status: "COMPLETED", createdBy: 4, createdByName: "Lê Văn C — Nhân viên kho", approvedBy: 2, approvedByName: "Nguyễn Văn A — Quản lý kho",
-    note: null, totalAmount: 58992000, createdAt: "2026-07-02T14:00:00Z", updatedAt: "2026-07-02T16:00:00Z",
-    items: [
-      { id: 1, productId: 1, productName: "Intel Core i7-14700K", productSku: "CPU-INT-001", quantity: 3, unitPrice: 11499000 },
-      { id: 2, productId: 9, productName: "Samsung 990 Pro 1TB NVMe", productSku: "STO-SAM-001", quantity: 5, unitPrice: 4899000 },
-    ],
-  },
-  {
-    id: 2, receiptCode: "EXP-20260708-001", reason: "SALE", customerId: 3, customerName: "Nguyễn Văn Minh",
-    status: "PENDING_APPROVAL", createdBy: 6, createdByName: "Nguyễn Văn Hùng", approvedBy: null, approvedByName: null,
-    note: "Chờ duyệt xuất", totalAmount: 30598000, createdAt: "2026-07-08T11:00:00Z", updatedAt: "2026-07-08T11:00:00Z",
-    items: [
-      { id: 3, productId: 5, productName: "ASUS ROG Strix RTX 4060 OC 8GB", productSku: "GPU-ASU-001", quantity: 2, unitPrice: 15299000 },
-    ],
-  },
-  {
-    id: 3, receiptCode: "EXP-20260712-001", reason: "INTERNAL", customerId: null, customerName: null,
-    status: "PENDING_APPROVAL", createdBy: 4, createdByName: "Lê Văn C — Nhân viên kho", approvedBy: null, approvedByName: null,
-    note: "Xuất nội bộ — bàn giao phòng kỹ thuật", totalAmount: 0, createdAt: "2026-07-12T09:00:00Z", updatedAt: "2026-07-12T09:00:00Z",
-    items: [
-      { id: 4, productId: 22, productName: "Corsair 4000D Airflow", productSku: "CSE-COR-001", quantity: 1, unitPrice: 0 },
-    ],
-  },
-  {
-    id: 4, receiptCode: "EXP-20260714-001", reason: "SALE", customerId: 2, customerName: "Cửa hàng PC Plus",
-    status: "COMPLETED", createdBy: 4, createdByName: "Lê Văn C — Nhân viên kho", approvedBy: 2, approvedByName: "Nguyễn Văn A — Quản lý kho",
-    note: "Khách đặt build 3 dàn PC gaming cao cấp — toàn bộ linh kiện đã xuất đủ. Giao hàng dự kiến 16/07. Phiếu xuất kèm bảng kê chi tiết serial từng linh kiện gửi cho KH.",
-    totalAmount: 110652000, createdAt: "2026-07-14T13:00:00Z", updatedAt: "2026-07-14T17:00:00Z",
-    items: [
-      { id: 5, productId: 1, productName: "Intel Core i7-14700K", productSku: "CPU-INT-001", quantity: 3, unitPrice: 11499000 },
-      { id: 6, productId: 15, productName: "ASUS ROG Strix Z790-E Gaming", productSku: "MB-ASU-001", quantity: 3, unitPrice: 11999000 },
-      { id: 7, productId: 12, productName: "Corsair Vengeance DDR5 32GB 5600MHz", productSku: "RAM-COR-001", quantity: 6, unitPrice: 3199000 },
-      { id: 8, productId: 5, productName: "ASUS ROG Strix RTX 4060 OC 8GB", productSku: "GPU-ASU-001", quantity: 3, unitPrice: 15299000 },
-      { id: 9, productId: 9, productName: "Samsung 990 Pro 1TB NVMe", productSku: "STO-SAM-001", quantity: 3, unitPrice: 4899000 },
-      { id: 10, productId: 20, productName: "Corsair RM850x 850W", productSku: "PSU-COR-001", quantity: 3, unitPrice: 3899000 },
-    ],
-  },
-  {
-    id: 5, receiptCode: "EXP-20260715-001", reason: "SALE", customerId: 5, customerName: "Công ty TNHH Thiết bị số Hoàng Gia",
-    status: "PENDING_APPROVAL", createdBy: 6, createdByName: "Nguyễn Văn Hùng", approvedBy: null, approvedByName: null,
-    note: "KH doanh nghiệp — xuất theo hợp đồng số HD-2026-07-089. Cần QL duyệt nhanh để kịp tiến độ giao hàng cho đối tác của KH.",
-    totalAmount: 64494000, createdAt: "2026-07-15T10:30:00Z", updatedAt: "2026-07-15T10:30:00Z",
-    items: [
-      { id: 11, productId: 28, productName: "Samsung 980 Pro 500GB NVMe", productSku: "STO-SAM-003", quantity: 10, unitPrice: 3499000 },
-      { id: 12, productId: 29, productName: "WD Blue SN580 1TB NVMe", productSku: "STO-WD-002", quantity: 5, unitPrice: 2999000 },
-      { id: 13, productId: 31, productName: "Cooler Master Hyper 212 Halo", productSku: "CLN-CM-002", quantity: 8, unitPrice: 1599000 },
-      { id: 14, productId: 18, productName: "ASUS Prime B760-PLUS", productSku: "MB-ASU-002", quantity: 3, unitPrice: 5499000 },
-      { id: 15, productId: 19, productName: "Seasonic Focus GX-750 750W", productSku: "PSU-SEA-001", quantity: 5, unitPrice: 2999000 },
-    ],
-  },
-]
-
-// ==================== PRODUCT UNITS (FIFO Serial Tracking) ====================
-
-let unitId = 0
-
-function genSerials(baseSku: string, count: number, importedAt: string, locCode: string, productId: number, productName: string, importItemId: number): ProductUnit[] {
-  return Array.from({ length: count }, (_, i) => {
-    unitId++
-    return {
-      id: unitId,
-      serialNumber: `${baseSku}-${String(i + 1).padStart(3, "0")}`,
-      productId,
-      productName,
-      productSku: baseSku,
-      trackingType: "SERIALIZED" as const,
-      initialQuantity: 1,
-      remainingQuantity: 1,
-      importReceiptItemId: importItemId,
-      locationId: null,
-      locationCode: locCode,
-      status: "IN_STOCK" as const,
-      importedAt,
-      warrantyMonths: 36,
-      warrantyStartDate: importedAt,
-      warrantyExpiresAt: new Date(new Date(importedAt).getFullYear() + 3, new Date(importedAt).getMonth(), new Date(importedAt).getDate()).toISOString(),
-      createdAt: importedAt,
-      updatedAt: importedAt,
-    }
-  })
-}
-
-export const productUnits: ProductUnit[] = [
-  ...genSerials("CPU-INT-001", 5, "2026-07-01T14:00:00Z", "A-01-01", 1, "Intel Core i7-14700K", 1),
-  ...genSerials("CPU-INT-002", 8, "2026-07-01T14:00:00Z", "A-01-02", 2, "Intel Core i5-14600K", 2),
-  ...genSerials("RAM-COR-001", 12, "2026-07-05T10:30:00Z", "D-01-01", 12, "Corsair Vengeance DDR5 32GB 5600MHz", 3),
-  ...genSerials("PSU-COR-001", 6, "2026-07-05T10:30:00Z", "F-01-02", 20, "Corsair RM850x 850W", 4),
-  ...genSerials("STO-SAM-001", 10, "2026-07-10T08:00:00Z", "C-01-01", 9, "Samsung 990 Pro 1TB NVMe", 5),
-  ...genSerials("STO-SAM-002", 20, "2026-07-10T08:00:00Z", "C-01-02", 10, "Samsung 870 EVO 500GB SATA", 6),
-  // IMP-20260714-001 — ASUS + GPU + CPU
-  ...genSerials("MB-ASU-001", 5, "2026-07-14T15:30:00Z", "E-01-01", 15, "ASUS ROG Strix Z790-E Gaming", 7),
-  ...genSerials("MB-GIG-001", 8, "2026-07-14T15:30:00Z", "E-01-02", 16, "Gigabyte Z790 Aorus Elite AX", 8),
-  ...genSerials("GPU-ASU-001", 8, "2026-07-14T15:30:00Z", "B-01-01", 5, "ASUS ROG Strix RTX 4060 OC 8GB", 10),
-  ...genSerials("GPU-GIG-001", 4, "2026-07-14T15:30:00Z", "B-01-02", 6, "Gigabyte RTX 4070 Gaming OC 12GB", 11),
-  ...genSerials("GPU-MSI-001", 6, "2026-07-14T15:30:00Z", "B-02-01", 7, "MSI RTX 4060 Ventus 2X 8GB", 12),
-  ...genSerials("CPU-AMD-001", 5, "2026-07-14T15:30:00Z", "A-02-01", 3, "AMD Ryzen 7 7800X3D", 15),
-  // IMP-20260715-001 — WD + Samsung + RAM
-  ...genSerials("STO-WD-001", 8, "2026-07-15T10:00:00Z", "C-02-01", 11, "WD Black SN850X 2TB NVMe", 17),
-  ...genSerials("STO-SAM-003", 10, "2026-07-15T10:00:00Z", "C-02-02", 28, "Samsung 980 Pro 500GB NVMe", 18),
-  ...genSerials("STO-WD-002", 15, "2026-07-15T10:00:00Z", "C-03-01", 29, "WD Blue SN580 1TB NVMe", 19),
-  ...genSerials("RAM-GSK-001", 8, "2026-07-15T10:00:00Z", "D-02-01", 14, "G.Skill Trident Z5 DDR5 32GB 6000MHz", 24),
-]
-
-// ==================== AUDIT LOGS ====================
+// ==================== AUDIT LOGS (hardcoded) ====================
 
 export const auditLogs: AuditLog[] = [
   { userId: 1, username: "admin", ipAddress: "192.168.1.100", requestId: "req-001", action: "CREATE_PRODUCT", entityName: "PRODUCT", entityId: "1", oldValue: null, newValue: "{}", status: "SUCCESS", errorMsg: null, createdAt: "2026-07-14T08:30:00Z" },
