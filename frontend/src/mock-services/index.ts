@@ -14,20 +14,18 @@ import type {
   SupplierResponse,
   ProductUnit,
 } from "@/utils/types"
-import {
-  brands,
-  categories,
+import { brands, categories, locations, users, auditLogs } from "./data"
+import { generateMockData } from "./generator"
+
+const {
   products,
-  users,
-  inventoryItems,
-  auditLogs,
+  suppliers,
   customers,
   importReceipts,
   exportReceipts,
-  locations,
-  suppliers,
   productUnits,
-} from "./data"
+  inventoryItems,
+} = generateMockData()
 
 function delay(ms = 250) {
   return new Promise((r) => setTimeout(r, ms))
