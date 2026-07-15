@@ -220,6 +220,40 @@ export const importReceipts: ImportReceipt[] = [
       { id: 6, productId: 10, productName: "Samsung 870 EVO 500GB SATA", productSku: "STO-SAM-002", quantity: 30, unitPrice: 1599000, warrantyMonths: 36, createdUnits: 30 },
     ],
   },
+  {
+    id: 4, receiptCode: "IMP-20260714-001", supplierId: 4, supplierName: "ASUS Technology Vietnam",
+    status: "COMPLETED", createdBy: 4, createdByName: "Lê Văn C — Nhân viên kho", approvedBy: 2, approvedByName: "Nguyễn Văn A — Quản lý kho",
+    note: "Nhập đợt hàng tháng 7 — mainboard ASUS, GPU ASUS & Gigabyte, CPU Intel & AMD. Toàn bộ hàng đã kiểm đếm và nhập kho đầy đủ. Còn thiếu 5 thùng GPU ASUS TUF Gaming sẽ về đợt sau.",
+    totalAmount: 258456000, createdAt: "2026-07-14T09:00:00Z", updatedAt: "2026-07-14T15:30:00Z",
+    items: [
+      { id: 7, productId: 15, productName: "ASUS ROG Strix Z790-E Gaming", productSku: "MB-ASU-001", quantity: 5, unitPrice: 8999000, warrantyMonths: 24, createdUnits: 5 },
+      { id: 8, productId: 16, productName: "Gigabyte Z790 Aorus Elite AX", productSku: "MB-GIG-001", quantity: 8, unitPrice: 7499000, warrantyMonths: 24, createdUnits: 8 },
+      { id: 9, productId: 17, productName: "MSI MAG Z790 Tomahawk", productSku: "MB-MSI-001", quantity: 6, unitPrice: 7999000, warrantyMonths: 24, createdUnits: 6 },
+      { id: 10, productId: 5, productName: "ASUS ROG Strix RTX 4060 OC 8GB", productSku: "GPU-ASU-001", quantity: 10, unitPrice: 13499000, warrantyMonths: 36, createdUnits: 10 },
+      { id: 11, productId: 6, productName: "Gigabyte RTX 4070 Gaming OC 12GB", productSku: "GPU-GIG-001", quantity: 4, unitPrice: 18999000, warrantyMonths: 36, createdUnits: 4 },
+      { id: 12, productId: 7, productName: "MSI RTX 4060 Ventus 2X 8GB", productSku: "GPU-MSI-001", quantity: 8, unitPrice: 11999000, warrantyMonths: 36, createdUnits: 8 },
+      { id: 13, productId: 8, productName: "ASUS TUF Gaming RTX 4070 Ti 16GB", productSku: "GPU-ASU-002", quantity: 3, unitPrice: 24999000, warrantyMonths: 36, createdUnits: 3 },
+      { id: 14, productId: 1, productName: "Intel Core i7-14700K", productSku: "CPU-INT-001", quantity: 10, unitPrice: 9999000, warrantyMonths: 36, createdUnits: 10 },
+      { id: 15, productId: 3, productName: "AMD Ryzen 7 7800X3D", productSku: "CPU-AMD-001", quantity: 5, unitPrice: 11499000, warrantyMonths: 36, createdUnits: 5 },
+      { id: 16, productId: 9, productName: "Samsung 990 Pro 1TB NVMe", productSku: "STO-SAM-001", quantity: 15, unitPrice: 4299000, warrantyMonths: 60, createdUnits: 15 },
+    ],
+  },
+  {
+    id: 5, receiptCode: "IMP-20260715-001", supplierId: 5, supplierName: "Western Digital Vietnam",
+    status: "PENDING_APPROVAL", createdBy: 6, createdByName: "Nguyễn Văn Hùng", approvedBy: null, approvedByName: null,
+    note: "Đơn hàng WD tháng 7 — cần kiểm tra hàng tồn kho trước khi duyệt vì số lượng nhập lớn hơn đơn đặt hàng 15%. Đề nghị QL kiểm tra thực tế số lượng SSD SN850X và SN580. Bộ phận kho đã nhận đủ hàng nhưng chưa kiểm đếm xong do thiếu nhân sự.",
+    totalAmount: 159216000, createdAt: "2026-07-15T10:00:00Z", updatedAt: "2026-07-15T10:00:00Z",
+    items: [
+      { id: 17, productId: 11, productName: "WD Black SN850X 2TB NVMe", productSku: "STO-WD-001", quantity: 10, unitPrice: 5999000, warrantyMonths: 60, createdUnits: 10 },
+      { id: 18, productId: 28, productName: "Samsung 980 Pro 500GB NVMe", productSku: "STO-SAM-003", quantity: 12, unitPrice: 2999000, warrantyMonths: 60, createdUnits: 12 },
+      { id: 19, productId: 29, productName: "WD Blue SN580 1TB NVMe", productSku: "STO-WD-002", quantity: 20, unitPrice: 2499000, warrantyMonths: 36, createdUnits: 20 },
+      { id: 20, productId: 9, productName: "Samsung 990 Pro 1TB NVMe", productSku: "STO-SAM-001", quantity: 8, unitPrice: 4599000, warrantyMonths: 60, createdUnits: 8 },
+      { id: 21, productId: 10, productName: "Samsung 870 EVO 500GB SATA", productSku: "STO-SAM-002", quantity: 15, unitPrice: 1899000, warrantyMonths: 36, createdUnits: 15 },
+      { id: 22, productId: 7, productName: "MSI RTX 4060 Ventus 2X 8GB", productSku: "GPU-MSI-001", quantity: 5, unitPrice: 12999000, warrantyMonths: 36, createdUnits: 5 },
+      { id: 23, productId: 12, productName: "Corsair Vengeance DDR5 32GB 5600MHz", productSku: "RAM-COR-001", quantity: 20, unitPrice: 2799000, warrantyMonths: 24, createdUnits: 20 },
+      { id: 24, productId: 14, productName: "G.Skill Trident Z5 DDR5 32GB 6000MHz", productSku: "RAM-GSK-001", quantity: 10, unitPrice: 3199000, warrantyMonths: 24, createdUnits: 10 },
+    ],
+  },
 ]
 
 // ==================== EXPORT RECEIPTS ====================
@@ -250,40 +284,84 @@ export const exportReceipts: ExportReceipt[] = [
       { id: 4, productId: 22, productName: "Corsair 4000D Airflow", productSku: "CSE-COR-001", quantity: 1, unitPrice: 0 },
     ],
   },
+  {
+    id: 4, receiptCode: "EXP-20260714-001", reason: "SALE", customerId: 2, customerName: "Cửa hàng PC Plus",
+    status: "COMPLETED", createdBy: 4, createdByName: "Lê Văn C — Nhân viên kho", approvedBy: 2, approvedByName: "Nguyễn Văn A — Quản lý kho",
+    note: "Khách đặt build 3 dàn PC gaming cao cấp — toàn bộ linh kiện đã xuất đủ. Giao hàng dự kiến 16/07. Phiếu xuất kèm bảng kê chi tiết serial từng linh kiện gửi cho KH.",
+    totalAmount: 110652000, createdAt: "2026-07-14T13:00:00Z", updatedAt: "2026-07-14T17:00:00Z",
+    items: [
+      { id: 5, productId: 1, productName: "Intel Core i7-14700K", productSku: "CPU-INT-001", quantity: 3, unitPrice: 11499000 },
+      { id: 6, productId: 15, productName: "ASUS ROG Strix Z790-E Gaming", productSku: "MB-ASU-001", quantity: 3, unitPrice: 11999000 },
+      { id: 7, productId: 12, productName: "Corsair Vengeance DDR5 32GB 5600MHz", productSku: "RAM-COR-001", quantity: 6, unitPrice: 3199000 },
+      { id: 8, productId: 5, productName: "ASUS ROG Strix RTX 4060 OC 8GB", productSku: "GPU-ASU-001", quantity: 3, unitPrice: 15299000 },
+      { id: 9, productId: 9, productName: "Samsung 990 Pro 1TB NVMe", productSku: "STO-SAM-001", quantity: 3, unitPrice: 4899000 },
+      { id: 10, productId: 20, productName: "Corsair RM850x 850W", productSku: "PSU-COR-001", quantity: 3, unitPrice: 3899000 },
+    ],
+  },
+  {
+    id: 5, receiptCode: "EXP-20260715-001", reason: "SALE", customerId: 5, customerName: "Công ty TNHH Thiết bị số Hoàng Gia",
+    status: "PENDING_APPROVAL", createdBy: 6, createdByName: "Nguyễn Văn Hùng", approvedBy: null, approvedByName: null,
+    note: "KH doanh nghiệp — xuất theo hợp đồng số HD-2026-07-089. Cần QL duyệt nhanh để kịp tiến độ giao hàng cho đối tác của KH.",
+    totalAmount: 64494000, createdAt: "2026-07-15T10:30:00Z", updatedAt: "2026-07-15T10:30:00Z",
+    items: [
+      { id: 11, productId: 28, productName: "Samsung 980 Pro 500GB NVMe", productSku: "STO-SAM-003", quantity: 10, unitPrice: 3499000 },
+      { id: 12, productId: 29, productName: "WD Blue SN580 1TB NVMe", productSku: "STO-WD-002", quantity: 5, unitPrice: 2999000 },
+      { id: 13, productId: 31, productName: "Cooler Master Hyper 212 Halo", productSku: "CLN-CM-002", quantity: 8, unitPrice: 1599000 },
+      { id: 14, productId: 18, productName: "ASUS Prime B760-PLUS", productSku: "MB-ASU-002", quantity: 3, unitPrice: 5499000 },
+      { id: 15, productId: 19, productName: "Seasonic Focus GX-750 750W", productSku: "PSU-SEA-001", quantity: 5, unitPrice: 2999000 },
+    ],
+  },
 ]
 
 // ==================== PRODUCT UNITS (FIFO Serial Tracking) ====================
 
+let unitId = 0
+
 function genSerials(baseSku: string, count: number, importedAt: string, locCode: string, productId: number, productName: string, importItemId: number): ProductUnit[] {
-  return Array.from({ length: count }, (_, i) => ({
-    id: i + 1,
-    serialNumber: `${baseSku}-${String(i + 1).padStart(3, "0")}`,
-    productId,
-    productName,
-    productSku: baseSku,
-    trackingType: "SERIALIZED" as const,
-    initialQuantity: 1,
-    remainingQuantity: 1,
-    importReceiptItemId: importItemId,
-    locationId: null,
-    locationCode: locCode,
-    status: "IN_STOCK" as const,
-    importedAt,
-    warrantyMonths: 36,
-    warrantyStartDate: importedAt,
-    warrantyExpiresAt: new Date(new Date(importedAt).getFullYear() + 3, new Date(importedAt).getMonth(), new Date(importedAt).getDate()).toISOString(),
-    createdAt: importedAt,
-    updatedAt: importedAt,
-  }))
+  return Array.from({ length: count }, (_, i) => {
+    unitId++
+    return {
+      id: unitId,
+      serialNumber: `${baseSku}-${String(i + 1).padStart(3, "0")}`,
+      productId,
+      productName,
+      productSku: baseSku,
+      trackingType: "SERIALIZED" as const,
+      initialQuantity: 1,
+      remainingQuantity: 1,
+      importReceiptItemId: importItemId,
+      locationId: null,
+      locationCode: locCode,
+      status: "IN_STOCK" as const,
+      importedAt,
+      warrantyMonths: 36,
+      warrantyStartDate: importedAt,
+      warrantyExpiresAt: new Date(new Date(importedAt).getFullYear() + 3, new Date(importedAt).getMonth(), new Date(importedAt).getDate()).toISOString(),
+      createdAt: importedAt,
+      updatedAt: importedAt,
+    }
+  })
 }
 
 export const productUnits: ProductUnit[] = [
-  ...genSerials("CPU-INT-001", 10, "2026-07-01T14:00:00Z", "A-01-01", 1, "Intel Core i7-14700K", 1),
-  ...genSerials("CPU-INT-002", 15, "2026-07-01T14:00:00Z", "A-01-02", 2, "Intel Core i5-14600K", 2),
-  ...genSerials("RAM-COR-001", 20, "2026-07-05T10:30:00Z", "D-01-01", 12, "Corsair Vengeance DDR5 32GB 5600MHz", 3),
-  ...genSerials("PSU-COR-001", 10, "2026-07-05T10:30:00Z", "F-01-02", 20, "Corsair RM850x 850W", 4),
-  ...genSerials("STO-SAM-001", 15, "2026-07-10T08:00:00Z", "C-01-01", 9, "Samsung 990 Pro 1TB NVMe", 5),
-  ...genSerials("STO-SAM-002", 30, "2026-07-10T08:00:00Z", "C-01-02", 10, "Samsung 870 EVO 500GB SATA", 6),
+  ...genSerials("CPU-INT-001", 5, "2026-07-01T14:00:00Z", "A-01-01", 1, "Intel Core i7-14700K", 1),
+  ...genSerials("CPU-INT-002", 8, "2026-07-01T14:00:00Z", "A-01-02", 2, "Intel Core i5-14600K", 2),
+  ...genSerials("RAM-COR-001", 12, "2026-07-05T10:30:00Z", "D-01-01", 12, "Corsair Vengeance DDR5 32GB 5600MHz", 3),
+  ...genSerials("PSU-COR-001", 6, "2026-07-05T10:30:00Z", "F-01-02", 20, "Corsair RM850x 850W", 4),
+  ...genSerials("STO-SAM-001", 10, "2026-07-10T08:00:00Z", "C-01-01", 9, "Samsung 990 Pro 1TB NVMe", 5),
+  ...genSerials("STO-SAM-002", 20, "2026-07-10T08:00:00Z", "C-01-02", 10, "Samsung 870 EVO 500GB SATA", 6),
+  // IMP-20260714-001 — ASUS + GPU + CPU
+  ...genSerials("MB-ASU-001", 5, "2026-07-14T15:30:00Z", "E-01-01", 15, "ASUS ROG Strix Z790-E Gaming", 7),
+  ...genSerials("MB-GIG-001", 8, "2026-07-14T15:30:00Z", "E-01-02", 16, "Gigabyte Z790 Aorus Elite AX", 8),
+  ...genSerials("GPU-ASU-001", 8, "2026-07-14T15:30:00Z", "B-01-01", 5, "ASUS ROG Strix RTX 4060 OC 8GB", 10),
+  ...genSerials("GPU-GIG-001", 4, "2026-07-14T15:30:00Z", "B-01-02", 6, "Gigabyte RTX 4070 Gaming OC 12GB", 11),
+  ...genSerials("GPU-MSI-001", 6, "2026-07-14T15:30:00Z", "B-02-01", 7, "MSI RTX 4060 Ventus 2X 8GB", 12),
+  ...genSerials("CPU-AMD-001", 5, "2026-07-14T15:30:00Z", "A-02-01", 3, "AMD Ryzen 7 7800X3D", 15),
+  // IMP-20260715-001 — WD + Samsung + RAM
+  ...genSerials("STO-WD-001", 8, "2026-07-15T10:00:00Z", "C-02-01", 11, "WD Black SN850X 2TB NVMe", 17),
+  ...genSerials("STO-SAM-003", 10, "2026-07-15T10:00:00Z", "C-02-02", 28, "Samsung 980 Pro 500GB NVMe", 18),
+  ...genSerials("STO-WD-002", 15, "2026-07-15T10:00:00Z", "C-03-01", 29, "WD Blue SN580 1TB NVMe", 19),
+  ...genSerials("RAM-GSK-001", 8, "2026-07-15T10:00:00Z", "D-02-01", 14, "G.Skill Trident Z5 DDR5 32GB 6000MHz", 24),
 ]
 
 // ==================== AUDIT LOGS ====================
