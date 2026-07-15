@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 
-export function NotFoundPage() {
+export const NotFoundPage = () => {
   const navigate = useNavigate()
 
   return (
