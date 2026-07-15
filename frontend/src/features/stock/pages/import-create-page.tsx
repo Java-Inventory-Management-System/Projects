@@ -47,7 +47,6 @@ export function ImportCreatePage() {
   const user = useAuthStore((s) => s.user)
   const navigate = useNavigate()
   const [supplierId, setSupplierId] = useState("")
-  const [referenceDoc, setReferenceDoc] = useState("")
   const [note, setNote] = useState("")
   const [items, setItems] = useState<LineItem[]>([])
   const [products, setProducts] = useState<ProductResponse[]>([])
@@ -162,23 +161,18 @@ export function ImportCreatePage() {
         {
           supplierId: Number(supplierId),
           supplierName: suppliers.find((s) => s.id === Number(supplierId))?.name ?? "",
-          referenceDoc: referenceDoc || null,
           note: note || null,
           totalAmount,
-          items: items.map((i) => {
-            const loc = locations.find((l) => l.id === Number(i.locationId))
-            return {
-              id: 0,
-              productId: i.productId,
-              productName: i.productName,
-              productSku: i.productSku,
-              quantity: i.quantity,
-              unitPrice: i.unitPrice,
-              warrantyMonths: i.warrantyMonths,
-              locationId: loc?.id ?? null,
-              locationCode: loc?.fullCode ?? null,
-            }
-          }),
+          items: items.map((i) => ({
+            id: 0,
+            productId: i.productId,
+            productName: i.productName,
+            productSku: i.productSku,
+            quantity: i.quantity,
+            unitPrice: i.unitPrice,
+            warrantyMonths: i.warrantyMonths,
+            createdUnits: i.quantity,
+          })),
         },
         user.id,
         user.fullName,
@@ -206,27 +200,18 @@ export function ImportCreatePage() {
         </Badge>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="space-y-2">
-          <Label htmlFor="supplier">Nhà cung cấp</Label>
-          <Select value={supplierId} onValueChange={setSupplierId}>
-            <SelectTrigger id="supplier">
-              <SelectValue placeholder="Chọn NCC" />
-            </SelectTrigger>
-            <SelectContent>
-              {suppliers.map((s) => (
-                <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="ref">
-            Chứng từ tham chiếu
-            <span className="text-xs text-muted-foreground ml-2">(không bắt buộc)</span>
-          </Label>
-          <Input id="ref" placeholder="Số hóa đơn (nếu có)" value={referenceDoc} onChange={(e) => setReferenceDoc(e.target.value)} />
-        </div>
+      <div className="space-y-2 max-w-sm">
+        <Label htmlFor="supplier">Nhà cung cấp</Label>
+        <Select value={supplierId} onValueChange={setSupplierId}>
+          <SelectTrigger id="supplier">
+            <SelectValue placeholder="Chọn NCC" />
+          </SelectTrigger>
+          <SelectContent>
+            {suppliers.map((s) => (
+              <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="space-y-2">

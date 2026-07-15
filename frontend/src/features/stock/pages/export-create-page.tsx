@@ -36,10 +36,10 @@ interface LineItem {
 }
 
 const reasons: { value: ExportReason; label: string }[] = [
-  { value: "sale", label: "Bán hàng" },
-  { value: "internal", label: "Xuất nội bộ" },
-  { value: "return_supplier", label: "Trả nhà cung cấp" },
-  { value: "disposal", label: "Hủy hàng" },
+  { value: "SALE", label: "Bán hàng" },
+  { value: "INTERNAL", label: "Xuất nội bộ" },
+  { value: "RETURN_SUPPLIER", label: "Trả nhà cung cấp" },
+  { value: "DISPOSE", label: "Hủy hàng" },
 ]
 
 export function ExportCreatePage() {

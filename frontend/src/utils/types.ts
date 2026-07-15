@@ -147,29 +147,33 @@ export interface ProductUnit {
   productId: number
   productName: string
   productSku: string
-  trackingType: "serialized" | "bulk"
+  trackingType: "SERIALIZED" | "BULK"
   initialQuantity: number | null
   remainingQuantity: number | null
+  importReceiptItemId: number
   locationId: number | null
   locationCode: string | null
   status: ProductUnitStatus
   importedAt: string
-  warrantyMonths: number | null
+  warrantyMonths: number
+  warrantyStartDate: string | null
+  warrantyExpiresAt: string | null
   createdAt: string
+  updatedAt: string
 }
 
 export type ProductUnitStatus =
-  | "in_stock"
-  | "sold"
-  | "defective"
-  | "damaged_in_storage"
-  | "lost"
-  | "under_repair"
-  | "sent_to_manufacturer"
-  | "returned"
-  | "returned_to_supplier"
-  | "removed"
-  | "disposed"
+  | "IN_STOCK"
+  | "SOLD"
+  | "DEFECTIVE"
+  | "DAMAGED_IN_STORAGE"
+  | "LOST"
+  | "UNDER_REPAIR"
+  | "SENT_TO_MANUFACTURER"
+  | "RETURNED"
+  | "RETURNED_TO_SUPPLIER"
+  | "REMOVED"
+  | "DISPOSED"
 
 // ============ Dashboard ============
 
@@ -187,7 +191,6 @@ export interface ImportReceipt {
   receiptCode: string
   supplierId: number
   supplierName: string
-  referenceDoc: string | null
   status: ImportReceiptStatus
   createdBy: number
   createdByName: string
@@ -200,7 +203,7 @@ export interface ImportReceipt {
   items: ImportReceiptItem[]
 }
 
-export type ImportReceiptStatus = "draft" | "pending_approval" | "completed" | "cancelled"
+export type ImportReceiptStatus = "PENDING" | "PENDING_APPROVAL" | "COMPLETED" | "CANCELLED"
 
 export interface ImportReceiptItem {
   id: number
@@ -210,8 +213,7 @@ export interface ImportReceiptItem {
   quantity: number
   unitPrice: number
   warrantyMonths: number
-  locationId: number | null
-  locationCode: string | null
+  createdUnits: number
 }
 
 // ============ Export Receipt ============
@@ -223,6 +225,7 @@ export interface ExportReceipt {
   customerId: number | null
   customerName: string | null
   status: ExportReceiptStatus
+  totalAmount: number
   createdBy: number
   createdByName: string
   approvedBy: number | null
@@ -233,8 +236,8 @@ export interface ExportReceipt {
   items: ExportReceiptItem[]
 }
 
-export type ExportReason = "sale" | "internal" | "return_supplier" | "disposal"
-export type ExportReceiptStatus = "draft" | "pending_approval" | "completed" | "cancelled"
+export type ExportReason = "SALE" | "INTERNAL" | "RETURN_SUPPLIER" | "DISPOSE"
+export type ExportReceiptStatus = "PENDING_APPROVAL" | "COMPLETED" | "CANCELLED"
 
 export interface ExportReceiptItem {
   id: number

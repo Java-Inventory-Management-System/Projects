@@ -24,17 +24,16 @@ import {
 } from "@/components/ui/pagination"
 
 const statusLabel: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
-  draft: { label: "Nháp", variant: "secondary" },
-  pending_approval: { label: "Chờ duyệt", variant: "outline" },
-  completed: { label: "Hoàn tất", variant: "default" },
-  cancelled: { label: "Đã hủy", variant: "destructive" },
+  PENDING_APPROVAL: { label: "Chờ duyệt", variant: "outline" },
+  COMPLETED: { label: "Hoàn tất", variant: "default" },
+  CANCELLED: { label: "Đã hủy", variant: "destructive" },
 }
 
 const reasonLabel: Record<string, string> = {
-  sale: "Bán hàng",
-  internal: "Nội bộ",
-  return_supplier: "Trả NCC",
-  disposal: "Hủy",
+  SALE: "Bán hàng",
+  INTERNAL: "Nội bộ",
+  RETURN_SUPPLIER: "Trả NCC",
+  DISPOSE: "Hủy",
 }
 
 export function ExportListPage() {
