@@ -13,7 +13,7 @@ export function ViewInventoryModal({ item, open, onOpenChange }: { item: Invento
   const low = item.quantity <= item.minStock
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-[min(95vw,42rem)]">
         <DialogHeader>
           <DialogTitle>{item.productName}</DialogTitle>
         </DialogHeader>

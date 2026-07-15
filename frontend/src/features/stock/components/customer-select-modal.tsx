@@ -111,7 +111,7 @@ export function CustomerSelectModal({ open, onOpenChange, onSelect, selectedCust
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg" onKeyDown={handleKeyDown}>
+      <DialogContent className="max-w-[min(95vw,56rem)]" onKeyDown={handleKeyDown}>
         <DialogHeader>
           <DialogTitle>
             {view === "create" ? (

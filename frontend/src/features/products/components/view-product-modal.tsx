@@ -11,7 +11,7 @@ export function ViewProductModal({ product, open, onOpenChange }: { product: Pro
   if (!product) return null
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-[min(95vw,42rem)]">
         <DialogHeader>
           <DialogTitle>{product.name}</DialogTitle>
         </DialogHeader>
