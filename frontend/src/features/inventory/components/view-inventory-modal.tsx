@@ -8,7 +8,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 
-export function ViewInventoryModal({ item, open, onOpenChange }: { item: InventoryItem | null; open: boolean; onOpenChange: (v: boolean) => void }) {
+export const ViewInventoryModal = ({ item, open, onOpenChange }: { item: InventoryItem | null; open: boolean; onOpenChange: (v: boolean) => void }) => {
   if (!item) return null
   const low = item.quantity <= item.minStock
   return (
