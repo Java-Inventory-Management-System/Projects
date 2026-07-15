@@ -3,20 +3,13 @@ import { useNavigate } from "react-router-dom"
 import { useAuthStore } from "@/store/auth-store"
 import { createExportReceipt } from "@/features/stock/services/export-service"
 import { getProducts } from "@/features/stock/services/product-service"
-import { getCustomers, createCustomer } from "@/features/stock/services/customer-service"
 import { getSerialsForExport } from "@/mock-services"
-import type { ProductResponse, CustomerResponse, ResponsePage, ExportReason, ProductUnit } from "@/utils/types"
+import { CustomerSelectModal } from "@/features/stock/components/customer-select-modal"
+import type { ProductResponse, ResponsePage, ExportReason, ProductUnit } from "@/utils/types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog"
 import {
   Select,
   SelectContent,
@@ -32,7 +25,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { Trash2, Plus, UserPlus } from "lucide-react"
+import { Trash2, Plus, Search } from "lucide-react"
 import { toast } from "@/utils/toast"
 
 interface LineItem {
@@ -59,21 +52,14 @@ export function ExportCreatePage() {
   const [note, setNote] = useState("")
   const [items, setItems] = useState<LineItem[]>([])
   const [products, setProducts] = useState<ProductResponse[]>([])
-  const [customers, setCustomers] = useState<CustomerResponse[]>([])
+  const [customerName, setCustomerName] = useState("")
+  const [selectModalOpen, setSelectModalOpen] = useState(false)
   const [selectedProductId, setSelectedProductId] = useState("")
   const [submitting, setSubmitting] = useState(false)
   const [serials, setSerials] = useState<Record<number, ProductUnit[]>>({})
 
-  const [customerDialogOpen, setCustomerDialogOpen] = useState(false)
-  const [newCustomerName, setNewCustomerName] = useState("")
-  const [newCustomerPhone, setNewCustomerPhone] = useState("")
-  const [newCustomerEmail, setNewCustomerEmail] = useState("")
-  const [newCustomerAddress, setNewCustomerAddress] = useState("")
-  const [creatingCustomer, setCreatingCustomer] = useState(false)
-
   useEffect(() => {
     getProducts(0, 100).then((res: ResponsePage<ProductResponse>) => setProducts(res.content))
-    getCustomers(0, 50).then((res: ResponsePage<CustomerResponse>) => setCustomers(res.content))
   }, [])
 
   useEffect(() => {
@@ -112,43 +98,16 @@ export function ExportCreatePage() {
     setItems((prev) => prev.filter((i) => i.tempId !== tempId))
   }
 
-  const handleCreateCustomer = async () => {
-    if (!newCustomerName.trim()) { toast.error("Vui lòng nhập tên khách hàng"); return }
-    setCreatingCustomer(true)
-    try {
-      const created = await createCustomer({
-        name: newCustomerName.trim(),
-        phone: newCustomerPhone.trim() || null,
-        email: newCustomerEmail.trim() || null,
-        address: newCustomerAddress.trim() || null,
-        note: null,
-      })
-      setCustomers((prev) => [...prev, created])
-      setCustomerId(String(created.id))
-      setCustomerDialogOpen(false)
-      setNewCustomerName("")
-      setNewCustomerPhone("")
-      setNewCustomerEmail("")
-      setNewCustomerAddress("")
-      toast.success(`Đã thêm KH "${created.name}"`)
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Không thể tạo KH")
-    } finally {
-      setCreatingCustomer(false)
-    }
-  }
-
   const handleSubmit = async () => {
     if (!reason || !user || items.length === 0) return
     if (reason === "SALE" && !customerId) { toast.error("Vui lòng chọn khách hàng"); return }
     setSubmitting(true)
     try {
-      const customer = reason === "SALE" ? customers.find((c) => c.id === Number(customerId)) : undefined
       await createExportReceipt(
         {
           reason: reason as ExportReason,
-          customerId: customer?.id ?? null,
-          customerName: customer?.name ?? null,
+          customerId: customerId ? Number(customerId) : null,
+          customerName: customerName || null,
           note: note || null,
           items: items.map((i) => ({
             id: 0,
@@ -200,19 +159,25 @@ export function ExportCreatePage() {
           <div className="space-y-2">
             <Label htmlFor="customer">Khách hàng</Label>
             <div className="flex gap-2">
-              <Select value={customerId} onValueChange={setCustomerId}>
-                <SelectTrigger id="customer" className="flex-1">
-                  <SelectValue placeholder="Chọn khách hàng" />
-                </SelectTrigger>
-                <SelectContent>
-                  {customers.map((c) => (
-                    <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Button variant="outline" size="icon" onClick={() => setCustomerDialogOpen(true)} title="Thêm KH mới">
-                <UserPlus className="size-4" />
+              <Button
+                variant="outline"
+                className="flex-1 justify-start font-normal h-10"
+                onClick={() => setSelectModalOpen(true)}
+              >
+                {customerId ? (
+                  <span className="truncate">{customerName}</span>
+                ) : (
+                  <span className="text-muted-foreground flex items-center gap-2">
+                    <Search className="size-4" />
+                    Tìm kiếm / Chọn khách hàng...
+                  </span>
+                )}
               </Button>
+              {customerId && (
+                <Button variant="ghost" size="icon" onClick={() => { setCustomerId(""); setCustomerName("") }}>
+                  <Trash2 className="size-4 text-destructive" />
+                </Button>
+              )}
             </div>
           </div>
         )}
@@ -348,37 +313,12 @@ export function ExportCreatePage() {
         </Button>
       </div>
 
-      <Dialog open={customerDialogOpen} onOpenChange={setCustomerDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Thêm khách hàng mới</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="new-name">Tên khách hàng</Label>
-              <Input id="new-name" value={newCustomerName} onChange={(e) => setNewCustomerName(e.target.value)} placeholder="Nhập tên..." />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="new-phone">Số điện thoại</Label>
-              <Input id="new-phone" value={newCustomerPhone} onChange={(e) => setNewCustomerPhone(e.target.value)} placeholder="Không bắt buộc" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="new-email">Email</Label>
-              <Input id="new-email" type="email" value={newCustomerEmail} onChange={(e) => setNewCustomerEmail(e.target.value)} placeholder="Không bắt buộc" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="new-address">Địa chỉ</Label>
-              <Input id="new-address" value={newCustomerAddress} onChange={(e) => setNewCustomerAddress(e.target.value)} placeholder="Không bắt buộc" />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setCustomerDialogOpen(false)}>Hủy</Button>
-            <Button onClick={handleCreateCustomer} disabled={creatingCustomer}>
-              {creatingCustomer ? "Đang tạo..." : "Thêm"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <CustomerSelectModal
+        open={selectModalOpen}
+        onOpenChange={setSelectModalOpen}
+        selectedCustomerId={customerId ? Number(customerId) : null}
+        onSelect={(id, name) => { setCustomerId(String(id)); setCustomerName(name) }}
+      />
     </div>
   )
 }
