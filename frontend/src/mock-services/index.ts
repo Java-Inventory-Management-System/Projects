@@ -196,12 +196,10 @@ export async function createImportReceipt(
 ): Promise<ImportReceipt> {
   await delay(300)
 
-  // Check duplicate serials system-wide
   if (serialMap) {
     const allExistingSerials = new Set<string>()
     for (const r of importReceipts) {
       for (const line of r.items) {
-        // Simulate existing serials — in real backend would query product_units table
         for (let i = 0; i < line.quantity; i++) {
           allExistingSerials.add(`${line.productSku}-SERIAL-${line.id}-${i}`)
         }
@@ -223,17 +221,25 @@ export async function createImportReceipt(
     ...data,
     id: nextImportId++,
     receiptCode: `IMP-${dateStr}-${seq}`,
-    status: "draft",
+    status: "PENDING",
     createdBy: userId,
     createdByName: userName,
     approvedBy: null,
     approvedByName: null,
     createdAt: now.toISOString(),
     updatedAt: now.toISOString(),
-    items: data.items.map((item) => ({ ...item, id: nextImportItemId++ })),
+    items: data.items.map((item) => ({ ...item, id: nextImportItemId++, createdUnits: item.quantity })),
   }
   importReceipts.push(receipt)
   return receipt
+}
+
+export async function cancelImportReceipt(id: number): Promise<ImportReceipt> {
+  await delay(200)
+  const idx = importReceipts.findIndex((r) => r.id === id)
+  if (idx === -1) throw new Error("Không tìm thấy phiếu nhập")
+  importReceipts[idx] = { ...importReceipts[idx], status: "CANCELLED", updatedAt: new Date().toISOString() }
+  return importReceipts[idx]
 }
 
 // ==================== Export Receipts ====================
@@ -260,7 +266,7 @@ export async function createExportReceipt(
     ...data,
     id: nextExportId++,
     receiptCode: `EXP-${dateStr}-${seq}`,
-    status: "draft",
+    status: "PENDING_APPROVAL",
     createdBy: userId,
     createdByName: userName,
     approvedBy: null,
@@ -271,6 +277,14 @@ export async function createExportReceipt(
   }
   exportReceipts.push(receipt)
   return receipt
+}
+
+export async function cancelExportReceipt(id: number): Promise<ExportReceipt> {
+  await delay(200)
+  const idx = exportReceipts.findIndex((r) => r.id === id)
+  if (idx === -1) throw new Error("Không tìm thấy phiếu xuất")
+  exportReceipts[idx] = { ...exportReceipts[idx], status: "CANCELLED", updatedAt: new Date().toISOString() }
+  return exportReceipts[idx]
 }
 
 // ==================== Audit Logs ====================

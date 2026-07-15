@@ -193,30 +193,30 @@ export const suppliers: SupplierResponse[] = [
 
 export const importReceipts: ImportReceipt[] = [
   {
-    id: 1, receiptCode: "IMP-20260701-001", supplierId: 1, supplierName: "Intel Vietnam", referenceDoc: "HD/INTEL/0726-01",
-    status: "completed", createdBy: 4, createdByName: "Lê Văn C — Nhân viên kho", approvedBy: 2, approvedByName: "Nguyễn Văn A — Quản lý kho",
+    id: 1, receiptCode: "IMP-20260701-001", supplierId: 1, supplierName: "Intel Vietnam",
+    status: "COMPLETED", createdBy: 4, createdByName: "Lê Văn C — Nhân viên kho", approvedBy: 2, approvedByName: "Nguyễn Văn A — Quản lý kho",
     note: null, totalAmount: 28996000, createdAt: "2026-07-01T09:00:00Z", updatedAt: "2026-07-01T14:00:00Z",
     items: [
-      { id: 1, productId: 1, productName: "Intel Core i7-14700K", productSku: "CPU-INT-001", quantity: 10, unitPrice: 9499000, warrantyMonths: 36, locationId: 1, locationCode: "A-01-01" },
-      { id: 2, productId: 2, productName: "Intel Core i5-14600K", productSku: "CPU-INT-002", quantity: 15, unitPrice: 6999000, warrantyMonths: 36, locationId: 2, locationCode: "A-01-02" },
+      { id: 1, productId: 1, productName: "Intel Core i7-14700K", productSku: "CPU-INT-001", quantity: 10, unitPrice: 9499000, warrantyMonths: 36, createdUnits: 10 },
+      { id: 2, productId: 2, productName: "Intel Core i5-14600K", productSku: "CPU-INT-002", quantity: 15, unitPrice: 6999000, warrantyMonths: 36, createdUnits: 15 },
     ],
   },
   {
-    id: 2, receiptCode: "IMP-20260705-001", supplierId: 2, supplierName: "Corsair Asia Pte Ltd", referenceDoc: null,
-    status: "pending_approval", createdBy: 6, createdByName: "Nguyễn Văn Hùng", approvedBy: null, approvedByName: null,
+    id: 2, receiptCode: "IMP-20260705-001", supplierId: 2, supplierName: "Corsair Asia Pte Ltd",
+    status: "PENDING_APPROVAL", createdBy: 6, createdByName: "Nguyễn Văn Hùng", approvedBy: null, approvedByName: null,
     note: "Đợi QL kiểm tra số lượng thực tế", totalAmount: 42984000, createdAt: "2026-07-05T10:30:00Z", updatedAt: "2026-07-05T10:30:00Z",
     items: [
-      { id: 3, productId: 12, productName: "Corsair Vengeance DDR5 32GB 5600MHz", productSku: "RAM-COR-001", quantity: 20, unitPrice: 2499000, warrantyMonths: 24, locationId: 14, locationCode: "D-01-01" },
-      { id: 4, productId: 20, productName: "Corsair RM850x 850W", productSku: "PSU-COR-001", quantity: 10, unitPrice: 2999000, warrantyMonths: 60, locationId: 22, locationCode: "F-01-02" },
+      { id: 3, productId: 12, productName: "Corsair Vengeance DDR5 32GB 5600MHz", productSku: "RAM-COR-001", quantity: 20, unitPrice: 2499000, warrantyMonths: 24, createdUnits: 20 },
+      { id: 4, productId: 20, productName: "Corsair RM850x 850W", productSku: "PSU-COR-001", quantity: 10, unitPrice: 2999000, warrantyMonths: 60, createdUnits: 10 },
     ],
   },
   {
-    id: 3, receiptCode: "IMP-20260710-001", supplierId: 3, supplierName: "Samsung Vina", referenceDoc: null,
-    status: "draft", createdBy: 4, createdByName: "Lê Văn C — Nhân viên kho", approvedBy: null, approvedByName: null,
+    id: 3, receiptCode: "IMP-20260710-001", supplierId: 3, supplierName: "Samsung Vina",
+    status: "PENDING", createdBy: 4, createdByName: "Lê Văn C — Nhân viên kho", approvedBy: null, approvedByName: null,
     note: null, totalAmount: 24450000, createdAt: "2026-07-10T08:00:00Z", updatedAt: "2026-07-10T08:00:00Z",
     items: [
-      { id: 5, productId: 9, productName: "Samsung 990 Pro 1TB NVMe", productSku: "STO-SAM-001", quantity: 15, unitPrice: 3899000, warrantyMonths: 60, locationId: 9, locationCode: "C-01-01" },
-      { id: 6, productId: 10, productName: "Samsung 870 EVO 500GB SATA", productSku: "STO-SAM-002", quantity: 30, unitPrice: 1599000, warrantyMonths: 36, locationId: 10, locationCode: "C-01-02" },
+      { id: 5, productId: 9, productName: "Samsung 990 Pro 1TB NVMe", productSku: "STO-SAM-001", quantity: 15, unitPrice: 3899000, warrantyMonths: 60, createdUnits: 15 },
+      { id: 6, productId: 10, productName: "Samsung 870 EVO 500GB SATA", productSku: "STO-SAM-002", quantity: 30, unitPrice: 1599000, warrantyMonths: 36, createdUnits: 30 },
     ],
   },
 ]
@@ -225,26 +225,26 @@ export const importReceipts: ImportReceipt[] = [
 
 export const exportReceipts: ExportReceipt[] = [
   {
-    id: 1, receiptCode: "EXP-20260702-001", reason: "sale", customerId: 1, customerName: "Công ty TNHH ABC",
-    status: "completed", createdBy: 4, createdByName: "Lê Văn C — Nhân viên kho", approvedBy: 2, approvedByName: "Nguyễn Văn A — Quản lý kho",
-    note: null, createdAt: "2026-07-02T14:00:00Z", updatedAt: "2026-07-02T16:00:00Z",
+    id: 1, receiptCode: "EXP-20260702-001", reason: "SALE", customerId: 1, customerName: "Công ty TNHH ABC",
+    status: "COMPLETED", createdBy: 4, createdByName: "Lê Văn C — Nhân viên kho", approvedBy: 2, approvedByName: "Nguyễn Văn A — Quản lý kho",
+    note: null, totalAmount: 58992000, createdAt: "2026-07-02T14:00:00Z", updatedAt: "2026-07-02T16:00:00Z",
     items: [
       { id: 1, productId: 1, productName: "Intel Core i7-14700K", productSku: "CPU-INT-001", quantity: 3, unitPrice: 11499000 },
       { id: 2, productId: 9, productName: "Samsung 990 Pro 1TB NVMe", productSku: "STO-SAM-001", quantity: 5, unitPrice: 4899000 },
     ],
   },
   {
-    id: 2, receiptCode: "EXP-20260708-001", reason: "sale", customerId: 3, customerName: "Nguyễn Văn Minh",
-    status: "pending_approval", createdBy: 6, createdByName: "Nguyễn Văn Hùng", approvedBy: null, approvedByName: null,
-    note: "Chờ duyệt xuất", createdAt: "2026-07-08T11:00:00Z", updatedAt: "2026-07-08T11:00:00Z",
+    id: 2, receiptCode: "EXP-20260708-001", reason: "SALE", customerId: 3, customerName: "Nguyễn Văn Minh",
+    status: "PENDING_APPROVAL", createdBy: 6, createdByName: "Nguyễn Văn Hùng", approvedBy: null, approvedByName: null,
+    note: "Chờ duyệt xuất", totalAmount: 30598000, createdAt: "2026-07-08T11:00:00Z", updatedAt: "2026-07-08T11:00:00Z",
     items: [
       { id: 3, productId: 5, productName: "ASUS ROG Strix RTX 4060 OC 8GB", productSku: "GPU-ASU-001", quantity: 2, unitPrice: 15299000 },
     ],
   },
   {
-    id: 3, receiptCode: "EXP-20260712-001", reason: "internal", customerId: null, customerName: null,
-    status: "draft", createdBy: 4, createdByName: "Lê Văn C — Nhân viên kho", approvedBy: null, approvedByName: null,
-    note: "Xuất nội bộ — bàn giao phòng kỹ thuật", createdAt: "2026-07-12T09:00:00Z", updatedAt: "2026-07-12T09:00:00Z",
+    id: 3, receiptCode: "EXP-20260712-001", reason: "INTERNAL", customerId: null, customerName: null,
+    status: "PENDING_APPROVAL", createdBy: 4, createdByName: "Lê Văn C — Nhân viên kho", approvedBy: null, approvedByName: null,
+    note: "Xuất nội bộ — bàn giao phòng kỹ thuật", totalAmount: 0, createdAt: "2026-07-12T09:00:00Z", updatedAt: "2026-07-12T09:00:00Z",
     items: [
       { id: 4, productId: 22, productName: "Corsair 4000D Airflow", productSku: "CSE-COR-001", quantity: 1, unitPrice: 0 },
     ],

@@ -25,10 +25,10 @@ import {
 } from "@/components/ui/pagination"
 
 const statusLabel: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
-  draft: { label: "Nháp", variant: "secondary" },
-  pending_approval: { label: "Chờ duyệt", variant: "outline" },
-  completed: { label: "Hoàn tất", variant: "default" },
-  cancelled: { label: "Đã hủy", variant: "destructive" },
+  PENDING: { label: "Chờ xử lý", variant: "secondary" },
+  PENDING_APPROVAL: { label: "Chờ duyệt", variant: "outline" },
+  COMPLETED: { label: "Hoàn tất", variant: "default" },
+  CANCELLED: { label: "Đã hủy", variant: "destructive" },
 }
 
 export function ImportListPage() {
