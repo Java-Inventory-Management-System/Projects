@@ -1,11 +1,15 @@
-import { useEffect, useState, useMemo } from "react"
+import { useState, useMemo, useCallback } from "react"
 import { useNavigate } from "react-router-dom"
-import { useAuthStore } from "@/store/auth-store"
+import { useMutation } from "@tanstack/react-query"
 import { createImportReceipt } from "@/features/stock/services/import-service"
-import { getProducts } from "@/features/stock/services/product-service"
-import { getLocations, suggestLocation } from "@/features/stock/services/location-service"
-import { getSuppliers } from "@/features/stock/services/supplier-service"
-import type { ProductResponse, LocationResponse, SupplierResponse, ResponsePage } from "@/utils/types"
+import { suggestLocation } from "@/features/stock/services/location-service"
+import { useCategoryZones } from "@/hooks/use-category-zones"
+import { useProducts } from "@/hooks/use-products"
+import { useSuppliers } from "@/hooks/use-suppliers"
+import { useLocations } from "@/hooks/use-locations"
+import type { LocationResponse } from "@/utils/types"
+import { importFormSchema } from "@/features/stock/schemas/import-schema"
+import type { ImportFormData } from "@/features/stock/schemas/import-schema"
 import { toast } from "@/utils/toast"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -43,31 +47,33 @@ interface LineItem {
   locationId: string
 }
 
-export function ImportCreatePage() {
-  const user = useAuthStore((s) => s.user)
+export const ImportCreatePage = () => {
   const navigate = useNavigate()
   const [supplierId, setSupplierId] = useState("")
   const [note, setNote] = useState("")
   const [items, setItems] = useState<LineItem[]>([])
-  const [products, setProducts] = useState<ProductResponse[]>([])
-  const [suppliers, setSuppliers] = useState<SupplierResponse[]>([])
-  const [locations, setLocations] = useState<LocationResponse[]>([])
   const [selectedProductId, setSelectedProductId] = useState("")
   const [receiptDate, setReceiptDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [referenceDoc, setReferenceDoc] = useState("")
-  const [submitting, setSubmitting] = useState(false)
   const [serialModalOpen, setSerialModalOpen] = useState(false)
   const [activeItemId, setActiveItemId] = useState<number | null>(null)
 
-  useEffect(() => {
-    getProducts(0, 100).then((res: ResponsePage<ProductResponse>) => setProducts(res.content))
-    getSuppliers().then(setSuppliers)
-    getLocations().then(setLocations)
-  }, [])
+  const { data: productsRes } = useProducts(0, 100)
+  const { data: suppliers } = useSuppliers()
+  const { data: locations } = useLocations()
+  const { data: zoneMap } = useCategoryZones()
+
+  const products = useMemo(() => productsRes?.content ?? [], [productsRes])
 
   const activeItem = items.find((i) => i.tempId === activeItemId)
 
-  const addItem = () => {
+  const createMut = useMutation({
+    mutationFn: createImportReceipt,
+    onSuccess: () => { toast.success("Tạo phiếu nhập thành công"); navigate("/stock/imports") },
+    onError: (err: Error) => toast.error(err.message || "Có lỗi xảy ra khi tạo phiếu nhập"),
+  })
+
+  const addItem = useCallback(() => {
     if (!selectedProductId) return
     const product = products.find((p) => p.id === Number(selectedProductId))
     if (!product) return
@@ -75,7 +81,7 @@ export function ImportCreatePage() {
       toast.error("Sản phẩm này đã có trong phiếu")
       return
     }
-    const suggested = suggestLocation(product.categoryId, locations)
+    const suggested = suggestLocation(product.categoryId, locations, zoneMap)
     setItems((prev) => [
       ...prev,
       {
@@ -92,24 +98,24 @@ export function ImportCreatePage() {
       },
     ])
     setSelectedProductId("")
-  }
+  }, [selectedProductId, products, items, locations, zoneMap])
 
-  const updateItem = (tempId: number, field: keyof LineItem, value: number | string) => {
+  const updateItem = useCallback((tempId: number, field: keyof LineItem, value: number | string) => {
     setItems((prev) => prev.map((i) => (i.tempId === tempId ? { ...i, [field]: value } : i)))
-  }
+  }, [])
 
-  const removeItem = (tempId: number) => {
+  const removeItem = useCallback((tempId: number) => {
     setItems((prev) => prev.filter((i) => i.tempId !== tempId))
-  }
+  }, [])
 
-  const openSerialModal = (tempId: number) => {
+  const openSerialModal = useCallback((tempId: number) => {
     setActiveItemId(tempId)
     setSerialModalOpen(true)
-  }
+  }, [])
 
-  const saveSerials = (tempId: number, newSerials: string[]) => {
+  const saveSerials = useCallback((tempId: number, newSerials: string[]) => {
     setItems((prev) => prev.map((i) => (i.tempId === tempId ? { ...i, serials: newSerials } : i)))
-  }
+  }, [])
 
   const groupedLocations = useMemo(() => {
     const groups: Record<string, LocationResponse[]> = {}
@@ -120,31 +126,26 @@ export function ImportCreatePage() {
     return groups
   }, [locations])
 
-  const totalAmount = items.reduce((sum, i) => sum + i.quantity * i.unitPrice, 0)
+  const totalAmount = useMemo(() => items.reduce((sum, i) => sum + i.quantity * i.unitPrice, 0), [items])
 
-  const serialIssues = items
+  const serialIssues = useMemo(() => items
     .map((i) => {
       if (i.serials.length < i.quantity) return { name: i.productName, issue: `thiếu ${i.quantity - i.serials.length} serial` }
       if (i.serials.length > i.quantity) return { name: i.productName, issue: `thừa ${i.serials.length - i.quantity} serial` }
       return null
     })
-    .filter(Boolean) as { name: string; issue: string }[]
-  const allSerialsOk = serialIssues.length === 0
+    .filter(Boolean) as { name: string; issue: string }[], [items])
 
+  const allSerialsOk = serialIssues.length === 0
   const locationIssues = items.filter((i) => !i.locationId)
   const allLocationsOk = locationIssues.length === 0
 
-  const handleSubmit = async () => {
-    if (!supplierId) {
-      toast.error("Vui lòng chọn nhà cung cấp")
-      return
-    }
-    if (!receiptDate) {
-      toast.error("Vui lòng chọn ngày nhập")
-      return
-    }
-    if (items.length === 0) {
-      toast.error("Chưa có sản phẩm nào trong phiếu")
+  const handleSubmit = useCallback(() => {
+    const raw: ImportFormData = { supplierId, receiptDate, referenceDoc, note, items }
+    const parsed = importFormSchema.safeParse(raw)
+    if (!parsed.success) {
+      const first = parsed.error.errors[0]
+      toast.error(first.message)
       return
     }
     if (!allSerialsOk) {
@@ -155,41 +156,20 @@ export function ImportCreatePage() {
       toast.error("Vui lòng chọn vị trí kho cho tất cả sản phẩm")
       return
     }
-    if (!user) return
-
-    setSubmitting(true)
-    try {
-      const serialMap: Record<number, string[]> = {}
-      for (const item of items) {
-        serialMap[item.tempId] = item.serials
-      }
-      const receiptData = {
-        supplierId: Number(supplierId),
-        supplierName: suppliers.find((s) => s.id === Number(supplierId))?.name ?? "",
-        note: note || null,
-        totalAmount,
-        items: items.map((i) => ({
-          id: 0,
-          productId: i.productId,
-          productName: i.productName,
-          productSku: i.productSku,
-          quantity: i.quantity,
-          unitPrice: i.unitPrice,
-          warrantyMonths: i.warrantyMonths,
-          createdUnits: i.quantity,
-        })),
-      } as any
-      receiptData.receiptDate = receiptDate
-      receiptData.referenceDoc = referenceDoc || null
-      await createImportReceipt(receiptData, user.id, user.displayName, serialMap)
-      toast.success("Tạo phiếu nhập thành công")
-      navigate("/stock/imports")
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Có lỗi xảy ra khi tạo phiếu nhập")
-    } finally {
-      setSubmitting(false)
-    }
-  }
+    createMut.mutate({
+      receiptCode: referenceDoc || undefined,
+      supplierId: Number(supplierId),
+      note: note || null,
+      items: items.map((i) => ({
+        productId: i.productId,
+        quantity: i.quantity,
+        unitPrice: i.unitPrice,
+        warrantyMonths: i.warrantyMonths,
+        serialNumbers: i.serials.length > 0 ? i.serials : undefined,
+        locationId: i.locationId ? Number(i.locationId) : undefined,
+      })),
+    })
+  }, [supplierId, receiptDate, referenceDoc, note, items, allSerialsOk, serialIssues, allLocationsOk, createMut])
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
@@ -269,7 +249,7 @@ export function ImportCreatePage() {
               {items.map((item) => {
                 const serialCount = item.serials.length
                 const serialOk = serialCount === item.quantity
-                const suggested = suggestLocation(item.categoryId, locations)
+                const suggested = suggestLocation(item.categoryId, locations, zoneMap)
                 return (
                   <TableRow key={item.tempId}>
                     <TableCell className="font-medium text-sm">{item.productName}</TableCell>
@@ -376,9 +356,9 @@ export function ImportCreatePage() {
         <Button variant="outline" onClick={() => navigate("/stock/imports")}>Hủy</Button>
         <Button
           onClick={handleSubmit}
-          disabled={!supplierId || items.length === 0 || submitting}
+          disabled={!supplierId || items.length === 0 || createMut.isPending}
         >
-          {submitting ? "Đang tạo..." : "Tạo phiếu nhập"}
+          {createMut.isPending ? "Đang tạo..." : "Tạo phiếu nhập"}
         </Button>
       </div>
 
