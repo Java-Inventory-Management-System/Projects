@@ -31,3 +31,6 @@ build/
 
 ### VS Code ###
 .vscode/
+
+*.log
+matcher_bytecode.txt
