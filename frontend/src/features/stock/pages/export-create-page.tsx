@@ -107,7 +107,7 @@ export function ExportCreatePage() {
           })),
         },
         user.id,
-        user.fullName,
+        user.displayName,
       )
       navigate("/stock/exports")
     } finally {

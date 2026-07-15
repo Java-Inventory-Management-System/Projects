@@ -175,7 +175,7 @@ export function ImportCreatePage() {
           })),
         },
         user.id,
-        user.fullName,
+        user.displayName,
         serialMap,
       )
       toast.success("Tạo phiếu nhập thành công")
