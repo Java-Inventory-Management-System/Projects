@@ -1,0 +1,238 @@
+package org.dawn.backend.service.inventory;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.dawn.backend.config.anno.AuditLog;
+import org.dawn.backend.config.web.response.ResponsePage;
+import org.dawn.backend.constant.inventory.DifferenceType;
+import org.dawn.backend.constant.inventory.ProductUnitStatus;
+import org.dawn.backend.constant.inventory.SourceType;
+import org.dawn.backend.constant.inventory.StockCheckStatus;
+import org.dawn.backend.constant.shared.LogConstant;
+import org.dawn.backend.constant.shared.Message;
+import org.dawn.backend.controller.inventory.request.ApproveStockCheckRequest;
+import org.dawn.backend.controller.inventory.request.CreateStockCheckRequest;
+import org.dawn.backend.controller.inventory.request.StockCheckItemRequest;
+import org.dawn.backend.controller.inventory.response.StockCheckResponse;
+import org.dawn.backend.entity.catalog.Product;
+import org.dawn.backend.entity.inventory.*;
+import org.dawn.backend.exception.wrapper.InvalidRequestException;
+import org.dawn.backend.exception.wrapper.ResourceNotFoundException;
+import org.dawn.backend.repository.catalog.ProductRepository;
+import org.dawn.backend.repository.inventory.*;
+import org.dawn.backend.utils.SecurityUtils;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.util.*;
+import java.util.stream.Collectors;
+
+@Service
+@RequiredArgsConstructor
+@Slf4j
+public class StockCheckService {
+
+    private final StockCheckRepository stockCheckRepository;
+    private final StockCheckItemRepository stockCheckItemRepository;
+    private final ProductUnitRepository productUnitRepository;
+    private final ProductUnitStatusLogRepository statusLogRepository;
+    private final ProductRepository productRepository;
+
+    public ResponsePage<StockCheckResponse> findAll(Pageable pageable) {
+        var page = stockCheckRepository.findAll(pageable);
+        return ResponsePage.of(page.map(this::enrich));
+    }
+
+    public StockCheckResponse findOne(Long id) {
+        var sc = stockCheckRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.STOCK_CHECK_NOT_FOUND));
+        return enrich(sc);
+    }
+
+    @Transactional
+    @AuditLog(action = LogConstant.Action.CREATE_STOCK_CHECK, entity = LogConstant.Entity.STOCK_CHECK)
+    public StockCheckResponse create(CreateStockCheckRequest request) {
+        Long userId = SecurityUtils.getCurrentUserId();
+        if (userId == null) throw new InvalidRequestException("User not authenticated");
+
+        if (request.productUnitIds() == null || request.productUnitIds().isEmpty()) {
+            throw new InvalidRequestException(Message.Inventory.STOCK_CHECK_ITEMS_REQUIRED);
+        }
+
+        String checkCode = generateCheckCode();
+        StockCheck sc = StockCheck.builder()
+                .checkCode(checkCode)
+                .status(StockCheckStatus.PENDING.name())
+                .note(request.note())
+                .createdBy(userId)
+                .build();
+        sc = stockCheckRepository.save(sc);
+        Long scId = sc.getId();
+
+        var units = productUnitRepository.findAllById(request.productUnitIds());
+        for (var unit : units) {
+            stockCheckItemRepository.save(StockCheckItem.builder()
+                    .stockCheckId(scId)
+                    .productUnitId(unit.getId())
+                    .expectedStatus(unit.getStatus())
+                    .build());
+        }
+
+        sc.setStatus(StockCheckStatus.IN_PROGRESS.name());
+        sc = stockCheckRepository.save(sc);
+        return enrich(sc);
+    }
+
+    @Transactional
+    public StockCheckResponse recordItems(Long stockCheckId, StockCheckItemRequest.BatchRequest request) {
+        var sc = stockCheckRepository.findById(stockCheckId)
+                .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.STOCK_CHECK_NOT_FOUND));
+
+        if (!StockCheckStatus.IN_PROGRESS.name().equals(sc.getStatus())) {
+            throw new InvalidRequestException("Stock check must be IN_PROGRESS to record items");
+        }
+
+        var existingItems = stockCheckItemRepository.findByStockCheckId(stockCheckId);
+        Map<Long, StockCheckItem> itemMap = existingItems.stream()
+                .collect(Collectors.toMap(StockCheckItem::getProductUnitId, i -> i));
+
+        for (var req : request.items()) {
+            var item = itemMap.get(req.productUnitId());
+            if (item == null) {
+                item = StockCheckItem.builder()
+                        .stockCheckId(stockCheckId)
+                        .productUnitId(req.productUnitId())
+                        .build();
+            }
+            String actual = req.actualStatus() != null ? req.actualStatus().toUpperCase() : "IN_STOCK";
+            item.setActualStatus(actual);
+            item.setCountedQuantity(req.countedQuantity());
+            item.setNote(req.note());
+
+            String expected = item.getExpectedStatus();
+            if (expected == null) expected = "IN_STOCK";
+
+            if (actual.equals(expected)) {
+                item.setDifference(DifferenceType.MATCH.name());
+            } else if ("LOST".equals(actual) || "MISSING".equalsIgnoreCase(actual)) {
+                item.setDifference(DifferenceType.MISSING.name());
+            } else {
+                item.setDifference(DifferenceType.UNEXPECTED.name());
+            }
+
+            stockCheckItemRepository.save(item);
+        }
+
+        return enrich(sc);
+    }
+
+    @Transactional
+    public StockCheckResponse complete(Long id) {
+        var sc = stockCheckRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.STOCK_CHECK_NOT_FOUND));
+
+        if (!StockCheckStatus.IN_PROGRESS.name().equals(sc.getStatus())) {
+            throw new InvalidRequestException(Message.Inventory.STOCK_CHECK_ALREADY_COMPLETED);
+        }
+        sc.setStatus(StockCheckStatus.COMPLETED.name());
+        sc = stockCheckRepository.save(sc);
+        return enrich(sc);
+    }
+
+    @Transactional
+    @AuditLog(action = LogConstant.Action.APPROVE_STOCK_CHECK, entity = LogConstant.Entity.STOCK_CHECK)
+    public StockCheckResponse approve(Long id, ApproveStockCheckRequest request) {
+        Long userId = SecurityUtils.getCurrentUserId();
+        var sc = stockCheckRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.STOCK_CHECK_NOT_FOUND));
+
+        if (!StockCheckStatus.COMPLETED.name().equals(sc.getStatus())) {
+            throw new InvalidRequestException("Only completed stock checks can be approved");
+        }
+        if (sc.getCreatedBy().equals(userId)) {
+            throw new InvalidRequestException(Message.Inventory.CREATOR_CANNOT_APPROVE);
+        }
+
+        sc.setStatus(StockCheckStatus.APPROVED.name());
+        sc.setApprovedBy(userId);
+        sc.setApprovalNote(request != null ? request.approvalNote() : null);
+        sc = stockCheckRepository.save(sc);
+
+        var items = stockCheckItemRepository.findByStockCheckId(id);
+        for (var item : items) {
+            var unit = productUnitRepository.findById(item.getProductUnitId()).orElse(null);
+            if (unit == null) continue;
+
+            String diff = item.getDifference();
+            if (DifferenceType.MISSING.name().equals(diff)) {
+                String oldStatus = unit.getStatus();
+                unit.setStatus(ProductUnitStatus.LOST.name());
+                productUnitRepository.save(unit);
+                statusLogRepository.save(ProductUnitStatusLog.builder()
+                        .productUnitId(unit.getId())
+                        .fromStatus(oldStatus)
+                        .toStatus(ProductUnitStatus.LOST.name())
+                        .sourceType(SourceType.STOCK_CHECK.name())
+                        .sourceId(id)
+                        .changedBy(userId)
+                        .build());
+            } else if (DifferenceType.UNEXPECTED.name().equals(diff)) {
+                String oldStatus = unit.getStatus();
+                unit.setStatus(item.getActualStatus());
+                productUnitRepository.save(unit);
+                statusLogRepository.save(ProductUnitStatusLog.builder()
+                        .productUnitId(unit.getId())
+                        .fromStatus(oldStatus)
+                        .toStatus(unit.getStatus())
+                        .sourceType(SourceType.STOCK_CHECK.name())
+                        .sourceId(id)
+                        .changedBy(userId)
+                        .build());
+            }
+        }
+
+        return enrich(sc);
+    }
+
+    @Transactional
+    @AuditLog(action = LogConstant.Action.REJECT_STOCK_CHECK, entity = LogConstant.Entity.STOCK_CHECK)
+    public StockCheckResponse reject(Long id, ApproveStockCheckRequest request) {
+        Long userId = SecurityUtils.getCurrentUserId();
+        var sc = stockCheckRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.STOCK_CHECK_NOT_FOUND));
+
+        if (!StockCheckStatus.COMPLETED.name().equals(sc.getStatus())) {
+            throw new InvalidRequestException("Only completed stock checks can be rejected");
+        }
+
+        sc.setStatus(StockCheckStatus.REJECTED.name());
+        sc.setApprovedBy(userId);
+        sc.setApprovalNote(request != null ? request.approvalNote() : null);
+        sc = stockCheckRepository.save(sc);
+        return enrich(sc);
+    }
+
+    private StockCheckResponse enrich(StockCheck sc) {
+        var items = stockCheckItemRepository.findByStockCheckId(sc.getId());
+        var unitIds = items.stream().map(StockCheckItem::getProductUnitId).toList();
+        var units = productUnitRepository.findAllById(unitIds).stream()
+                .collect(Collectors.toMap(ProductUnit::getId, u -> u));
+        var productIds = units.values().stream().map(ProductUnit::getProductId).toList();
+        var products = productRepository.findAllById(productIds).stream()
+                .collect(Collectors.toMap(Product::getId, p -> p));
+        return StockCheckMappingHelper.map(sc, null, null, items, units, products);
+    }
+
+    private String generateCheckCode() {
+        String datePart = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+        String prefix = "SC-" + datePart + "-";
+        int seq = 1;
+        while (stockCheckRepository.existsByCheckCode(prefix + String.format("%04d", seq))) {
+            seq++;
+        }
+        return prefix + String.format("%04d", seq);
+    }
+}
