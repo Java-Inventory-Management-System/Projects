@@ -3,3 +3,5 @@ data/
 .idea/
 .codegraph/
 infra/docker/tempo/tempo-data
+
+.playwright-mcp/
