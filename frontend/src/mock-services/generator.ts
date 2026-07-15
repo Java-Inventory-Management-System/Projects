@@ -366,7 +366,7 @@ export function generateMockData(): GeneratedData {
 
   for (let ri = 0; ri < 50; ri++) {
     const rId = ri + 1
-    const numItems = Math.floor(rng() * 10) + 3
+    const numItems = Math.floor(rng() * 31) + 10
     const status = importStatuses[Math.floor(rng() * importStatuses.length)] as ImportReceipt["status"]
     const impDate = randomDate(rng, 3, 7)
     const updDate = status === "COMPLETED" || status === "CANCELLED" ? addHours(impDate, 3 + Math.floor(rng() * 4)) : impDate
@@ -389,7 +389,7 @@ export function generateMockData(): GeneratedData {
       } while (usedProducts.has(p.id!) && attempts < 30)
       usedProducts.add(p.id!)
 
-      const qty = Math.floor(rng() * 471) + 30
+      const qty = Math.floor(rng() * 20) + 1
       const unitPrice = Math.round((p.sellPrice! * (0.65 + rng() * 0.2)) / 1000) * 1000
       total += qty * unitPrice
       items.push({
@@ -440,7 +440,7 @@ export function generateMockData(): GeneratedData {
 
   for (let ri = 0; ri < 30; ri++) {
     const rId = ri + 1
-    const numItems = Math.floor(rng() * 8) + 2
+    const numItems = Math.floor(rng() * 21) + 5
     const status = exportStatuses[Math.floor(rng() * exportStatuses.length)] as ExportReceipt["status"]
     const expDate = randomDate(rng, 4, 7)
     const updDate = status === "COMPLETED" || status === "CANCELLED" ? addHours(expDate, 2 + Math.floor(rng() * 3)) : expDate
@@ -456,7 +456,7 @@ export function generateMockData(): GeneratedData {
     for (let ii = 0; ii < numItems; ii++) {
       exportItemId++
       const p = products[Math.floor(rng() * products.length)]
-      const qty = Math.floor(rng() * 191) + 10
+      const qty = Math.floor(rng() * 10) + 1
       total += qty * p.sellPrice!
       items.push({
         id: exportItemId,
