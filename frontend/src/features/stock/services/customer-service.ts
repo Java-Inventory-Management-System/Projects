@@ -1,2 +1,1 @@
-// ponytail: proxy duy nhất
-export { getCustomers, createCustomer } from "@/mock-services"
+export { getCustomers, createCustomer } from "@/services/customer-service"
