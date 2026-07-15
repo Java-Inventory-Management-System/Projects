@@ -1,19 +1,22 @@
+/* eslint-disable react-refresh/only-export-components */
+import { lazy, Suspense } from "react"
 import { Navigate, createBrowserRouter } from "react-router-dom"
 import type { ReactNode } from "react"
 import { AppShell } from "@/layouts/app-shell"
 import { ProtectedRoute } from "@/layouts/protected-route"
 import { useAuthStore } from "@/store/auth-store"
-import { LoginPage } from "@/features/auth/pages/login-page"
-import { DashboardPage } from "@/features/dashboard/pages/dashboard-page"
-import { ProductsPage } from "@/features/products/pages/products-page"
-import { InventoryPage } from "@/features/inventory/pages/inventory-page"
-import { ForbiddenPage } from "@/features/common/pages/forbidden-page"
-import { NotFoundPage } from "@/features/common/pages/not-found-page"
-import { ImportListPage } from "@/features/stock/pages/import-list-page"
-import { ImportCreatePage } from "@/features/stock/pages/import-create-page"
-import { ExportListPage } from "@/features/stock/pages/export-list-page"
-import { ExportCreatePage } from "@/features/stock/pages/export-create-page"
-import type { URole } from "@/utils/navigation"
+import type { URole } from "@/utils/types"
+
+const LoginPage = lazy(() => import("@/features/auth/pages/login-page").then((m) => ({ default: m.LoginPage })))
+const DashboardPage = lazy(() => import("@/features/dashboard/pages/dashboard-page").then((m) => ({ default: m.DashboardPage })))
+const ProductsPage = lazy(() => import("@/features/products/pages/products-page").then((m) => ({ default: m.ProductsPage })))
+const InventoryPage = lazy(() => import("@/features/inventory/pages/inventory-page").then((m) => ({ default: m.InventoryPage })))
+const ForbiddenPage = lazy(() => import("@/features/common/pages/forbidden-page").then((m) => ({ default: m.ForbiddenPage })))
+const NotFoundPage = lazy(() => import("@/features/common/pages/not-found-page").then((m) => ({ default: m.NotFoundPage })))
+const ImportListPage = lazy(() => import("@/features/stock/pages/import-list-page").then((m) => ({ default: m.ImportListPage })))
+const ImportCreatePage = lazy(() => import("@/features/stock/pages/import-create-page").then((m) => ({ default: m.ImportCreatePage })))
+const ExportListPage = lazy(() => import("@/features/stock/pages/export-list-page").then((m) => ({ default: m.ExportListPage })))
+const ExportCreatePage = lazy(() => import("@/features/stock/pages/export-create-page").then((m) => ({ default: m.ExportCreatePage })))
 
 function PageGuard({ roles, children }: { roles: URole[]; children: ReactNode }) {
   const hasRole = useAuthStore((s) => s.hasRole)
@@ -42,17 +45,21 @@ function PlaceholderContent({ title }: { title: string }) {
   )
 }
 
+function Lazy({ children }: { children: ReactNode }) {
+  return <Suspense fallback={<div className="flex min-h-[60vh] items-center justify-center"><p className="text-sm text-muted-foreground">Loading...</p></div>}>{children}</Suspense>
+}
+
 const adminManagerStock = ["ADMIN", "MANAGER", "STOCK"] as URole[]
 const adminManager = ["ADMIN", "MANAGER"] as URole[]
 
 export const router = createBrowserRouter([
   {
     path: "/login",
-    element: <LoginPage />,
+    element: <Lazy><LoginPage /></Lazy>,
   },
   {
     path: "/403",
-    element: <ForbiddenPage />,
+    element: <Lazy><ForbiddenPage /></Lazy>,
   },
   {
     element: <ProtectedRoute />,
@@ -60,13 +67,13 @@ export const router = createBrowserRouter([
       {
         element: <AppShell />,
         children: [
-          { index: true, element: <RootRedirect /> },
-          { path: "products", element: <PageGuard roles={["ADMIN", "MANAGER", "SALES", "STOCK"]}><ProductsPage /></PageGuard> },
-          { path: "inventory", element: <PageGuard roles={["ADMIN", "MANAGER", "STOCK"]}><InventoryPage /></PageGuard> },
-          { path: "stock/imports", element: <PageGuard roles={adminManagerStock}><ImportListPage /></PageGuard> },
-          { path: "stock/imports/new", element: <PageGuard roles={adminManagerStock}><ImportCreatePage /></PageGuard> },
-          { path: "stock/exports", element: <PageGuard roles={adminManagerStock}><ExportListPage /></PageGuard> },
-          { path: "stock/exports/new", element: <PageGuard roles={adminManagerStock}><ExportCreatePage /></PageGuard> },
+          { index: true, element: <Lazy><RootRedirect /></Lazy> },
+          { path: "products", element: <Lazy><PageGuard roles={["ADMIN", "MANAGER", "SALES", "STOCK"]}><ProductsPage /></PageGuard></Lazy> },
+          { path: "inventory", element: <Lazy><PageGuard roles={["ADMIN", "MANAGER", "STOCK"]}><InventoryPage /></PageGuard></Lazy> },
+          { path: "stock/imports", element: <Lazy><PageGuard roles={adminManagerStock}><ImportListPage /></PageGuard></Lazy> },
+          { path: "stock/imports/new", element: <Lazy><PageGuard roles={adminManagerStock}><ImportCreatePage /></PageGuard></Lazy> },
+          { path: "stock/exports", element: <Lazy><PageGuard roles={adminManagerStock}><ExportListPage /></PageGuard></Lazy> },
+          { path: "stock/exports/new", element: <Lazy><PageGuard roles={adminManagerStock}><ExportCreatePage /></PageGuard></Lazy> },
           { path: "reports", element: <Placeholder title="Reports" roles={adminManager} /> },
           { path: "users", element: <Placeholder title="Users" roles={["ADMIN"]} /> },
           { path: "audit", element: <Placeholder title="Audit" roles={["ADMIN"]} /> },
@@ -76,6 +83,6 @@ export const router = createBrowserRouter([
   },
   {
     path: "*",
-    element: <NotFoundPage />,
+    element: <Lazy><NotFoundPage /></Lazy>,
   },
 ])
