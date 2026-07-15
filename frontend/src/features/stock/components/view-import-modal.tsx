@@ -66,6 +66,7 @@ export function ViewImportModal({ receipt, open, onOpenChange }: { receipt: Impo
                   <TableHead>Sản phẩm</TableHead>
                   <TableHead className="w-16 text-right">SL</TableHead>
                   <TableHead className="w-24 text-right">Đơn giá</TableHead>
+                  <TableHead className="w-14 text-center">BH</TableHead>
                   <TableHead className="w-24 text-right">Thành tiền</TableHead>
                 </TableRow>
               </TableHeader>
@@ -78,6 +79,7 @@ export function ViewImportModal({ receipt, open, onOpenChange }: { receipt: Impo
                     </TableCell>
                     <TableCell className="text-right tabular-nums">{item.quantity}</TableCell>
                     <TableCell className="text-right tabular-nums">{item.unitPrice.toLocaleString("vi-VN")}₫</TableCell>
+                    <TableCell className="text-center text-xs tabular-nums text-muted-foreground">{item.warrantyMonths ? `${item.warrantyMonths}t` : "—"}</TableCell>
                     <TableCell className="text-right tabular-nums">{(item.quantity * item.unitPrice).toLocaleString("vi-VN")}₫</TableCell>
                   </TableRow>
                 ))}
@@ -88,6 +90,20 @@ export function ViewImportModal({ receipt, open, onOpenChange }: { receipt: Impo
             <span className="text-muted-foreground">Tổng số đơn vị sản phẩm đã tạo: {receipt.items.reduce((sum, i) => sum + i.createdUnits, 0)}</span>
             <span className="text-lg font-semibold">Tổng: {receipt.totalAmount.toLocaleString("vi-VN")}₫</span>
           </div>
+          {/* ponytail: serial data chưa có seed, render ở đây sau */}
+          {false && (
+            <div className="text-sm space-y-1">
+              {receipt.items.map((item) => {
+                if (!item.createdUnits) return null
+                return (
+                  <p key={item.id}>
+                    <span className="text-muted-foreground">{item.productName}:</span>{" "}
+                    <span className="font-mono text-xs">—</span>
+                  </p>
+                )
+              })}
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>
