@@ -245,6 +245,21 @@ export async function cancelImportReceipt(id: number): Promise<ImportReceipt> {
   return importReceipts[idx]
 }
 
+export async function approveImportReceipt(id: number, userId: number, userName: string): Promise<ImportReceipt> {
+  await delay(200)
+  const idx = importReceipts.findIndex((r) => r.id === id)
+  if (idx === -1) throw new Error("Không tìm thấy phiếu nhập")
+  if (importReceipts[idx].status !== "PENDING_APPROVAL") throw new Error("Phiếu không ở trạng thái chờ duyệt")
+  importReceipts[idx] = {
+    ...importReceipts[idx],
+    status: "COMPLETED",
+    approvedBy: userId,
+    approvedByName: userName,
+    updatedAt: new Date().toISOString(),
+  }
+  return importReceipts[idx]
+}
+
 // ==================== Export Receipts ====================
 
 export async function getExportReceipts(page = 0, size = 20): Promise<ResponsePage<ExportReceipt>> {
@@ -290,6 +305,21 @@ export async function cancelExportReceipt(id: number): Promise<ExportReceipt> {
   const idx = exportReceipts.findIndex((r) => r.id === id)
   if (idx === -1) throw new Error("Không tìm thấy phiếu xuất")
   exportReceipts[idx] = { ...exportReceipts[idx], status: "CANCELLED", updatedAt: new Date().toISOString() }
+  return exportReceipts[idx]
+}
+
+export async function approveExportReceipt(id: number, userId: number, userName: string): Promise<ExportReceipt> {
+  await delay(200)
+  const idx = exportReceipts.findIndex((r) => r.id === id)
+  if (idx === -1) throw new Error("Không tìm thấy phiếu xuất")
+  if (exportReceipts[idx].status !== "PENDING_APPROVAL") throw new Error("Phiếu không ở trạng thái chờ duyệt")
+  exportReceipts[idx] = {
+    ...exportReceipts[idx],
+    status: "COMPLETED",
+    approvedBy: userId,
+    approvedByName: userName,
+    updatedAt: new Date().toISOString(),
+  }
   return exportReceipts[idx]
 }
 

@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { useAuthStore } from "@/store/auth-store"
-import { getExportReceipts, cancelExportReceipt } from "@/features/stock/services/export-service"
+import { getExportReceipts, cancelExportReceipt, approveExportReceipt } from "@/features/stock/services/export-service"
 import type { ExportReceipt, ResponsePage } from "@/utils/types"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Plus, Eye, X } from "lucide-react"
+import { Plus, Eye, X, Check } from "lucide-react"
 import {
   Table,
   TableBody,
@@ -58,6 +58,7 @@ export function ExportListPage() {
   const [viewReceipt, setViewReceipt] = useState<ExportReceipt | null>(null)
   const [cancelTarget, setCancelTarget] = useState<ExportReceipt | null>(null)
   const [cancelling, setCancelling] = useState(false)
+  const [approvingId, setApprovingId] = useState<number | null>(null)
 
   const fetch = () => {
     setLoading(true)
@@ -86,6 +87,23 @@ export function ExportListPage() {
 
   const canCancel = user?.role === "MANAGER" || user?.role === "ADMIN"
 
+  const handleApprove = async (receipt: ExportReceipt) => {
+    if (!user) return
+    setApprovingId(receipt.id)
+    try {
+      await approveExportReceipt(receipt.id, user.id, user.displayName)
+      toast.success(`Đã duyệt phiếu ${receipt.receiptCode}`)
+      fetch()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Không thể duyệt phiếu")
+    } finally {
+      setApprovingId(null)
+    }
+  }
+
+  const canApprove = (r: ExportReceipt) =>
+    (user?.role === "MANAGER" || user?.role === "ADMIN") && r.status === "PENDING_APPROVAL"
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -107,21 +125,22 @@ export function ExportListPage() {
               <TableHead>Trạng thái</TableHead>
               <TableHead>Người tạo</TableHead>
               <TableHead>Ngày tạo</TableHead>
-              <TableHead className="w-[100px]">Thao tác</TableHead>
+              <TableHead>Người duyệt</TableHead>
+              <TableHead className="w-[130px]">Thao tác</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
               Array.from({ length: 5 }).map((_, i) => (
                 <TableRow key={i}>
-                  {Array.from({ length: 8 }).map((_, j) => (
+                  {Array.from({ length: 9 }).map((_, j) => (
                     <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>
                   ))}
                 </TableRow>
               ))
             ) : !data || data.content.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center text-sm text-muted-foreground py-8">
+                <TableCell colSpan={9} className="text-center text-sm text-muted-foreground py-8">
                   Chưa có phiếu xuất nào.
                 </TableCell>
               </TableRow>
@@ -143,11 +162,17 @@ export function ExportListPage() {
                     <TableCell className="text-muted-foreground text-xs">
                       {new Date(r.createdAt).toLocaleDateString("vi-VN")}
                     </TableCell>
+                    <TableCell className="text-muted-foreground">{r.approvedByName ?? "—"}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
                         <Button variant="ghost" size="icon" onClick={() => setViewReceipt(r)}>
                           <Eye className="size-4" />
                         </Button>
+                        {canApprove(r) && (
+                          <Button variant="ghost" size="icon" onClick={() => handleApprove(r)} disabled={approvingId === r.id}>
+                            <Check className="size-4 text-green-600" />
+                          </Button>
+                        )}
                         {canCancel && r.status !== "CANCELLED" && (
                           <Button variant="ghost" size="icon" onClick={() => setCancelTarget(r)}>
                             <X className="size-4 text-destructive" />
