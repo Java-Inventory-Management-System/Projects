@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { getExportReceipts } from "@/features/stock/services/export-service"
+import { useAuthStore } from "@/store/auth-store"
+import { getExportReceipts, cancelExportReceipt } from "@/features/stock/services/export-service"
 import type { ExportReceipt, ResponsePage } from "@/utils/types"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Plus, Eye } from "lucide-react"
+import { Plus, Eye, X } from "lucide-react"
 import {
   Table,
   TableBody,
@@ -22,6 +23,18 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import { ViewExportModal } from "../components/view-export-modal"
+import { toast } from "@/utils/toast"
 
 const statusLabel: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
   PENDING_APPROVAL: { label: "Chờ duyệt", variant: "outline" },
@@ -37,18 +50,41 @@ const reasonLabel: Record<string, string> = {
 }
 
 export function ExportListPage() {
+  const user = useAuthStore((s) => s.user)
   const navigate = useNavigate()
   const [data, setData] = useState<ResponsePage<ExportReceipt> | null>(null)
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(0)
+  const [viewReceipt, setViewReceipt] = useState<ExportReceipt | null>(null)
+  const [cancelTarget, setCancelTarget] = useState<ExportReceipt | null>(null)
+  const [cancelling, setCancelling] = useState(false)
 
-  useEffect(() => {
+  const fetch = () => {
     setLoading(true)
     getExportReceipts(page, 10).then((res) => {
       setData(res)
       setLoading(false)
     })
-  }, [page])
+  }
+
+  useEffect(() => { fetch() }, [page])
+
+  const handleCancel = async () => {
+    if (!cancelTarget) return
+    setCancelling(true)
+    try {
+      await cancelExportReceipt(cancelTarget.id)
+      toast.success(`Đã hủy phiếu ${cancelTarget.receiptCode}`)
+      setCancelTarget(null)
+      fetch()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Không thể hủy phiếu")
+    } finally {
+      setCancelling(false)
+    }
+  }
+
+  const canCancel = user?.role === "MANAGER" || user?.role === "ADMIN"
 
   return (
     <div className="space-y-4">
@@ -67,24 +103,25 @@ export function ExportListPage() {
               <TableHead>Mã phiếu</TableHead>
               <TableHead>Lý do</TableHead>
               <TableHead>Khách hàng</TableHead>
+              <TableHead className="text-right">Tổng tiền</TableHead>
               <TableHead>Trạng thái</TableHead>
               <TableHead>Người tạo</TableHead>
               <TableHead>Ngày tạo</TableHead>
-              <TableHead className="w-10" />
+              <TableHead className="w-[100px]">Thao tác</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
               Array.from({ length: 5 }).map((_, i) => (
                 <TableRow key={i}>
-                  {Array.from({ length: 7 }).map((_, j) => (
+                  {Array.from({ length: 8 }).map((_, j) => (
                     <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>
                   ))}
                 </TableRow>
               ))
             ) : !data || data.content.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-sm text-muted-foreground py-8">
+                <TableCell colSpan={8} className="text-center text-sm text-muted-foreground py-8">
                   Chưa có phiếu xuất nào.
                 </TableCell>
               </TableRow>
@@ -96,6 +133,9 @@ export function ExportListPage() {
                     <TableCell className="font-mono text-xs">{r.receiptCode}</TableCell>
                     <TableCell>{reasonLabel[r.reason] ?? r.reason}</TableCell>
                     <TableCell className="text-muted-foreground">{r.customerName ?? "—"}</TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {r.totalAmount.toLocaleString("vi-VN")}₫
+                    </TableCell>
                     <TableCell>
                       <Badge variant={s.variant}>{s.label}</Badge>
                     </TableCell>
@@ -104,9 +144,16 @@ export function ExportListPage() {
                       {new Date(r.createdAt).toLocaleDateString("vi-VN")}
                     </TableCell>
                     <TableCell>
-                      <Button variant="ghost" size="icon" onClick={() => navigate(`/stock/exports/${r.id}`)}>
-                        <Eye className="size-4" />
-                      </Button>
+                      <div className="flex items-center gap-1">
+                        <Button variant="ghost" size="icon" onClick={() => setViewReceipt(r)}>
+                          <Eye className="size-4" />
+                        </Button>
+                        {canCancel && r.status !== "CANCELLED" && (
+                          <Button variant="ghost" size="icon" onClick={() => setCancelTarget(r)}>
+                            <X className="size-4 text-destructive" />
+                          </Button>
+                        )}
+                      </div>
                     </TableCell>
                   </TableRow>
                 )
@@ -159,6 +206,25 @@ export function ExportListPage() {
           </PaginationContent>
         </Pagination>
       )}
+
+      <ViewExportModal receipt={viewReceipt} open={!!viewReceipt} onOpenChange={(v) => { if (!v) setViewReceipt(null) }} />
+
+      <AlertDialog open={!!cancelTarget} onOpenChange={(v) => { if (!v) setCancelTarget(null) }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Xác nhận hủy phiếu</AlertDialogTitle>
+            <AlertDialogDescription>
+              Bạn có chắc muốn hủy phiếu <strong>{cancelTarget?.receiptCode}</strong>? Hành động này không thể hoàn tác.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={cancelling}>Không</AlertDialogCancel>
+            <AlertDialogAction disabled={cancelling} onClick={handleCancel}>
+              {cancelling ? "Đang hủy..." : "Xác nhận hủy"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
