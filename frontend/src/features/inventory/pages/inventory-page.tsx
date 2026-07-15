@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react"
 import { useSearchParams } from "react-router-dom"
-import { Search, AlertTriangle, MapPin } from "lucide-react"
+import { Search, AlertTriangle, MapPin, Eye } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import {
@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/pagination"
 import { getInventory } from "@/mock-services"
 import type { InventoryItem, ResponsePage } from "@/utils/types"
+import { ViewInventoryModal } from "../components/view-inventory-modal"
 
 export function InventoryPage() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -33,6 +34,7 @@ export function InventoryPage() {
   const [pagination, setPagination] = useState<ResponsePage["pagination"] | null>(null)
   const [loading, setLoading] = useState(true)
   const [searchInput, setSearchInput] = useState(search)
+  const [viewItem, setViewItem] = useState<InventoryItem | null>(null)
 
   useEffect(() => {
     setLoading(true)
@@ -63,14 +65,14 @@ export function InventoryPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold tracking-tight">Inventory</h1>
+        <h1 className="text-xl font-semibold tracking-tight">Tồn kho</h1>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative flex-1 min-w-[200px] max-w-sm">
           <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Search product..."
+            placeholder="Tìm sản phẩm..."
             className="pl-8"
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
@@ -79,7 +81,7 @@ export function InventoryPage() {
         </div>
         {search && (
           <Button variant="ghost" size="sm" onClick={() => { setSearchInput(""); setSearchParams(new URLSearchParams()) }}>
-            Clear
+            Xoá
           </Button>
         )}
       </div>
@@ -89,26 +91,27 @@ export function InventoryPage() {
           <TableHeader>
             <TableRow>
               <TableHead>SKU</TableHead>
-              <TableHead>Product</TableHead>
-              <TableHead className="w-[80px] text-right">Qty</TableHead>
-              <TableHead className="w-[80px] text-right">Min Stock</TableHead>
-              <TableHead className="w-[90px] text-center">Status</TableHead>
-              <TableHead className="w-[100px]">Location</TableHead>
+              <TableHead>Sản phẩm</TableHead>
+              <TableHead className="w-[80px] text-right">SL</TableHead>
+              <TableHead className="w-[80px] text-right">Min</TableHead>
+              <TableHead className="w-[90px] text-center">Trạng thái</TableHead>
+              <TableHead className="w-[100px]">Vị trí</TableHead>
+              <TableHead className="w-[70px]">Thao tác</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
               Array.from({ length: 6 }).map((_, i) => (
                 <TableRow key={i}>
-                  {Array.from({ length: 6 }).map((_, j) => (
+                  {Array.from({ length: 7 }).map((_, j) => (
                     <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>
                   ))}
                 </TableRow>
               ))
             ) : items.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-sm text-muted-foreground py-8">
-                  No inventory items found.
+                <TableCell colSpan={7} className="text-center text-sm text-muted-foreground py-8">
+                  Không có hàng tồn kho.
                 </TableCell>
               </TableRow>
             ) : (
@@ -128,11 +131,11 @@ export function InventoryPage() {
                       {low ? (
                         <Badge variant="destructive" className="gap-1">
                           <AlertTriangle className="size-3" />
-                          Low
+                          Thiếu
                         </Badge>
                       ) : (
                         <Badge variant="outline" className="text-green-600 border-green-300 dark:text-green-400 dark:border-green-800">
-                          In Stock
+                          Còn hàng
                         </Badge>
                       )}
                     </TableCell>
@@ -141,6 +144,11 @@ export function InventoryPage() {
                         <MapPin className="size-3" />
                         {item.location}
                       </span>
+                    </TableCell>
+                    <TableCell>
+                      <Button variant="ghost" size="icon" onClick={() => setViewItem(item)}>
+                        <Eye className="size-4" />
+                      </Button>
                     </TableCell>
                   </TableRow>
                 )
@@ -197,6 +205,8 @@ export function InventoryPage() {
           </PaginationContent>
         </Pagination>
       )}
+
+      <ViewInventoryModal item={viewItem} open={!!viewItem} onOpenChange={(v) => { if (!v) setViewItem(null) }} />
     </div>
   )
 }

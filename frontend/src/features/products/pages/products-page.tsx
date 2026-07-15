@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react"
 import { useSearchParams } from "react-router-dom"
-import { Search } from "lucide-react"
+import { Search, Eye } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import {
@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/pagination"
 import { getProducts, getBrands, getCategories } from "@/mock-services"
 import type { ProductResponse, BrandResponse, CategoryResponse, ResponsePage } from "@/utils/types"
+import { ViewProductModal } from "../components/view-product-modal"
 
 export function ProductsPage() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -44,6 +45,7 @@ export function ProductsPage() {
   const [brands, setBrands] = useState<BrandResponse[]>([])
   const [categories, setCategories] = useState<CategoryResponse[]>([])
   const [searchInput, setSearchInput] = useState(search)
+  const [viewProduct, setViewProduct] = useState<ProductResponse | null>(null)
 
   useEffect(() => {
     getBrands().then(setBrands)
@@ -78,14 +80,14 @@ export function ProductsPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold tracking-tight">Products</h1>
+        <h1 className="text-xl font-semibold tracking-tight">Sản phẩm</h1>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative flex-1 min-w-[200px] max-w-sm">
           <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Search by name or SKU..."
+            placeholder="Tìm tên hoặc SKU..."
             className="pl-8"
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
@@ -97,10 +99,10 @@ export function ProductsPage() {
           onValueChange={(v) => updateParams({ brandId: v === "all" ? undefined : v })}
         >
           <SelectTrigger className="w-[140px]">
-            <SelectValue placeholder="Brand" />
+            <SelectValue placeholder="Thương hiệu" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Brands</SelectItem>
+            <SelectItem value="all">Tất cả</SelectItem>
             {brands.map((b) => (
               <SelectItem key={b.id} value={String(b.id)}>{b.name}</SelectItem>
             ))}
@@ -111,10 +113,10 @@ export function ProductsPage() {
           onValueChange={(v) => updateParams({ categoryId: v === "all" ? undefined : v })}
         >
           <SelectTrigger className="w-[160px]">
-            <SelectValue placeholder="Category" />
+            <SelectValue placeholder="Danh mục" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Categories</SelectItem>
+            <SelectItem value="all">Tất cả</SelectItem>
             {categories.map((c) => (
               <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
             ))}
@@ -122,7 +124,7 @@ export function ProductsPage() {
         </Select>
         {search && (
           <Button variant="ghost" size="sm" onClick={() => { setSearchInput(""); setSearchParams(new URLSearchParams()) }}>
-            Clear
+            Xoá
           </Button>
         )}
       </div>
@@ -132,27 +134,28 @@ export function ProductsPage() {
           <TableHeader>
             <TableRow>
               <TableHead className="w-[110px]">SKU</TableHead>
-              <TableHead>Name</TableHead>
-              <TableHead className="w-[120px]">Brand</TableHead>
-              <TableHead className="w-[120px]">Category</TableHead>
-              <TableHead className="w-[60px]">Unit</TableHead>
-              <TableHead className="w-[80px] text-right">Price</TableHead>
-              <TableHead className="w-[70px] text-center">Status</TableHead>
+              <TableHead>Tên</TableHead>
+              <TableHead className="w-[120px]">Thương hiệu</TableHead>
+              <TableHead className="w-[120px]">Danh mục</TableHead>
+              <TableHead className="w-[60px]">ĐVT</TableHead>
+              <TableHead className="w-[80px] text-right">Giá</TableHead>
+              <TableHead className="w-[70px] text-center">Trạng thái</TableHead>
+              <TableHead className="w-[70px]">Thao tác</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
               Array.from({ length: 6 }).map((_, i) => (
                 <TableRow key={i}>
-                  {Array.from({ length: 7 }).map((_, j) => (
+                  {Array.from({ length: 8 }).map((_, j) => (
                     <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>
                   ))}
                 </TableRow>
               ))
             ) : products.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-sm text-muted-foreground py-8">
-                  No products found.
+                <TableCell colSpan={8} className="text-center text-sm text-muted-foreground py-8">
+                  Không có sản phẩm nào.
                 </TableCell>
               </TableRow>
             ) : (
@@ -168,8 +171,13 @@ export function ProductsPage() {
                   </TableCell>
                   <TableCell className="text-center">
                     <Badge variant={p.isActive ? "default" : "secondary"}>
-                      {p.isActive ? "Active" : "Inactive"}
+                      {p.isActive ? "Hoạt động" : "Ngừng"}
                     </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Button variant="ghost" size="icon" onClick={() => setViewProduct(p)}>
+                      <Eye className="size-4" />
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))
@@ -225,6 +233,8 @@ export function ProductsPage() {
           </PaginationContent>
         </Pagination>
       )}
+
+      <ViewProductModal product={viewProduct} open={!!viewProduct} onOpenChange={(v) => { if (!v) setViewProduct(null) }} />
     </div>
   )
 }
