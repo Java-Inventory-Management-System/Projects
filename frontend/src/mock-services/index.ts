@@ -160,17 +160,45 @@ export async function getCustomers(page = 0, size = 20, search?: string): Promis
   if (search) {
     const q = search.toLowerCase()
     filtered = filtered.filter(
-      (c) => c.name.toLowerCase().includes(q) || (c.phone ?? "").includes(q),
+      (c) => c.name.toLowerCase().includes(q) || (c.phone ?? "").includes(q) || (c.email ?? "").toLowerCase().includes(q),
     )
   }
   return paginate(filtered, page, size)
 }
 
 export async function createCustomer(data: Omit<CustomerResponse, "id" | "createdAt" | "updatedAt" | "isActive">): Promise<CustomerResponse> {
-  await delay(200)
+  await delay(250)
+
+  if (!data.name?.trim()) {
+    throw new Error("Tên khách hàng không được để trống")
+  }
+
+  if (data.phone) {
+    const cleaned = data.phone.replace(/\D/g, "")
+    if (cleaned.length < 10 || cleaned.length > 11) {
+      throw new Error("Số điện thoại không hợp lệ (phải 10-11 số)")
+    }
+    const duplicate = customers.find((c) => c.phone?.replace(/\D/g, "") === cleaned && c.isActive)
+    if (duplicate) {
+      throw new Error(`Số điện thoại "${data.phone}" đã được sử dụng bởi "${duplicate.name}"`)
+    }
+  }
+
+  if (data.email) {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(data.email)) {
+      throw new Error("Email không đúng định dạng")
+    }
+    const duplicate = customers.find((c) => c.email?.toLowerCase() === data.email?.toLowerCase() && c.isActive)
+    if (duplicate) {
+      throw new Error(`Email "${data.email}" đã được sử dụng bởi "${duplicate.name}"`)
+    }
+  }
+
+  const id = customers.length > 0 ? Math.max(...customers.map((c) => c.id)) + 1 : 1
   const customer: CustomerResponse = {
     ...data,
-    id: customers.length + 1,
+    id,
     isActive: true,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
