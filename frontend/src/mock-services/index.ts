@@ -12,6 +12,7 @@ import type {
   ExportReceipt,
   LocationResponse,
   SupplierResponse,
+  ProductUnit,
 } from "@/utils/types"
 import {
   brands,
@@ -25,6 +26,7 @@ import {
   exportReceipts,
   locations,
   suppliers,
+  productUnits,
 } from "./data"
 
 function delay(ms = 250) {
@@ -321,6 +323,16 @@ export async function approveExportReceipt(id: number, userId: number, userName:
     updatedAt: new Date().toISOString(),
   }
   return exportReceipts[idx]
+}
+
+// ==================== Serials / Product Units ====================
+
+export async function getSerialsForExport(productId: number, quantity: number): Promise<ProductUnit[]> {
+  await delay(50)
+  return productUnits
+    .filter((u) => u.productId === productId && u.status === "IN_STOCK")
+    .sort((a, b) => new Date(a.importedAt).getTime() - new Date(b.importedAt).getTime())
+    .slice(0, quantity)
 }
 
 // ==================== Audit Logs ====================

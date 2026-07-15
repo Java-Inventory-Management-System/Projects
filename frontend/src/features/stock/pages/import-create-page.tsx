@@ -53,6 +53,8 @@ export function ImportCreatePage() {
   const [suppliers, setSuppliers] = useState<SupplierResponse[]>([])
   const [locations, setLocations] = useState<LocationResponse[]>([])
   const [selectedProductId, setSelectedProductId] = useState("")
+  const [receiptDate, setReceiptDate] = useState(() => new Date().toISOString().slice(0, 10))
+  const [referenceDoc, setReferenceDoc] = useState("")
   const [submitting, setSubmitting] = useState(false)
   const [serialModalOpen, setSerialModalOpen] = useState(false)
   const [activeItemId, setActiveItemId] = useState<number | null>(null)
@@ -137,6 +139,10 @@ export function ImportCreatePage() {
       toast.error("Vui lòng chọn nhà cung cấp")
       return
     }
+    if (!receiptDate) {
+      toast.error("Vui lòng chọn ngày nhập")
+      return
+    }
     if (items.length === 0) {
       toast.error("Chưa có sản phẩm nào trong phiếu")
       return
@@ -157,27 +163,25 @@ export function ImportCreatePage() {
       for (const item of items) {
         serialMap[item.tempId] = item.serials
       }
-      await createImportReceipt(
-        {
-          supplierId: Number(supplierId),
-          supplierName: suppliers.find((s) => s.id === Number(supplierId))?.name ?? "",
-          note: note || null,
-          totalAmount,
-          items: items.map((i) => ({
-            id: 0,
-            productId: i.productId,
-            productName: i.productName,
-            productSku: i.productSku,
-            quantity: i.quantity,
-            unitPrice: i.unitPrice,
-            warrantyMonths: i.warrantyMonths,
-            createdUnits: i.quantity,
-          })),
-        },
-        user.id,
-        user.displayName,
-        serialMap,
-      )
+      const receiptData = {
+        supplierId: Number(supplierId),
+        supplierName: suppliers.find((s) => s.id === Number(supplierId))?.name ?? "",
+        note: note || null,
+        totalAmount,
+        items: items.map((i) => ({
+          id: 0,
+          productId: i.productId,
+          productName: i.productName,
+          productSku: i.productSku,
+          quantity: i.quantity,
+          unitPrice: i.unitPrice,
+          warrantyMonths: i.warrantyMonths,
+          createdUnits: i.quantity,
+        })),
+      } as any
+      receiptData.receiptDate = receiptDate
+      receiptData.referenceDoc = referenceDoc || null
+      await createImportReceipt(receiptData, user.id, user.displayName, serialMap)
       toast.success("Tạo phiếu nhập thành công")
       navigate("/stock/imports")
     } catch (err) {
@@ -212,6 +216,17 @@ export function ImportCreatePage() {
             ))}
           </SelectContent>
         </Select>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-2">
+          <Label htmlFor="receiptDate">Ngày nhập</Label>
+          <Input id="receiptDate" type="date" required value={receiptDate} onChange={(e) => setReceiptDate(e.target.value)} />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="referenceDoc">Số hóa đơn/chứng từ tham khảo</Label>
+          <Input id="referenceDoc" placeholder="Không bắt buộc" value={referenceDoc} onChange={(e) => setReferenceDoc(e.target.value)} />
+        </div>
       </div>
 
       <div className="space-y-2">

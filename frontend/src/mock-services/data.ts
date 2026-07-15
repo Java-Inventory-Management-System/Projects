@@ -10,6 +10,7 @@ import type {
   ExportReceipt,
   LocationResponse,
   SupplierResponse,
+  ProductUnit,
 } from "@/utils/types"
 
 // ==================== BRANDS ====================
@@ -249,6 +250,40 @@ export const exportReceipts: ExportReceipt[] = [
       { id: 4, productId: 22, productName: "Corsair 4000D Airflow", productSku: "CSE-COR-001", quantity: 1, unitPrice: 0 },
     ],
   },
+]
+
+// ==================== PRODUCT UNITS (FIFO Serial Tracking) ====================
+
+function genSerials(baseSku: string, count: number, importedAt: string, locCode: string, productId: number, productName: string, importItemId: number): ProductUnit[] {
+  return Array.from({ length: count }, (_, i) => ({
+    id: i + 1,
+    serialNumber: `${baseSku}-${String(i + 1).padStart(3, "0")}`,
+    productId,
+    productName,
+    productSku: baseSku,
+    trackingType: "SERIALIZED" as const,
+    initialQuantity: 1,
+    remainingQuantity: 1,
+    importReceiptItemId: importItemId,
+    locationId: null,
+    locationCode: locCode,
+    status: "IN_STOCK" as const,
+    importedAt,
+    warrantyMonths: 36,
+    warrantyStartDate: importedAt,
+    warrantyExpiresAt: new Date(new Date(importedAt).getFullYear() + 3, new Date(importedAt).getMonth(), new Date(importedAt).getDate()).toISOString(),
+    createdAt: importedAt,
+    updatedAt: importedAt,
+  }))
+}
+
+export const productUnits: ProductUnit[] = [
+  ...genSerials("CPU-INT-001", 10, "2026-07-01T14:00:00Z", "A-01-01", 1, "Intel Core i7-14700K", 1),
+  ...genSerials("CPU-INT-002", 15, "2026-07-01T14:00:00Z", "A-01-02", 2, "Intel Core i5-14600K", 2),
+  ...genSerials("RAM-COR-001", 20, "2026-07-05T10:30:00Z", "D-01-01", 12, "Corsair Vengeance DDR5 32GB 5600MHz", 3),
+  ...genSerials("PSU-COR-001", 10, "2026-07-05T10:30:00Z", "F-01-02", 20, "Corsair RM850x 850W", 4),
+  ...genSerials("STO-SAM-001", 15, "2026-07-10T08:00:00Z", "C-01-01", 9, "Samsung 990 Pro 1TB NVMe", 5),
+  ...genSerials("STO-SAM-002", 30, "2026-07-10T08:00:00Z", "C-01-02", 10, "Samsung 870 EVO 500GB SATA", 6),
 ]
 
 // ==================== AUDIT LOGS ====================
