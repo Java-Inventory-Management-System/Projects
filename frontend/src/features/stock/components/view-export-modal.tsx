@@ -28,7 +28,7 @@ const reasonLabel: Record<string, string> = {
   DISPOSE: "Hủy",
 }
 
-export function ViewExportModal({ receipt, open, onOpenChange }: { receipt: ExportReceipt | null; open: boolean; onOpenChange: (v: boolean) => void }) {
+export const ViewExportModal = ({ receipt, open, onOpenChange }: { receipt: ExportReceipt | null; open: boolean; onOpenChange: (v: boolean) => void }) => {
   if (!receipt) return null
   const s = statusLabel[receipt.status] ?? { label: receipt.status, variant: "secondary" }
   return (

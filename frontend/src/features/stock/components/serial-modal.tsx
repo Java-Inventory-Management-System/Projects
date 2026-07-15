@@ -20,7 +20,7 @@ interface SerialModalProps {
   onSave: (serials: string[]) => void
 }
 
-export function SerialModal({ open, onOpenChange, productName, productSku, required, serials, onSave }: SerialModalProps) {
+export const SerialModal = ({ open, onOpenChange, productName, productSku, required, serials, onSave }: SerialModalProps) => {
   const [text, setText] = useState(serials.join("\n"))
 
   useEffect(() => {
@@ -44,7 +44,6 @@ export function SerialModal({ open, onOpenChange, productName, productSku, requi
   const duplicateCount = lines.filter((l) => l.isDuplicate).length
   const isEmptyLine = lines.some((l) => l.isEmpty)
 
-  const hasError = count !== required
   const overCount = count > required
   const underCount = count < required
   const hasDuplicate = duplicateCount > 0

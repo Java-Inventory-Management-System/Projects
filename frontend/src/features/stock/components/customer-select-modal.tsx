@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from "react"
+import { useEffect, useState, useRef } from "react"
 import { Search, Plus, CheckCircle, UserPlus, ArrowLeft, Phone, Mail, MapPin, Loader2 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -17,8 +17,9 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination"
-import { getCustomers, createCustomer } from "@/mock-services"
-import type { CustomerResponse, ResponsePage } from "@/utils/types"
+import { createCustomer } from "@/features/stock/services/customer-service"
+import { useCustomers } from "@/hooks/use-customers"
+
 import { toast } from "@/utils/toast"
 
 interface CustomerSelectModalProps {
@@ -28,12 +29,10 @@ interface CustomerSelectModalProps {
   selectedCustomerId?: number | null
 }
 
-export function CustomerSelectModal({ open, onOpenChange, onSelect, selectedCustomerId }: CustomerSelectModalProps) {
+export const CustomerSelectModal = ({ open, onOpenChange, onSelect, selectedCustomerId }: CustomerSelectModalProps) => {
   const [view, setView] = useState<"select" | "create">("select")
   const [search, setSearch] = useState("")
   const [debouncedSearch, setDebouncedSearch] = useState("")
-  const [data, setData] = useState<ResponsePage<CustomerResponse> | null>(null)
-  const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(0)
   const [selectedId, setSelectedId] = useState<number | null>(selectedCustomerId ?? null)
   const searchTimer = useRef<ReturnType<typeof setTimeout>>()
@@ -43,6 +42,8 @@ export function CustomerSelectModal({ open, onOpenChange, onSelect, selectedCust
   const [newEmail, setNewEmail] = useState("")
   const [newAddress, setNewAddress] = useState("")
   const [creating, setCreating] = useState(false)
+
+  const { data, isLoading: loading } = useCustomers(page, 10, debouncedSearch || undefined)
 
   useEffect(() => {
     if (open) {
@@ -63,14 +64,6 @@ export function CustomerSelectModal({ open, onOpenChange, onSelect, selectedCust
     searchTimer.current = setTimeout(() => setDebouncedSearch(search), 300)
     return () => { if (searchTimer.current) clearTimeout(searchTimer.current) }
   }, [search])
-
-  useEffect(() => {
-    setLoading(true)
-    getCustomers(page, 10, debouncedSearch || undefined).then((res) => {
-      setData(res)
-      setLoading(false)
-    })
-  }, [page, debouncedSearch])
 
   const handleSelect = () => {
     if (!selectedId) return
