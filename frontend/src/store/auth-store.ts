@@ -1,5 +1,8 @@
 import { create } from "zustand"
-import type { URole } from "@/utils/navigation"
+import type { URole } from "@/utils/types"
+import { login as loginApi } from "@/services/auth-service"
+import { getUserById } from "@/services/user-service"
+import { clearToken } from "@/utils/http-client"
 
 interface User {
   id: string
@@ -16,30 +19,33 @@ interface AuthState {
   hasRole: (roles: URole[]) => boolean
 }
 
-const MOCK_USERS: User[] = [
-  { id: "1", username: "admin", role: "ADMIN", displayName: "Admin" },
-  { id: "2", username: "manager", role: "MANAGER", displayName: "Quản lý kho" },
-  { id: "3", username: "sales", role: "SALES", displayName: "Nhân viên bán hàng" },
-  { id: "4", username: "stock", role: "STOCK", displayName: "Nhân viên kho" },
-]
-
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   isLoading: false,
 
-  login: async (username: string, _password: string) => {
+  login: async (username: string, password: string) => {
     set({ isLoading: true })
     try {
-      await new Promise((r) => setTimeout(r, 600))
-      const found = MOCK_USERS.find((u) => u.username === username)
-      if (!found) throw new Error("Invalid credentials")
-      set({ user: found })
+      const jwt = await loginApi({ username, password })
+      const userRes = await getUserById(jwt.userId)
+      set({
+        user: {
+          id: String(userRes.id),
+          username: userRes.username,
+          role: userRes.role as URole,
+          displayName: userRes.fullName || userRes.username,
+        },
+      })
     } finally {
       set({ isLoading: false })
     }
   },
 
-  logout: () => set({ user: null }),
+  logout: () => {
+    clearToken()
+    set({ user: null })
+    window.location.href = "/login"
+  },
 
   hasRole: (roles: URole[]) => {
     const user = get().user
