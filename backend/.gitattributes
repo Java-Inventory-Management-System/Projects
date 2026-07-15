@@ -1,2 +1,19 @@
-/mvnw text eol=lf
+# Normalize all text files to LF (repo standard)
+* text=auto eol=lf
+
+# Windows-specific scripts keep CRLF for compatibility
+*.bat text eol=crlf
 *.cmd text eol=crlf
+
+# Shell scripts must stay LF
+/mvnw text eol=lf
+*.sh text eol=lf
+
+# Binary files — never auto-convert
+*.jar binary
+*.png binary
+*.jpg binary
+*.ico binary
+*.ttf binary
+*.woff binary
+*.woff2 binary
