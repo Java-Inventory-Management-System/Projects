@@ -33,7 +33,7 @@ export function ViewExportModal({ receipt, open, onOpenChange }: { receipt: Expo
   const s = statusLabel[receipt.status] ?? { label: receipt.status, variant: "secondary" }
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-[min(95vw,80rem)]">
         <DialogHeader>
           <div className="flex items-center gap-3">
             <DialogTitle>{receipt.receiptCode}</DialogTitle>
@@ -64,12 +64,12 @@ export function ViewExportModal({ receipt, open, onOpenChange }: { receipt: Expo
             </div>
           </div>
           {receipt.note && (
-            <div className="text-sm">
-              <span className="text-muted-foreground">Ghi chú:</span>
-              <p className="mt-0.5">{receipt.note}</p>
+            <div className="rounded-md border bg-muted/20 px-3 py-2.5 text-sm">
+              <span className="text-xs font-medium text-muted-foreground tracking-wide">GHI CHÚ</span>
+              <p className="mt-1 leading-relaxed">{receipt.note}</p>
             </div>
           )}
-          <div className="rounded-lg border overflow-x-auto">
+          <div className="rounded-lg border overflow-x-auto max-h-[60vh] overflow-y-auto">
             <Table>
               <TableHeader>
                 <TableRow>
