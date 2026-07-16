@@ -58,3 +58,9 @@ CREATE TABLE product_images (
     created_at  TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_image_product FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
 );
+
+ALTER TABLE products    ADD INDEX idx_products_is_active (is_active);
+ALTER TABLE products    ADD INDEX idx_products_name (name);
+ALTER TABLE brands     ADD INDEX idx_brands_is_active (is_active);
+ALTER TABLE categories ADD INDEX idx_categories_is_active (is_active);
+ALTER TABLE suppliers  ADD INDEX idx_suppliers_is_active (is_active);
