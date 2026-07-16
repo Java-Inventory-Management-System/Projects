@@ -107,13 +107,13 @@ public class ImportReceiptService {
     @AuditLog(action = LogConstant.Action.CONFIRM_IMPORT, entity = LogConstant.Entity.IMPORT_RECEIPT)
     public ImportReceiptResponse createAndConfirm(ImportReceiptRequest request) {
         Long userId = SecurityUtils.getCurrentUserId();
-        if (userId == null) throw new InvalidRequestException("User not authenticated");
+        if (userId == null) throw new InvalidRequestException(Message.Auth.USER_NOT_AUTHENTICATED);
 
         if (request.items() == null || request.items().isEmpty()) {
-            throw new InvalidRequestException("At least one item is required");
+            throw new InvalidRequestException(Message.Inventory.AT_LEAST_ONE_ITEM_REQUIRED);
         }
         if (request.supplierId() == null) {
-            throw new InvalidRequestException("Supplier is required");
+            throw new InvalidRequestException(Message.Inventory.SUPPLIER_REQUIRED);
         }
 
         String receiptCode = request.receiptCode() != null ? request.receiptCode() : generateReceiptCode();
@@ -174,20 +174,20 @@ public class ImportReceiptService {
                     throw new InvalidRequestException(Message.Inventory.SERIAL_REQUIRED_FOR_SERIALIZED);
                 }
                 if (serials.size() != qty.intValue()) {
-                    throw new InvalidRequestException("Serial count must match quantity");
+                    throw new InvalidRequestException(Message.Inventory.SERIAL_COUNT_MUST_MATCH);
                 }
 
                 var trimmedSerials = serials.stream()
                         .map(String::trim)
                         .peek(s -> {
-                            if (s.isBlank()) throw new InvalidRequestException("Serial number cannot be blank");
+                            if (s.isBlank()) throw new InvalidRequestException(Message.Inventory.SERIAL_BLANK);
                         })
                         .toList();
 
                 var existing = productUnitRepository.findExistingSerialNumbers(trimmedSerials);
                 if (!existing.isEmpty()) {
                     throw new ResourceAlreadyExistedException(
-                            "Serial already exists: " + String.join(", ", existing)
+                            Message.format(Message.Inventory.SERIAL_ALREADY_EXISTS_LIST, String.join(", ", existing))
                     );
                 }
 
@@ -247,7 +247,7 @@ public class ImportReceiptService {
             throw new InvalidRequestException(Message.Inventory.CREATOR_CANNOT_APPROVE);
         }
         if (!ImportReceiptStatus.PENDING_APPROVAL.name().equals(receipt.getStatus())) {
-            throw new InvalidRequestException("Only pending_approval receipts can be approved");
+            throw new InvalidRequestException(Message.Inventory.ONLY_PENDING_APPROVAL_CAN_APPROVE);
         }
 
         receipt.setStatus(ImportReceiptStatus.COMPLETED.name());

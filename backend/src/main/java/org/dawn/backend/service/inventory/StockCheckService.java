@@ -59,7 +59,7 @@ public class StockCheckService {
     @AuditLog(action = LogConstant.Action.CREATE_STOCK_CHECK, entity = LogConstant.Entity.STOCK_CHECK)
     public StockCheckResponse create(CreateStockCheckRequest request) {
         Long userId = SecurityUtils.getCurrentUserId();
-        if (userId == null) throw new InvalidRequestException("User not authenticated");
+        if (userId == null) throw new InvalidRequestException(Message.Auth.USER_NOT_AUTHENTICATED);
 
         if (request.productUnitIds() == null || request.productUnitIds().isEmpty()) {
             throw new InvalidRequestException(Message.Inventory.STOCK_CHECK_ITEMS_REQUIRED);
@@ -95,7 +95,7 @@ public class StockCheckService {
                 .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.STOCK_CHECK_NOT_FOUND));
 
         if (!StockCheckStatus.IN_PROGRESS.name().equals(sc.getStatus())) {
-            throw new InvalidRequestException("Stock check must be IN_PROGRESS to record items");
+            throw new InvalidRequestException(Message.Inventory.STOCK_CHECK_MUST_BE_IN_PROGRESS);
         }
 
         var existingItems = stockCheckItemRepository.findByStockCheckId(stockCheckId);
@@ -153,7 +153,7 @@ public class StockCheckService {
                 .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.STOCK_CHECK_NOT_FOUND));
 
         if (!StockCheckStatus.COMPLETED.name().equals(sc.getStatus())) {
-            throw new InvalidRequestException("Only completed stock checks can be approved");
+            throw new InvalidRequestException(Message.Inventory.ONLY_COMPLETED_CAN_APPROVE);
         }
         if (sc.getCreatedBy().equals(userId)) {
             throw new InvalidRequestException(Message.Inventory.CREATOR_CANNOT_APPROVE);
@@ -208,7 +208,7 @@ public class StockCheckService {
                 .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.STOCK_CHECK_NOT_FOUND));
 
         if (!StockCheckStatus.COMPLETED.name().equals(sc.getStatus())) {
-            throw new InvalidRequestException("Only completed stock checks can be rejected");
+            throw new InvalidRequestException(Message.Inventory.ONLY_COMPLETED_CAN_REJECT);
         }
 
         sc.setStatus(StockCheckStatus.REJECTED.name());
