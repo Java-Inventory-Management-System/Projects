@@ -36,3 +36,7 @@ export async function toggleLocation(id: number): Promise<LocationResponse> {
   const res = await http.put(`/location/${id}/toggle-active`)
   return mapLocation(res)
 }
+
+export async function deleteLocation(id: number): Promise<void> {
+  await http.delete(`/location/${id}`)
+}
