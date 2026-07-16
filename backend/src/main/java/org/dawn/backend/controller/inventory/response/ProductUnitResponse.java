@@ -1,8 +1,11 @@
 package org.dawn.backend.controller.inventory.response;
 
+import lombok.Builder;
+
 import java.math.BigDecimal;
 import java.time.Instant;
 
+@Builder
 public record ProductUnitResponse(
         Long id,
         String serialNumber,

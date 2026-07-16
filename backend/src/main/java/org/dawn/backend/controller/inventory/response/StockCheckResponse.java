@@ -1,9 +1,12 @@
 package org.dawn.backend.controller.inventory.response;
 
+import lombok.Builder;
+
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 
+@Builder
 public record StockCheckResponse(
         Long id,
         String checkCode,
@@ -22,6 +25,7 @@ public record StockCheckResponse(
         Instant createdAt,
         Instant updatedAt
 ) {
+    @Builder
     public record StockCheckItemResponse(
             Long id,
             Long productUnitId,

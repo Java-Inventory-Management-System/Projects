@@ -1,9 +1,12 @@
 package org.dawn.backend.controller.inventory.response;
 
+import lombok.Builder;
+
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 
+@Builder
 public record ImportReceiptResponse(
         Long id,
         String receiptCode,
@@ -20,6 +23,7 @@ public record ImportReceiptResponse(
         Instant createdAt,
         Instant updatedAt
 ) {
+    @Builder
     public record ImportItemResponse(
             Long id,
             Long productId,
