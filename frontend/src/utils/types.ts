@@ -248,6 +248,45 @@ export interface ExportReceiptItem {
   unitPrice: number
 }
 
+// ============ Stock Check ============
+
+export type StockCheckStatus = "PENDING" | "IN_PROGRESS" | "COMPLETED" | "APPROVED" | "REJECTED"
+
+export type DifferenceType = "MATCH" | "MISSING" | "UNEXPECTED" | "PARTIAL_SHORTAGE"
+
+export interface StockCheckItem {
+  id: number
+  productUnitId: number
+  serialNumber: string
+  productId: number
+  productName: string
+  productSku: string
+  expectedStatus: string
+  actualStatus: string | null
+  countedQuantity: number | null
+  difference: DifferenceType | null
+  note: string | null
+}
+
+export interface StockCheck {
+  id: number
+  checkCode: string
+  status: StockCheckStatus
+  note: string | null
+  createdBy: number
+  createdByName: string
+  approvedBy: number | null
+  approvedByName: string | null
+  approvalNote: string | null
+  items: StockCheckItem[]
+  totalItems: number
+  matchCount: number
+  missingCount: number
+  unexpectedCount: number
+  createdAt: string
+  updatedAt: string
+}
+
 // ============ Audit Log ============
 
 export interface AuditLog {

@@ -1,4 +1,4 @@
-import type { ResponsePage } from "@/utils/types"
+import type { ResponsePage, StockCheckStatus, DifferenceType } from "@/utils/types"
 
 export function mapResponsePage<T>(raw: unknown, mapItem: (item: unknown) => T): ResponsePage<T> {
   const body = raw as { content?: unknown[]; pagination?: unknown }
@@ -126,6 +126,45 @@ export function mapDashboardStats(raw: unknown) {
     activeProducts: r.activeProducts ?? 0,
     totalItems: r.totalItems ?? 0,
     lowStockCount: r.lowStockCount ?? 0,
+  }
+}
+
+export function mapStockCheckItem(raw: unknown) {
+  const r = raw as {
+    id: number; productUnitId: number; serialNumber?: string; productId: number
+    productName?: string; productSku?: string; expectedStatus: string
+    actualStatus?: string | null; countedQuantity?: number | null; difference?: string | null
+    note?: string | null
+  }
+  return {
+    id: r.id, productUnitId: r.productUnitId, serialNumber: r.serialNumber ?? "",
+    productId: r.productId, productName: r.productName ?? "", productSku: r.productSku ?? "",
+    expectedStatus: r.expectedStatus,
+    actualStatus: r.actualStatus ?? null,
+    countedQuantity: r.countedQuantity ?? null,
+    difference: (r.difference ?? null) as DifferenceType | null,
+    note: r.note ?? null,
+  }
+}
+
+export function mapStockCheck(raw: unknown) {
+  const r = raw as {
+    id: number; checkCode: string; status: string; note?: string | null
+    createdBy: number; createdByName: string | null; createdAt: string
+    approvedBy?: number | null; approvedByName?: string | null; approvalNote?: string | null
+    items: unknown[]; totalItems: number; matchCount: number; missingCount: number
+    unexpectedCount: number; updatedAt: string
+  }
+  return {
+    id: r.id, checkCode: r.checkCode, status: r.status as StockCheckStatus,
+    note: r.note ?? null,
+    createdBy: r.createdBy, createdByName: r.createdByName ?? "—", createdAt: r.createdAt,
+    approvedBy: r.approvedBy ?? null, approvedByName: r.approvedByName ?? null,
+    approvalNote: r.approvalNote ?? null,
+    items: (r.items ?? []).map(mapStockCheckItem),
+    totalItems: r.totalItems, matchCount: r.matchCount,
+    missingCount: r.missingCount, unexpectedCount: r.unexpectedCount,
+    updatedAt: r.updatedAt,
   }
 }
 

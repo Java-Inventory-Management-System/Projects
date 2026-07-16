@@ -17,6 +17,9 @@ const ImportListPage = lazy(() => import("@/features/stock/pages/import-list-pag
 const ImportCreatePage = lazy(() => import("@/features/stock/pages/import-create-page").then((m) => ({ default: m.ImportCreatePage })))
 const ExportListPage = lazy(() => import("@/features/stock/pages/export-list-page").then((m) => ({ default: m.ExportListPage })))
 const ExportCreatePage = lazy(() => import("@/features/stock/pages/export-create-page").then((m) => ({ default: m.ExportCreatePage })))
+const StockCheckListPage = lazy(() => import("@/features/stock/pages/stock-check-list-page").then((m) => ({ default: m.StockCheckListPage })))
+const StockCheckCreatePage = lazy(() => import("@/features/stock/pages/stock-check-create-page").then((m) => ({ default: m.StockCheckCreatePage })))
+const StockCheckDetailPage = lazy(() => import("@/features/stock/pages/stock-check-detail-page").then((m) => ({ default: m.StockCheckDetailPage })))
 
 function PageGuard({ roles, children }: { roles: URole[]; children: ReactNode }) {
   const hasRole = useAuthStore((s) => s.hasRole)
@@ -74,6 +77,9 @@ export const router = createBrowserRouter([
           { path: "stock/imports/new", element: <Lazy><PageGuard roles={adminManagerStock}><ImportCreatePage /></PageGuard></Lazy> },
           { path: "stock/exports", element: <Lazy><PageGuard roles={adminManagerStock}><ExportListPage /></PageGuard></Lazy> },
           { path: "stock/exports/new", element: <Lazy><PageGuard roles={adminManagerStock}><ExportCreatePage /></PageGuard></Lazy> },
+          { path: "stock/checks", element: <Lazy><PageGuard roles={adminManagerStock}><StockCheckListPage /></PageGuard></Lazy> },
+          { path: "stock/checks/new", element: <Lazy><PageGuard roles={adminManagerStock}><StockCheckCreatePage /></PageGuard></Lazy> },
+          { path: "stock/checks/:id", element: <Lazy><PageGuard roles={adminManagerStock}><StockCheckDetailPage /></PageGuard></Lazy> },
           { path: "reports", element: <Placeholder title="Reports" roles={adminManager} /> },
           { path: "users", element: <Placeholder title="Users" roles={["ADMIN"]} /> },
           { path: "audit", element: <Placeholder title="Audit" roles={["ADMIN"]} /> },
