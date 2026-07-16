@@ -24,8 +24,8 @@ export function mapSupplier(raw: unknown) {
 }
 
 export function mapLocation(raw: unknown) {
-  const r = raw as { id: number; zoneCode: string; zoneName?: string; shelfCode: string; binCode: string; fullCode: string }
-  return { id: r.id, zoneCode: r.zoneCode, zoneName: r.zoneName ?? r.zoneCode, shelfCode: r.shelfCode, binCode: r.binCode, fullCode: r.fullCode }
+  const r = raw as { id: number; zoneCode: string; zoneName?: string; shelfCode: string; binCode: string; fullCode: string; description?: string; isActive?: boolean; createdAt?: string; updatedAt?: string }
+  return { id: r.id, zoneCode: r.zoneCode, zoneName: r.zoneName ?? r.zoneCode, shelfCode: r.shelfCode, binCode: r.binCode, fullCode: r.fullCode, description: r.description ?? null, isActive: r.isActive ?? true, createdAt: r.createdAt ?? "", updatedAt: r.updatedAt ?? "" }
 }
 
 export function mapCustomer(raw: unknown) {

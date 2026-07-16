@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import {
@@ -37,7 +37,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { ArrowLeft, Check, X, Save, ClipboardCheck } from "lucide-react"
+import { ArrowLeft, Check, X, Save, ClipboardCheck, Upload } from "lucide-react"
 import { toast } from "@/utils/toast"
 
 const statusLabel: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
@@ -119,6 +119,39 @@ export const StockCheckDetailPage = () => {
     },
     onError: (err: Error) => toast.error(err.message || "Từ chối thất bại"),
   })
+
+  const serialFileRef = useRef<HTMLInputElement>(null)
+
+  const handleImportSerials = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => {
+      const content = reader.result as string
+      const imported = content
+        .split(/[\n\r]+/)
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0)
+      if (imported.length === 0) { toast.error("File không có serial hợp lệ"); return }
+
+      const importedSet = new Set(imported)
+      let matchCount = 0
+      let missCount = 0
+      setLocalItems((prev) =>
+        prev.map((i) => {
+          if (importedSet.has(i.serialNumber)) {
+            matchCount++
+            return { ...i, actualStatus: "IN_STOCK" }
+          }
+          missCount++
+          return { ...i, actualStatus: "LOST" }
+        }),
+      )
+      toast.success(`Import ${imported.length} serial: ${matchCount} khớp, ${missCount} thiếu`)
+    }
+    reader.readAsText(file)
+    e.target.value = ""
+  }
 
   const handleSaveAndComplete = async () => {
     const items = localItems.map((i) => ({
@@ -202,6 +235,12 @@ export const StockCheckDetailPage = () => {
         <Badge variant="outline" className="text-destructive">Thiếu: {check.missingCount}</Badge>
         <Badge variant="outline" className="text-destructive">Lỗi: {check.unexpectedCount}</Badge>
       </div>
+
+      <p className="text-xs text-muted-foreground">
+        {canEdit && (check.status === "PENDING" || check.status === "IN_PROGRESS") &&
+          "Upload file CSV/TXT chứa danh sách serial còn trong kho. Serial không có trong file sẽ tự động set Mất."
+        }
+      </p>
 
       <div className="rounded-lg border overflow-x-auto">
         <Table>
@@ -289,31 +328,69 @@ export const StockCheckDetailPage = () => {
         </Table>
       </div>
 
-      <div className="flex justify-end gap-3">
+      <div className="flex justify-between gap-3">
         {canEdit && (
-          <>
+          <div className="flex gap-2">
+            <input
+              ref={serialFileRef}
+              type="file"
+              accept=".txt,.csv"
+              className="hidden"
+              onChange={handleImportSerials}
+            />
             <Button
               variant="outline"
-              onClick={() => {
-                const items = localItems.map((i) => ({
-                  productUnitId: i.productUnitId,
-                  actualStatus: i.actualStatus ?? undefined,
-                  countedQuantity: i.countedQuantity ?? undefined,
-                  note: i.note || undefined,
-                }))
-                recordMut.mutate({ items })
-              }}
-              disabled={recordMut.isPending}
+              size="sm"
+              className="text-xs gap-1"
+              onClick={() => serialFileRef.current?.click()}
             >
-              <Save className="size-4 mr-1" />
-              {recordMut.isPending ? "Đang ghi..." : "Ghi nhận"}
+              <Upload className="size-3" />
+              Import serial đã kiểm
             </Button>
-            <Button onClick={handleSaveAndComplete} disabled={recordMut.isPending || completeMut.isPending}>
-              <ClipboardCheck className="size-4 mr-1" />
-              {completeMut.isPending ? "Đang hoàn tất..." : "Hoàn tất"}
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-xs"
+              onClick={() => setLocalItems((prev) => prev.map((i) => ({ ...i, actualStatus: "IN_STOCK" })))}
+            >
+              Tất cả Tồn kho
             </Button>
-          </>
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-xs"
+              onClick={() => setLocalItems((prev) => prev.map((i) => ({ ...i, actualStatus: "LOST" })))}
+            >
+              Tất cả Mất
+            </Button>
+          </div>
         )}
+        <div className="flex gap-3 ml-auto">
+          {canEdit && (
+            <>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  const items = localItems.map((i) => ({
+                    productUnitId: i.productUnitId,
+                    actualStatus: i.actualStatus ?? undefined,
+                    countedQuantity: i.countedQuantity ?? undefined,
+                    note: i.note || undefined,
+                  }))
+                  recordMut.mutate({ items })
+                }}
+                disabled={recordMut.isPending}
+              >
+                <Save className="size-4 mr-1" />
+                {recordMut.isPending ? "Đang ghi..." : "Ghi nhận"}
+              </Button>
+              <Button onClick={handleSaveAndComplete} disabled={recordMut.isPending || completeMut.isPending}>
+                <ClipboardCheck className="size-4 mr-1" />
+                {completeMut.isPending ? "Đang hoàn tất..." : "Hoàn tất"}
+              </Button>
+            </>
+          )}
+        </div>
         {canApprove && (
           <>
             <Button variant="outline" onClick={() => setApprovalModal("reject")}>

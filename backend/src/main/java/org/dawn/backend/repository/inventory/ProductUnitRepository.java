@@ -5,15 +5,22 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Repository
 public interface ProductUnitRepository extends JpaRepository<ProductUnit, Long> {
     Optional<ProductUnit> findBySerialNumber(String serialNumber);
     boolean existsBySerialNumber(String serialNumber);
+
+    @Query("SELECT p.serialNumber FROM ProductUnit p WHERE p.serialNumber IN :serials")
+    Set<String> findExistingSerialNumbers(@Param("serials") List<String> serials);
     List<ProductUnit> findByImportReceiptItemId(Long importReceiptItemId);
     List<ProductUnit> findByProductIdAndStatus(Long productId, String status);
     long countByProductIdAndStatus(Long productId, String status);
@@ -30,4 +37,12 @@ public interface ProductUnitRepository extends JpaRepository<ProductUnit, Long> 
             ORDER BY pu.imported_at ASC
             """, nativeQuery = true)
     List<ProductUnit> findAvailableForExport(Long productId);
+
+    @Query("SELECT p.locationId, COUNT(p) FROM ProductUnit p WHERE p.status = 'IN_STOCK' AND p.locationId IS NOT NULL GROUP BY p.locationId")
+    List<Object[]> countByLocationRaw();
+
+    default Map<Long, Long> countByLocation() {
+        return countByLocationRaw().stream()
+            .collect(Collectors.toMap(row -> (Long) row[0], row -> (Long) row[1]));
+    }
 }

@@ -9,6 +9,7 @@ import {
   ArrowDownToLine,
   ArrowUpFromLine,
   ClipboardCheck,
+  MapPin,
 } from "lucide-react"
 import type { ComponentType } from "react"
 import type { URole } from "@/utils/types"
@@ -32,6 +33,8 @@ export const navSections: NavSection[] = [
       { label: "Products", icon: Package, path: "/products", roles: ["ADMIN", "MANAGER", "SALES", "STOCK"] },
       { label: "Inventory", icon: Warehouse, path: "/inventory", roles: ["ADMIN", "MANAGER", "STOCK"] },
       { label: "Sản phẩm trong kho", icon: ScanBarcode, path: "/product-units", roles: ["ADMIN", "MANAGER", "STOCK"] },
+      { label: "Vị trí kho", icon: MapPin, path: "/locations", roles: ["ADMIN", "MANAGER", "STOCK"] },
+      { label: "Bản đồ kho", icon: MapPin, path: "/locations/map", roles: ["ADMIN", "MANAGER", "STOCK"] },
     ],
   },
   {

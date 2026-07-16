@@ -1,5 +1,5 @@
-import { useState, useMemo, useCallback } from "react"
-import { useNavigate } from "react-router-dom"
+import { useState, useMemo, useCallback, useEffect } from "react"
+import { useNavigate, useBlocker } from "react-router-dom"
 import { useMutation } from "@tanstack/react-query"
 import { createImportReceipt } from "@/features/stock/services/import-service"
 import { suggestLocation } from "@/features/stock/services/location-service"
@@ -17,6 +17,19 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command"
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -31,7 +44,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { Trash2, Plus, ScanLine, MapPin } from "lucide-react"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
+import { Trash2, Plus, ScanLine, MapPin, Check, ChevronsUpDown, Circle, CircleCheckBig } from "lucide-react"
 import { SerialModal } from "../components/serial-modal"
 
 interface LineItem {
@@ -52,7 +70,8 @@ export const ImportCreatePage = () => {
   const [supplierId, setSupplierId] = useState("")
   const [note, setNote] = useState("")
   const [items, setItems] = useState<LineItem[]>([])
-  const [selectedProductId, setSelectedProductId] = useState("")
+  const [selectedProductIds, setSelectedProductIds] = useState<number[]>([])
+  const [productPopoverOpen, setProductPopoverOpen] = useState(false)
   const [receiptDate, setReceiptDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [referenceDoc, setReferenceDoc] = useState("")
   const [serialModalOpen, setSerialModalOpen] = useState(false)
@@ -67,38 +86,63 @@ export const ImportCreatePage = () => {
 
   const activeItem = items.find((i) => i.tempId === activeItemId)
 
+  const hasUnsaved = items.length > 0
+
+  useBlocker(
+    ({ currentLocation, nextLocation }) =>
+      hasUnsaved && currentLocation.pathname !== nextLocation.pathname,
+  )
+
+  useEffect(() => {
+    if (!hasUnsaved) return
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault()
+    }
+    window.addEventListener("beforeunload", onBeforeUnload)
+    return () => window.removeEventListener("beforeunload", onBeforeUnload)
+  }, [hasUnsaved])
+
   const createMut = useMutation({
     mutationFn: createImportReceipt,
     onSuccess: () => { toast.success("Tạo phiếu nhập thành công"); navigate("/stock/imports") },
     onError: (err: Error) => toast.error(err.message || "Có lỗi xảy ra khi tạo phiếu nhập"),
   })
 
-  const addItem = useCallback(() => {
-    if (!selectedProductId) return
-    const product = products.find((p) => p.id === Number(selectedProductId))
-    if (!product) return
-    if (items.some((i) => i.productId === product.id)) {
-      toast.error("Sản phẩm này đã có trong phiếu")
+  const nextTempId = useMemo(() => {
+    let id = Date.now()
+    return () => id++
+  }, [])
+
+  const addItems = useCallback(() => {
+    if (selectedProductIds.length === 0) return
+    const existing = new Set(items.map((i) => i.productId))
+    const toAdd = products.filter((p) => selectedProductIds.includes(p.id) && !existing.has(p.id))
+    if (toAdd.length === 0) {
+      toast.error("Tất cả sản phẩm đã có trong phiếu")
+      setSelectedProductIds([])
       return
     }
-    const suggested = suggestLocation(product.categoryId, locations, zoneMap)
     setItems((prev) => [
       ...prev,
-      {
-        tempId: Date.now(),
-        productId: product.id,
-        productName: product.name,
-        productSku: product.sku ?? "",
-        categoryId: product.categoryId,
-        quantity: 1,
-        unitPrice: 0,
-        warrantyMonths: 12,
-        serials: [],
-        locationId: suggested ? String(suggested.id) : "",
-      },
+      ...toAdd.map((product) => {
+        const suggested = suggestLocation(product.categoryId, locations, zoneMap)
+        return {
+          tempId: nextTempId(),
+          productId: product.id,
+          productName: product.name,
+          productSku: product.sku ?? "",
+          categoryId: product.categoryId,
+          quantity: 1,
+          unitPrice: 0,
+          warrantyMonths: 12,
+          serials: [],
+          locationId: suggested ? String(suggested.id) : "",
+        }
+      }),
     ])
-    setSelectedProductId("")
-  }, [selectedProductId, products, items, locations, zoneMap])
+    setSelectedProductIds([])
+    setProductPopoverOpen(false)
+  }, [selectedProductIds, products, items, locations, zoneMap, nextTempId])
 
   const updateItem = useCallback((tempId: number, field: keyof LineItem, value: number | string) => {
     setItems((prev) => prev.map((i) => (i.tempId === tempId ? { ...i, [field]: value } : i)))
@@ -177,34 +221,29 @@ export const ImportCreatePage = () => {
         <Button variant="ghost" size="sm" onClick={() => navigate("/stock/imports")}>
           &larr; Quay lại
         </Button>
-        <h1 className="text-xl font-semibold tracking-tight">Tạo phiếu nhập kho</h1>
-        <Badge variant="outline" className="text-xs font-normal ml-auto">
-          <MapPin className="size-3 mr-1" />
-          Vị trí gợi ý &mdash; cần QL xác nhận thực tế
-        </Badge>
+        <h1 className="text-xl font-semibold tracking-tight">Tạo phiếu nhập kho        </h1>
       </div>
 
-      <div className="space-y-2 max-w-sm">
-        <Label htmlFor="supplier">Nhà cung cấp</Label>
-        <Select value={supplierId} onValueChange={setSupplierId}>
-          <SelectTrigger id="supplier">
-            <SelectValue placeholder="Chọn NCC" />
-          </SelectTrigger>
-          <SelectContent>
-            {suppliers.map((s) => (
-              <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-3">
+        <div className="space-y-2">
+          <Label htmlFor="supplier">Nhà cung cấp</Label>
+          <Select value={supplierId} onValueChange={setSupplierId}>
+            <SelectTrigger id="supplier">
+              <SelectValue placeholder="Chọn NCC" />
+            </SelectTrigger>
+            <SelectContent>
+              {suppliers.map((s) => (
+                <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
         <div className="space-y-2">
           <Label htmlFor="receiptDate">Ngày nhập</Label>
           <Input id="receiptDate" type="date" required value={receiptDate} onChange={(e) => setReceiptDate(e.target.value)} />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="referenceDoc">Số hóa đơn/chứng từ tham khảo</Label>
+          <Label htmlFor="referenceDoc">Số hóa đơn/chứng từ</Label>
           <Input id="referenceDoc" placeholder="Không bắt buộc" value={referenceDoc} onChange={(e) => setReferenceDoc(e.target.value)} />
         </div>
       </div>
@@ -212,20 +251,68 @@ export const ImportCreatePage = () => {
       <div className="space-y-2">
         <Label>Thêm sản phẩm</Label>
         <div className="flex gap-2">
-          <Select value={selectedProductId} onValueChange={setSelectedProductId}>
-            <SelectTrigger className="flex-1">
-              <SelectValue placeholder="Chọn sản phẩm..." />
-            </SelectTrigger>
-            <SelectContent>
-              {products.map((p) => (
-                <SelectItem key={p.id} value={String(p.id)}>
-                  {p.name} ({p.sku})
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button onClick={addItem} disabled={!selectedProductId}>
-            <Plus className="size-4 mr-1" /> Thêm
+          <Popover open={productPopoverOpen} onOpenChange={setProductPopoverOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                role="combobox"
+                className="flex-1 justify-between h-10 font-normal"
+              >
+                {selectedProductIds.length > 0 ? (
+                  <div className="flex gap-1 flex-wrap">
+                    {selectedProductIds.slice(0, 2).map((id) => {
+                      const p = products.find((x) => x.id === id)
+                      return p ? <Badge key={id} variant="secondary" className="text-xs">{p.name}</Badge> : null
+                    })}
+                    {selectedProductIds.length > 2 && (
+                      <Badge variant="secondary" className="text-xs">+{selectedProductIds.length - 2}</Badge>
+                    )}
+                  </div>
+                ) : (
+                  <span className="text-muted-foreground">Chọn sản phẩm...</span>
+                )}
+                <ChevronsUpDown className="size-4 shrink-0 opacity-50" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[400px] p-0" align="start">
+              <Command>
+                <CommandInput placeholder="Tìm sản phẩm..." />
+                <CommandList>
+                  <CommandEmpty>Không tìm thấy sản phẩm</CommandEmpty>
+                  <CommandGroup>
+                    {products.map((p) => {
+                      const alreadyAdded = items.some((i) => i.productId === p.id)
+                      const isSelected = selectedProductIds.includes(p.id)
+                      return (
+                        <CommandItem
+                          key={p.id}
+                          disabled={alreadyAdded}
+                          onSelect={() => {
+                            if (alreadyAdded) return
+                            setSelectedProductIds((prev) =>
+                              isSelected ? prev.filter((id) => id !== p.id) : [...prev, p.id]
+                            )
+                          }}
+                          className={alreadyAdded ? "opacity-50" : ""}
+                        >
+                          <div className={`size-4 rounded border flex items-center justify-center mr-2 ${
+                            isSelected ? "bg-primary border-primary" : "border-input"
+                          }`}>
+                            {isSelected && <Check className="size-3 text-primary-foreground" />}
+                          </div>
+                          <span>{p.name}</span>
+                          <span className="text-xs text-muted-foreground ml-2">{p.sku}</span>
+                          {alreadyAdded && <span className="text-xs text-muted-foreground ml-auto">Đã thêm</span>}
+                        </CommandItem>
+                      )
+                    })}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
+          <Button onClick={addItems} disabled={selectedProductIds.length === 0}>
+            <Plus className="size-4 mr-1" /> Thêm{selectedProductIds.length > 0 ? ` (${selectedProductIds.length})` : ""}
           </Button>
         </div>
       </div>
@@ -235,12 +322,12 @@ export const ImportCreatePage = () => {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="min-w-[180px]">Sản phẩm</TableHead>
-                <TableHead className="w-16 text-right">SL</TableHead>
-                <TableHead className="w-24 text-right">Đơn giá</TableHead>
-                <TableHead className="w-14 text-right">BH</TableHead>
+                <TableHead className="min-w-[200px]">Sản phẩm</TableHead>
+                <TableHead className="w-20 text-right">SL</TableHead>
+                <TableHead className="w-28 text-right">Đơn giá</TableHead>
+                <TableHead className="w-16 text-right">BH(th)</TableHead>
                 <TableHead className="w-28 text-right">Thành tiền</TableHead>
-                <TableHead className="w-40">Vị trí</TableHead>
+                <TableHead className="w-44">Vị trí</TableHead>
                 <TableHead className="w-28 text-center">Serial</TableHead>
                 <TableHead className="w-10" />
               </TableRow>
@@ -249,15 +336,26 @@ export const ImportCreatePage = () => {
               {items.map((item) => {
                 const serialCount = item.serials.length
                 const serialOk = serialCount === item.quantity
+                const hasLocation = !!item.locationId
+                const rowOk = serialOk && hasLocation
                 const suggested = suggestLocation(item.categoryId, locations, zoneMap)
                 return (
                   <TableRow key={item.tempId}>
-                    <TableCell className="font-medium text-sm">{item.productName}</TableCell>
+                    <TableCell className="font-medium text-sm truncate max-w-[200px]" title={item.productName}>
+                      <span className="inline-flex items-center gap-1.5">
+                        {rowOk ? (
+                          <CircleCheckBig className="size-4 shrink-0 text-green-600" />
+                        ) : (
+                          <Circle className="size-4 shrink-0 text-muted-foreground" />
+                        )}
+                        {item.productName}
+                      </span>
+                    </TableCell>
                     <TableCell>
                       <Input
                         type="number"
                         min={1}
-                        className="h-8 w-14 text-right"
+                        className="h-9 w-16 text-right"
                         value={item.quantity}
                         onChange={(e) => updateItem(item.tempId, "quantity", Number(e.target.value))}
                       />
@@ -266,7 +364,7 @@ export const ImportCreatePage = () => {
                       <Input
                         type="number"
                         min={0}
-                        className="h-8 w-20 text-right"
+                        className="h-9 w-24 text-right"
                         value={item.unitPrice}
                         onChange={(e) => updateItem(item.tempId, "unitPrice", Number(e.target.value))}
                       />
@@ -275,12 +373,12 @@ export const ImportCreatePage = () => {
                       <Input
                         type="number"
                         min={0}
-                        className="h-8 w-14 text-right"
+                        className="h-9 w-16 text-right"
                         value={item.warrantyMonths}
                         onChange={(e) => updateItem(item.tempId, "warrantyMonths", Number(e.target.value))}
                       />
                     </TableCell>
-                    <TableCell className="text-right tabular-nums text-sm">
+                    <TableCell className="text-right tabular-nums text-sm font-medium">
                       {(item.quantity * item.unitPrice).toLocaleString("vi-VN")}₫
                     </TableCell>
                     <TableCell>
@@ -288,7 +386,7 @@ export const ImportCreatePage = () => {
                         value={item.locationId}
                         onValueChange={(v) => updateItem(item.tempId, "locationId", v)}
                       >
-                        <SelectTrigger className={`h-8 text-xs ${!item.locationId ? "text-muted-foreground" : ""}`}>
+                        <SelectTrigger className={`h-9 text-xs ${!item.locationId ? "text-muted-foreground" : ""}`}>
                           <SelectValue placeholder="Chọn vị trí..." />
                         </SelectTrigger>
                         <SelectContent>
@@ -312,15 +410,15 @@ export const ImportCreatePage = () => {
                       <Button
                         variant={serialOk ? "outline" : "secondary"}
                         size="sm"
-                        className="gap-1 text-xs"
+                        className="gap-1 text-xs h-9"
                         onClick={() => openSerialModal(item.tempId)}
                       >
-                        <ScanLine className="size-3" />
+                        <ScanLine className="size-3.5" />
                         {serialCount}/{item.quantity}
                       </Button>
                     </TableCell>
                     <TableCell>
-                      <Button variant="ghost" size="icon" onClick={() => removeItem(item.tempId)}>
+                      <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => removeItem(item.tempId)}>
                         <Trash2 className="size-4 text-destructive" />
                       </Button>
                     </TableCell>
@@ -346,20 +444,33 @@ export const ImportCreatePage = () => {
         <Textarea id="note" placeholder="Ghi chú (không bắt buộc)" value={note} onChange={(e) => setNote(e.target.value)} />
       </div>
 
-      <div className="rounded-md border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/20 px-4 py-3 text-xs text-amber-800 dark:text-amber-200">
-        <MapPin className="size-3 inline mr-1" />
-        <strong>Vị trí gợi ý dựa trên danh mục sản phẩm.</strong> Kho thực tế có thể khác &mdash; cần Quản lý kho xác nhận khi duyệt phiếu.&ensp;
-        <Badge variant="outline" className="text-[10px]">Mock: chưa có backend</Badge>
+      <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/20 px-3 py-2 text-xs text-amber-800 dark:text-amber-200">
+        <MapPin className="size-4 shrink-0 mt-0.5" />
+        <span>
+          <strong>Vị trí gợi ý theo danh mục.</strong> Kho thực tế có thể khác &mdash; cần QL kho xác nhận khi duyệt.
+        </span>
       </div>
 
       <div className="flex gap-2 justify-end">
         <Button variant="outline" onClick={() => navigate("/stock/imports")}>Hủy</Button>
-        <Button
-          onClick={handleSubmit}
-          disabled={!supplierId || items.length === 0 || createMut.isPending}
-        >
-          {createMut.isPending ? "Đang tạo..." : "Tạo phiếu nhập"}
-        </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span>
+              <Button
+                onClick={handleSubmit}
+                disabled={!supplierId || items.length === 0 || createMut.isPending}
+              >
+                {createMut.isPending ? "Đang tạo..." : "Tạo phiếu nhập"}
+              </Button>
+            </span>
+          </TooltipTrigger>
+          {(!supplierId || items.length === 0) && (
+            <TooltipContent side="top" className="text-xs">
+              {!supplierId && <p>● Chưa chọn nhà cung cấp</p>}
+              {items.length === 0 && <p>● Chưa có sản phẩm</p>}
+            </TooltipContent>
+          )}
+        </Tooltip>
       </div>
 
       {activeItem && (

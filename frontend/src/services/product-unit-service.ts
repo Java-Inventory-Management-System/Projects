@@ -2,8 +2,8 @@ import http from "@/utils/http-client"
 import type { ProductUnit, ResponsePage } from "@/utils/types"
 import { mapResponsePage, mapProductUnit } from "@/utils/mappers"
 
-export async function getProductUnits(page = 0, size = 20): Promise<ResponsePage<ProductUnit>> {
-  const res = await http.get("/product-unit", { params: { page, size, sort: "importedAt,desc" } })
+export async function getProductUnits(page = 0, size = 20, sort = "importedAt,desc"): Promise<ResponsePage<ProductUnit>> {
+  const res = await http.get("/product-unit", { params: { page, size, sort } })
   return mapResponsePage(res, mapProductUnit)
 }
 
