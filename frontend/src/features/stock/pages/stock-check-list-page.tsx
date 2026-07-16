@@ -6,7 +6,7 @@ import type { StockCheck } from "@/utils/types"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Plus, Eye } from "lucide-react"
+import { Plus, Eye, RefreshCw } from "lucide-react"
 import {
   Table,
   TableBody,
@@ -36,9 +36,10 @@ export const StockCheckListPage = () => {
   const navigate = useNavigate()
   const [page, setPage] = useState(0)
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["stock-checks", page],
     queryFn: () => getStockChecks(page, 10),
+    retry: false,
   })
 
   return (
@@ -73,6 +74,19 @@ export const StockCheckListPage = () => {
                   ))}
                 </TableRow>
               ))
+            ) : error ? (
+              <TableRow>
+                <TableCell colSpan={7} className="text-center py-8">
+                  <div className="flex flex-col items-center gap-2">
+                    <p className="text-sm text-destructive">
+                      {error instanceof Error ? error.message : "Không thể tải danh sách"}
+                    </p>
+                    <Button variant="outline" size="sm" onClick={() => refetch()}>
+                      <RefreshCw className="size-3 mr-1" /> Thử lại
+                    </Button>
+                  </div>
+                </TableCell>
+              </TableRow>
             ) : !data || data.content.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} className="text-center text-sm text-muted-foreground py-8">
