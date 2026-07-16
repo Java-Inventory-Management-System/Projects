@@ -6,16 +6,16 @@ import org.dawn.backend.entity.inventory.Location;
 public interface LocationMappingHelper {
 
     static LocationResponse map(Location location) {
-        return new LocationResponse(
-                location.getId(),
-                location.getZoneCode(),
-                location.getShelfCode(),
-                location.getBinCode(),
-                location.getFullCode(),
-                location.getDescription(),
-                location.getIsActive(),
-                location.getCreatedAt(),
-                location.getUpdatedAt()
-        );
+        return LocationResponse.builder()
+                .id(location.getId())
+                .zoneCode(location.getZoneCode())
+                .shelfCode(location.getShelfCode())
+                .binCode(location.getBinCode())
+                .fullCode(location.getFullCode())
+                .description(location.getDescription())
+                .isActive(location.getIsActive())
+                .createdAt(location.getCreatedAt())
+                .updatedAt(location.getUpdatedAt())
+                .build();
     }
 }
