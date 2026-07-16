@@ -1,5 +1,6 @@
 export {
   getStockChecks,
+  getMyStockChecks,
   getStockCheckById,
   createStockCheck,
   recordStockCheckItems,

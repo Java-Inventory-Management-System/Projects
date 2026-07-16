@@ -1,8 +1,8 @@
-import { useState } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useNavigate } from "react-router-dom"
-import { useQuery } from "@tanstack/react-query"
-import { getStockChecks } from "@/features/stock/services/stock-check-service"
-import type { StockCheck } from "@/utils/types"
+import { useAuthStore } from "@/store/auth-store"
+import { getStockChecks, getMyStockChecks } from "@/features/stock/services/stock-check-service"
+import type { StockCheck, ResponsePage } from "@/utils/types"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -34,13 +34,23 @@ const statusLabel: Record<string, { label: string; variant: "default" | "seconda
 
 export const StockCheckListPage = () => {
   const navigate = useNavigate()
+  const user = useAuthStore((s) => s.user)
   const [page, setPage] = useState(0)
+  const [data, setData] = useState<ResponsePage<StockCheck> | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ["stock-checks", page],
-    queryFn: () => getStockChecks(page, 10),
-    retry: false,
-  })
+  const fetch = useCallback(() => {
+    setLoading(true)
+    setError(null)
+    const fetcher = user?.role === "STOCK" ? getMyStockChecks : getStockChecks
+    fetcher(page, 10)
+      .then(setData)
+      .catch((err) => setError((err as Error).message || "Không thể tải danh sách"))
+      .finally(() => setLoading(false))
+  }, [page, user?.role])
+
+  useEffect(() => { fetch() }, [fetch])
 
   return (
     <div className="space-y-4">
@@ -66,7 +76,7 @@ export const StockCheckListPage = () => {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {isLoading ? (
+            {loading ? (
               Array.from({ length: 5 }).map((_, i) => (
                 <TableRow key={i}>
                   {Array.from({ length: 7 }).map((_, j) => (
@@ -78,10 +88,8 @@ export const StockCheckListPage = () => {
               <TableRow>
                 <TableCell colSpan={7} className="text-center py-8">
                   <div className="flex flex-col items-center gap-2">
-                    <p className="text-sm text-destructive">
-                      {error instanceof Error ? error.message : "Không thể tải danh sách"}
-                    </p>
-                    <Button variant="outline" size="sm" onClick={() => refetch()}>
+                    <p className="text-sm text-destructive">{error}</p>
+                    <Button variant="outline" size="sm" onClick={fetch}>
                       <RefreshCw className="size-3 mr-1" /> Thử lại
                     </Button>
                   </div>
