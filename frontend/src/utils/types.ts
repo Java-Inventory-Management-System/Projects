@@ -125,6 +125,23 @@ export interface CustomerResponse {
   updatedAt: string
 }
 
+// ============ Location Map ============
+
+export interface LocationMapData {
+  zones: Array<{
+    zoneCode: string
+    shelves: Array<{
+      shelfCode: string
+      bins: Array<{
+        id: number
+        binCode: string
+        fullCode: string
+        productCount: number
+      }>
+    }>
+  }>
+}
+
 // ============ Location ============
 
 export interface LocationResponse {

@@ -71,6 +71,7 @@ export const ProductUnitListPage = () => {
   const user = useAuthStore((s) => s.user)
   const [page, setPage] = useState(0)
   const [data, setData] = useState<ResponsePage<ProductUnit> | null>(null)
+  const [allData, setAllData] = useState<ProductUnit[] | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -78,6 +79,7 @@ export const ProductUnitListPage = () => {
   const [debouncedSearch, setDebouncedSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [productFilter, setProductFilter] = useState("all")
+  const [sortOrder, setSortOrder] = useState("desc")
   const [products, setProducts] = useState<ProductResponse[]>([])
   const [viewUnit, setViewUnit] = useState<ProductUnit | null>(null)
   const [viewOpen, setViewOpen] = useState(false)
@@ -93,23 +95,29 @@ export const ProductUnitListPage = () => {
 
   const hasFilters = debouncedSearch || statusFilter !== "all" || productFilter !== "all"
 
-  const fetch = useCallback(() => {
+  useEffect(() => {
     setLoading(true)
     setError(null)
-    getProductUnits(page, 10)
-      .then(setData)
-      .catch((err) => setError((err as Error).message || "Không thể tải danh sách"))
-      .finally(() => setLoading(false))
-  }, [page])
+    const sort = `importedAt,${sortOrder}`
+    if (hasFilters) {
+      getProductUnits(0, 10000, sort)
+        .then((res) => { setAllData(res.content); setData(null) })
+        .catch((err) => setError((err as Error).message || "Không thể tải danh sách"))
+        .finally(() => setLoading(false))
+    } else {
+      getProductUnits(page, 10, sort)
+        .then((res) => { setData(res); setAllData(null) })
+        .catch((err) => setError((err as Error).message || "Không thể tải danh sách"))
+        .finally(() => setLoading(false))
+    }
+  }, [page, hasFilters, debouncedSearch, statusFilter, productFilter, sortOrder])
 
-  useEffect(() => { fetch() }, [fetch])
-
-  const filtered = data?.content.filter((u) => {
+  const filtered = (allData ?? data?.content ?? []).filter((u) => {
     if (debouncedSearch && !u.serialNumber.toLowerCase().includes(debouncedSearch.toLowerCase())) return false
     if (statusFilter !== "all" && u.status !== statusFilter) return false
     if (productFilter !== "all" && u.productId !== Number(productFilter)) return false
     return true
-  }) ?? []
+  })
 
   return (
     <div className="space-y-4">
@@ -154,6 +162,18 @@ export const ProductUnitListPage = () => {
             ))}
           </SelectContent>
         </Select>
+        <Select
+          value={sortOrder}
+          onValueChange={(v) => { setSortOrder(v); setPage(0) }}
+        >
+          <SelectTrigger className="w-32">
+            <SelectValue placeholder="Sắp xếp" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="desc">Mới nhất</SelectItem>
+            <SelectItem value="asc">Cũ nhất</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="rounded-lg border overflow-x-auto">
@@ -183,7 +203,7 @@ export const ProductUnitListPage = () => {
                 <TableCell colSpan={7} className="text-center py-8">
                   <div className="flex flex-col items-center gap-2">
                     <p className="text-sm text-destructive">{error}</p>
-                    <Button variant="outline" size="sm" onClick={fetch}>
+                    <Button variant="outline" size="sm" onClick={() => { setPage(0); setSearch(""); setStatusFilter("all"); setProductFilter("all") }}>
                       <RefreshCw className="size-3 mr-1" /> Thử lại
                     </Button>
                   </div>
@@ -226,7 +246,7 @@ export const ProductUnitListPage = () => {
         </Table>
       </div>
 
-      {data && data.pagination.totalPages > 1 && (
+      {!hasFilters && data && data.pagination.totalPages > 1 && (
         <Pagination>
           <PaginationContent>
             <PaginationItem>

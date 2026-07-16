@@ -124,9 +124,10 @@ public class ImportReceiptService {
         ImportReceipt receipt = ImportReceipt.builder()
                 .receiptCode(receiptCode)
                 .supplierId(request.supplierId())
-                .status(ImportReceiptStatus.PENDING_APPROVAL.name())
+                .status(ImportReceiptStatus.COMPLETED.name())
                 .note(request.note())
                 .createdBy(userId)
+                .approvedBy(userId)
                 .build();
         receipt = importReceiptRepository.save(receipt);
         Long receiptId = receipt.getId();
@@ -175,27 +176,41 @@ public class ImportReceiptService {
                 if (serials.size() != qty.intValue()) {
                     throw new InvalidRequestException("Serial count must match quantity");
                 }
-                for (String serial : serials) {
-                    if (serial == null || serial.isBlank()) {
-                        throw new InvalidRequestException("Serial number cannot be blank");
-                    }
-                    if (productUnitRepository.existsBySerialNumber(serial.trim())) {
-                        throw new ResourceAlreadyExistedException(Message.Inventory.SERIAL_ALREADY_EXISTS);
-                    }
-                    ProductUnit su = ProductUnit.builder()
-                            .serialNumber(serial.trim())
-                            .productId(itemReq.productId())
-                            .trackingType(trackingType)
-                            .initialQuantity(null)
-                            .remainingQuantity(null)
-                            .importReceiptItemId(item.getId())
-                            .locationId(itemReq.locationId())
-                            .status(ProductUnitStatus.IN_STOCK.name())
-                            .importedAt(Instant.now())
-                            .warrantyMonths(itemReq.warrantyMonths())
-                            .build();
-                    productUnitRepository.save(su);
+
+                var trimmedSerials = serials.stream()
+                        .map(String::trim)
+                        .peek(s -> {
+                            if (s.isBlank()) throw new InvalidRequestException("Serial number cannot be blank");
+                        })
+                        .toList();
+
+                var existing = productUnitRepository.findExistingSerialNumbers(trimmedSerials);
+                if (!existing.isEmpty()) {
+                    throw new ResourceAlreadyExistedException(
+                            "Serial already exists: " + String.join(", ", existing)
+                    );
                 }
+
+                var now = Instant.now();
+                final var prodId = itemReq.productId();
+                final var locId = itemReq.locationId();
+                final var wm = itemReq.warrantyMonths();
+                final var itemId = item.getId();
+                var batch = trimmedSerials.stream()
+                        .map(s -> ProductUnit.builder()
+                                .serialNumber(s)
+                                .productId(prodId)
+                                .trackingType(trackingType)
+                                .initialQuantity(null)
+                                .remainingQuantity(null)
+                                .importReceiptItemId(itemId)
+                                .locationId(locId)
+                                .status(ProductUnitStatus.IN_STOCK.name())
+                                .importedAt(now)
+                                .warrantyMonths(wm)
+                                .build())
+                        .toList();
+                productUnitRepository.saveAll(batch);
             }
 
             BigDecimal lineTotal = itemReq.unitPrice() != null

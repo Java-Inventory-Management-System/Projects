@@ -7,15 +7,25 @@ import org.dawn.backend.config.web.response.ResponsePage;
 import org.dawn.backend.constant.shared.LogConstant;
 import org.dawn.backend.constant.shared.Message;
 import org.dawn.backend.controller.inventory.request.LocationRequest;
+import org.dawn.backend.controller.inventory.response.LocationMapResponse;
+import org.dawn.backend.controller.inventory.response.LocationMapResponse.ZoneData;
+import org.dawn.backend.controller.inventory.response.LocationMapResponse.ShelfData;
+import org.dawn.backend.controller.inventory.response.LocationMapResponse.BinData;
 import org.dawn.backend.controller.inventory.response.LocationResponse;
 import org.dawn.backend.entity.inventory.Location;
 import org.dawn.backend.exception.wrapper.InvalidRequestException;
 import org.dawn.backend.exception.wrapper.ResourceAlreadyExistedException;
 import org.dawn.backend.exception.wrapper.ResourceNotFoundException;
 import org.dawn.backend.repository.inventory.LocationRepository;
+import org.dawn.backend.repository.inventory.ProductUnitRepository;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -23,6 +33,30 @@ import org.springframework.transaction.annotation.Transactional;
 public class LocationService {
 
     private final LocationRepository locationRepository;
+    private final ProductUnitRepository productUnitRepository;
+
+    public LocationMapResponse getMap() {
+        var locations = locationRepository.findAllByOrderByZoneCodeAscShelfCodeAscBinCodeAsc();
+        var counts = productUnitRepository.countByLocation();
+
+        Map<String, List<Location>> byZone = locations.stream()
+            .collect(Collectors.groupingBy(Location::getZoneCode, LinkedHashMap::new, Collectors.toList()));
+
+        List<ZoneData> zones = byZone.entrySet().stream().map(entry -> {
+            String zoneCode = entry.getKey();
+            Map<String, List<Location>> byShelf = entry.getValue().stream()
+                .collect(Collectors.groupingBy(Location::getShelfCode, LinkedHashMap::new, Collectors.toList()));
+            List<ShelfData> shelves = byShelf.entrySet().stream().map(shelfEntry -> {
+                List<BinData> bins = shelfEntry.getValue().stream().map(loc ->
+                    new BinData(loc.getId(), loc.getBinCode(), loc.getFullCode(), counts.getOrDefault(loc.getId(), 0L))
+                ).toList();
+                return new ShelfData(shelfEntry.getKey(), bins);
+            }).toList();
+            return new ZoneData(zoneCode, shelves);
+        }).toList();
+
+        return new LocationMapResponse(zones);
+    }
 
     public ResponsePage<LocationResponse> findAll(Pageable pageable) {
         return ResponsePage.of(locationRepository

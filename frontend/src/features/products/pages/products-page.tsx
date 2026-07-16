@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { useSearchParams } from "react-router-dom"
 import { Search, Eye } from "lucide-react"
 import { Input } from "@/components/ui/input"
@@ -20,14 +20,6 @@ import {
 } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/pagination"
 import { useProducts } from "@/hooks/use-products"
 import { useBrands } from "@/hooks/use-brands"
 import { useCategories } from "@/hooks/use-categories"
@@ -36,36 +28,39 @@ import { ViewProductModal } from "../components/view-product-modal"
 
 export const ProductsPage = () => {
   const [searchParams, setSearchParams] = useSearchParams()
-  const page = Number(searchParams.get("page") ?? "0")
   const search = searchParams.get("q") ?? ""
-  const brandId = searchParams.get("brandId") ? Number(searchParams.get("brandId")) : undefined
-  const categoryId = searchParams.get("categoryId") ? Number(searchParams.get("categoryId")) : undefined
+  const brandFilter = searchParams.get("brandId") ? Number(searchParams.get("brandId")) : undefined
+  const categoryFilter = searchParams.get("categoryId") ? Number(searchParams.get("categoryId")) : undefined
 
   const [searchInput, setSearchInput] = useState(search)
+  const [debouncedSearch, setDebouncedSearch] = useState(search)
   const [viewProduct, setViewProduct] = useState<ProductResponse | null>(null)
 
-  const { data: productsRes, isLoading: loading } = useProducts(page, 10, search, brandId, categoryId)
+  const hasFilters = debouncedSearch || brandFilter || categoryFilter
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(searchInput), 300)
+    return () => clearTimeout(t)
+  }, [searchInput])
+
+  const { data: allProducts } = useProducts(0, 10000)
   const brands = useBrands().data ?? []
   const categories = useCategories().data ?? []
 
-  const products = productsRes?.content ?? []
-  const pagination = productsRes?.pagination ?? null
-
-  const updateParams = useCallback(
-    (updates: Record<string, string | undefined>) => {
-      const next = new URLSearchParams(searchParams)
-      if (next.get("page") !== "0") next.set("page", "0")
-      for (const [key, val] of Object.entries(updates)) {
-        if (val) next.set(key, val)
-        else next.delete(key)
+  const filtered = useMemo(() => {
+    const source = allProducts?.content ?? []
+    return source.filter((p) => {
+      if (debouncedSearch) {
+        const kw = debouncedSearch.toLowerCase()
+        if (!p.name.toLowerCase().includes(kw) && !(p.sku ?? "").toLowerCase().includes(kw)) return false
       }
-      setSearchParams(next)
-    },
-    [searchParams, setSearchParams],
-  )
+      if (brandFilter && p.brandId !== brandFilter) return false
+      if (categoryFilter && p.categoryId !== categoryFilter) return false
+      return true
+    })
+  }, [allProducts, debouncedSearch, brandFilter, categoryFilter])
 
-  const handleSearch = () => updateParams({ q: searchInput || undefined })
-  const handleKeyDown = (e: React.KeyboardEvent) => { if (e.key === "Enter") handleSearch() }
+  const loading = !allProducts
 
   return (
     <div className="space-y-4">
@@ -81,12 +76,17 @@ export const ProductsPage = () => {
             className="pl-8"
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
-            onKeyDown={handleKeyDown}
           />
         </div>
         <Select
-          value={brandId ? String(brandId) : "all"}
-          onValueChange={(v) => updateParams({ brandId: v === "all" ? undefined : v })}
+          value={brandFilter ? String(brandFilter) : "all"}
+          onValueChange={(v) => {
+            const next = new URLSearchParams(searchParams)
+            next.set("page", "0")
+            if (v === "all") next.delete("brandId")
+            else next.set("brandId", v)
+            setSearchParams(next)
+          }}
         >
           <SelectTrigger className="w-[140px]">
             <SelectValue placeholder="Thương hiệu" />
@@ -99,8 +99,14 @@ export const ProductsPage = () => {
           </SelectContent>
         </Select>
         <Select
-          value={categoryId ? String(categoryId) : "all"}
-          onValueChange={(v) => updateParams({ categoryId: v === "all" ? undefined : v })}
+          value={categoryFilter ? String(categoryFilter) : "all"}
+          onValueChange={(v) => {
+            const next = new URLSearchParams(searchParams)
+            next.set("page", "0")
+            if (v === "all") next.delete("categoryId")
+            else next.set("categoryId", v)
+            setSearchParams(next)
+          }}
         >
           <SelectTrigger className="w-[160px]">
             <SelectValue placeholder="Danh mục" />
@@ -112,7 +118,7 @@ export const ProductsPage = () => {
             ))}
           </SelectContent>
         </Select>
-        {search && (
+        {(debouncedSearch || brandFilter || categoryFilter) && (
           <Button variant="ghost" size="sm" onClick={() => { setSearchInput(""); setSearchParams(new URLSearchParams()) }}>
             Xoá
           </Button>
@@ -142,14 +148,14 @@ export const ProductsPage = () => {
                   ))}
                 </TableRow>
               ))
-            ) : products.length === 0 ? (
+            ) : filtered.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={8} className="text-center text-sm text-muted-foreground py-8">
-                  Không có sản phẩm nào.
+                  {hasFilters ? "Không tìm thấy sản phẩm nào" : "Không có sản phẩm nào."}
                 </TableCell>
               </TableRow>
             ) : (
-              products.map((p) => (
+              filtered.map((p) => (
                 <TableRow key={p.id}>
                   <TableCell className="font-mono text-xs">{p.sku}</TableCell>
                   <TableCell className="font-medium">{p.name}</TableCell>
@@ -176,53 +182,8 @@ export const ProductsPage = () => {
         </Table>
       </div>
 
-      {pagination && pagination.totalPages > 1 && (
-        <Pagination>
-          <PaginationContent>
-            <PaginationItem>
-              <PaginationPrevious
-                onClick={() => updateParams({ page: String(Math.max(0, page - 1)) })}
-                className={page === 0 ? "pointer-events-none opacity-50" : "cursor-pointer"}
-              />
-            </PaginationItem>
-            {(() => {
-              const t = pagination.totalPages, c = page
-              const pages: (number | "ellipsis")[] = []
-              if (t <= 7) { for (let i = 0; i < t; i++) pages.push(i) }
-              else {
-                pages.push(0)
-                if (c > 3) pages.push("ellipsis")
-                for (let i = Math.max(1, c - 2); i <= Math.min(t - 2, c + 2); i++) pages.push(i)
-                if (c < t - 4) pages.push("ellipsis")
-                pages.push(t - 1)
-              }
-              return pages.map((p, i) =>
-                p === "ellipsis" ? (
-                  <PaginationItem key={`e${i}`}>
-                    <span className="px-2 text-muted-foreground">...</span>
-                  </PaginationItem>
-                ) : (
-                  <PaginationItem key={p}>
-                    <PaginationLink
-                      isActive={p === c}
-                      onClick={() => updateParams({ page: String(p) })}
-                      className="cursor-pointer"
-                    >
-                      {p + 1}
-                    </PaginationLink>
-                  </PaginationItem>
-                )
-              )
-            })()}
-            <PaginationItem>
-              <PaginationNext
-                onClick={() => updateParams({ page: String(Math.min(pagination.totalPages - 1, page + 1)) })}
-                className={page >= pagination.totalPages - 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
-              />
-            </PaginationItem>
-          </PaginationContent>
-        </Pagination>
-      )}
+      {!hasFilters && <p className="text-xs text-muted-foreground">Tổng: {allProducts?.pagination.totalElements ?? 0} sản phẩm</p>}
+      {hasFilters && <p className="text-xs text-muted-foreground">Tìm thấy {filtered.length} sản phẩm</p>}
 
       <ViewProductModal product={viewProduct} open={!!viewProduct} onOpenChange={(v) => { if (!v) setViewProduct(null) }} />
     </div>

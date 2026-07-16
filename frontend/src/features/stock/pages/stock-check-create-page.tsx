@@ -2,17 +2,24 @@ import { useState, useMemo } from "react"
 import { useNavigate } from "react-router-dom"
 import { useMutation, useQuery } from "@tanstack/react-query"
 import { createStockCheck } from "@/features/stock/services/stock-check-service"
+import { getImportReceipts } from "@/services/import-service"
 import { mapResponsePage, mapProductUnit } from "@/utils/mappers"
 import http from "@/utils/http-client"
-import type { ProductUnit } from "@/utils/types"
+import type { ImportReceipt, ProductUnit } from "@/utils/types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import { Skeleton } from "@/components/ui/skeleton"
-import { ArrowLeft, Search } from "lucide-react"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { ArrowLeft, Search, Package } from "lucide-react"
 import { toast } from "@/utils/toast"
 
 export const StockCheckCreatePage = () => {
@@ -20,6 +27,7 @@ export const StockCheckCreatePage = () => {
   const [search, setSearch] = useState("")
   const [selectedIds, setSelectedIds] = useState<number[]>([])
   const [note, setNote] = useState("")
+  const [receiptFilter, setReceiptFilter] = useState("all")
 
   const { data: units, isLoading } = useQuery({
     queryKey: ["product-units", "in-stock"],
@@ -29,17 +37,38 @@ export const StockCheckCreatePage = () => {
     },
   })
 
+  const { data: receipts } = useQuery({
+    queryKey: ["import-receipts"],
+    queryFn: () => getImportReceipts(0, 50),
+  })
+
+  const { data: receiptUnits } = useQuery({
+    queryKey: ["receipt-units", receiptFilter],
+    queryFn: async () => {
+      if (!receiptFilter) return [] as number[]
+      const res = await http.get(`/import-receipt/${receiptFilter}/units`)
+      return (res as Array<{ id: number }>).map((u) => u.id)
+    },
+    enabled: receiptFilter !== "all",
+  })
+
+  const receiptUnitIds = receiptUnits ?? []
+
   const filtered = useMemo(() => {
-    if (!units?.content) return []
-    if (!search) return units.content
+    const all = units?.content ?? []
+    let result = all
+    if (receiptFilter !== "all" && receiptUnitIds.length > 0) {
+      result = result.filter((u) => receiptUnitIds.includes(u.id))
+    }
+    if (!search) return result
     const q = search.toLowerCase()
-    return units.content.filter(
+    return result.filter(
       (u) =>
         u.serialNumber.toLowerCase().includes(q) ||
         u.productName.toLowerCase().includes(q) ||
         u.productSku.toLowerCase().includes(q),
     )
-  }, [units, search])
+  }, [units, search, receiptFilter, receiptUnitIds])
 
   const createMut = useMutation({
     mutationFn: createStockCheck,
@@ -82,7 +111,50 @@ export const StockCheckCreatePage = () => {
             className="pl-9"
           />
         </div>
+        <div className="flex gap-2 items-start">
+          <Select value={receiptFilter} onValueChange={setReceiptFilter}>
+            <SelectTrigger className="w-64">
+              <SelectValue placeholder="Lọc theo lô nhập..." />
+            </SelectTrigger>
+            <SelectContent className="max-h-[50vh]">
+              <SelectItem value="all">Tất cả lô</SelectItem>
+              {receipts?.content?.map((r) => (
+                <SelectItem key={r.id} value={String(r.id)} className="font-mono text-xs">
+                  {r.receiptCode}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {receiptFilter !== "all" && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-xs"
+              onClick={() => {
+                setSelectedIds((prev) => {
+                  const existing = new Set(prev)
+                  receiptUnitIds.forEach((id) => existing.add(id))
+                  return [...existing]
+                })
+              }}
+              disabled={receiptUnitIds.length === 0}
+            >
+              <Package className="size-3 mr-1" />
+              Chọn {receiptUnitIds.length} SP trong lô
+            </Button>
+          )}
+        </div>
       </div>
+
+      {receiptFilter !== "all" && (() => {
+        const r = receipts?.content?.find((x) => String(x.id) === receiptFilter)
+        return r ? (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+            <span className="font-medium">Lô:</span>
+            <span className="font-mono text-xs bg-muted px-2 py-0.5 rounded">{r.receiptCode}</span>
+          </div>
+        ) : null
+      })()}
 
       <div className="rounded-lg border overflow-x-auto max-h-[50vh]">
         {isLoading ? (
