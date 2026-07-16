@@ -65,15 +65,15 @@ public class InventoryService {
                     })
                     .orElse(null);
 
-            return new InventoryItemResponse(
-                    product.getId(),
-                    product.getName(),
-                    product.getSku(),
-                    quantity,
-                    product.getMinStock() != null ? product.getMinStock() : 0,
-                    location,
-                    product.getUpdatedAt()
-            );
+            return InventoryItemResponse.builder()
+                    .productId(product.getId())
+                    .productName(product.getName())
+                    .productSku(product.getSku())
+                    .quantity(quantity)
+                    .minStock(product.getMinStock() != null ? product.getMinStock() : 0)
+                    .location(location)
+                    .updatedAt(product.getUpdatedAt())
+                    .build();
         }));
     }
 }
