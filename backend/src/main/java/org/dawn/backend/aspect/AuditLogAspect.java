@@ -144,7 +144,9 @@ public class AuditLogAspect {
                 try {
                     Object id = m.invoke(result);
                     if (id != null) return id.toString();
-                } catch (Exception ignored) {}
+                } catch (Exception e) {
+                    log.warn("Failed to extract entity ID via reflection: {}", e.getMessage());
+                }
             }
         }
         Long currentUserId = SecurityUtils.getCurrentUserId();
