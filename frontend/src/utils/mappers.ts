@@ -24,8 +24,8 @@ export function mapSupplier(raw: unknown) {
 }
 
 export function mapLocation(raw: unknown) {
-  const r = raw as { id: number; zoneCode: string; zoneName?: string; shelfCode: string; rowCode: string; fullCode: string }
-  return { id: r.id, zoneCode: r.zoneCode, zoneName: r.zoneName ?? r.zoneCode, shelfCode: r.shelfCode, rowCode: r.rowCode, fullCode: r.fullCode }
+  const r = raw as { id: number; zoneCode: string; zoneName?: string; shelfCode: string; binCode: string; fullCode: string }
+  return { id: r.id, zoneCode: r.zoneCode, zoneName: r.zoneName ?? r.zoneCode, shelfCode: r.shelfCode, binCode: r.binCode, fullCode: r.fullCode }
 }
 
 export function mapCustomer(raw: unknown) {
@@ -89,12 +89,23 @@ export function mapImportReceipt(raw: unknown) {
   }
 }
 
+export function mapExportItem(raw: unknown) {
+  const r = raw as {
+    id: number; productId: number; productName: string; productSku: string
+    quantity: number; unitPrice: number
+  }
+  return {
+    id: r.id, productId: r.productId, productName: r.productName, productSku: r.productSku,
+    quantity: r.quantity, unitPrice: r.unitPrice,
+  }
+}
+
 export function mapExportReceipt(raw: unknown) {
   const r = raw as {
     id: number; receiptCode: string; reason: string
     customerId?: number; customerName?: string
     totalAmount: number; note?: string; status: string
-    createdBy: number; createdByName: string; createdAt: string
+    createdBy: number; createdByName: string | null; createdAt: string
     approvedBy?: number; approvedByName?: string
     items: unknown[]
   }
@@ -102,9 +113,9 @@ export function mapExportReceipt(raw: unknown) {
     id: r.id, receiptCode: r.receiptCode, reason: r.reason,
     customerId: r.customerId ?? null, customerName: r.customerName ?? null,
     totalAmount: r.totalAmount, note: r.note ?? null, status: r.status,
-    createdBy: r.createdBy, createdByName: r.createdByName, createdAt: r.createdAt,
+    createdBy: r.createdBy, createdByName: r.createdByName ?? "—", createdAt: r.createdAt,
     approvedBy: r.approvedBy ?? null, approvedByName: r.approvedByName ?? null,
-    items: r.items ?? [],
+    items: (r.items ?? []).map(mapExportItem),
   }
 }
 
