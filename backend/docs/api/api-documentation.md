@@ -924,6 +924,41 @@ interface AuditLog {
 
 **Full code** is auto-generated as `{zoneCode}-{shelfCode}-{binCode}`.
 
+---
+
+## Dashboard Endpoint (`/api/v1/dashboard`)
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| GET | `/api/v1/dashboard/stats` | Get dashboard statistics | Authenticated |
+
+**Response**: `DashboardResponse`
+| Field | Type | Notes |
+|-------|------|-------|
+| `totalProducts` | number | Number of active products |
+| `totalItems` | number | Total in-stock count (serialized = unit count, bulk = sum of remainingQuantity) |
+| `lowStockCount` | number | Products with total ≤ minStock |
+| `activeProducts` | number | Same as totalProducts (active-filtered) |
+
+---
+
+## Category Zone Endpoint (`/api/v1/category-zone`)
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| GET | `/api/v1/category-zone` | List all category zones | Authenticated |
+| GET | `/api/v1/category-zone/{categoryId}` | Get zone by category ID | Authenticated |
+| GET | `/api/v1/category-zone/map` | Get zone lookup map (categoryId → zoneCode) | Authenticated |
+
+**Response**: `CategoryZoneResponse`
+| Field | Type |
+|-------|------|
+| `id` | number |
+| `categoryId` | number |
+| `zoneCode` | string |
+
+**Zone map response** is a flat object: `{ [categoryId: number]: string }`.
+
 **Response**: `LocationResponse`
 | Field | Type |
 |-------|------|
@@ -1153,6 +1188,23 @@ interface LocationResponse {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+}
+
+// ============ Dashboard ============
+
+interface DashboardResponse {
+  totalProducts: number;
+  totalItems: number;
+  lowStockCount: number;
+  activeProducts: number;
+}
+
+// ============ Category Zone ============
+
+interface CategoryZoneResponse {
+  id: number;
+  categoryId: number;
+  zoneCode: string;
 }
 ```
 
