@@ -11,10 +11,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-public class StockCheckMappingHelper {
-    private StockCheckMappingHelper() {}
+public interface StockCheckMappingHelper {
 
-    public static StockCheckResponse map(StockCheck sc, String createdByName, String approvedByName,
+    static StockCheckResponse map(StockCheck sc, String createdByName, String approvedByName,
                                           List<StockCheckItem> items,
                                           Map<Long, ProductUnit> unitMap,
                                           Map<Long, Product> productMap) {

@@ -3,10 +3,9 @@ package org.dawn.backend.service.inventory;
 import org.dawn.backend.controller.inventory.response.LocationResponse;
 import org.dawn.backend.entity.inventory.Location;
 
-public class LocationMappingHelper {
-    private LocationMappingHelper() {}
+public interface LocationMappingHelper {
 
-    public static LocationResponse map(Location location) {
+    static LocationResponse map(Location location) {
         return new LocationResponse(
                 location.getId(),
                 location.getZoneCode(),

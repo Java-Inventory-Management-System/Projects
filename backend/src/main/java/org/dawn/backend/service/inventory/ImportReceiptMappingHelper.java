@@ -8,10 +8,9 @@ import org.dawn.backend.entity.catalog.Product;
 
 import java.util.List;
 
-public class ImportReceiptMappingHelper {
-    private ImportReceiptMappingHelper() {}
+public interface ImportReceiptMappingHelper {
 
-    public static ImportReceiptResponse map(ImportReceipt receipt,
+    static ImportReceiptResponse map(ImportReceipt receipt,
                                              String supplierName,
                                              String createdByName,
                                              String approvedByName,

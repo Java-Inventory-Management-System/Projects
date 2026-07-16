@@ -3,10 +3,9 @@ package org.dawn.backend.service.inventory;
 import org.dawn.backend.controller.inventory.response.ProductUnitResponse;
 import org.dawn.backend.entity.inventory.ProductUnit;
 
-public class ProductUnitMappingHelper {
-    private ProductUnitMappingHelper() {}
+public interface ProductUnitMappingHelper {
 
-    public static ProductUnitResponse map(ProductUnit unit, String productName, String productSku, String locationCode) {
+    static ProductUnitResponse map(ProductUnit unit, String productName, String productSku, String locationCode) {
         return new ProductUnitResponse(
                 unit.getId(),
                 unit.getSerialNumber(),
