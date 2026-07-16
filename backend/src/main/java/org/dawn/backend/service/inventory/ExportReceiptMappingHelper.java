@@ -8,10 +8,9 @@ import org.dawn.backend.entity.inventory.ExportReceiptItem;
 
 import java.util.List;
 
-public class ExportReceiptMappingHelper {
-    private ExportReceiptMappingHelper() {}
+public interface ExportReceiptMappingHelper {
 
-    public static ExportReceiptResponse map(ExportReceipt receipt,
+    static ExportReceiptResponse map(ExportReceipt receipt,
                                              String customerName,
                                              String createdByName,
                                              String approvedByName,

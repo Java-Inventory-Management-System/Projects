@@ -3,10 +3,9 @@ package org.dawn.backend.service.inventory;
 import org.dawn.backend.controller.inventory.response.CustomerResponse;
 import org.dawn.backend.entity.inventory.Customer;
 
-public class CustomerMappingHelper {
-    private CustomerMappingHelper() {}
+public interface CustomerMappingHelper {
 
-    public static CustomerResponse map(Customer customer) {
+    static CustomerResponse map(Customer customer) {
         return new CustomerResponse(
                 customer.getId(),
                 customer.getName(),
