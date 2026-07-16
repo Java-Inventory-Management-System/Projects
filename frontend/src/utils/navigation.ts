@@ -7,6 +7,7 @@ import {
   History,
   ArrowDownToLine,
   ArrowUpFromLine,
+  ClipboardCheck,
 } from "lucide-react"
 import type { ComponentType } from "react"
 import type { URole } from "@/utils/types"
@@ -38,6 +39,7 @@ export const navSections: NavSection[] = [
   },
   {
     items: [
+      { label: "Kiểm kho", icon: ClipboardCheck, path: "/stock/checks", roles: ["STOCK", "MANAGER", "ADMIN"] },
       { label: "Nhập kho", icon: ArrowDownToLine, path: "/stock/imports", roles: ["STOCK", "MANAGER", "ADMIN"] },
       { label: "Xuất kho", icon: ArrowUpFromLine, path: "/stock/exports", roles: ["STOCK", "MANAGER", "ADMIN"] },
     ],
