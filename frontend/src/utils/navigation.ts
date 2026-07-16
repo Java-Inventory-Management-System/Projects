@@ -34,7 +34,6 @@ export const navSections: NavSection[] = [
       { label: "Inventory", icon: Warehouse, path: "/inventory", roles: ["ADMIN", "MANAGER", "STOCK"] },
       { label: "Sản phẩm trong kho", icon: ScanBarcode, path: "/product-units", roles: ["ADMIN", "MANAGER", "STOCK"] },
       { label: "Vị trí kho", icon: MapPin, path: "/locations", roles: ["ADMIN", "MANAGER", "STOCK"] },
-      { label: "Bản đồ kho", icon: MapPin, path: "/locations/map", roles: ["ADMIN", "MANAGER", "STOCK"] },
     ],
   },
   {

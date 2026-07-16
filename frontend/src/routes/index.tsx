@@ -18,7 +18,6 @@ const StockCheckListPage = lazy(() => import("@/features/stock/pages/stock-check
 const StockCheckCreatePage = lazy(() => import("@/features/stock/pages/stock-check-create-page").then((m) => ({ default: m.StockCheckCreatePage })))
 const StockCheckDetailPage = lazy(() => import("@/features/stock/pages/stock-check-detail-page").then((m) => ({ default: m.StockCheckDetailPage })))
 const ProductUnitListPage = lazy(() => import("@/features/stock/pages/product-unit-list-page").then((m) => ({ default: m.ProductUnitListPage })))
-const LocationsPage = lazy(() => import("@/features/stock/pages/locations-page").then((m) => ({ default: m.LocationsPage })))
 const LocationsMapPage = lazy(() => import("@/features/stock/pages/locations-map-page").then((m) => ({ default: m.LocationsMapPage })))
 const UsersPage = lazy(() => import("@/features/admin/pages/users-page").then((m) => ({ default: m.UsersPage })))
 const AuditPage = lazy(() => import("@/features/admin/pages/audit-page").then((m) => ({ default: m.AuditPage })))
@@ -77,8 +76,8 @@ export const router = createBrowserRouter([
           { path: "stock/checks/new", element: <Lazy><PageGuard roles={adminManagerStock}><StockCheckCreatePage /></PageGuard></Lazy> },
           { path: "stock/checks/:id", element: <Lazy><PageGuard roles={adminManagerStock}><StockCheckDetailPage /></PageGuard></Lazy> },
           { path: "product-units", element: <Lazy><PageGuard roles={adminManagerStock}><ProductUnitListPage /></PageGuard></Lazy> },
-          { path: "locations", element: <Lazy><PageGuard roles={adminManagerStock}><LocationsPage /></PageGuard></Lazy> },
           { path: "locations/map", element: <Lazy><PageGuard roles={adminManagerStock}><LocationsMapPage /></PageGuard></Lazy> },
+          { path: "locations", element: <Navigate to="/locations/map" replace /> },
           { path: "reports", element: <Placeholder title="Reports" /> },
           { path: "users", element: <Lazy><PageGuard roles={adminManager}><UsersPage /></PageGuard></Lazy> },
           { path: "audit", element: <Lazy><PageGuard roles={adminManager}><AuditPage /></PageGuard></Lazy> },
