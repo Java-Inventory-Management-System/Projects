@@ -23,7 +23,6 @@ export interface LoginRequest {
 
 export interface JwtResponse {
   accessToken: string
-  refreshToken: string
   userId: number
   username: string
   fullName: string

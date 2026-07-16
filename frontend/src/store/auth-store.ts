@@ -1,6 +1,6 @@
 import { create } from "zustand"
 import type { URole } from "@/utils/types"
-import { login as loginApi } from "@/services/auth-service"
+import { login as loginApi, logout as logoutApi } from "@/services/auth-service"
 import { clearToken } from "@/utils/http-client"
 import { jwtDecode } from "@/utils/jwt"
 
@@ -22,7 +22,7 @@ interface AuthState {
   user: User | null
   isLoading: boolean
   login: (username: string, password: string) => Promise<void>
-  logout: () => void
+  logout: () => Promise<void>
   hasRole: (roles: URole[]) => boolean
 }
 
@@ -61,8 +61,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  logout: () => {
-    clearToken()
+  logout: async () => {
+    try {
+      await logoutApi()
+    } catch {
+      clearToken()
+    }
     set({ user: null })
     window.location.href = "/login"
   },

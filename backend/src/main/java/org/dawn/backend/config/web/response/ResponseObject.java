@@ -5,6 +5,7 @@ import lombok.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
+import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 
 public class ResponseObject<T> extends ResponseEntity<ResponseObject.Payload<T>> {
@@ -27,6 +28,12 @@ public class ResponseObject<T> extends ResponseEntity<ResponseObject.Payload<T>>
 
     public static <T> ResponseObject<T> success(T data, String message) {
         return new ResponseObject<>(HttpStatus.OK, message, data);
+    }
+
+    public static <T> ResponseObject<T> success(T data, ResponseCookie cookie) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.add(HttpHeaders.SET_COOKIE, cookie.toString());
+        return new ResponseObject<>(HttpStatus.OK, "Success", data, headers);
     }
 
     public static <T> ResponseObject<T> created(T data) {
