@@ -34,7 +34,7 @@ import { ViewProductUnitModal } from "../components/view-product-unit-modal"
 import { useAuthStore } from "@/store/auth-store"
 
 const statusOptions: { value: string; label: string }[] = [
-  { value: "", label: "Tất cả" },
+  { value: "all", label: "Tất cả" },
   { value: "IN_STOCK", label: "Trong kho" },
   { value: "SOLD", label: "Đã bán" },
   { value: "DEFECTIVE", label: "Lỗi" },
@@ -76,8 +76,8 @@ export const ProductUnitListPage = () => {
 
   const [search, setSearch] = useState("")
   const [debouncedSearch, setDebouncedSearch] = useState("")
-  const [statusFilter, setStatusFilter] = useState("")
-  const [productFilter, setProductFilter] = useState("")
+  const [statusFilter, setStatusFilter] = useState("all")
+  const [productFilter, setProductFilter] = useState("all")
   const [products, setProducts] = useState<ProductResponse[]>([])
   const [viewUnit, setViewUnit] = useState<ProductUnit | null>(null)
   const [viewOpen, setViewOpen] = useState(false)
@@ -91,7 +91,7 @@ export const ProductUnitListPage = () => {
     return () => clearTimeout(t)
   }, [search])
 
-  const hasFilters = debouncedSearch || statusFilter || productFilter
+  const hasFilters = debouncedSearch || statusFilter !== "all" || productFilter !== "all"
 
   const fetch = useCallback(() => {
     setLoading(true)
@@ -106,8 +106,8 @@ export const ProductUnitListPage = () => {
 
   const filtered = data?.content.filter((u) => {
     if (debouncedSearch && !u.serialNumber.toLowerCase().includes(debouncedSearch.toLowerCase())) return false
-    if (statusFilter && u.status !== statusFilter) return false
-    if (productFilter && u.productId !== Number(productFilter)) return false
+    if (statusFilter !== "all" && u.status !== statusFilter) return false
+    if (productFilter !== "all" && u.productId !== Number(productFilter)) return false
     return true
   }) ?? []
 
@@ -146,7 +146,7 @@ export const ProductUnitListPage = () => {
             <SelectValue placeholder="Sản phẩm" />
           </SelectTrigger>
           <SelectContent className="max-h-[50vh]">
-            <SelectItem value="">Tất cả</SelectItem>
+            <SelectItem value="all">Tất cả</SelectItem>
             {products.map((p) => (
               <SelectItem key={p.id} value={String(p.id)}>
                 {p.name} ({p.sku})
