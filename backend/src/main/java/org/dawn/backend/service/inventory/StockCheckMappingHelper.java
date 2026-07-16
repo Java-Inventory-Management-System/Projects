@@ -14,9 +14,9 @@ import java.util.Map;
 public interface StockCheckMappingHelper {
 
     static StockCheckResponse map(StockCheck sc, String createdByName, String approvedByName,
-                                          List<StockCheckItem> items,
-                                          Map<Long, ProductUnit> unitMap,
-                                          Map<Long, Product> productMap) {
+                                   List<StockCheckItem> items,
+                                   Map<Long, ProductUnit> unitMap,
+                                   Map<Long, Product> productMap) {
         int matchCount = 0, missingCount = 0, unexpectedCount = 0;
         List<StockCheckItemResponse> itemResponses = new ArrayList<>();
 
@@ -27,25 +27,38 @@ public interface StockCheckMappingHelper {
             if ("MATCH".equals(diff)) matchCount++;
             else if ("MISSING".equals(diff)) missingCount++;
             else if ("UNEXPECTED".equals(diff)) unexpectedCount++;
-            itemResponses.add(new StockCheckItemResponse(
-                    item.getId(), item.getProductUnitId(),
-                    pu != null ? pu.getSerialNumber() : null,
-                    p != null ? p.getId() : null,
-                    p != null ? p.getName() : null,
-                    p != null ? p.getSku() : null,
-                    item.getExpectedStatus(), item.getActualStatus(),
-                    item.getCountedQuantity(), item.getDifference(), item.getNote()
-            ));
+            itemResponses.add(StockCheckItemResponse.builder()
+                    .id(item.getId())
+                    .productUnitId(item.getProductUnitId())
+                    .serialNumber(pu != null ? pu.getSerialNumber() : null)
+                    .productId(p != null ? p.getId() : null)
+                    .productName(p != null ? p.getName() : null)
+                    .productSku(p != null ? p.getSku() : null)
+                    .expectedStatus(item.getExpectedStatus())
+                    .actualStatus(item.getActualStatus())
+                    .countedQuantity(item.getCountedQuantity())
+                    .difference(item.getDifference())
+                    .note(item.getNote())
+                    .build());
         }
 
-        return new StockCheckResponse(
-                sc.getId(), sc.getCheckCode(), sc.getStatus(), sc.getNote(),
-                sc.getCreatedBy(), createdByName,
-                sc.getApprovedBy(), approvedByName,
-                sc.getApprovalNote(),
-                itemResponses, items.size(),
-                matchCount, missingCount, unexpectedCount,
-                sc.getCreatedAt(), sc.getUpdatedAt()
-        );
+        return StockCheckResponse.builder()
+                .id(sc.getId())
+                .checkCode(sc.getCheckCode())
+                .status(sc.getStatus())
+                .note(sc.getNote())
+                .createdBy(sc.getCreatedBy())
+                .createdByName(createdByName)
+                .approvedBy(sc.getApprovedBy())
+                .approvedByName(approvedByName)
+                .approvalNote(sc.getApprovalNote())
+                .items(itemResponses)
+                .totalItems(items.size())
+                .matchCount(matchCount)
+                .missingCount(missingCount)
+                .unexpectedCount(unexpectedCount)
+                .createdAt(sc.getCreatedAt())
+                .updatedAt(sc.getUpdatedAt())
+                .build();
     }
 }

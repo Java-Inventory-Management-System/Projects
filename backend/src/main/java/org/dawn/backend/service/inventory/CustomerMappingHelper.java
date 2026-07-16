@@ -6,16 +6,16 @@ import org.dawn.backend.entity.inventory.Customer;
 public interface CustomerMappingHelper {
 
     static CustomerResponse map(Customer customer) {
-        return new CustomerResponse(
-                customer.getId(),
-                customer.getName(),
-                customer.getPhone(),
-                customer.getEmail(),
-                customer.getAddress(),
-                customer.getNote(),
-                customer.getIsActive(),
-                customer.getCreatedAt(),
-                customer.getUpdatedAt()
-        );
+        return CustomerResponse.builder()
+                .id(customer.getId())
+                .name(customer.getName())
+                .phone(customer.getPhone())
+                .email(customer.getEmail())
+                .address(customer.getAddress())
+                .note(customer.getNote())
+                .isActive(customer.getIsActive())
+                .createdAt(customer.getCreatedAt())
+                .updatedAt(customer.getUpdatedAt())
+                .build();
     }
 }
