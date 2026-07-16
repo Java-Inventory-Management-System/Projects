@@ -1,8 +1,10 @@
-import { useEffect, useState } from "react"
+import { useState, useCallback } from "react"
 import { useNavigate } from "react-router-dom"
-import { useAuthStore } from "@/store/auth-store"
-import { getExportReceipts, cancelExportReceipt, approveExportReceipt } from "@/features/stock/services/export-service"
-import type { ExportReceipt, ResponsePage } from "@/utils/types"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { cancelExportReceipt, approveExportReceipt } from "@/features/stock/services/export-service"
+import { useExportReceipts } from "@/hooks/use-export-receipts"
+import { usePermission } from "@/hooks/use-permission"
+import type { ExportReceipt } from "@/utils/types"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -49,60 +51,42 @@ const reasonLabel: Record<string, string> = {
   DISPOSE: "Hủy",
 }
 
-export function ExportListPage() {
-  const user = useAuthStore((s) => s.user)
+export const ExportListPage = () => {
   const navigate = useNavigate()
-  const [data, setData] = useState<ResponsePage<ExportReceipt> | null>(null)
-  const [loading, setLoading] = useState(true)
+  const qc = useQueryClient()
+  const { canCancel: hasCancelPerm, canApprove: hasApprovePerm } = usePermission()
   const [page, setPage] = useState(0)
   const [viewReceipt, setViewReceipt] = useState<ExportReceipt | null>(null)
   const [cancelTarget, setCancelTarget] = useState<ExportReceipt | null>(null)
-  const [cancelling, setCancelling] = useState(false)
-  const [approvingId, setApprovingId] = useState<number | null>(null)
 
-  const fetch = () => {
-    setLoading(true)
-    getExportReceipts(page, 10).then((res) => {
-      setData(res)
-      setLoading(false)
-    })
-  }
+  const { data, isLoading: loading } = useExportReceipts(page, 10)
 
-  useEffect(() => { fetch() }, [page])
+  const cancelMut = useMutation({
+    mutationFn: (id: number) => cancelExportReceipt(id),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["export-receipts"] }); setCancelTarget(null) },
+  })
+
+  const approveMut = useMutation({
+    mutationFn: (id: number) => approveExportReceipt(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["export-receipts"] }),
+  })
 
   const handleCancel = async () => {
     if (!cancelTarget) return
-    setCancelling(true)
-    try {
-      await cancelExportReceipt(cancelTarget.id)
-      toast.success(`Đã hủy phiếu ${cancelTarget.receiptCode}`)
-      setCancelTarget(null)
-      fetch()
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Không thể hủy phiếu")
-    } finally {
-      setCancelling(false)
-    }
+    cancelMut.mutate(cancelTarget.id, {
+      onSuccess: () => toast.success(`Đã hủy phiếu ${cancelTarget.receiptCode}`),
+      onError: (err) => toast.error(err instanceof Error ? err.message : "Không thể hủy phiếu"),
+    })
   }
 
-  const canCancel = user?.role === "MANAGER" || user?.role === "ADMIN"
+  const handleApprove = useCallback((receipt: ExportReceipt) => {
+    approveMut.mutate(receipt.id, {
+      onSuccess: () => toast.success(`Đã duyệt phiếu ${receipt.receiptCode}`),
+      onError: (err) => toast.error(err instanceof Error ? err.message : "Không thể duyệt phiếu"),
+    })
+  }, [approveMut])
 
-  const handleApprove = async (receipt: ExportReceipt) => {
-    if (!user) return
-    setApprovingId(receipt.id)
-    try {
-      await approveExportReceipt(receipt.id, user.id, user.displayName)
-      toast.success(`Đã duyệt phiếu ${receipt.receiptCode}`)
-      fetch()
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Không thể duyệt phiếu")
-    } finally {
-      setApprovingId(null)
-    }
-  }
-
-  const canApprove = (r: ExportReceipt) =>
-    (user?.role === "MANAGER" || user?.role === "ADMIN") && r.status === "PENDING_APPROVAL"
+  const canApprove = useCallback((r: ExportReceipt) => hasApprovePerm(r.status), [hasApprovePerm])
 
   return (
     <div className="space-y-4">
@@ -169,11 +153,11 @@ export function ExportListPage() {
                           <Eye className="size-4" />
                         </Button>
                         {canApprove(r) && (
-                          <Button variant="ghost" size="icon" onClick={() => handleApprove(r)} disabled={approvingId === r.id}>
+                          <Button variant="ghost" size="icon" onClick={() => handleApprove(r)} disabled={approveMut.isPending}>
                             <Check className="size-4 text-green-600" />
                           </Button>
                         )}
-                        {canCancel && r.status !== "CANCELLED" && (
+                        {hasCancelPerm() && r.status !== "CANCELLED" && (
                           <Button variant="ghost" size="icon" onClick={() => setCancelTarget(r)}>
                             <X className="size-4 text-destructive" />
                           </Button>
@@ -243,9 +227,9 @@ export function ExportListPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={cancelling}>Không</AlertDialogCancel>
-            <AlertDialogAction disabled={cancelling} onClick={handleCancel}>
-              {cancelling ? "Đang hủy..." : "Xác nhận hủy"}
+            <AlertDialogCancel disabled={cancelMut.isPending}>Không</AlertDialogCancel>
+            <AlertDialogAction disabled={cancelMut.isPending} onClick={handleCancel}>
+              {cancelMut.isPending ? "Đang hủy..." : "Xác nhận hủy"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react"
+import { useState, useCallback } from "react"
 import { useSearchParams } from "react-router-dom"
 import { Search, AlertTriangle, MapPin, Eye } from "lucide-react"
 import { Input } from "@/components/ui/input"
@@ -21,29 +21,21 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination"
-import { getInventory } from "@/mock-services"
-import type { InventoryItem, ResponsePage } from "@/utils/types"
+import { useInventory } from "@/hooks/use-inventory"
+import type { InventoryItem } from "@/utils/types"
 import { ViewInventoryModal } from "../components/view-inventory-modal"
 
-export function InventoryPage() {
+export const InventoryPage = () => {
   const [searchParams, setSearchParams] = useSearchParams()
   const page = Number(searchParams.get("page") ?? "0")
   const search = searchParams.get("q") ?? ""
 
-  const [items, setItems] = useState<InventoryItem[]>([])
-  const [pagination, setPagination] = useState<ResponsePage["pagination"] | null>(null)
-  const [loading, setLoading] = useState(true)
   const [searchInput, setSearchInput] = useState(search)
   const [viewItem, setViewItem] = useState<InventoryItem | null>(null)
 
-  useEffect(() => {
-    setLoading(true)
-    getInventory(page, 10, search).then((res) => {
-      setItems(res.content)
-      setPagination(res.pagination)
-      setLoading(false)
-    })
-  }, [page, search])
+  const { data: inventoryRes, isLoading: loading } = useInventory(page, 10, search)
+  const items = inventoryRes?.content ?? []
+  const pagination = inventoryRes?.pagination ?? null
 
   const updateParams = useCallback(
     (updates: Record<string, string | undefined>) => {

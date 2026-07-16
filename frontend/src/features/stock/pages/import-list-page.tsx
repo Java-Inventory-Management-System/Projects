@@ -1,8 +1,10 @@
-import { useEffect, useState } from "react"
+import { useState, useCallback } from "react"
 import { useNavigate } from "react-router-dom"
-import { useAuthStore } from "@/store/auth-store"
-import { getImportReceipts, cancelImportReceipt, approveImportReceipt } from "@/features/stock/services/import-service"
-import type { ImportReceipt, ResponsePage } from "@/utils/types"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { cancelImportReceipt, approveImportReceipt } from "@/features/stock/services/import-service"
+import { useImportReceipts } from "@/hooks/use-import-receipts"
+import { usePermission } from "@/hooks/use-permission"
+import type { ImportReceipt } from "@/utils/types"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -43,60 +45,42 @@ const statusLabel: Record<string, { label: string; variant: "default" | "seconda
   CANCELLED: { label: "Đã hủy", variant: "destructive" },
 }
 
-export function ImportListPage() {
-  const user = useAuthStore((s) => s.user)
+export const ImportListPage = () => {
   const navigate = useNavigate()
-  const [data, setData] = useState<ResponsePage<ImportReceipt> | null>(null)
-  const [loading, setLoading] = useState(true)
+  const qc = useQueryClient()
+  const { canCancel: hasCancelPerm, canApprove: hasApprovePerm } = usePermission()
   const [page, setPage] = useState(0)
   const [viewReceipt, setViewReceipt] = useState<ImportReceipt | null>(null)
   const [cancelTarget, setCancelTarget] = useState<ImportReceipt | null>(null)
-  const [cancelling, setCancelling] = useState(false)
-  const [approvingId, setApprovingId] = useState<number | null>(null)
 
-  const fetch = () => {
-    setLoading(true)
-    getImportReceipts(page, 10).then((res) => {
-      setData(res)
-      setLoading(false)
-    })
-  }
+  const { data, isLoading: loading } = useImportReceipts(page, 10)
 
-  useEffect(() => { fetch() }, [page])
+  const cancelMut = useMutation({
+    mutationFn: (id: number) => cancelImportReceipt(id),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["import-receipts"] }); setCancelTarget(null) },
+  })
+
+  const approveMut = useMutation({
+    mutationFn: (id: number) => approveImportReceipt(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["import-receipts"] }),
+  })
 
   const handleCancel = async () => {
     if (!cancelTarget) return
-    setCancelling(true)
-    try {
-      await cancelImportReceipt(cancelTarget.id)
-      toast.success(`Đã hủy phiếu ${cancelTarget.receiptCode}`)
-      setCancelTarget(null)
-      fetch()
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Không thể hủy phiếu")
-    } finally {
-      setCancelling(false)
-    }
+    cancelMut.mutate(cancelTarget.id, {
+      onSuccess: () => toast.success(`Đã hủy phiếu ${cancelTarget.receiptCode}`),
+      onError: (err) => toast.error(err instanceof Error ? err.message : "Không thể hủy phiếu"),
+    })
   }
 
-  const canCancel = user?.role === "MANAGER" || user?.role === "ADMIN"
+  const handleApprove = useCallback((receipt: ImportReceipt) => {
+    approveMut.mutate(receipt.id, {
+      onSuccess: () => toast.success(`Đã duyệt phiếu ${receipt.receiptCode}`),
+      onError: (err) => toast.error(err instanceof Error ? err.message : "Không thể duyệt phiếu"),
+    })
+  }, [approveMut])
 
-  const handleApprove = async (receipt: ImportReceipt) => {
-    if (!user) return
-    setApprovingId(receipt.id)
-    try {
-      await approveImportReceipt(receipt.id, user.id, user.displayName)
-      toast.success(`Đã duyệt phiếu ${receipt.receiptCode}`)
-      fetch()
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Không thể duyệt phiếu")
-    } finally {
-      setApprovingId(null)
-    }
-  }
-
-  const canApprove = (r: ImportReceipt) =>
-    (user?.role === "MANAGER" || user?.role === "ADMIN") && r.status === "PENDING_APPROVAL"
+  const canApprove = useCallback((r: ImportReceipt) => hasApprovePerm(r.status), [hasApprovePerm])
 
   return (
     <div className="space-y-4">
@@ -161,11 +145,11 @@ export function ImportListPage() {
                           <Eye className="size-4" />
                         </Button>
                         {canApprove(r) && (
-                          <Button variant="ghost" size="icon" onClick={() => handleApprove(r)} disabled={approvingId === r.id}>
+                          <Button variant="ghost" size="icon" onClick={() => handleApprove(r)} disabled={approveMut.isPending}>
                             <Check className="size-4 text-green-600" />
                           </Button>
                         )}
-                        {canCancel && r.status !== "CANCELLED" && (
+                        {hasCancelPerm() && r.status !== "CANCELLED" && (
                           <Button variant="ghost" size="icon" onClick={() => setCancelTarget(r)}>
                             <X className="size-4 text-destructive" />
                           </Button>
@@ -235,9 +219,9 @@ export function ImportListPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={cancelling}>Không</AlertDialogCancel>
-            <AlertDialogAction disabled={cancelling} onClick={handleCancel}>
-              {cancelling ? "Đang hủy..." : "Xác nhận hủy"}
+            <AlertDialogCancel disabled={cancelMut.isPending}>Không</AlertDialogCancel>
+            <AlertDialogAction disabled={cancelMut.isPending} onClick={handleCancel}>
+              {cancelMut.isPending ? "Đang hủy..." : "Xác nhận hủy"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

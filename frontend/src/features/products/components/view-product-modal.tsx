@@ -7,7 +7,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 
-export function ViewProductModal({ product, open, onOpenChange }: { product: ProductResponse | null; open: boolean; onOpenChange: (v: boolean) => void }) {
+export const ViewProductModal = ({ product, open, onOpenChange }: { product: ProductResponse | null; open: boolean; onOpenChange: (v: boolean) => void }) => {
   if (!product) return null
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

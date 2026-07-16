@@ -153,3 +153,11 @@ CREATE TABLE stock_check_items (
     CONSTRAINT fk_sci_check FOREIGN KEY (stock_check_id)  REFERENCES stock_checks(id),
     CONSTRAINT fk_sci_unit  FOREIGN KEY (product_unit_id) REFERENCES product_units(id)
 );
+
+ALTER TABLE customers      ADD INDEX idx_customers_is_active (is_active);
+ALTER TABLE locations      ADD INDEX idx_locations_is_active (is_active);
+ALTER TABLE import_receipts ADD INDEX idx_import_receipts_status (status);
+ALTER TABLE export_receipts ADD INDEX idx_export_receipts_status (status);
+ALTER TABLE export_receipts ADD INDEX idx_export_receipts_reason (reason);
+ALTER TABLE stock_checks   ADD INDEX idx_stock_checks_status (status);
+ALTER TABLE product_units  ADD INDEX idx_product_units_product_status (product_id, status);
