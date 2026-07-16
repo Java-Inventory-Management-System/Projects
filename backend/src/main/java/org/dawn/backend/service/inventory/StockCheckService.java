@@ -14,10 +14,12 @@ import org.dawn.backend.controller.inventory.request.ApproveStockCheckRequest;
 import org.dawn.backend.controller.inventory.request.CreateStockCheckRequest;
 import org.dawn.backend.controller.inventory.request.StockCheckItemRequest;
 import org.dawn.backend.controller.inventory.response.StockCheckResponse;
+import org.dawn.backend.entity.auth.User;
 import org.dawn.backend.entity.catalog.Product;
 import org.dawn.backend.entity.inventory.*;
 import org.dawn.backend.exception.wrapper.InvalidRequestException;
 import org.dawn.backend.exception.wrapper.ResourceNotFoundException;
+import org.dawn.backend.repository.auth.UserRepository;
 import org.dawn.backend.repository.catalog.ProductRepository;
 import org.dawn.backend.repository.inventory.*;
 import org.dawn.backend.utils.SecurityUtils;
@@ -40,6 +42,7 @@ public class StockCheckService {
     private final ProductUnitRepository productUnitRepository;
     private final ProductUnitStatusLogRepository statusLogRepository;
     private final ProductRepository productRepository;
+    private final UserRepository userRepository;
 
     public ResponsePage<StockCheckResponse> findAll(Pageable pageable) {
         var page = stockCheckRepository.findAll(pageable);
@@ -223,7 +226,12 @@ public class StockCheckService {
         var productIds = units.values().stream().map(ProductUnit::getProductId).toList();
         var products = productRepository.findAllById(productIds).stream()
                 .collect(Collectors.toMap(Product::getId, p -> p));
-        return StockCheckMappingHelper.map(sc, null, null, items, units, products);
+        var createdByName = userRepository.findById(sc.getCreatedBy())
+                .map(User::getFullName).orElse(null);
+        var approvedByName = sc.getApprovedBy() != null
+                ? userRepository.findById(sc.getApprovedBy()).map(User::getFullName).orElse(null)
+                : null;
+        return StockCheckMappingHelper.map(sc, createdByName, approvedByName, items, units, products);
     }
 
     private String generateCheckCode() {

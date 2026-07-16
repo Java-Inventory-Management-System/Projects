@@ -12,6 +12,7 @@ import org.dawn.backend.constant.shared.LogConstant;
 import org.dawn.backend.constant.shared.Message;
 import org.dawn.backend.controller.inventory.request.ExportReceiptRequest;
 import org.dawn.backend.controller.inventory.response.ExportReceiptResponse;
+import org.dawn.backend.entity.auth.User;
 import org.dawn.backend.entity.catalog.Product;
 import org.dawn.backend.entity.inventory.ExportReceipt;
 import org.dawn.backend.entity.inventory.ExportReceiptItem;
@@ -21,6 +22,7 @@ import org.dawn.backend.entity.inventory.ProductUnitStatusLog;
 import org.dawn.backend.exception.wrapper.InvalidRequestException;
 import org.dawn.backend.exception.wrapper.ResourceAlreadyExistedException;
 import org.dawn.backend.exception.wrapper.ResourceNotFoundException;
+import org.dawn.backend.repository.auth.UserRepository;
 import org.dawn.backend.repository.catalog.ProductRepository;
 import org.dawn.backend.repository.inventory.CustomerRepository;
 import org.dawn.backend.repository.inventory.ExportReceiptItemRepository;
@@ -52,6 +54,7 @@ public class ExportReceiptService {
     private final ProductUnitStatusLogRepository statusLogRepository;
     private final ProductRepository productRepository;
     private final CustomerRepository customerRepository;
+    private final UserRepository userRepository;
 
     private static final List<String> BULK_UNITS = List.of("METER", "KG");
 
@@ -307,7 +310,12 @@ public class ExportReceiptService {
                     .map(c -> c.getName()).orElse(null);
         }
 
-        return ExportReceiptMappingHelper.map(receipt, customerName, null, null, items, products);
+        var createdByName = userRepository.findById(receipt.getCreatedBy())
+                .map(User::getFullName).orElse(null);
+        var approvedByName = receipt.getApprovedBy() != null
+                ? userRepository.findById(receipt.getApprovedBy()).map(User::getFullName).orElse(null)
+                : null;
+        return ExportReceiptMappingHelper.map(receipt, customerName, createdByName, approvedByName, items, products);
     }
 
     private String generateReceiptCode() {

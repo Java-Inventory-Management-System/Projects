@@ -15,7 +15,9 @@ import org.dawn.backend.controller.inventory.request.ImportReceiptRequest;
 import org.dawn.backend.controller.inventory.request.ImportReceiptRequest.ImportItemRequest;
 import org.dawn.backend.controller.inventory.response.ImportReceiptResponse;
 import org.dawn.backend.controller.inventory.response.ProductUnitResponse;
+import org.dawn.backend.entity.auth.User;
 import org.dawn.backend.entity.catalog.Product;
+import org.dawn.backend.entity.catalog.Supplier;
 import org.dawn.backend.entity.inventory.ImportReceipt;
 import org.dawn.backend.entity.inventory.ImportReceiptItem;
 import org.dawn.backend.entity.inventory.Location;
@@ -24,7 +26,9 @@ import org.dawn.backend.entity.inventory.ProductUnitStatusLog;
 import org.dawn.backend.exception.wrapper.InvalidRequestException;
 import org.dawn.backend.exception.wrapper.ResourceAlreadyExistedException;
 import org.dawn.backend.exception.wrapper.ResourceNotFoundException;
+import org.dawn.backend.repository.auth.UserRepository;
 import org.dawn.backend.repository.catalog.ProductRepository;
+import org.dawn.backend.repository.catalog.SupplierRepository;
 import org.dawn.backend.repository.inventory.ImportReceiptItemRepository;
 import org.dawn.backend.repository.inventory.ImportReceiptRepository;
 import org.dawn.backend.repository.inventory.LocationRepository;
@@ -55,6 +59,8 @@ public class ImportReceiptService {
     private final ProductUnitStatusLogRepository statusLogRepository;
     private final ProductRepository productRepository;
     private final LocationRepository locationRepository;
+    private final SupplierRepository supplierRepository;
+    private final UserRepository userRepository;
     private final EntityManager entityManager;
 
     private static final List<String> BULK_UNITS = List.of("METER", "KG");
@@ -68,7 +74,14 @@ public class ImportReceiptService {
             var products = productRepository.findAllById(productIds).stream()
                     .collect(Collectors.toMap(Product::getId, p -> p));
             var unitCounts = getUnitCounts(items);
-            return ImportReceiptMappingHelper.map(r, null, null, null, items, products, unitCounts);
+            var supplierName = supplierRepository.findById(r.getSupplierId())
+                    .map(Supplier::getName).orElse(null);
+            var createdByName = userRepository.findById(r.getCreatedBy())
+                    .map(User::getFullName).orElse(null);
+            var approvedByName = r.getApprovedBy() != null
+                    ? userRepository.findById(r.getApprovedBy()).map(User::getFullName).orElse(null)
+                    : null;
+            return ImportReceiptMappingHelper.map(r, supplierName, createdByName, approvedByName, items, products, unitCounts);
         }));
     }
 
@@ -80,7 +93,14 @@ public class ImportReceiptService {
         var products = productRepository.findAllById(productIds).stream()
                 .collect(Collectors.toMap(Product::getId, p -> p));
         var unitCounts = getUnitCounts(items);
-        return ImportReceiptMappingHelper.map(receipt, null, null, null, items, products, unitCounts);
+        var supplierName = supplierRepository.findById(receipt.getSupplierId())
+                .map(Supplier::getName).orElse(null);
+        var createdByName = userRepository.findById(receipt.getCreatedBy())
+                .map(User::getFullName).orElse(null);
+        var approvedByName = receipt.getApprovedBy() != null
+                ? userRepository.findById(receipt.getApprovedBy()).map(User::getFullName).orElse(null)
+                : null;
+        return ImportReceiptMappingHelper.map(receipt, supplierName, createdByName, approvedByName, items, products, unitCounts);
     }
 
     @Transactional
@@ -191,7 +211,14 @@ public class ImportReceiptService {
         var products = productRepository.findAllById(productIds).stream()
                 .collect(Collectors.toMap(Product::getId, p -> p));
         var unitCounts = getUnitCounts(savedItems);
-        return ImportReceiptMappingHelper.map(receipt, null, null, null, savedItems, products, unitCounts);
+        var supplierName = supplierRepository.findById(receipt.getSupplierId())
+                .map(Supplier::getName).orElse(null);
+        var createdByName = userRepository.findById(receipt.getCreatedBy())
+                .map(User::getFullName).orElse(null);
+        var approvedByName = receipt.getApprovedBy() != null
+                ? userRepository.findById(receipt.getApprovedBy()).map(User::getFullName).orElse(null)
+                : null;
+        return ImportReceiptMappingHelper.map(receipt, supplierName, createdByName, approvedByName, savedItems, products, unitCounts);
     }
 
     @Transactional
