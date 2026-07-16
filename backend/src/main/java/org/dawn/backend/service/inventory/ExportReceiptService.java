@@ -30,6 +30,7 @@ import org.dawn.backend.repository.inventory.ExportReceiptItemUnitRepository;
 import org.dawn.backend.repository.inventory.ExportReceiptRepository;
 import org.dawn.backend.repository.inventory.ProductUnitRepository;
 import org.dawn.backend.repository.inventory.ProductUnitStatusLogRepository;
+import org.dawn.backend.utils.ReceiptCodeGenerator;
 import org.dawn.backend.utils.SecurityUtils;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -37,8 +38,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.Instant;
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -319,12 +318,6 @@ public class ExportReceiptService {
     }
 
     private String generateReceiptCode() {
-        String datePart = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
-        String prefix = "EXP-" + datePart + "-";
-        int seq = 1;
-        while (exportReceiptRepository.existsByReceiptCode(prefix + String.format("%04d", seq))) {
-            seq++;
-        }
-        return prefix + String.format("%04d", seq);
+        return ReceiptCodeGenerator.generate("EXP-", exportReceiptRepository::existsByReceiptCode);
     }
 }

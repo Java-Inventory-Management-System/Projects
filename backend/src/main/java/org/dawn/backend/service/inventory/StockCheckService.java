@@ -22,13 +22,12 @@ import org.dawn.backend.exception.wrapper.ResourceNotFoundException;
 import org.dawn.backend.repository.auth.UserRepository;
 import org.dawn.backend.repository.catalog.ProductRepository;
 import org.dawn.backend.repository.inventory.*;
+import org.dawn.backend.utils.ReceiptCodeGenerator;
 import org.dawn.backend.utils.SecurityUtils;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -241,12 +240,6 @@ public class StockCheckService {
     }
 
     private String generateCheckCode() {
-        String datePart = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
-        String prefix = "SC-" + datePart + "-";
-        int seq = 1;
-        while (stockCheckRepository.existsByCheckCode(prefix + String.format("%04d", seq))) {
-            seq++;
-        }
-        return prefix + String.format("%04d", seq);
+        return ReceiptCodeGenerator.generate("SC-", stockCheckRepository::existsByCheckCode);
     }
 }
