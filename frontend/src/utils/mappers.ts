@@ -60,20 +60,32 @@ export function mapInventoryItem(raw: unknown) {
   }
 }
 
+export function mapImportItem(raw: unknown) {
+  const r = raw as {
+    id: number; productId: number; productName: string; productSku: string
+    quantity: number; unitPrice: number; warrantyMonths: number; createdUnits: number
+  }
+  return {
+    id: r.id, productId: r.productId, productName: r.productName, productSku: r.productSku,
+    quantity: r.quantity, unitPrice: r.unitPrice, warrantyMonths: r.warrantyMonths,
+    createdUnits: r.createdUnits,
+  }
+}
+
 export function mapImportReceipt(raw: unknown) {
   const r = raw as {
-    id: number; receiptCode: string; supplierId: number; supplierName: string
+    id: number; receiptCode: string; supplierId: number; supplierName: string | null
     totalAmount: number; note?: string; status: string
-    createdBy: number; createdByName: string; createdAt: string
+    createdBy: number; createdByName: string | null; createdAt: string
     approvedBy?: number; approvedByName?: string
     items: unknown[]
   }
   return {
-    id: r.id, receiptCode: r.receiptCode, supplierId: r.supplierId, supplierName: r.supplierName,
+    id: r.id, receiptCode: r.receiptCode, supplierId: r.supplierId, supplierName: r.supplierName ?? "—",
     totalAmount: r.totalAmount, note: r.note ?? null, status: r.status,
-    createdBy: r.createdBy, createdByName: r.createdByName, createdAt: r.createdAt,
+    createdBy: r.createdBy, createdByName: r.createdByName ?? "—", createdAt: r.createdAt,
     approvedBy: r.approvedBy ?? null, approvedByName: r.approvedByName ?? null,
-    items: r.items ?? [],
+    items: (r.items ?? []).map(mapImportItem),
   }
 }
 

@@ -23,7 +23,16 @@ const statusLabel: Record<string, { label: string; variant: "default" | "seconda
 }
 
 export const ViewImportModal = ({ receipt, open, onOpenChange }: { receipt: ImportReceipt | null; open: boolean; onOpenChange: (v: boolean) => void }) => {
-  if (!receipt) return null
+  if (!receipt) return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Không có dữ liệu</DialogTitle>
+        </DialogHeader>
+        <p className="text-sm text-muted-foreground">Không tìm thấy thông tin phiếu nhập.</p>
+      </DialogContent>
+    </Dialog>
+  )
   const s = statusLabel[receipt.status] ?? { label: receipt.status, variant: "secondary" }
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -38,7 +47,7 @@ export const ViewImportModal = ({ receipt, open, onOpenChange }: { receipt: Impo
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
               <span className="text-muted-foreground">Nhà cung cấp:</span>
-              <p className="font-medium">{receipt.supplierName}</p>
+              <p className="font-medium">{receipt.supplierName || "—"}</p>
             </div>
             <div>
               <span className="text-muted-foreground">Ngày tạo:</span>
@@ -46,7 +55,7 @@ export const ViewImportModal = ({ receipt, open, onOpenChange }: { receipt: Impo
             </div>
             <div>
               <span className="text-muted-foreground">Người tạo:</span>
-              <p className="font-medium">{receipt.createdByName}</p>
+              <p className="font-medium">{receipt.createdByName || "—"}</p>
             </div>
             <div>
               <span className="text-muted-foreground">Người duyệt:</span>

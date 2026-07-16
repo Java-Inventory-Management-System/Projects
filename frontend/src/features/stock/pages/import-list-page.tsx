@@ -127,14 +127,14 @@ export const ImportListPage = () => {
                 return (
                   <TableRow key={r.id}>
                     <TableCell className="font-mono text-xs">{r.receiptCode}</TableCell>
-                    <TableCell className="font-medium">{r.supplierName}</TableCell>
+                    <TableCell className="font-medium">{r.supplierName || "—"}</TableCell>
                     <TableCell className="text-right tabular-nums">
                       {r.totalAmount.toLocaleString("vi-VN")}₫
                     </TableCell>
                     <TableCell>
                       <Badge variant={s.variant}>{s.label}</Badge>
                     </TableCell>
-                    <TableCell className="text-muted-foreground">{r.createdByName}</TableCell>
+                    <TableCell className="text-muted-foreground">{r.createdByName || "—"}</TableCell>
                     <TableCell className="text-muted-foreground text-xs">
                       {new Date(r.createdAt).toLocaleDateString("vi-VN")}
                     </TableCell>
