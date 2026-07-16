@@ -2,7 +2,7 @@ import axios, { type AxiosError, type InternalAxiosRequestConfig } from "axios"
 import { toast } from "./toast"
 
 const STORAGE_KEY_TOKEN = "accessToken"
-const BASE_URL = import.meta.env.VITE_API_BASE as string ?? "http://localhost:8888/api/v1"
+const BASE_URL = import.meta.env.VITE_BASE_API_URL as string ?? "http://localhost:8888/api/v1"
 
 const http = axios.create({
   baseURL: BASE_URL,
