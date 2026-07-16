@@ -71,6 +71,90 @@ INSERT INTO locations(zone_code,shelf_code,bin_code,full_code,description,is_act
     UNION ALL SELECT'H','02','02','H-02-02','Cooling Noctua',TRUE
     UNION ALL SELECT'I','01','01','I-01-01','Linh kiện lẻ — chờ phân loại',TRUE
     UNION ALL SELECT'X','01','01','X-01-01','Khu vực cách ly — hàng hỏng/lỗi',TRUE
+    UNION ALL SELECT'A','01','03','A-01-03','CPU Intel',TRUE
+    UNION ALL SELECT'A','01','04','A-01-04','CPU Intel',TRUE
+    UNION ALL SELECT'A','02','03','A-02-03','CPU AMD',TRUE
+    UNION ALL SELECT'A','02','04','A-02-04','CPU AMD',TRUE
+    UNION ALL SELECT'A','03','01','A-03-01','CPU Intel thế hệ cũ',TRUE
+    UNION ALL SELECT'A','03','02','A-03-02','CPU Intel thế hệ cũ',TRUE
+    UNION ALL SELECT'A','03','03','A-03-03','CPU AMD thế hệ cũ',TRUE
+    UNION ALL SELECT'A','04','01','A-04-01','CPU Server Intel Xeon',TRUE
+    UNION ALL SELECT'A','04','02','A-04-02','CPU Server AMD EPYC',TRUE
+    UNION ALL SELECT'A','04','03','A-04-03','CPU Server dự phòng',TRUE
+    UNION ALL SELECT'B','01','03','B-01-03','GPU ASUS',TRUE
+    UNION ALL SELECT'B','01','04','B-01-04','GPU ASUS',TRUE
+    UNION ALL SELECT'B','02','03','B-02-03','GPU MSI',TRUE
+    UNION ALL SELECT'B','02','04','B-02-04','GPU MSI',TRUE
+    UNION ALL SELECT'B','03','01','B-03-01','GPU Gigabyte',TRUE
+    UNION ALL SELECT'B','03','02','B-03-02','GPU Gigabyte',TRUE
+    UNION ALL SELECT'B','03','03','B-03-03','GPU Gigabyte',TRUE
+    UNION ALL SELECT'B','04','01','B-04-01','GPU Palit / Zotac',TRUE
+    UNION ALL SELECT'B','04','02','B-04-02','GPU Palit / Zotac',TRUE
+    UNION ALL SELECT'B','04','03','B-04-03','GPU Palit / Zotac',TRUE
+    UNION ALL SELECT'C','01','03','C-01-03','SSD Samsung',TRUE
+    UNION ALL SELECT'C','01','04','C-01-04','SSD Samsung',TRUE
+    UNION ALL SELECT'C','02','03','C-02-03','SSD WD',TRUE
+    UNION ALL SELECT'C','02','04','C-02-04','SSD WD',TRUE
+    UNION ALL SELECT'C','03','02','C-03-02','SSD WD Blue',TRUE
+    UNION ALL SELECT'C','03','03','C-03-03','SSD WD Blue',TRUE
+    UNION ALL SELECT'C','04','01','C-04-01','SSD Kingston',TRUE
+    UNION ALL SELECT'C','04','02','C-04-02','SSD Kingston',TRUE
+    UNION ALL SELECT'C','04','03','C-04-03','SSD Kingston',TRUE
+    UNION ALL SELECT'C','04','04','C-04-04','SSD Kingston',TRUE
+    UNION ALL SELECT'D','01','03','D-01-03','RAM Corsair',TRUE
+    UNION ALL SELECT'D','01','04','D-01-04','RAM Corsair',TRUE
+    UNION ALL SELECT'D','02','02','D-02-02','RAM G.Skill',TRUE
+    UNION ALL SELECT'D','02','03','D-02-03','RAM G.Skill',TRUE
+    UNION ALL SELECT'D','03','01','D-03-01','RAM Kingston',TRUE
+    UNION ALL SELECT'D','03','02','D-03-02','RAM Kingston',TRUE
+    UNION ALL SELECT'D','03','03','D-03-03','RAM Kingston',TRUE
+    UNION ALL SELECT'D','03','04','D-03-04','RAM DDR4 cũ',TRUE
+    UNION ALL SELECT'D','04','01','D-04-01','RAM Server ECC',TRUE
+    UNION ALL SELECT'D','04','02','D-04-02','RAM Server ECC',TRUE
+    UNION ALL SELECT'E','01','03','E-01-03','Mainboard ASUS ROG',TRUE
+    UNION ALL SELECT'E','01','04','E-01-04','Mainboard ASUS TUF',TRUE
+    UNION ALL SELECT'E','02','03','E-02-03','Mainboard MSI',TRUE
+    UNION ALL SELECT'E','02','04','E-02-04','Mainboard MSI',TRUE
+    UNION ALL SELECT'E','03','01','E-03-01','Mainboard Gigabyte',TRUE
+    UNION ALL SELECT'E','03','02','E-03-02','Mainboard Gigabyte',TRUE
+    UNION ALL SELECT'E','03','03','E-03-03','Mainboard ASRock',TRUE
+    UNION ALL SELECT'E','03','04','E-03-04','Mainboard ASRock',TRUE
+    UNION ALL SELECT'F','01','03','F-01-03','PSU Seasonic Focus',TRUE
+    UNION ALL SELECT'F','02','02','F-02-02','PSU Seasonic Prime',TRUE
+    UNION ALL SELECT'F','02','03','F-02-03','PSU Seasonic Prime',TRUE
+    UNION ALL SELECT'F','03','01','F-03-01','PSU Corsair',TRUE
+    UNION ALL SELECT'F','03','02','F-03-02','PSU Corsair',TRUE
+    UNION ALL SELECT'F','03','03','F-03-03','PSU Corsair',TRUE
+    UNION ALL SELECT'F','04','01','F-04-01','PSU Gigabyte / Cooler Master',TRUE
+    UNION ALL SELECT'F','04','02','F-04-02','PSU Gigabyte / Cooler Master',TRUE
+    UNION ALL SELECT'G','01','03','G-01-03','Case Corsair',TRUE
+    UNION ALL SELECT'G','01','04','G-01-04','Case Corsair',TRUE
+    UNION ALL SELECT'G','02','02','G-02-02','Case ASUS',TRUE
+    UNION ALL SELECT'G','02','03','G-02-03','Case ASUS',TRUE
+    UNION ALL SELECT'G','03','01','G-03-01','Case NZXT / Fractal',TRUE
+    UNION ALL SELECT'G','03','02','G-03-02','Case NZXT / Fractal',TRUE
+    UNION ALL SELECT'G','03','03','G-03-03','Case NZXT / Fractal',TRUE
+    UNION ALL SELECT'H','01','03','H-01-03','Cooling Corsair AIO',TRUE
+    UNION ALL SELECT'H','01','04','H-01-04','Cooling Corsair AIO',TRUE
+    UNION ALL SELECT'H','02','03','H-02-03','Cooling ASUS ROG',TRUE
+    UNION ALL SELECT'H','02','04','H-02-04','Cooling ASUS ROG',TRUE
+    UNION ALL SELECT'H','03','01','H-03-01','Cooling Noctua',TRUE
+    UNION ALL SELECT'H','03','02','H-03-02','Cooling Noctua',TRUE
+    UNION ALL SELECT'H','03','03','H-03-03','Cooling Cooler Master',TRUE
+    UNION ALL SELECT'H','03','04','H-03-04','Cooling be quiet!',TRUE
+    UNION ALL SELECT'I','01','02','I-01-02','Linh kiện lẻ — dây cáp, adapter',TRUE
+    UNION ALL SELECT'I','01','03','I-01-03','Linh kiện lẻ — quạt tản nhiệt rời',TRUE
+    UNION ALL SELECT'I','01','04','I-01-04','Linh kiện lẻ — keo tản nhiệt, giá đỡ',TRUE
+    UNION ALL SELECT'I','02','01','I-02-01','Phụ kiện — ốc vít, bracket',TRUE
+    UNION ALL SELECT'I','02','02','I-02-02','Phụ kiện — RGB controller',TRUE
+    UNION ALL SELECT'I','02','03','I-02-03','Phụ kiện — cable extension',TRUE
+    UNION ALL SELECT'X','01','02','X-01-02','Hàng lỗi — chờ RMA',TRUE
+    UNION ALL SELECT'X','02','01','X-02-01','Hàng thu hồi — chờ kiểm định',TRUE
+    UNION ALL SELECT'X','02','02','X-02-02','Hàng test — chờ kết luận',TRUE
+    UNION ALL SELECT'Z','01','01','Z-01-01','Hàng mới nhập — chờ phân loại',TRUE
+    UNION ALL SELECT'Z','01','02','Z-01-02','Hàng mới nhập — chờ phân loại',TRUE
+    UNION ALL SELECT'Z','02','01','Z-02-01','Hàng chuyển kho — tạm thời',TRUE
+    UNION ALL SELECT'Z','02','02','Z-02-02','Hàng chờ xuất — tạm thời',TRUE
 )SELECT z,s,b,f,d,active FROM l;
 
 INSERT INTO customers(id,name,phone,email,address,note,is_active)WITH c(id,name,phone,email,address,note,active)AS(
