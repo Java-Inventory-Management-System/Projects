@@ -67,7 +67,6 @@ public class InventoryService {
 
             return new InventoryItemResponse(
                     product.getId(),
-                    product.getId(),
                     product.getName(),
                     product.getSku(),
                     quantity,

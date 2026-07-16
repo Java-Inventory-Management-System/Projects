@@ -58,7 +58,7 @@ public class CategoryService {
         if (request.name() != null && !request.name().isBlank()) {
             category.setName(request.name().trim());
         }
-        category.setDescription(request.description());
+        if (request.description() != null) category.setDescription(request.description());
         return CategoryMappingHelper.map(categoryRepository.save(category));
     }
 
