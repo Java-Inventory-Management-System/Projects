@@ -26,6 +26,16 @@ export interface JwtResponse {
   refreshToken: string
   userId: number
   username: string
+  fullName: string
+  isPasswordReset: boolean
+}
+
+export interface RefreshTokenResponse {
+  accessToken: string
+  userId: number
+  username: string
+  fullName: string
+  role: string
   isPasswordReset: boolean
 }
 
