@@ -7,7 +7,6 @@ import { useCategoryZones } from "@/hooks/use-category-zones"
 import { useProducts } from "@/hooks/use-products"
 import { useSuppliers } from "@/hooks/use-suppliers"
 import { useLocations } from "@/hooks/use-locations"
-import type { LocationResponse } from "@/utils/types"
 import { importFormSchema } from "@/features/stock/schemas/import-schema"
 import type { ImportFormData } from "@/features/stock/schemas/import-schema"
 import { toast } from "@/utils/toast"
@@ -36,6 +35,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { LocationPicker } from "@/features/stock/components/location-picker"
 import {
   Table,
   TableBody,
@@ -51,6 +51,7 @@ import {
 } from "@/components/ui/tooltip"
 import { Trash2, Plus, ScanLine, MapPin, Check, ChevronsUpDown, Circle, CircleCheckBig } from "lucide-react"
 import { SerialModal } from "../components/serial-modal"
+import { ImportCreateSidebar } from "../components/import-create-sidebar"
 
 interface LineItem {
   tempId: number
@@ -161,15 +162,6 @@ export const ImportCreatePage = () => {
     setItems((prev) => prev.map((i) => (i.tempId === tempId ? { ...i, serials: newSerials } : i)))
   }, [])
 
-  const groupedLocations = useMemo(() => {
-    const groups: Record<string, LocationResponse[]> = {}
-    for (const loc of locations) {
-      if (!groups[loc.zoneCode]) groups[loc.zoneCode] = []
-      groups[loc.zoneCode].push(loc)
-    }
-    return groups
-  }, [locations])
-
   const totalAmount = useMemo(() => items.reduce((sum, i) => sum + i.quantity * i.unitPrice, 0), [items])
 
   const serialIssues = useMemo(() => items
@@ -216,7 +208,8 @@ export const ImportCreatePage = () => {
   }, [supplierId, receiptDate, referenceDoc, note, items, allSerialsOk, serialIssues, allLocationsOk, createMut])
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
+    <div className="mx-auto max-w-7xl grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="lg:col-span-2 space-y-4 self-start">
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="sm" onClick={() => navigate("/stock/imports")}>
           &larr; Quay lại
@@ -224,7 +217,7 @@ export const ImportCreatePage = () => {
         <h1 className="text-xl font-semibold tracking-tight">Tạo phiếu nhập kho        </h1>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-3 shrink-0">
         <div className="space-y-2">
           <Label htmlFor="supplier">Nhà cung cấp</Label>
           <Select value={supplierId} onValueChange={setSupplierId}>
@@ -382,29 +375,11 @@ export const ImportCreatePage = () => {
                       {(item.quantity * item.unitPrice).toLocaleString("vi-VN")}₫
                     </TableCell>
                     <TableCell>
-                      <Select
+                      <LocationPicker
                         value={item.locationId}
-                        onValueChange={(v) => updateItem(item.tempId, "locationId", v)}
-                      >
-                        <SelectTrigger className={`h-9 text-xs ${!item.locationId ? "text-muted-foreground" : ""}`}>
-                          <SelectValue placeholder="Chọn vị trí..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {Object.entries(groupedLocations).map(([zone, locs]) => (
-                            <div key={zone}>
-                              <div className="px-2 py-1 text-xs font-semibold text-muted-foreground">
-                                Khu {zone}
-                              </div>
-                              {locs.map((loc) => (
-                                <SelectItem key={loc.id} value={String(loc.id)} className="text-xs pl-4">
-                                  {loc.fullCode}
-                                  {suggested?.id === loc.id ? " (gợi ý)" : ""}
-                                </SelectItem>
-                              ))}
-                            </div>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        onSelect={(v) => updateItem(item.tempId, "locationId", v)}
+                        suggestedLocationId={suggested?.id}
+                      />
                     </TableCell>
                     <TableCell className="text-center">
                       <Button
@@ -444,7 +419,7 @@ export const ImportCreatePage = () => {
         <Textarea id="note" placeholder="Ghi chú (không bắt buộc)" value={note} onChange={(e) => setNote(e.target.value)} />
       </div>
 
-      <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/20 px-3 py-2 text-xs text-amber-800 dark:text-amber-200">
+      <div className="flex items-start gap-2 rounded-md border bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
         <MapPin className="size-4 shrink-0 mt-0.5" />
         <span>
           <strong>Vị trí gợi ý theo danh mục.</strong> Kho thực tế có thể khác &mdash; cần QL kho xác nhận khi duyệt.
@@ -471,6 +446,11 @@ export const ImportCreatePage = () => {
             </TooltipContent>
           )}
         </Tooltip>
+      </div>
+      </div>
+
+      <div className="sticky top-0 space-y-4" style={{ minHeight: "calc(100dvh - 6.5rem)" }}>
+        <ImportCreateSidebar />
       </div>
 
       {activeItem && (
