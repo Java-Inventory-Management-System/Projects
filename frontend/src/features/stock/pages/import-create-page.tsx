@@ -59,9 +59,9 @@ export const ImportCreatePage = () => {
   const [activeItemId, setActiveItemId] = useState<number | null>(null)
 
   const { data: productsRes } = useProducts(0, 100)
-  const { data: suppliers } = useSuppliers()
-  const { data: locations } = useLocations()
-  const { data: zoneMap } = useCategoryZones()
+  const { data: suppliers = [] } = useSuppliers()
+  const { data: locations = [] } = useLocations()
+  const { data: zoneMap = {} } = useCategoryZones()
 
   const products = useMemo(() => productsRes?.content ?? [], [productsRes])
 
