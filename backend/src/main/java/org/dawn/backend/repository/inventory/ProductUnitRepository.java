@@ -24,6 +24,7 @@ public interface ProductUnitRepository extends JpaRepository<ProductUnit, Long> 
     List<ProductUnit> findByImportReceiptItemId(Long importReceiptItemId);
     List<ProductUnit> findByProductIdAndStatus(Long productId, String status);
     long countByProductIdAndStatus(Long productId, String status);
+    long countByLocationId(Long locationId);
     Page<ProductUnit> findByStatus(String status, Pageable pageable);
     Page<ProductUnit> findByProductId(Long productId, Pageable pageable);
 
