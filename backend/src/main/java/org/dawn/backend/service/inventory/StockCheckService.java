@@ -218,6 +218,12 @@ public class StockCheckService {
         return enrich(sc);
     }
 
+    public ResponsePage<StockCheckResponse> findMyChecks(Pageable pageable) {
+        Long userId = SecurityUtils.getCurrentUserId();
+        var page = stockCheckRepository.findByCreatedBy(userId, pageable);
+        return ResponsePage.of(page.map(this::enrich));
+    }
+
     private StockCheckResponse enrich(StockCheck sc) {
         var items = stockCheckItemRepository.findByStockCheckId(sc.getId());
         var unitIds = items.stream().map(StockCheckItem::getProductUnitId).toList();
