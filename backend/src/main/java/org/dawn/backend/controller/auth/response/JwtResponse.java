@@ -8,5 +8,6 @@ public record JwtResponse(
         String refreshToken,
         Long userId,
         String username,
+        String fullName,
         Boolean isPasswordReset) {
 }

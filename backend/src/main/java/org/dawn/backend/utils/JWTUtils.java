@@ -69,7 +69,7 @@ public class JWTUtils {
                 .getPayload();
     }
 
-    public String generateToken(Long id, String username, String email, String role) {
+    public String generateToken(Long id, String username, String email, String role, String fullName) {
         return Jwts
                 .builder()
                 .subject(username)
@@ -78,6 +78,7 @@ public class JWTUtils {
                 .claim("username", username)
                 .claim("email", email)
                 .claim("role", role)
+                .claim("fullName", fullName)
                 .expiration(new Date(new Date().getTime() + jwtExpirations))
                 .signWith(key())
                 .compact();

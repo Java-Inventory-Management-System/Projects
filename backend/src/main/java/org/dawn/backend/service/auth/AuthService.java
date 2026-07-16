@@ -45,7 +45,6 @@ public class AuthService {
     private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final MailService mailService;
 
-
     public JwtResponse login(LoginRequest req) {
 
         String identifier = req.username();
@@ -67,13 +66,15 @@ public class AuthService {
                 user.getId(),
                 user.getUsername(),
                 user.getEmail(),
-                user.getRole().getName().name());
+                user.getRole().getName().name(),
+                user.getFullName());
 
         RefreshToken refreshToken = refreshTokenService.createRefreshToken(user.getId());
         return JwtResponse
                 .builder()
                 .userId(user.getId())
                 .username(user.getUsername())
+                .fullName(user.getFullName())
                 .accessToken(jwt)
                 .refreshToken(refreshToken.getToken())
                 .isPasswordReset(Boolean.TRUE.equals(user.getIsPasswordReset()))
@@ -195,10 +196,16 @@ public class AuthService {
                             user.getId(),
                             user.getUsername(),
                             user.getEmail(),
-                            user.getRole().getName().name());
+                            user.getRole().getName().name(),
+                            user.getFullName());
                     return TokenRefreshResponse
                             .builder()
                             .accessToken(jwtCookie)
+                            .userId(user.getId())
+                            .username(user.getUsername())
+                            .fullName(user.getFullName())
+                            .role(user.getRole().getName().name())
+                            .isPasswordReset(Boolean.TRUE.equals(user.getIsPasswordReset()))
                             .build();
                 })
                 .orElseThrow(() -> new ResourceNotFoundException(Message.Auth.REFRESH_TOKEN_NOT_FOUND));
