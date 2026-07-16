@@ -90,19 +90,33 @@ export const StockCheckDetailPage = () => {
 
   const completeMut = useMutation({
     mutationFn: () => completeStockCheck(Number(id!)),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["stock-check", id] }); toast.success("Phiếu kiểm đã hoàn tất, chờ duyệt") },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["stock-checks"] })
+      toast.success("Phiếu kiểm đã hoàn tất, chờ duyệt")
+      navigate("/stock/checks")
+    },
     onError: (err: Error) => toast.error(err.message || "Hoàn tất thất bại"),
   })
 
   const approveMut = useMutation({
     mutationFn: () => approveStockCheck(Number(id!), approvalNote || undefined),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["stock-check", id] }); setApprovalModal(null); setApprovalNote(""); toast.success("Đã duyệt phiếu kiểm") },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["stock-checks"] })
+      setApprovalModal(null); setApprovalNote("")
+      toast.success("Đã duyệt phiếu kiểm")
+      navigate("/stock/checks")
+    },
     onError: (err: Error) => toast.error(err.message || "Duyệt thất bại"),
   })
 
   const rejectMut = useMutation({
     mutationFn: () => rejectStockCheck(Number(id!), approvalNote || undefined),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["stock-check", id] }); setApprovalModal(null); setApprovalNote(""); toast.success("Đã từ chối phiếu kiểm") },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["stock-checks"] })
+      setApprovalModal(null); setApprovalNote("")
+      toast.success("Đã từ chối phiếu kiểm")
+      navigate("/stock/checks")
+    },
     onError: (err: Error) => toast.error(err.message || "Từ chối thất bại"),
   })
 
