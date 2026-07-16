@@ -1,6 +1,5 @@
 package org.dawn.backend.config.security;
 
-import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.dawn.backend.service.auth.UserDetailService;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
@@ -18,7 +17,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import org.springframework.security.web.authentication.logout.LogoutHandler;
+
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity(securedEnabled = true, jsr250Enabled = true)
@@ -45,8 +44,6 @@ public class SecurityConfig {
     private final RoleAccessHandler roleAccessHandler;
 
     private final CorsConfig corsConfig;
-
-    private final LogoutHandler logoutHandler;
 
     private final AuthTokenFilter authTokenFilter;
 
@@ -75,8 +72,7 @@ public class SecurityConfig {
                 .csrf(CsrfConfigurer::disable)
                 .exceptionHandling(this::configExceptionHandling)
                 .sessionManagement(this::configSession)
-                .authorizeHttpRequests(this::configAuth)
-                .logout(this::configLogout);
+                .authorizeHttpRequests(this::configAuth);
 
         http.addFilterBefore(authTokenFilter, UsernamePasswordAuthenticationFilter.class);
 
@@ -109,12 +105,4 @@ public class SecurityConfig {
                 .authenticated();
     }
 
-    private void configLogout(LogoutConfigurer<HttpSecurity> config) {
-        config
-                .logoutUrl("/api/v1/auth/logout")
-                .addLogoutHandler(logoutHandler)
-                .logoutSuccessHandler(
-                        (req, res, auth) ->
-                                res.setStatus(HttpServletResponse.SC_NO_CONTENT));
-    }
 }

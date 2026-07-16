@@ -40,10 +40,7 @@ public class RefreshTokenService {
     }
 
     public Optional<RefreshToken> findByToken(String token) {
-        return Optional.of(
-                refreshTokenRepository.findByToken(token)
-                        .orElseThrow(() -> new ResourceNotFoundException(Message.Auth.REFRESH_TOKEN_INVALID))
-        );
+        return refreshTokenRepository.findByToken(token);
     }
 
     public RefreshToken verifyExpiration(RefreshToken token) {
@@ -56,5 +53,9 @@ public class RefreshTokenService {
 
     public void deleteByUserId(Long userId) {
         userRepository.findById(userId).ifPresent(refreshTokenRepository::deleteByUser);
+    }
+
+    public void deleteByToken(String token) {
+        refreshTokenRepository.deleteByToken(token);
     }
 }
