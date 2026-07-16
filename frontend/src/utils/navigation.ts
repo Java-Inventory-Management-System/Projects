@@ -2,6 +2,7 @@ import {
   LayoutDashboard,
   Package,
   Warehouse,
+  ScanBarcode,
   BarChart3,
   Users,
   History,
@@ -30,6 +31,7 @@ export const navSections: NavSection[] = [
       { label: "Dashboard", icon: LayoutDashboard, path: "/", roles: ["ADMIN", "MANAGER", "SALES"] },
       { label: "Products", icon: Package, path: "/products", roles: ["ADMIN", "MANAGER", "SALES", "STOCK"] },
       { label: "Inventory", icon: Warehouse, path: "/inventory", roles: ["ADMIN", "MANAGER", "STOCK"] },
+      { label: "Sản phẩm trong kho", icon: ScanBarcode, path: "/product-units", roles: ["ADMIN", "MANAGER", "STOCK"] },
     ],
   },
   {

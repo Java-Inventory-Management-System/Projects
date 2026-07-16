@@ -1,6 +1,20 @@
 import http from "@/utils/http-client"
-import type { ProductUnit } from "@/utils/types"
+import type { ProductUnit, ResponsePage } from "@/utils/types"
 import { mapResponsePage, mapProductUnit } from "@/utils/mappers"
+
+export async function getProductUnits(page = 0, size = 20): Promise<ResponsePage<ProductUnit>> {
+  const res = await http.get("/product-unit", { params: { page, size, sort: "importedAt,desc" } })
+  return mapResponsePage(res, mapProductUnit)
+}
+
+export async function getProductUnitsByStatus(
+  status: string,
+  page = 0,
+  size = 20,
+): Promise<ResponsePage<ProductUnit>> {
+  const res = await http.get(`/product-unit/status/${status}`, { params: { page, size, sort: "importedAt,desc" } })
+  return mapResponsePage(res, mapProductUnit)
+}
 
 export async function getSerialsForExport(productId: number, quantity: number): Promise<ProductUnit[]> {
   try {
