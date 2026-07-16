@@ -73,23 +73,23 @@ public class ExportReceiptService {
     @AuditLog(action = LogConstant.Action.CREATE_EXPORT, entity = LogConstant.Entity.EXPORT_RECEIPT)
     public ExportReceiptResponse create(ExportReceiptRequest request) {
         Long userId = SecurityUtils.getCurrentUserId();
-        if (userId == null) throw new InvalidRequestException("User not authenticated");
+        if (userId == null) throw new InvalidRequestException(Message.Auth.USER_NOT_AUTHENTICATED);
 
         if (request.items() == null || request.items().isEmpty()) {
-            throw new InvalidRequestException("At least one item is required");
+            throw new InvalidRequestException(Message.Inventory.AT_LEAST_ONE_ITEM_REQUIRED);
         }
         if (request.reason() == null || request.reason().isBlank()) {
-            throw new InvalidRequestException("Export reason is required");
+            throw new InvalidRequestException(Message.Inventory.EXPORT_REASON_REQUIRED);
         }
         if (ExportReason.SALE.name().equalsIgnoreCase(request.reason()) && request.customerId() == null) {
-            throw new InvalidRequestException("Customer is required for sale export");
+            throw new InvalidRequestException(Message.Inventory.CUSTOMER_REQUIRED_FOR_SALE);
         }
 
         String reason = request.reason().toUpperCase();
         try {
             ExportReason.valueOf(reason);
         } catch (IllegalArgumentException e) {
-            throw new InvalidRequestException("Invalid export reason: " + request.reason());
+            throw new InvalidRequestException(Message.format(Message.Inventory.INVALID_EXPORT_REASON, request.reason()));
         }
 
         String receiptCode = generateReceiptCode();
@@ -195,7 +195,7 @@ public class ExportReceiptService {
             throw new InvalidRequestException(Message.Inventory.CREATOR_CANNOT_APPROVE);
         }
         if (!ExportReceiptStatus.PENDING_APPROVAL.name().equals(receipt.getStatus())) {
-            throw new InvalidRequestException("Only pending_approval receipts can be approved");
+            throw new InvalidRequestException(Message.Inventory.ONLY_PENDING_APPROVAL_CAN_APPROVE);
         }
 
         boolean isSale = ExportReason.SALE.name().equals(receipt.getReason());
