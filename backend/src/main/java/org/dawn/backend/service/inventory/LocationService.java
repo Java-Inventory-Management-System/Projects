@@ -81,7 +81,7 @@ public class LocationService {
     @AuditLog(action = LogConstant.Action.CREATE_LOCATION, entity = LogConstant.Entity.LOCATION)
     public LocationResponse create(LocationRequest request) {
         if (request.zoneCode() == null || request.shelfCode() == null || request.binCode() == null) {
-            throw new InvalidRequestException("Zone code, shelf code, and bin code are required");
+            throw new InvalidRequestException(Message.Inventory.LOCATION_CODE_REQUIRED);
         }
         String fullCode = request.zoneCode() + "-" + request.shelfCode() + "-" + request.binCode();
         if (locationRepository.existsByFullCode(fullCode)) {
@@ -119,5 +119,18 @@ public class LocationService {
                 .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.LOCATION_NOT_FOUND));
         location.setIsActive(!Boolean.TRUE.equals(location.getIsActive()));
         return LocationMappingHelper.map(locationRepository.save(location));
+    }
+
+    @Transactional
+    @AuditLog(action = LogConstant.Action.DELETE_LOCATION, entity = LogConstant.Entity.LOCATION, entityClass = Location.class)
+    public void delete(Long id) {
+        Location location = locationRepository
+                .findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.LOCATION_NOT_FOUND));
+        long productCount = productUnitRepository.countByLocationId(id);
+        if (productCount > 0) {
+            throw new InvalidRequestException(Message.format(Message.Inventory.CANNOT_DELETE_LOCATION_WITH_UNITS, productCount));
+        }
+        locationRepository.delete(location);
     }
 }
