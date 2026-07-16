@@ -9,8 +9,7 @@ import {
   ArrowUpFromLine,
 } from "lucide-react"
 import type { ComponentType } from "react"
-
-export type URole = "ADMIN" | "MANAGER" | "SALES" | "STOCK"
+import type { URole } from "@/utils/types"
 
 export interface NavItem {
   label: string

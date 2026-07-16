@@ -22,7 +22,7 @@ const statusLabel: Record<string, { label: string; variant: "default" | "seconda
   CANCELLED: { label: "Đã hủy", variant: "destructive" },
 }
 
-export function ViewImportModal({ receipt, open, onOpenChange }: { receipt: ImportReceipt | null; open: boolean; onOpenChange: (v: boolean) => void }) {
+export const ViewImportModal = ({ receipt, open, onOpenChange }: { receipt: ImportReceipt | null; open: boolean; onOpenChange: (v: boolean) => void }) => {
   if (!receipt) return null
   const s = statusLabel[receipt.status] ?? { label: receipt.status, variant: "secondary" }
   return (
@@ -90,20 +90,7 @@ export function ViewImportModal({ receipt, open, onOpenChange }: { receipt: Impo
             <span className="text-muted-foreground">Tổng số đơn vị sản phẩm đã tạo: {receipt.items.reduce((sum, i) => sum + i.createdUnits, 0)}</span>
             <span className="text-lg font-semibold">Tổng: {receipt.totalAmount.toLocaleString("vi-VN")}₫</span>
           </div>
-          {/* ponytail: serial data chưa có seed, render ở đây sau */}
-          {false && (
-            <div className="text-sm space-y-1">
-              {receipt.items.map((item) => {
-                if (!item.createdUnits) return null
-                return (
-                  <p key={item.id}>
-                    <span className="text-muted-foreground">{item.productName}:</span>{" "}
-                    <span className="font-mono text-xs">—</span>
-                  </p>
-                )
-              })}
-            </div>
-          )}
+
         </div>
       </DialogContent>
     </Dialog>

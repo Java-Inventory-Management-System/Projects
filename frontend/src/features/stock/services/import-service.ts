@@ -1,2 +1,1 @@
-// ponytail: proxy duy nhất — swap real API sau bằng việc gọi http-client
-export { getImportReceipts, createImportReceipt, cancelImportReceipt, approveImportReceipt } from "@/mock-services"
+export { getImportReceipts, createImportReceipt, cancelImportReceipt, approveImportReceipt, getImportReceiptById } from "@/services/import-service"

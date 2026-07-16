@@ -1,11 +1,13 @@
-import { useEffect, useState } from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
 import { useNavigate } from "react-router-dom"
-import { useAuthStore } from "@/store/auth-store"
+import { useMutation } from "@tanstack/react-query"
 import { createExportReceipt } from "@/features/stock/services/export-service"
-import { getProducts } from "@/features/stock/services/product-service"
-import { getSerialsForExport } from "@/mock-services"
+import { useProducts } from "@/hooks/use-products"
+import { getSerialsForExport } from "@/features/stock/services/product-unit-service"
 import { CustomerSelectModal } from "@/features/stock/components/customer-select-modal"
-import type { ProductResponse, ResponsePage, ExportReason, ProductUnit } from "@/utils/types"
+import { exportFormSchema } from "@/features/stock/schemas/export-schema"
+import type { ExportFormData } from "@/features/stock/schemas/export-schema"
+import type { ExportReason, ProductUnit } from "@/utils/types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -44,23 +46,20 @@ const reasons: { value: ExportReason; label: string }[] = [
   { value: "DISPOSE", label: "Hủy hàng" },
 ]
 
-export function ExportCreatePage() {
-  const user = useAuthStore((s) => s.user)
+export const ExportCreatePage = () => {
   const navigate = useNavigate()
   const [reason, setReason] = useState("")
   const [customerId, setCustomerId] = useState("")
   const [note, setNote] = useState("")
   const [items, setItems] = useState<LineItem[]>([])
-  const [products, setProducts] = useState<ProductResponse[]>([])
   const [customerName, setCustomerName] = useState("")
   const [selectModalOpen, setSelectModalOpen] = useState(false)
   const [selectedProductId, setSelectedProductId] = useState("")
-  const [submitting, setSubmitting] = useState(false)
-  const [serials, setSerials] = useState<Record<number, ProductUnit[]>>({})
 
-  useEffect(() => {
-    getProducts(0, 100).then((res: ResponsePage<ProductResponse>) => setProducts(res.content))
-  }, [])
+  const { data: productsRes } = useProducts(0, 100)
+  const products = useMemo(() => productsRes?.content ?? [], [productsRes])
+
+  const [serials, setSerials] = useState<Record<number, ProductUnit[]>>({})
 
   useEffect(() => {
     if (items.length === 0) { setSerials({}); return }
@@ -72,7 +71,13 @@ export function ExportCreatePage() {
     })
   }, [items])
 
-  const addItem = () => {
+  const createMut = useMutation({
+    mutationFn: createExportReceipt,
+    onSuccess: () => { toast.success("Tạo phiếu xuất thành công"); navigate("/stock/exports") },
+    onError: (err: Error) => toast.error(err.message || "Có lỗi xảy ra"),
+  })
+
+  const addItem = useCallback(() => {
     if (!selectedProductId) return
     const product = products.find((p) => p.id === Number(selectedProductId))
     if (!product) return
@@ -88,49 +93,38 @@ export function ExportCreatePage() {
       },
     ])
     setSelectedProductId("")
-  }
+  }, [selectedProductId, products])
 
-  const updateItem = (tempId: number, field: "quantity" | "unitPrice", value: number) => {
+  const updateItem = useCallback((tempId: number, field: "quantity" | "unitPrice", value: number) => {
     setItems((prev) => prev.map((i) => (i.tempId === tempId ? { ...i, [field]: value } : i)))
-  }
+  }, [])
 
-  const removeItem = (tempId: number) => {
+  const removeItem = useCallback((tempId: number) => {
     setItems((prev) => prev.filter((i) => i.tempId !== tempId))
-  }
+  }, [])
 
-  const handleSubmit = async () => {
-    if (!reason || !user || items.length === 0) return
-    if (reason === "SALE" && !customerId) { toast.error("Vui lòng chọn khách hàng"); return }
-    setSubmitting(true)
-    try {
-      await createExportReceipt(
-        {
-          reason: reason as ExportReason,
-          customerId: customerId ? Number(customerId) : null,
-          customerName: customerName || null,
-          note: note || null,
-          items: items.map((i) => ({
-            id: 0,
-            productId: i.productId,
-            productName: i.productName,
-            productSku: i.productSku,
-            quantity: i.quantity,
-            unitPrice: i.unitPrice,
-          })),
-        },
-        user.id,
-        user.displayName,
-      )
-      toast.success("Tạo phiếu xuất thành công")
-      navigate("/stock/exports")
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Có lỗi xảy ra")
-    } finally {
-      setSubmitting(false)
+  const handleSubmit = useCallback(() => {
+    const raw: ExportFormData = { reason, customerId, note, items }
+    const parsed = exportFormSchema.safeParse(raw)
+    if (!parsed.success) {
+      const first = parsed.error.errors[0]
+      toast.error(first.message)
+      return
     }
-  }
+    if (reason === "SALE" && !customerId) { toast.error("Vui lòng chọn khách hàng"); return }
+    createMut.mutate({
+      reason: reason as ExportReason,
+      customerId: customerId ? Number(customerId) : null,
+      note: note || null,
+      items: items.map((i) => ({
+        productId: i.productId,
+        quantity: i.quantity,
+        unitPrice: i.unitPrice,
+      })),
+    })
+  }, [reason, customerId, note, items, createMut])
 
-  const hasSerials = Object.values(serials).some((arr) => arr.length > 0)
+  const hasSerials = useMemo(() => Object.values(serials).some((arr) => arr.length > 0), [serials])
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
@@ -300,17 +294,11 @@ export function ExportCreatePage() {
         <Button variant="outline" onClick={() => navigate("/stock/exports")}>Hủy</Button>
         <Button
           onClick={handleSubmit}
-          disabled={!reason || items.length === 0 || submitting || (reason === "SALE" && !customerId)}
+          disabled={!reason || items.length === 0 || createMut.isPending || (reason === "SALE" && !customerId)}
         >
-          {submitting ? "Đang tạo..." : "Tạo phiếu xuất"}
+          {createMut.isPending ? "Đang tạo..." : "Tạo phiếu xuất"}
         </Button>
-        <Button
-          variant="secondary"
-          onClick={handleSubmit}
-          disabled={!reason || items.length === 0 || submitting || (reason === "SALE" && !customerId)}
-        >
-          {submitting ? "Đang tạo..." : "Xuất tạm"}
-        </Button>
+
       </div>
 
       <CustomerSelectModal

@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react"
+import { useState, useCallback } from "react"
 import { useSearchParams } from "react-router-dom"
 import { Search, Eye } from "lucide-react"
 import { Input } from "@/components/ui/input"
@@ -28,38 +28,28 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination"
-import { getProducts, getBrands, getCategories } from "@/mock-services"
-import type { ProductResponse, BrandResponse, CategoryResponse, ResponsePage } from "@/utils/types"
+import { useProducts } from "@/hooks/use-products"
+import { useBrands } from "@/hooks/use-brands"
+import { useCategories } from "@/hooks/use-categories"
+import type { ProductResponse } from "@/utils/types"
 import { ViewProductModal } from "../components/view-product-modal"
 
-export function ProductsPage() {
+export const ProductsPage = () => {
   const [searchParams, setSearchParams] = useSearchParams()
   const page = Number(searchParams.get("page") ?? "0")
   const search = searchParams.get("q") ?? ""
   const brandId = searchParams.get("brandId") ? Number(searchParams.get("brandId")) : undefined
   const categoryId = searchParams.get("categoryId") ? Number(searchParams.get("categoryId")) : undefined
 
-  const [products, setProducts] = useState<ProductResponse[]>([])
-  const [pagination, setPagination] = useState<ResponsePage["pagination"] | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [brands, setBrands] = useState<BrandResponse[]>([])
-  const [categories, setCategories] = useState<CategoryResponse[]>([])
   const [searchInput, setSearchInput] = useState(search)
   const [viewProduct, setViewProduct] = useState<ProductResponse | null>(null)
 
-  useEffect(() => {
-    getBrands().then(setBrands)
-    getCategories().then(setCategories)
-  }, [])
+  const { data: productsRes, isLoading: loading } = useProducts(page, 10, search, brandId, categoryId)
+  const brands = useBrands().data ?? []
+  const categories = useCategories().data ?? []
 
-  useEffect(() => {
-    setLoading(true)
-    getProducts(page, 10, search, brandId, categoryId).then((res) => {
-      setProducts(res.content)
-      setPagination(res.pagination)
-      setLoading(false)
-    })
-  }, [page, search, brandId, categoryId])
+  const products = productsRes?.content ?? []
+  const pagination = productsRes?.pagination ?? null
 
   const updateParams = useCallback(
     (updates: Record<string, string | undefined>) => {
