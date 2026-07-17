@@ -3,6 +3,7 @@ package org.dawn.backend.controller.auth;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dawn.backend.config.web.response.ResponseObject;
+import org.dawn.backend.constant.security.AuthorizationExpressions;
 import org.dawn.backend.controller.auth.request.ChangePasswordRequest;
 import org.dawn.backend.controller.auth.request.ForgotPasswordRequest;
 import org.dawn.backend.controller.auth.request.LoginRequest;
@@ -47,7 +48,7 @@ public class AuthController {
                 jwtUtils.generateCleanJwtRefreshCookie());
     }
 
-    @PreAuthorize("@roleSecurity.canUpdate(#id, authentication)")
+    @PreAuthorize(AuthorizationExpressions.CAN_UPDATE_USER)
     @PutMapping("/{id}/reset-password")
     public ResponseObject<String> resetPassword(@PathVariable Long id) {
         return ResponseObject.success(authService.resetPassword(id));
