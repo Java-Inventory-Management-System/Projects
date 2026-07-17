@@ -168,6 +168,29 @@ export function mapStockCheck(raw: unknown) {
   }
 }
 
+export function mapStockAdjustment(raw: unknown) {
+  const r = raw as {
+    id: number; adjustCode: string; type: string
+    productUnitId?: number | null; serialNumber?: string | null
+    productId?: number | null; productName?: string | null; productSku?: string | null
+    quantity?: number | null; reason: string; imageUrl?: string | null; status: string
+    createdBy: number; createdByName: string | null; createdAt: string
+    approvedBy?: number | null; approvedByName?: string | null; approvalNote?: string | null
+    updatedAt: string
+  }
+  return {
+    id: r.id, adjustCode: r.adjustCode,
+    type: r.type as "DAMAGED" | "LOST" | "FOUND",
+    productUnitId: r.productUnitId ?? null, serialNumber: r.serialNumber ?? null,
+    productId: r.productId ?? null, productName: r.productName ?? null, productSku: r.productSku ?? null,
+    quantity: r.quantity ?? null, reason: r.reason, imageUrl: r.imageUrl ?? null,
+    status: r.status as "PENDING" | "APPROVED" | "REJECTED",
+    createdBy: r.createdBy, createdByName: r.createdByName ?? "—", createdAt: r.createdAt,
+    approvedBy: r.approvedBy ?? null, approvedByName: r.approvedByName ?? null,
+    approvalNote: r.approvalNote ?? null, updatedAt: r.updatedAt,
+  }
+}
+
 export function mapProductUnit(raw: unknown) {
   const r = raw as {
     id: number; serialNumber: string; productId: number; productName: string; productSku: string

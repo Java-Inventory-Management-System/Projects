@@ -120,6 +120,17 @@ public class Message {
         public static final String STOCK_CHECK_MUST_BE_IN_PROGRESS = "Stock check must be in progress to record items";
         public static final String ONLY_COMPLETED_CAN_APPROVE = "Only completed stock checks can be approved";
         public static final String ONLY_COMPLETED_CAN_REJECT = "Only completed stock checks can be rejected";
+        public static final String ADJUSTMENT_NOT_FOUND = "Stock adjustment not found";
+        public static final String ADJUSTMENT_TYPE_REQUIRED = "Adjustment type is required";
+        public static final String INVALID_ADJUSTMENT_TYPE = "Invalid adjustment type: {0}";
+        public static final String ADJUSTMENT_REASON_REQUIRED = "Reason is required for adjustment";
+        public static final String ADJUSTMENT_UNIT_REQUIRED = "Product unit is required for {0} adjustment";
+        public static final String ADJUSTMENT_PRODUCT_REQUIRED = "Product is required for found adjustment without serial";
+        public static final String ADJUSTMENT_ALREADY_APPROVED = "Adjustment already approved";
+        public static final String ADJUSTMENT_ALREADY_REJECTED = "Adjustment already rejected";
+        public static final String ONLY_PENDING_CAN_APPROVE = "Only pending adjustments can be approved";
+        public static final String ONLY_PENDING_CAN_REJECT = "Only pending adjustments can be rejected";
+        public static final String ADJUSTMENT_UNIT_NOT_RESTORABLE = "Product unit is in status {0} and cannot be restored via found adjustment";
     }
 
     // User

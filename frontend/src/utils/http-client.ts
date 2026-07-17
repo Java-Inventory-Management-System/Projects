@@ -6,7 +6,6 @@ const BASE_URL = import.meta.env.VITE_BASE_API_URL as string ?? "http://localhos
 
 const http = axios.create({
   baseURL: BASE_URL,
-  headers: { "Content-Type": "application/json" },
   withCredentials: true,
 })
 

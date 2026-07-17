@@ -37,7 +37,7 @@ public class ProductUnit extends AuditableEntity {
     @Column(name = "remaining_quantity", precision = 15, scale = 2)
     private BigDecimal remainingQuantity;
 
-    @Column(name = "import_receipt_item_id", nullable = false)
+    @Column(name = "import_receipt_item_id")
     private Long importReceiptItemId;
 
     @Column(name = "location_id")

@@ -37,6 +37,7 @@ public class SecurityConfig {
     private static final String[] PUBLIC_URL = {
             "/api/v1/auth/**",
             "/auth/**",
+            "/api/v1/uploads/**",
     };
 
     private final AuthEntryPointJwt unauthorizedHandler;
@@ -100,6 +101,10 @@ public class SecurityConfig {
                 .requestMatchers("/auth/**")
                 .permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/auth/login")
+                .permitAll()
+                .requestMatchers("/api/v1/uploads/**")
+                .permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/v1/upload")
                 .permitAll()
                 .anyRequest()
                 .authenticated();
