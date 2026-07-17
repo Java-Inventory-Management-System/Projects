@@ -1,6 +1,23 @@
 
 ## 4. Nghiệp vụ chi tiết
 
+### 4.0. Nghiệp vụ Đặt hàng (Purchase Order)
+
+1. **Tạo đơn đặt hàng**: Quản lý kho chọn nhà cung cấp, danh sách sản phẩm (số lượng, đơn giá dự kiến), ngày giao hàng dự kiến, ghi chú (nếu có). Đơn hàng tạo với trạng thái `DRAFT`. Hệ thống tự sinh mã đơn hàng (`PO-yyyyMMdd-seq`). **Không** có serial, vị trí kho, bảo hành ở bước này — đây chỉ là kế hoạch nhập hàng, chưa phải nhập kho thực tế.
+
+2. **Gửi đơn hàng cho NCC** *(giả lập, ngoài hệ thống)*: Quản lý kho xác nhận đơn hàng qua điện thoại/email với nhà cung cấp. Không có thao tác thay đổi trạng thái trên hệ thống — đơn hàng giữ nguyên `DRAFT`.
+
+3. **Liên kết PO khi tạo phiếu nhập**: Khi nhân viên tạo phiếu nhập (bước 4.1), có thể chọn một đơn đặt hàng. Hệ thống tự động pre-fill nhà cung cấp và danh sách sản phẩm từ PO. Nhân viên vẫn nhập serial, vị trí kho, bảo hành như bình thường. Phiếu nhập ghi `purchase_order_id` để truy vết.
+
+4. **Cập nhật tiến độ PO khi duyệt phiếu nhập**: Khi Quản lý kho duyệt phiếu nhập (bước 4.1.8), nếu phiếu nhập có link PO, hệ thống tự động:
+   - Cộng dồn `received_quantity` vào các dòng `purchase_order_items` tương ứng (theo `product_id`)
+   - Tính lại trạng thái PO:
+     - Tất cả dòng có `received_quantity >= quantity` → `COMPLETED`
+     - Một số dòng có `received_quantity > 0` → `PARTIAL`
+     - Chưa có dòng nào nhận → giữ `DRAFT`
+
+5. **Hủy đơn hàng**: Quản lý kho có thể hủy đơn hàng ở bất kỳ trạng thái nào. Không cho phép hủy nếu đã có phiếu nhập `COMPLETED` liên kết đến đơn hàng đó.
+
 ### 4.1. Nghiệp vụ Nhập kho
 
 1. **Khởi tạo phiếu nhập**: chọn nhà cung cấp, số hóa đơn/chứng từ tham chiếu (nếu có), ngày nhập.

@@ -156,6 +156,33 @@ erDiagram
         timestamp updated_at
     }
 
+    %% ===== PURCHASE ORDER =====
+    suppliers ||--o{ purchase_orders : "places"
+    purchase_orders ||--o{ purchase_order_items : "contains"
+    purchase_orders ||--o{ import_receipts : "references"
+
+    purchase_orders {
+        bigint id PK
+        varchar32 po_code UK "'PO-20260706-001'"
+        bigint supplier_id FK
+        decimal15_2 total_amount
+        varchar20 status "DRAFT | PARTIAL | COMPLETED | CANCELLED"
+        date expected_date
+        text note
+        bigint created_by FK
+        timestamp created_at
+        timestamp updated_at
+    }
+    purchase_order_items {
+        bigint id PK
+        bigint po_id FK
+        bigint product_id FK
+        decimal15_2 quantity "số lượng đặt"
+        decimal15_2 unit_price "đơn giá dự kiến"
+        decimal15_2 received_quantity "đã nhập — cập nhật tự động khi duyệt import receipt"
+        timestamp created_at
+    }
+
     %% ===== INVENTORY =====
     import_receipts ||--o{ import_receipt_items : "contains"
     import_receipt_items ||--o{ product_units : "produces"
@@ -164,6 +191,7 @@ erDiagram
         bigint id PK
         varchar50 receipt_code UK "'IMP-20260706-001'"
         bigint supplier_id FK
+        bigint purchase_order_id FK "nullable — link PO nếu có"
         decimal15_2 total_amount
         varchar20 status "pending | pending_approval | completed | cancelled"
         text note
