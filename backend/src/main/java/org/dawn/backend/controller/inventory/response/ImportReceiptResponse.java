@@ -12,6 +12,8 @@ public record ImportReceiptResponse(
         String receiptCode,
         Long supplierId,
         String supplierName,
+        Long purchaseOrderId,
+        String poCode,
         BigDecimal totalAmount,
         String status,
         String note,

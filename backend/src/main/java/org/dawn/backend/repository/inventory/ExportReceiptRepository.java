@@ -6,6 +6,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -15,4 +17,6 @@ public interface ExportReceiptRepository extends JpaRepository<ExportReceipt, Lo
     Page<ExportReceipt> findByCustomerId(Long customerId, Pageable pageable);
     boolean existsByReceiptCode(String receiptCode);
     Page<ExportReceipt> findByReceiptCodeStartingWith(String prefix, Pageable pageable);
+    List<ExportReceipt> findByCreatedAtBetween(Instant from, Instant to);
+    long countByCreatedAtBetween(Instant from, Instant to);
 }

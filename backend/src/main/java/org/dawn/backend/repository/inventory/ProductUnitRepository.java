@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -41,6 +42,9 @@ public interface ProductUnitRepository extends JpaRepository<ProductUnit, Long> 
 
     @Query("SELECT p.locationId, COUNT(p) FROM ProductUnit p WHERE p.status = 'IN_STOCK' AND p.locationId IS NOT NULL GROUP BY p.locationId")
     List<Object[]> countByLocationRaw();
+
+    @Query("SELECT pu FROM ProductUnit pu WHERE pu.status = 'IN_STOCK' AND pu.importedAt < :cutoffDate ORDER BY pu.importedAt ASC")
+    List<ProductUnit> findDeadStockUnits(@Param("cutoffDate") Instant cutoffDate);
 
     default Map<Long, Long> countByLocation() {
         return countByLocationRaw().stream()

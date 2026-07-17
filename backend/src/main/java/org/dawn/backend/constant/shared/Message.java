@@ -131,6 +131,11 @@ public class Message {
         public static final String ONLY_PENDING_CAN_APPROVE = "Only pending adjustments can be approved";
         public static final String ONLY_PENDING_CAN_REJECT = "Only pending adjustments can be rejected";
         public static final String ADJUSTMENT_UNIT_NOT_RESTORABLE = "Product unit is in status {0} and cannot be restored via found adjustment";
+
+        public static final String PO_NOT_FOUND = "Purchase order not found";
+        public static final String PO_CODE_EXISTS = "Purchase order code already exists";
+        public static final String PO_ALREADY_CANCELLED = "Purchase order already cancelled";
+        public static final String PO_HAS_COMPLETED_RECEIPTS = "Cannot cancel purchase order with completed import receipts";
     }
 
     // User
