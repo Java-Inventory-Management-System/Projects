@@ -52,13 +52,15 @@ springdoc:
     path: /v3/api-docs
 
 # Cloudinary
-app.cloudinary:
+app:
+  cloudinary:
     cloud-name: ${CLOUDINARY_CLOUD_NAME:}
     api-key: ${CLOUDINARY_API_KEY:}
     api-secret: ${CLOUDINARY_API_SECRET:}
 
-# JWT
-app:
+  upload-path: ${UPLOAD_PATH:./uploads}
+
+  # JWT
   jwtCookieName: ${JWT_COOKIE_NAME}
   jwtRefreshCookieName: ${JWT_COOKIE_REFRESH_NAME}
   jwtSecret: ${JWT_SECRET}

@@ -3,6 +3,7 @@ package org.dawn.backend.controller.audit;
 import lombok.RequiredArgsConstructor;
 import org.dawn.backend.config.web.response.ResponseObject;
 import org.dawn.backend.config.web.response.ResponsePage;
+import org.dawn.backend.constant.security.AuthorizationExpressions;
 import org.dawn.backend.entity.system.AuditLog;
 import org.dawn.backend.service.audit.AuditLogService;
 import org.springframework.data.domain.Page;
@@ -25,7 +26,7 @@ public class AuditLogController {
     private final AuditLogService auditLogService;
 
     @GetMapping
-    @PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER') or hasRole('SALES')")
+    @PreAuthorize(AuthorizationExpressions.ROLE_ADMIN_MANAGER_SALES)
     public ResponseObject<ResponsePage<AuditLog>> list(
             @RequestParam(required = false) String action,
             @RequestParam(required = false) String entity,

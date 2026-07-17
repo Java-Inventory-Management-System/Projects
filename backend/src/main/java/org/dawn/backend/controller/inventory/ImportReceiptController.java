@@ -3,6 +3,7 @@ package org.dawn.backend.controller.inventory;
 import lombok.RequiredArgsConstructor;
 import org.dawn.backend.config.web.response.ResponseObject;
 import org.dawn.backend.config.web.response.ResponsePage;
+import org.dawn.backend.constant.security.AuthorizationExpressions;
 import org.dawn.backend.controller.inventory.request.ImportReceiptRequest;
 import org.dawn.backend.controller.inventory.response.ImportReceiptResponse;
 import org.dawn.backend.controller.inventory.response.ProductUnitResponse;
@@ -33,19 +34,19 @@ public class ImportReceiptController {
     }
 
     @PostMapping("/import-receipt")
-    @PreAuthorize("hasAnyRole('MANAGER', 'STOCK')")
+    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_STOCK)
     public ResponseObject<ImportReceiptResponse> create(@RequestBody ImportReceiptRequest request) {
         return ResponseObject.created(importReceiptService.createAndConfirm(request));
     }
 
     @PutMapping("/import-receipt/{id}/approve")
-    @PreAuthorize("hasAnyRole('MANAGER', 'ADMIN')")
+    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_ADMIN)
     public ResponseObject<ImportReceiptResponse> approve(@PathVariable Long id) {
         return ResponseObject.success(importReceiptService.approve(id));
     }
 
     @PutMapping("/import-receipt/{id}/cancel")
-    @PreAuthorize("hasAnyRole('MANAGER', 'ADMIN')")
+    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_ADMIN)
     public ResponseObject<ImportReceiptResponse> cancel(@PathVariable Long id) {
         return ResponseObject.success(importReceiptService.cancel(id));
     }
