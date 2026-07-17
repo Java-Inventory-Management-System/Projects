@@ -6,6 +6,7 @@ import java.util.List;
 public record ImportReceiptRequest(
         String receiptCode,
         Long supplierId,
+        Long purchaseOrderId,
         String note,
         List<ImportItemRequest> items
 ) {

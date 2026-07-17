@@ -29,11 +29,15 @@ import org.dawn.backend.exception.wrapper.ResourceNotFoundException;
 import org.dawn.backend.repository.auth.UserRepository;
 import org.dawn.backend.repository.catalog.ProductRepository;
 import org.dawn.backend.repository.catalog.SupplierRepository;
+import org.dawn.backend.entity.inventory.PurchaseOrder;
+import org.dawn.backend.constant.inventory.PurchaseOrderStatus;
 import org.dawn.backend.repository.inventory.ImportReceiptItemRepository;
 import org.dawn.backend.repository.inventory.ImportReceiptRepository;
 import org.dawn.backend.repository.inventory.LocationRepository;
 import org.dawn.backend.repository.inventory.ProductUnitRepository;
 import org.dawn.backend.repository.inventory.ProductUnitStatusLogRepository;
+import org.dawn.backend.repository.inventory.PurchaseOrderItemRepository;
+import org.dawn.backend.repository.inventory.PurchaseOrderRepository;
 import org.dawn.backend.utils.ReceiptCodeGenerator;
 import org.dawn.backend.utils.SecurityUtils;
 import org.springframework.data.domain.Pageable;
@@ -60,6 +64,8 @@ public class ImportReceiptService {
     private final LocationRepository locationRepository;
     private final SupplierRepository supplierRepository;
     private final UserRepository userRepository;
+    private final PurchaseOrderRepository purchaseOrderRepository;
+    private final PurchaseOrderItemRepository purchaseOrderItemRepository;
     private final EntityManager entityManager;
 
     private static final List<String> BULK_UNITS = List.of("METER", "KG");
@@ -80,7 +86,11 @@ public class ImportReceiptService {
             var approvedByName = r.getApprovedBy() != null
                     ? userRepository.findById(r.getApprovedBy()).map(User::getFullName).orElse(null)
                     : null;
-            return ImportReceiptMappingHelper.map(r, supplierName, createdByName, approvedByName, items, products, unitCounts);
+            var poCode = r.getPurchaseOrderId() != null
+                    ? purchaseOrderRepository.findById(r.getPurchaseOrderId())
+                        .map(PurchaseOrder::getPoCode).orElse(null)
+                    : null;
+            return ImportReceiptMappingHelper.map(r, supplierName, createdByName, approvedByName, poCode, items, products, unitCounts);
         }));
     }
 
@@ -99,7 +109,11 @@ public class ImportReceiptService {
         var approvedByName = receipt.getApprovedBy() != null
                 ? userRepository.findById(receipt.getApprovedBy()).map(User::getFullName).orElse(null)
                 : null;
-        return ImportReceiptMappingHelper.map(receipt, supplierName, createdByName, approvedByName, items, products, unitCounts);
+        var poCode = receipt.getPurchaseOrderId() != null
+                ? purchaseOrderRepository.findById(receipt.getPurchaseOrderId())
+                    .map(PurchaseOrder::getPoCode).orElse(null)
+                : null;
+        return ImportReceiptMappingHelper.map(receipt, supplierName, createdByName, approvedByName, poCode, items, products, unitCounts);
     }
 
     @Transactional
@@ -123,10 +137,10 @@ public class ImportReceiptService {
         ImportReceipt receipt = ImportReceipt.builder()
                 .receiptCode(receiptCode)
                 .supplierId(request.supplierId())
-                .status(ImportReceiptStatus.COMPLETED.name())
+                .purchaseOrderId(request.purchaseOrderId())
+                .status(ImportReceiptStatus.PENDING_APPROVAL.name())
                 .note(request.note())
                 .createdBy(userId)
-                .approvedBy(userId)
                 .build();
         receipt = importReceiptRepository.save(receipt);
         Long receiptId = receipt.getId();
@@ -232,7 +246,11 @@ public class ImportReceiptService {
         var approvedByName = receipt.getApprovedBy() != null
                 ? userRepository.findById(receipt.getApprovedBy()).map(User::getFullName).orElse(null)
                 : null;
-        return ImportReceiptMappingHelper.map(receipt, supplierName, createdByName, approvedByName, savedItems, products, unitCounts);
+        var poCode = receipt.getPurchaseOrderId() != null
+                ? purchaseOrderRepository.findById(receipt.getPurchaseOrderId())
+                    .map(PurchaseOrder::getPoCode).orElse(null)
+                : null;
+        return ImportReceiptMappingHelper.map(receipt, supplierName, createdByName, approvedByName, poCode, savedItems, products, unitCounts);
     }
 
     @Transactional
@@ -253,7 +271,42 @@ public class ImportReceiptService {
         receipt.setApprovedBy(userId);
         receipt = importReceiptRepository.save(receipt);
 
+        if (receipt.getPurchaseOrderId() != null) {
+            updatePOProgress(receipt.getPurchaseOrderId());
+        }
+
         return findOne(receipt.getId());
+    }
+
+    private void updatePOProgress(Long poId) {
+        var po = purchaseOrderRepository.findById(poId).orElse(null);
+        if (po == null) return;
+
+        var items = purchaseOrderItemRepository.findByPoId(poId);
+        var completedReceipts = importReceiptRepository.findByPurchaseOrderId(poId).stream()
+                .filter(r -> ImportReceiptStatus.COMPLETED.name().equals(r.getStatus()))
+                .toList();
+        if (completedReceipts.isEmpty()) return;
+
+        var receiptItemIds = completedReceipts.stream()
+                .flatMap(r -> importReceiptItemRepository.findByReceiptId(r.getId()).stream())
+                .toList();
+
+        for (var poItem : items) {
+            BigDecimal received = receiptItemIds.stream()
+                    .filter(ri -> ri.getProductId().equals(poItem.getProductId()))
+                    .map(ImportReceiptItem::getQuantity)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            poItem.setReceivedQuantity(received);
+            purchaseOrderItemRepository.save(poItem);
+        }
+
+        boolean allFullyReceived = items.stream()
+                .allMatch(i -> i.getReceivedQuantity().compareTo(i.getQuantity()) >= 0);
+        if (allFullyReceived) {
+            po.setStatus(PurchaseOrderStatus.COMPLETED.name());
+            purchaseOrderRepository.save(po);
+        }
     }
 
     @Transactional

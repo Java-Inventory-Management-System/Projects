@@ -14,6 +14,7 @@ public interface ImportReceiptMappingHelper {
                                       String supplierName,
                                       String createdByName,
                                       String approvedByName,
+                                      String poCode,
                                       List<ImportReceiptItem> items,
                                       java.util.Map<Long, Product> productMap,
                                       java.util.Map<Long, Integer> unitCounts) {
@@ -22,6 +23,8 @@ public interface ImportReceiptMappingHelper {
                 .receiptCode(receipt.getReceiptCode())
                 .supplierId(receipt.getSupplierId())
                 .supplierName(supplierName)
+                .purchaseOrderId(receipt.getPurchaseOrderId())
+                .poCode(poCode)
                 .totalAmount(receipt.getTotalAmount())
                 .status(receipt.getStatus())
                 .note(receipt.getNote())

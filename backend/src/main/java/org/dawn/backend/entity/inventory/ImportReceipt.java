@@ -33,6 +33,9 @@ public class ImportReceipt extends AuditableEntity {
     @Column(name = "note", columnDefinition = "TEXT")
     private String note;
 
+    @Column(name = "purchase_order_id")
+    private Long purchaseOrderId;
+
     @Column(name = "created_by", nullable = false)
     private Long createdBy;
 
