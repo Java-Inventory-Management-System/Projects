@@ -9,6 +9,7 @@ import {
   Settings2,
   Undo2,
 } from "lucide-react"
+import { Empty, EmptyTitle } from "@/components/ui/empty"
 import {
   Tooltip,
   TooltipContent,
@@ -28,8 +29,8 @@ import {
   SheetFooter,
   SheetClose,
 } from "@/components/ui/sheet"
-import type { FilterMode } from "@/store/location-map-store"
-import { LEVELS, FILTERS, binColor } from "@/store/location-map-store"
+import type { FilterMode } from "@/features/stock/utils/location-map-utils"
+import { LEVELS, FILTERS, binColor } from "@/features/stock/utils/location-map-utils"
 import { useLocationMapPage } from "@/features/stock/hooks/use-location-map-page"
 import { toast } from "@/utils/toast"
 
@@ -152,9 +153,9 @@ export function LocationsMapPage() {
           </Button>
         </div>
       ) : filteredZones.length === 0 ? (
-        <p className="text-sm text-muted-foreground text-center py-16">
-          {search || filter !== "all" ? "Không tìm thấy bin nào phù hợp" : "Chưa có vị trí nào trong kho"}
-        </p>
+        <div className="py-8">
+          <Empty><EmptyTitle>{search || filter !== "all" ? "Không tìm thấy bin nào phù hợp" : "Chưa có vị trí nào trong kho"}</EmptyTitle></Empty>
+        </div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {filteredZones.map((zone) => {

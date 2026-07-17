@@ -234,6 +234,7 @@ export const CustomerSelectModal = ({ open, onOpenChange, onSelect, selectedCust
               <Label htmlFor="new-name">Tên khách hàng <span className="text-destructive">*</span></Label>
               <Input
                 id="new-name"
+                required
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
                 placeholder="Nhập tên..."

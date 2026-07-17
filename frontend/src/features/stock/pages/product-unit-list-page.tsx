@@ -1,12 +1,12 @@
-import { useState, useCallback, useEffect } from "react"
+import { useState, useEffect } from "react"
+import { useDebounce } from "@/hooks/use-debounce"
 import { getProductUnits } from "@/features/stock/services/product-unit-service"
-import { getProducts } from "@/services/product-service"
-import type { ProductUnit, ResponsePage, ProductResponse, ProductUnitStatus } from "@/utils/types"
+import { getProducts } from "@/features/stock/services/product-service"
+import type { ProductUnit, ResponsePage, ProductResponse } from "@/utils/types"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
-import { Skeleton } from "@/components/ui/skeleton"
-import { Search, Eye, RefreshCw } from "lucide-react"
+import { Search, Eye, RefreshCw, ChevronDown, ChevronUp } from "lucide-react"
 import {
   Select,
   SelectContent,
@@ -14,22 +14,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
-import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/pagination"
+  Collapsible, CollapsibleContent, CollapsibleTrigger,
+} from "@/components/ui/collapsible"
+import { DataTable, type Column } from "@/components/ui/data-table"
+import { PaginationBar } from "@/components/ui/pagination-bar"
 import { ViewProductUnitModal } from "../components/view-product-unit-modal"
 import { useAuthStore } from "@/store/auth-store"
 
@@ -76,22 +66,18 @@ export const ProductUnitListPage = () => {
   const [error, setError] = useState<string | null>(null)
 
   const [search, setSearch] = useState("")
-  const [debouncedSearch, setDebouncedSearch] = useState("")
+  const debouncedSearch = useDebounce(search, 300)
   const [statusFilter, setStatusFilter] = useState("all")
   const [productFilter, setProductFilter] = useState("all")
   const [sortOrder, setSortOrder] = useState("desc")
   const [products, setProducts] = useState<ProductResponse[]>([])
   const [viewUnit, setViewUnit] = useState<ProductUnit | null>(null)
   const [viewOpen, setViewOpen] = useState(false)
+  const [filterOpen, setFilterOpen] = useState(true)
 
   useEffect(() => {
     getProducts(0, 500).then((res) => setProducts(res.content)).catch(() => {})
   }, [])
-
-  useEffect(() => {
-    const t = setTimeout(() => setDebouncedSearch(search), 300)
-    return () => clearTimeout(t)
-  }, [search])
 
   const hasFilters = debouncedSearch || statusFilter !== "all" || productFilter !== "all"
 
@@ -119,175 +105,119 @@ export const ProductUnitListPage = () => {
     return true
   })
 
+  const columns: Column<ProductUnit>[] = [
+    { header: "Serial", render: (u) => <span className="font-mono text-xs">{u.serialNumber}</span> },
+    {
+      header: "Sản phẩm",
+      render: (u) => (
+        <>
+          <span className="font-medium">{u.productName}</span>
+          <span className="text-xs text-muted-foreground ml-2">{u.productSku}</span>
+        </>
+      ),
+    },
+    {
+      header: "Trạng thái",
+      render: (u) => {
+        const s = statusBadge[u.status] ?? { label: u.status, variant: "secondary" as const }
+        return <Badge variant={s.variant}>{s.label}</Badge>
+      },
+    },
+    { header: "Vị trí", render: (u) => <span className="text-muted-foreground">{u.locationCode ?? "—"}</span> },
+    { header: "Ngày nhập", render: (u) => <span className="text-muted-foreground text-xs">{fmt(u.importedAt)}</span> },
+    { header: "BH đến", render: (u) => <span className="text-muted-foreground text-xs">{fmt(u.warrantyExpiresAt)}</span> },
+    {
+      header: "Thao tác",
+      className: "w-[80px]",
+      render: (u) => (
+        <Button variant="ghost" size="icon" onClick={() => { setViewUnit(u); setViewOpen(true) }}>
+          <Eye className="size-4" />
+        </Button>
+      ),
+    },
+  ]
+
   return (
     <div className="space-y-4">
       <h1 className="text-xl font-semibold tracking-tight">Sản phẩm trong kho</h1>
 
-      <div className="flex flex-wrap gap-2">
-        <div className="relative w-64">
-          <Search className="absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
-          <Input
-            placeholder="Tìm theo serial..."
-            className="pl-8"
-            value={search}
-            onChange={(e) => { setSearch(e.target.value); setPage(0) }}
-          />
+      <Collapsible open={filterOpen} onOpenChange={setFilterOpen}>
+        <div className="flex items-center gap-2">
+          <div className="relative w-64">
+            <Search className="absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
+            <Input
+              placeholder="Tìm theo serial..."
+              className="pl-8"
+              value={search}
+              onChange={(e) => { setSearch(e.target.value); setPage(0) }}
+            />
+          </div>
+          <CollapsibleTrigger asChild>
+            <Button variant="outline" size="sm" className="gap-1">
+              {filterOpen ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
+              Bộ lọc
+            </Button>
+          </CollapsibleTrigger>
         </div>
-        <Select
-          value={statusFilter}
-          onValueChange={(v) => { setStatusFilter(v); setPage(0) }}
-        >
-          <SelectTrigger className="w-40">
-            <SelectValue placeholder="Trạng thái" />
-          </SelectTrigger>
-          <SelectContent className="max-h-[50vh]">
-            {statusOptions.map((o) => (
-              <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select
-          value={productFilter}
-          onValueChange={(v) => { setProductFilter(v); setPage(0) }}
-        >
-          <SelectTrigger className="w-64">
-            <SelectValue placeholder="Sản phẩm" />
-          </SelectTrigger>
-          <SelectContent className="max-h-[50vh]">
-            <SelectItem value="all">Tất cả</SelectItem>
-            {products.map((p) => (
-              <SelectItem key={p.id} value={String(p.id)}>
-                {p.name} ({p.sku})
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select
-          value={sortOrder}
-          onValueChange={(v) => { setSortOrder(v); setPage(0) }}
-        >
-          <SelectTrigger className="w-32">
-            <SelectValue placeholder="Sắp xếp" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="desc">Mới nhất</SelectItem>
-            <SelectItem value="asc">Cũ nhất</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+        <CollapsibleContent className="mt-2">
+          <div className="flex flex-wrap gap-2">
+            <ToggleGroup type="single" value={statusFilter} onValueChange={(v) => { setStatusFilter(v || "all"); setPage(0) }}>
+              {statusOptions.slice(0, 5).map((o) => (
+                <ToggleGroupItem key={o.value} value={o.value} size="sm" className="text-xs">
+                  {o.label}
+                </ToggleGroupItem>
+              ))}
+            </ToggleGroup>
+            <Select
+              value={productFilter}
+              onValueChange={(v) => { setProductFilter(v); setPage(0) }}
+            >
+              <SelectTrigger className="w-64">
+                <SelectValue placeholder="Sản phẩm" />
+              </SelectTrigger>
+              <SelectContent className="max-h-[50vh]">
+                <SelectItem value="all">Tất cả</SelectItem>
+                {products.map((p) => (
+                  <SelectItem key={p.id} value={String(p.id)}>
+                    {p.name} ({p.sku})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select
+              value={sortOrder}
+              onValueChange={(v) => { setSortOrder(v); setPage(0) }}
+            >
+              <SelectTrigger className="w-32">
+                <SelectValue placeholder="Sắp xếp" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="desc">Mới nhất</SelectItem>
+                <SelectItem value="asc">Cũ nhất</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
 
-      <div className="rounded-lg border overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Serial</TableHead>
-              <TableHead>Sản phẩm</TableHead>
-              <TableHead>Trạng thái</TableHead>
-              <TableHead>Vị trí</TableHead>
-              <TableHead>Ngày nhập</TableHead>
-              <TableHead>BH đến</TableHead>
-              <TableHead className="w-[80px]">Thao tác</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              Array.from({ length: 5 }).map((_, i) => (
-                <TableRow key={i}>
-                  {Array.from({ length: 7 }).map((_, j) => (
-                    <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>
-                  ))}
-                </TableRow>
-              ))
-            ) : error ? (
-              <TableRow>
-                <TableCell colSpan={7} className="text-center py-8">
-                  <div className="flex flex-col items-center gap-2">
-                    <p className="text-sm text-destructive">{error}</p>
-                    <Button variant="outline" size="sm" onClick={() => { setPage(0); setSearch(""); setStatusFilter("all"); setProductFilter("all") }}>
-                      <RefreshCw className="size-3 mr-1" /> Thử lại
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ) : filtered.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={7} className="text-center py-8 text-sm text-muted-foreground">
-                  {hasFilters ? "Không có sản phẩm nào" : "Chưa có sản phẩm trong kho"}
-                </TableCell>
-              </TableRow>
-            ) : (
-              filtered.map((u) => {
-                const s = statusBadge[u.status] ?? { label: u.status, variant: "secondary" }
-                return (
-                  <TableRow key={u.id}>
-                    <TableCell className="font-mono text-xs">{u.serialNumber}</TableCell>
-                    <TableCell>
-                      <span className="font-medium">{u.productName}</span>
-                      <span className="text-xs text-muted-foreground ml-2">{u.productSku}</span>
-                    </TableCell>
-                    <TableCell><Badge variant={s.variant}>{s.label}</Badge></TableCell>
-                    <TableCell className="text-muted-foreground">{u.locationCode ?? "—"}</TableCell>
-                    <TableCell className="text-muted-foreground text-xs">{fmt(u.importedAt)}</TableCell>
-                    <TableCell className="text-muted-foreground text-xs">{fmt(u.warrantyExpiresAt)}</TableCell>
-                    <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => { setViewUnit(u); setViewOpen(true) }}
-                      >
-                        <Eye className="size-4" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                )
-              })
-            )}
-          </TableBody>
-        </Table>
-      </div>
+      {error ? (
+        <div className="rounded-lg border p-8 text-center">
+          <p className="text-sm text-destructive mb-2">{error}</p>
+          <Button variant="outline" size="sm" onClick={() => { setPage(0); setSearch(""); setStatusFilter("all"); setProductFilter("all") }}>
+            <RefreshCw className="size-3 mr-1" /> Thử lại
+          </Button>
+        </div>
+      ) : (
+        <DataTable
+          columns={columns}
+          data={filtered}
+          isLoading={loading}
+          emptyMessage={hasFilters ? "Không có sản phẩm nào" : "Chưa có sản phẩm trong kho"}
+        />
+      )}
 
       {!hasFilters && data && data.pagination.totalPages > 1 && (
-        <Pagination>
-          <PaginationContent>
-            <PaginationItem>
-              <PaginationPrevious
-                onClick={() => setPage(Math.max(0, page - 1))}
-                className={page === 0 ? "pointer-events-none opacity-50" : "cursor-pointer"}
-              />
-            </PaginationItem>
-            {(() => {
-              const t = data.pagination.totalPages, c = page
-              const pages: (number | "ellipsis")[] = []
-              if (t <= 7) { for (let i = 0; i < t; i++) pages.push(i) }
-              else {
-                pages.push(0)
-                if (c > 3) pages.push("ellipsis")
-                for (let i = Math.max(1, c - 2); i <= Math.min(t - 2, c + 2); i++) pages.push(i)
-                if (c < t - 4) pages.push("ellipsis")
-                pages.push(t - 1)
-              }
-              return pages.map((p, i) =>
-                p === "ellipsis" ? (
-                  <PaginationItem key={`e${i}`}>
-                    <span className="px-2 text-muted-foreground">...</span>
-                  </PaginationItem>
-                ) : (
-                  <PaginationItem key={p}>
-                    <PaginationLink isActive={p === c} onClick={() => setPage(p)} className="cursor-pointer">
-                      {p + 1}
-                    </PaginationLink>
-                  </PaginationItem>
-                )
-              )
-            })()}
-            <PaginationItem>
-              <PaginationNext
-                onClick={() => setPage(Math.min(data.pagination.totalPages - 1, page + 1))}
-                className={page >= data.pagination.totalPages - 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
-              />
-            </PaginationItem>
-          </PaginationContent>
-        </Pagination>
+        <PaginationBar page={page} totalPages={data.pagination.totalPages} onChange={(p) => setPage(p)} />
       )}
 
       <ViewProductUnitModal unit={viewUnit} open={viewOpen} onOpenChange={setViewOpen} />

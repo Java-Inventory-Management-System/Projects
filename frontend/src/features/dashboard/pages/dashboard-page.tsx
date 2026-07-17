@@ -1,3 +1,4 @@
+import { Card, CardContent } from "@/components/ui/card"
 import { useDashboardStats } from "@/hooks/use-dashboard-stats"
 
 export const DashboardPage = () => {
@@ -22,9 +23,11 @@ export const DashboardPage = () => {
 
 const StatCard = ({ label, value }: { label: string; value: string }) => {
   return (
-    <div className="rounded-lg border bg-card p-4 text-card-foreground">
-      <p className="text-sm text-muted-foreground">{label}</p>
-      <p className="mt-1 text-2xl font-semibold tracking-tight">{value}</p>
-    </div>
+    <Card className="p-4">
+      <CardContent className="p-0">
+        <p className="text-sm text-muted-foreground">{label}</p>
+        <p className="mt-1 text-2xl font-semibold tracking-tight">{value}</p>
+      </CardContent>
+    </Card>
   )
 }

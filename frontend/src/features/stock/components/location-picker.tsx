@@ -1,8 +1,10 @@
 import { useEffect, useMemo } from "react"
+import { useLocationMap } from "@/hooks/use-location-map"
+import { useLocationMapStore } from "@/store/location-map-store"
+import { binColor } from "@/features/stock/utils/location-map-utils"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
-import { useLocationMapStore, binColor } from "@/store/location-map-store"
 import { cn } from "@/utils/cn"
 import { MapPin } from "lucide-react"
 
@@ -13,9 +15,12 @@ interface LocationPickerProps {
 }
 
 export function LocationPicker({ value, onSelect, suggestedLocationId }: LocationPickerProps) {
-  const { data, loading, fetchMap } = useLocationMapStore()
+  const { data: fetched, isLoading } = useLocationMap()
+  const { data: local, setData } = useLocationMapStore()
 
-  useEffect(() => { if (!data) fetchMap() }, [])
+  useEffect(() => { if (fetched && !local) setData(fetched) }, [fetched])
+
+  const data = local ?? fetched
 
   const selectedLocation = useMemo(() => {
     if (!data || !value) return null
@@ -46,7 +51,7 @@ export function LocationPicker({ value, onSelect, suggestedLocationId }: Locatio
         className="w-[520px] p-3 max-h-96 overflow-y-auto"
         align="start"
       >
-        {loading && !data ? (
+        {isLoading && !data ? (
           <div className="space-y-2">
             <Skeleton className="h-4 w-24" />
             <div className="flex gap-1">

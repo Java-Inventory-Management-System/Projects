@@ -37,7 +37,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { ArrowLeft, Check, X, Save, ClipboardCheck, Upload } from "lucide-react"
+import { Check, X, Save, ClipboardCheck, Upload, ChevronDown, ChevronUp } from "lucide-react"
+import { Empty, EmptyTitle } from "@/components/ui/empty"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { ButtonGroup } from "@/components/ui/button-group"
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
+import {
+  Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb"
 import { toast } from "@/utils/toast"
 
 const statusLabel: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
@@ -178,7 +185,7 @@ export const StockCheckDetailPage = () => {
   if (!check) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
-        <p className="text-sm text-muted-foreground">Không tìm thấy phiếu kiểm.</p>
+        <Empty><EmptyTitle>Không tìm thấy phiếu kiểm.</EmptyTitle></Empty>
       </div>
     )
   }
@@ -192,14 +199,25 @@ export const StockCheckDetailPage = () => {
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
+      <Breadcrumb>
+        <BreadcrumbList>
+          <BreadcrumbItem><BreadcrumbLink onClick={() => navigate("/stock/checks")}>Kiểm kho</BreadcrumbLink></BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem><BreadcrumbPage>{check.checkCode}</BreadcrumbPage></BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="sm" onClick={() => navigate("/stock/checks")}>
-          <ArrowLeft className="size-4" />
-        </Button>
-        <h1 className="text-xl font-semibold tracking-tight font-mono">{check.checkCode}</h1>
         <Badge variant={s.variant}>{s.label}</Badge>
       </div>
 
+      <Tabs defaultValue="info">
+        <TabsList>
+          <TabsTrigger value="info">Kiểm kho</TabsTrigger>
+          <TabsTrigger value="results">Kết quả</TabsTrigger>
+          <TabsTrigger value="actions">Hành động</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="info" className="space-y-6">
       <div className="grid grid-cols-2 gap-4 text-sm">
         <div>
           <span className="text-muted-foreground">Người tạo:</span>
@@ -241,7 +259,9 @@ export const StockCheckDetailPage = () => {
           "Upload file CSV/TXT chứa danh sách serial còn trong kho. Serial không có trong file sẽ tự động set Mất."
         }
       </p>
+        </TabsContent>
 
+        <TabsContent value="results" className="space-y-6">
       <div className="rounded-lg border overflow-x-auto">
         <Table>
           <TableHeader>
@@ -327,10 +347,12 @@ export const StockCheckDetailPage = () => {
           </TableBody>
         </Table>
       </div>
+        </TabsContent>
 
+        <TabsContent value="actions" className="space-y-6">
       <div className="flex justify-between gap-3">
         {canEdit && (
-          <div className="flex gap-2">
+          <ButtonGroup>
             <input
               ref={serialFileRef}
               type="file"
@@ -363,11 +385,11 @@ export const StockCheckDetailPage = () => {
             >
               Tất cả Mất
             </Button>
-          </div>
+          </ButtonGroup>
         )}
         <div className="flex gap-3 ml-auto">
           {canEdit && (
-            <>
+            <ButtonGroup>
               <Button
                 variant="outline"
                 onClick={() => {
@@ -388,26 +410,29 @@ export const StockCheckDetailPage = () => {
                 <ClipboardCheck className="size-4 mr-1" />
                 {completeMut.isPending ? "Đang hoàn tất..." : "Hoàn tất"}
               </Button>
-            </>
+            </ButtonGroup>
           )}
         </div>
         {canApprove && (
-          <>
+          <ButtonGroup>
             <Button variant="outline" onClick={() => setApprovalModal("reject")}>
               <X className="size-4 mr-1" /> Từ chối
             </Button>
             <Button onClick={() => setApprovalModal("approve")}>
               <Check className="size-4 mr-1" /> Duyệt
             </Button>
-          </>
+          </ButtonGroup>
         )}
       </div>
+        </TabsContent>
+      </Tabs>
 
       <Dialog open={!!approvalModal} onOpenChange={(v) => { if (!v) setApprovalModal(null) }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{approvalModal === "approve" ? "Duyệt phiếu kiểm" : "Từ chối phiếu kiểm"}</DialogTitle>
           </DialogHeader>
+          <ScrollArea className="max-h-[60vh]">
           <div className="space-y-2">
             <label className="text-sm text-muted-foreground">Ghi chú (không bắt buộc)</label>
             <Textarea
@@ -417,6 +442,7 @@ export const StockCheckDetailPage = () => {
               rows={3}
             />
           </div>
+          </ScrollArea>
           <DialogFooter>
             <Button variant="outline" onClick={() => setApprovalModal(null)}>Hủy</Button>
             <Button

@@ -11,6 +11,9 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Empty, EmptyTitle } from "@/components/ui/empty"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { ButtonGroup } from "@/components/ui/button-group"
 import {
   Dialog,
   DialogContent,
@@ -18,7 +21,9 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog"
-import { ArrowLeft, Check, X } from "lucide-react"
+import { Check, X } from "lucide-react"
+import { Separator } from "@/components/ui/separator"
+import { Card, CardContent } from "@/components/ui/card"
 import { toast } from "@/utils/toast"
 
 const typeLabel: Record<string, string> = { DAMAGED: "Hư hỏng", LOST: "Mất", FOUND: "Thừa" }
@@ -80,7 +85,7 @@ export const StockAdjustmentDetailPage = () => {
   if (!adj) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
-        <p className="text-sm text-muted-foreground">Không tìm thấy phiếu điều chỉnh.</p>
+        <Empty><EmptyTitle>Không tìm thấy phiếu điều chỉnh.</EmptyTitle></Empty>
       </div>
     )
   }
@@ -91,11 +96,14 @@ export const StockAdjustmentDetailPage = () => {
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
+      <Breadcrumb>
+        <BreadcrumbList>
+          <BreadcrumbItem><BreadcrumbLink onClick={() => navigate("/stock/adjustments")}>Điều chỉnh</BreadcrumbLink></BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem><BreadcrumbPage>{adj.adjustCode}</BreadcrumbPage></BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="sm" onClick={() => navigate("/stock/adjustments")}>
-          <ArrowLeft className="size-4" />
-        </Button>
-        <h1 className="text-xl font-semibold tracking-tight font-mono">{adj.adjustCode}</h1>
         <Badge variant={typeColor[adj.type] ?? "outline"}>{typeLabel[adj.type] ?? adj.type}</Badge>
         <Badge variant={st.variant}>{st.label}</Badge>
       </div>
@@ -134,7 +142,8 @@ export const StockAdjustmentDetailPage = () => {
           <p className="mt-1 text-sm leading-relaxed rounded-md border bg-muted/20 px-4 py-3">{adj.reason}</p>
         </div>
 
-        <div className="grid grid-cols-2 gap-6 text-sm border-t pt-4">
+        <Separator />
+        <div className="grid grid-cols-2 gap-6 text-sm pt-4">
           <div>
             <span className="text-muted-foreground">Người tạo</span>
             <p className="font-medium mt-0.5">{adj.createdByName}</p>
@@ -165,13 +174,15 @@ export const StockAdjustmentDetailPage = () => {
       </div>
 
       {canApprove && (
-        <div className="flex justify-end gap-3">
-          <Button variant="outline" onClick={() => setApprovalAction("reject")}>
-            <X className="size-4 mr-1" /> Từ chối
-          </Button>
-          <Button onClick={() => setApprovalAction("approve")}>
-            <Check className="size-4 mr-1" /> Duyệt
-          </Button>
+        <div className="flex justify-end">
+          <ButtonGroup>
+            <Button variant="outline" onClick={() => setApprovalAction("reject")}>
+              <X className="size-4 mr-1" /> Từ chối
+            </Button>
+            <Button onClick={() => setApprovalAction("approve")}>
+              <Check className="size-4 mr-1" /> Duyệt
+            </Button>
+          </ButtonGroup>
         </div>
       )}
 
@@ -180,6 +191,7 @@ export const StockAdjustmentDetailPage = () => {
           <DialogHeader>
             <DialogTitle>{approvalAction === "approve" ? "Duyệt phiếu điều chỉnh" : "Từ chối phiếu điều chỉnh"}</DialogTitle>
           </DialogHeader>
+          <ScrollArea className="max-h-[60vh]">
           <div className="space-y-2">
             <label className="text-sm text-muted-foreground">Ghi chú (không bắt buộc)</label>
             <Textarea
@@ -189,6 +201,7 @@ export const StockAdjustmentDetailPage = () => {
               rows={3}
             />
           </div>
+          </ScrollArea>
           <DialogFooter>
             <Button variant="outline" onClick={() => { setApprovalAction(null); setApprovalNote("") }}>Hủy</Button>
             <Button
