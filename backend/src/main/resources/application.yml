@@ -51,8 +51,11 @@ springdoc:
   api-docs:
     path: /v3/api-docs
 
-# Upload
-app.upload-path: ${UPLOAD_PATH:uploads}
+# Cloudinary
+app.cloudinary:
+    cloud-name: ${CLOUDINARY_CLOUD_NAME:}
+    api-key: ${CLOUDINARY_API_KEY:}
+    api-secret: ${CLOUDINARY_API_SECRET:}
 
 # JWT
 app:
