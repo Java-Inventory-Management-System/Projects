@@ -3,6 +3,7 @@ package org.dawn.backend.controller.inventory;
 import lombok.RequiredArgsConstructor;
 import org.dawn.backend.config.web.response.ResponseObject;
 import org.dawn.backend.config.web.response.ResponsePage;
+import org.dawn.backend.constant.security.AuthorizationExpressions;
 import org.dawn.backend.controller.inventory.request.ApproveAdjustmentRequest;
 import org.dawn.backend.controller.inventory.request.CreateStockAdjustmentRequest;
 import org.dawn.backend.controller.inventory.response.StockAdjustmentResponse;
@@ -19,6 +20,7 @@ public class StockAdjustmentController {
     private final StockAdjustmentService adjustmentService;
 
     @GetMapping("/my")
+    @PreAuthorize(AuthorizationExpressions.ROLE_STOCK_MANAGER_ADMIN)
     public ResponseObject<ResponsePage<StockAdjustmentResponse>> getMyAdjustments(
             Pageable pageable,
             @RequestParam(required = false) String type,
@@ -27,6 +29,7 @@ public class StockAdjustmentController {
     }
 
     @GetMapping
+    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_ADMIN)
     public ResponseObject<ResponsePage<StockAdjustmentResponse>> getAll(
             Pageable pageable,
             @RequestParam(required = false) String type,
@@ -35,16 +38,19 @@ public class StockAdjustmentController {
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize(AuthorizationExpressions.ROLE_STOCK_MANAGER_ADMIN)
     public ResponseObject<StockAdjustmentResponse> getOne(@PathVariable Long id) {
         return ResponseObject.success(adjustmentService.findOne(id));
     }
 
     @PostMapping
+    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_STOCK)
     public ResponseObject<StockAdjustmentResponse> create(@RequestBody CreateStockAdjustmentRequest request) {
         return ResponseObject.created(adjustmentService.create(request));
     }
 
     @PutMapping("/{id}/approve")
+    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_ADMIN)
     public ResponseObject<StockAdjustmentResponse> approve(
             @PathVariable Long id,
             @RequestBody(required = false) ApproveAdjustmentRequest request) {
@@ -52,6 +58,7 @@ public class StockAdjustmentController {
     }
 
     @PutMapping("/{id}/reject")
+    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_ADMIN)
     public ResponseObject<StockAdjustmentResponse> reject(
             @PathVariable Long id,
             @RequestBody(required = false) ApproveAdjustmentRequest request) {
