@@ -19,8 +19,8 @@ export function mapCategory(raw: unknown) {
 }
 
 export function mapSupplier(raw: unknown) {
-  const r = raw as { id: number; name: string; code: string; phone?: string; email?: string; address?: string; taxCode?: string; isActive?: boolean }
-  return { id: r.id, name: r.name, code: r.code, phone: r.phone ?? null, email: r.email ?? null, address: r.address ?? null, taxCode: r.taxCode ?? null, isActive: r.isActive ?? true }
+  const r = raw as { id: number; name: string; contactPerson?: string; phone?: string; email?: string; address?: string; taxCode?: string; note?: string; isActive?: boolean; createdAt?: string; updatedAt?: string }
+  return { id: r.id, name: r.name, contactPerson: r.contactPerson ?? null, phone: r.phone ?? null, email: r.email ?? null, address: r.address ?? null, taxCode: r.taxCode ?? null, note: r.note ?? null, isActive: r.isActive ?? true, createdAt: r.createdAt ?? "", updatedAt: r.updatedAt ?? "" }
 }
 
 export function mapLocation(raw: unknown) {
@@ -78,6 +78,7 @@ export function mapImportReceipt(raw: unknown) {
     totalAmount: number; note?: string; status: string
     createdBy: number; createdByName: string | null; createdAt: string
     approvedBy?: number; approvedByName?: string
+    purchaseOrderId?: number; poCode?: string
     items: unknown[]
   }
   return {
@@ -85,6 +86,7 @@ export function mapImportReceipt(raw: unknown) {
     totalAmount: r.totalAmount, note: r.note ?? null, status: r.status,
     createdBy: r.createdBy, createdByName: r.createdByName ?? "—", createdAt: r.createdAt,
     approvedBy: r.approvedBy ?? null, approvedByName: r.approvedByName ?? null,
+    purchaseOrderId: r.purchaseOrderId ?? null, poCode: r.poCode ?? null,
     items: (r.items ?? []).map(mapImportItem),
   }
 }
@@ -191,6 +193,52 @@ export function mapStockAdjustment(raw: unknown) {
   }
 }
 
+export function mapPriceAdjustment(raw: unknown) {
+  const r = raw as {
+    id: number; adjustCode: string; importReceiptItemId: number
+    productName?: string; productSku?: string
+    oldPrice: number; newPrice: number; reason: string; status: string
+    createdBy: number; createdByName?: string
+    approvedBy?: number; approvedByName?: string; approvalNote?: string
+    createdAt: string; updatedAt: string
+  }
+  return {
+    id: r.id, adjustCode: r.adjustCode, importReceiptItemId: r.importReceiptItemId,
+    productName: r.productName ?? null, productSku: r.productSku ?? null,
+    oldPrice: r.oldPrice, newPrice: r.newPrice, reason: r.reason,
+    status: r.status as "PENDING" | "APPROVED" | "REJECTED",
+    createdBy: r.createdBy, createdByName: r.createdByName ?? null,
+    approvedBy: r.approvedBy ?? null, approvedByName: r.approvedByName ?? null,
+    approvalNote: r.approvalNote ?? null,
+    createdAt: r.createdAt, updatedAt: r.updatedAt,
+  }
+}
+
+export function mapInventorySummary(raw: unknown) {
+  const r = raw as { totalProducts: number; totalUnits: number; totalStockValue: number; lowStockCount: number; outOfStockCount: number }
+  return { totalProducts: r.totalProducts, totalUnits: r.totalUnits, totalStockValue: r.totalStockValue, lowStockCount: r.lowStockCount, outOfStockCount: r.outOfStockCount }
+}
+export function mapCategoryStock(raw: unknown) {
+  const r = raw as { categoryId?: number | null; categoryName?: string | null; productCount: number; totalUnits: number; totalStockValue: number }
+  return { categoryId: r.categoryId ?? null, categoryName: r.categoryName ?? null, productCount: r.productCount, totalUnits: r.totalUnits, totalStockValue: r.totalStockValue }
+}
+export function mapLowStockItem(raw: unknown) {
+  const r = raw as { productId: number; productName: string; productSku: string; quantity: number; minStock: number }
+  return { productId: r.productId, productName: r.productName, productSku: r.productSku, quantity: r.quantity, minStock: r.minStock }
+}
+export function mapStockValueItem(raw: unknown) {
+  const r = raw as { productId: number; productName: string; productSku: string; categoryName?: string | null; quantity: number; unitPrice: number; totalValue: number }
+  return { productId: r.productId, productName: r.productName, productSku: r.productSku, categoryName: r.categoryName ?? null, quantity: r.quantity, unitPrice: r.unitPrice, totalValue: r.totalValue }
+}
+export function mapActivityItem(raw: unknown) {
+  const r = raw as { type: string; receiptCode: string; date: string; counterpartyName?: string | null; lineItems: number; totalAmount: number }
+  return { type: r.type as "IMPORT" | "EXPORT", receiptCode: r.receiptCode, date: r.date, counterpartyName: r.counterpartyName ?? null, lineItems: r.lineItems, totalAmount: r.totalAmount }
+}
+export function mapDeadStockItem(raw: unknown) {
+  const r = raw as { productId: number; productName: string; productSku: string; serialNumber?: string | null; importedAt: string; daysInStock: number; costPrice: number }
+  return { productId: r.productId, productName: r.productName, productSku: r.productSku, serialNumber: r.serialNumber ?? null, importedAt: r.importedAt, daysInStock: r.daysInStock, costPrice: r.costPrice }
+}
+
 export function mapProductUnit(raw: unknown) {
   const r = raw as {
     id: number; serialNumber: string; productId: number; productName: string; productSku: string
@@ -209,5 +257,32 @@ export function mapProductUnit(raw: unknown) {
     importedAt: r.importedAt, warrantyMonths: r.warrantyMonths,
     warrantyStartDate: r.warrantyStartDate ?? null, warrantyExpiresAt: r.warrantyExpiresAt ?? null,
     createdAt: r.createdAt, updatedAt: r.updatedAt,
+  }
+}
+
+export function mapProductImage(raw: unknown) {
+  const r = raw as { id: number; productId: number; url: string; isPrimary: boolean; sortOrder: number; createdAt: string }
+  return { id: r.id, productId: r.productId, url: r.url, isPrimary: r.isPrimary, sortOrder: r.sortOrder, createdAt: r.createdAt }
+}
+
+export function mapPurchaseOrderItem(raw: unknown) {
+  const r = raw as { id: number; productId: number; productName: string; productSku: string; quantity: number; unitPrice: number; receivedQuantity: number }
+  return { id: r.id, productId: r.productId, productName: r.productName, productSku: r.productSku, quantity: r.quantity, unitPrice: r.unitPrice, receivedQuantity: r.receivedQuantity }
+}
+
+export function mapPurchaseOrder(raw: unknown) {
+  const r = raw as {
+    id: number; poCode: string; supplierId: number; supplierName: string | null
+    status: string; expectedDate: string; note?: string; totalAmount: number
+    createdBy: number; createdByName: string | null
+    createdAt: string; updatedAt: string; items: unknown[]
+  }
+  return {
+    id: r.id, poCode: r.poCode, supplierId: r.supplierId, supplierName: r.supplierName ?? "—",
+    status: r.status as import("@/utils/types").PurchaseOrderStatus,
+    expectedDate: r.expectedDate, note: r.note ?? null, totalAmount: r.totalAmount,
+    createdBy: r.createdBy, createdByName: r.createdByName ?? "—",
+    createdAt: r.createdAt, updatedAt: r.updatedAt,
+    items: (r.items ?? []).map(mapPurchaseOrderItem),
   }
 }
