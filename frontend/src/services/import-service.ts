@@ -16,6 +16,7 @@ export async function createImportReceipt(data: {
   receiptCode?: string
   supplierId: number
   note?: string
+  purchaseOrderId?: number
   items: Array<{
     productId: number
     quantity: number

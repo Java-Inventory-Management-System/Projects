@@ -1,11 +1,12 @@
 import { useState, useMemo, useCallback, useEffect } from "react"
-import { useNavigate, useBlocker } from "react-router-dom"
+import { useNavigate, useBlocker, useSearchParams } from "react-router-dom"
 import { useMutation } from "@tanstack/react-query"
 import { createImportReceipt } from "@/features/stock/services/import-service"
 import { suggestLocation } from "@/features/stock/services/location-service"
 import { useCategoryZones } from "@/hooks/use-category-zones"
 import { useProducts } from "@/hooks/use-products"
 import { useSuppliers } from "@/hooks/use-suppliers"
+import { usePurchaseOrderById } from "@/hooks/use-purchase-orders"
 import { useLocations } from "@/hooks/use-locations"
 import { importFormSchema } from "@/features/stock/schemas/import-schema"
 import type { ImportFormData } from "@/features/stock/schemas/import-schema"
@@ -51,7 +52,6 @@ import {
 } from "@/components/ui/tooltip"
 import { Trash2, Plus, ScanLine, MapPin, Check, ChevronsUpDown, Circle, CircleCheckBig } from "lucide-react"
 import { SerialModal } from "../components/serial-modal"
-import { ImportCreateSidebar } from "../components/import-create-sidebar"
 
 interface LineItem {
   tempId: number
@@ -68,6 +68,9 @@ interface LineItem {
 
 export const ImportCreatePage = () => {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const poIdParam = searchParams.get("poId")
+
   const [supplierId, setSupplierId] = useState("")
   const [note, setNote] = useState("")
   const [items, setItems] = useState<LineItem[]>([])
@@ -82,6 +85,14 @@ export const ImportCreatePage = () => {
   const { data: suppliers = [] } = useSuppliers()
   const { data: locations = [] } = useLocations()
   const { data: zoneMap = {} } = useCategoryZones()
+  const { data: po } = usePurchaseOrderById(Number(poIdParam))
+
+  useEffect(() => {
+    if (po) {
+      setSupplierId(String(po.supplierId))
+      setReferenceDoc(po.poCode)
+    }
+  }, [po])
 
   const products = useMemo(() => productsRes?.content ?? [], [productsRes])
 
@@ -192,10 +203,12 @@ export const ImportCreatePage = () => {
       toast.error("Vui lòng chọn vị trí kho cho tất cả sản phẩm")
       return
     }
+    const purchaseOrderId = poIdParam ? Number(poIdParam) : undefined
     createMut.mutate({
       receiptCode: referenceDoc || undefined,
       supplierId: Number(supplierId),
       note: note || null,
+      purchaseOrderId,
       items: items.map((i) => ({
         productId: i.productId,
         quantity: i.quantity,
@@ -205,17 +218,23 @@ export const ImportCreatePage = () => {
         locationId: i.locationId ? Number(i.locationId) : undefined,
       })),
     })
-  }, [supplierId, receiptDate, referenceDoc, note, items, allSerialsOk, serialIssues, allLocationsOk, createMut])
+  }, [supplierId, receiptDate, referenceDoc, note, items, allSerialsOk, serialIssues, allLocationsOk, poIdParam, createMut])
 
   return (
-    <div className="mx-auto max-w-7xl grid grid-cols-1 lg:grid-cols-3 gap-6">
-      <div className="lg:col-span-2 space-y-4 self-start">
+    <div className="mx-auto max-w-4xl grid grid-cols-1 gap-6">
+      <div className="space-y-4 self-start">
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="sm" onClick={() => navigate("/stock/imports")}>
           &larr; Quay lại
         </Button>
         <h1 className="text-xl font-semibold tracking-tight">Tạo phiếu nhập kho        </h1>
       </div>
+      {poIdParam && (
+        <div className="rounded-md border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm text-blue-800">
+          Nhập kho từ đơn đặt hàng <span className="font-mono font-medium">{po?.poCode ?? "..."}</span>
+          {po ? null : <span className="ml-2 text-blue-500">Đang tải thông tin...</span>}
+        </div>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-3 shrink-0">
         <div className="space-y-2">
@@ -447,10 +466,6 @@ export const ImportCreatePage = () => {
           )}
         </Tooltip>
       </div>
-      </div>
-
-      <div className="sticky top-0 space-y-4" style={{ minHeight: "calc(100dvh - 6.5rem)" }}>
-        <ImportCreateSidebar />
       </div>
 
       {activeItem && (
