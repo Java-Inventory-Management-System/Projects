@@ -1,20 +1,13 @@
-import { useState, useCallback, useEffect } from "react"
-import { getUsers, createUser, updateUserInfo, updateUserRole, updateUserStatus, resetPassword } from "@/services/user-service"
+import { useState, useEffect, useCallback } from "react"
+import { useDebounce } from "@/hooks/use-debounce"
+import { getUsers, createUser, updateUserInfo, updateUserRole, updateUserStatus, resetPassword } from "@/features/admin/services/user-service"
 import type { UserResponse, ResponsePage, URole } from "@/utils/types"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Skeleton } from "@/components/ui/skeleton"
 import { Search, Plus, RefreshCw, Shield, UserCog, KeyRound, Ban, CheckCircle } from "lucide-react"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
+import { DataTable, type Column } from "@/components/ui/data-table"
 import {
   Dialog,
   DialogContent,
@@ -30,14 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/pagination"
+import { PaginationBar } from "@/components/ui/pagination-bar"
 import { toast } from "@/utils/toast"
 
 const roleOptions: { value: URole; label: string }[] = [
@@ -64,7 +50,7 @@ export const UsersPage = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState("")
-  const [debouncedSearch, setDebouncedSearch] = useState("")
+  const debouncedSearch = useDebounce(search, 300)
 
   const [createOpen, setCreateOpen] = useState(false)
   const [createForm, setCreateForm] = useState({ fullName: "", email: "", roleName: "STOCK", status: "ACTIVE" })
@@ -80,12 +66,7 @@ export const UsersPage = () => {
   const [roleUserId, setRoleUserId] = useState<number | null>(null)
   const [roleVal, setRoleVal] = useState<string>("")
 
-  useEffect(() => {
-    const t = setTimeout(() => setDebouncedSearch(search), 300)
-    return () => clearTimeout(t)
-  }, [search])
-
-  useEffect(() => {
+  const fetch = useCallback(() => {
     setLoading(true)
     setError(null)
     if (debouncedSearch) {
@@ -100,6 +81,8 @@ export const UsersPage = () => {
         .finally(() => setLoading(false))
     }
   }, [page, debouncedSearch])
+
+  useEffect(() => { fetch() }, [fetch])
 
   const filtered = (allData ?? data?.content ?? []).filter((u) => {
     if (!debouncedSearch) return true
@@ -184,6 +167,35 @@ export const UsersPage = () => {
 
   const s = data?.pagination
 
+  const columns: Column<UserResponse>[] = [
+    { header: "Username", render: (u) => <span className="font-mono text-xs">{u.username}</span> },
+    { header: "Họ tên", render: (u) => <span className="font-medium">{u.fullName}</span> },
+    { header: "Email", render: (u) => <span className="text-muted-foreground">{u.email}</span> },
+    { header: "Vai trò", render: (u) => <Badge variant="outline" className="text-xs">{u.role}</Badge> },
+    {
+      header: "Trạng thái",
+      render: (u) => {
+        const st = statusLabel[u.status] ?? { label: u.status, variant: "secondary" as const }
+        return <Badge variant={st.variant}>{st.label}</Badge>
+      },
+    },
+    { header: "Ngày tạo", render: (u) => <span className="text-xs text-muted-foreground">{fmt(u.createdAt)}</span> },
+    {
+      header: "Thao tác",
+      className: "w-[140px]",
+      render: (u) => (
+        <div className="flex gap-1">
+          <Button variant="ghost" size="icon" onClick={() => openEdit(u)} title="Sửa thông tin"><UserCog className="size-4" /></Button>
+          <Button variant="ghost" size="icon" onClick={() => { setRoleUserId(u.id); setRoleVal(u.role); setRoleOpen(true) }} title="Đổi vai trò"><Shield className="size-4" /></Button>
+          <Button variant="ghost" size="icon" onClick={() => handleResetPassword(u.id)} title="Reset mật khẩu"><KeyRound className="size-4" /></Button>
+          <Button variant="ghost" size="icon" onClick={() => handleToggleStatus(u)} title={u.isDeleted ? "Kích hoạt" : "Vô hiệu hóa"}>
+            {u.isDeleted ? <CheckCircle className="size-4 text-green-600" /> : <Ban className="size-4 text-destructive" />}
+          </Button>
+        </div>
+      ),
+    },
+  ]
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -205,124 +217,24 @@ export const UsersPage = () => {
         </div>
       </div>
 
-      <div className="rounded-lg border overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Username</TableHead>
-              <TableHead>Họ tên</TableHead>
-              <TableHead>Email</TableHead>
-              <TableHead>Vai trò</TableHead>
-              <TableHead>Trạng thái</TableHead>
-              <TableHead>Ngày tạo</TableHead>
-              <TableHead className="w-[140px]">Thao tác</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              Array.from({ length: 5 }).map((_, i) => (
-                <TableRow key={i}>
-                  {Array.from({ length: 7 }).map((_, j) => (
-                    <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>
-                  ))}
-                </TableRow>
-              ))
-            ) : error ? (
-              <TableRow>
-                <TableCell colSpan={7} className="text-center py-8">
-                  <div className="flex flex-col items-center gap-2">
-                    <p className="text-sm text-destructive">{error}</p>
-                    <Button variant="outline" size="sm" onClick={fetch}>
-                      <RefreshCw className="size-3 mr-1" /> Thử lại
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ) : filtered.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={7} className="text-center py-8 text-sm text-muted-foreground">
-                  {debouncedSearch ? "Không tìm thấy người dùng nào" : "Chưa có người dùng nào"}
-                </TableCell>
-              </TableRow>
-            ) : (
-              filtered.map((u) => {
-                const st = statusLabel[u.status] ?? { label: u.status, variant: "secondary" }
-                return (
-                  <TableRow key={u.id}>
-                    <TableCell className="font-mono text-xs">{u.username}</TableCell>
-                    <TableCell className="font-medium">{u.fullName}</TableCell>
-                    <TableCell className="text-muted-foreground">{u.email}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="text-xs">{u.role}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={st.variant}>{st.label}</Badge>
-                    </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">{fmt(u.createdAt)}</TableCell>
-                    <TableCell>
-                      <div className="flex gap-1">
-                        <Button variant="ghost" size="icon" onClick={() => openEdit(u)} title="Sửa thông tin">
-                          <UserCog className="size-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" onClick={() => { setRoleUserId(u.id); setRoleVal(u.role); setRoleOpen(true) }} title="Đổi vai trò">
-                          <Shield className="size-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" onClick={() => handleResetPassword(u.id)} title="Reset mật khẩu">
-                          <KeyRound className="size-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" onClick={() => handleToggleStatus(u)} title={u.isDeleted ? "Kích hoạt" : "Vô hiệu hóa"}>
-                          {u.isDeleted ? <CheckCircle className="size-4 text-green-600" /> : <Ban className="size-4 text-destructive" />}
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                )
-              })
-            )}
-          </TableBody>
-        </Table>
-      </div>
+      {error ? (
+        <div className="rounded-lg border p-8 text-center">
+          <p className="text-sm text-destructive mb-2">{error}</p>
+          <Button variant="outline" size="sm" onClick={fetch}>
+            <RefreshCw className="size-3 mr-1" /> Thử lại
+          </Button>
+        </div>
+      ) : (
+        <DataTable
+          columns={columns}
+          data={filtered}
+          isLoading={loading}
+          emptyMessage={debouncedSearch ? "Không tìm thấy người dùng nào" : "Chưa có người dùng nào"}
+        />
+      )}
 
       {!debouncedSearch && s && s.totalPages > 1 && (
-        <Pagination>
-          <PaginationContent>
-            <PaginationItem>
-              <PaginationPrevious
-                onClick={() => setPage(Math.max(0, page - 1))}
-                className={page === 0 ? "pointer-events-none opacity-50" : "cursor-pointer"}
-              />
-            </PaginationItem>
-            {(() => {
-              const t = s.totalPages, c = page
-              const pages: (number | "ellipsis")[] = []
-              if (t <= 7) { for (let i = 0; i < t; i++) pages.push(i) }
-              else {
-                pages.push(0)
-                if (c > 3) pages.push("ellipsis")
-                for (let i = Math.max(1, c - 2); i <= Math.min(t - 2, c + 2); i++) pages.push(i)
-                if (c < t - 4) pages.push("ellipsis")
-                pages.push(t - 1)
-              }
-              return pages.map((p, i) =>
-                p === "ellipsis" ? (
-                  <PaginationItem key={`e${i}`}>
-                    <span className="px-2 text-muted-foreground">...</span>
-                  </PaginationItem>
-                ) : (
-                  <PaginationItem key={p}>
-                    <PaginationLink isActive={p === c} onClick={() => setPage(p)} className="cursor-pointer">{p + 1}</PaginationLink>
-                  </PaginationItem>
-                )
-              )
-            })()}
-            <PaginationItem>
-              <PaginationNext
-                onClick={() => setPage(Math.min(s.totalPages - 1, page + 1))}
-                className={page >= s.totalPages - 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
-              />
-            </PaginationItem>
-          </PaginationContent>
-        </Pagination>
+        <PaginationBar page={page} totalPages={s.totalPages} onChange={(p) => setPage(p)} />
       )}
 
       <Dialog open={createOpen} onOpenChange={(v) => { setCreateOpen(v); if (!v) setTempPassword(null) }}>

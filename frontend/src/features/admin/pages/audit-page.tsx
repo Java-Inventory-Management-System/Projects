@@ -1,20 +1,12 @@
 import { useState, useEffect } from "react"
-import { searchAuditLogs } from "@/services/audit-service"
+import { searchAuditLogs } from "@/features/admin/services/audit-service"
 import type { AuditLog, ResponsePage } from "@/utils/types"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Skeleton } from "@/components/ui/skeleton"
 import { Eye } from "lucide-react"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
+import { DataTable, type Column } from "@/components/ui/data-table"
 import {
   Dialog,
   DialogContent,
@@ -28,14 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/pagination"
+import { PaginationBar } from "@/components/ui/pagination-bar"
 
 const statusBadge: Record<string, { label: string; variant: "default" | "destructive" | "secondary" }> = {
   SUCCESS: { label: "Thành công", variant: "default" },
@@ -85,6 +70,34 @@ export const AuditPage = () => {
 
   const s = data?.pagination
 
+  const columns: Column<AuditLog>[] = [
+    {
+      header: "Thời gian",
+      render: (log) => <span className="text-xs whitespace-nowrap text-muted-foreground">{fmt(log.createdAt)}</span>,
+    },
+    { header: "Người dùng", render: (log) => <span className="text-xs">{log.username || "—"}</span> },
+    { header: "Hành động", render: (log) => <span className="text-xs font-medium">{log.action}</span> },
+    { header: "Đối tượng", render: (log) => <span className="text-xs">{log.entityName}</span> },
+    { header: "ID", render: (log) => <span className="text-xs font-mono">{log.entityId || "—"}</span> },
+    { header: "IP", render: (log) => <span className="text-xs text-muted-foreground">{log.ipAddress || "—"}</span> },
+    {
+      header: "Trạng thái",
+      render: (log) => {
+        const st = statusBadge[log.status] ?? { label: log.status, variant: "secondary" as const }
+        return <Badge variant={st.variant} className="text-[10px]">{st.label}</Badge>
+      },
+    },
+    {
+      header: "Chi tiết",
+      className: "w-[60px]",
+      render: (log) => (
+        <Button variant="ghost" size="icon" onClick={() => setViewLog(log)}>
+          <Eye className="size-4" />
+        </Button>
+      ),
+    },
+  ]
+
   return (
     <div className="space-y-4">
       <h1 className="text-xl font-semibold tracking-tight">Nhật ký hoạt động</h1>
@@ -119,100 +132,15 @@ export const AuditPage = () => {
         </div>
       </div>
 
-      <div className="rounded-lg border overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Thời gian</TableHead>
-              <TableHead>Người dùng</TableHead>
-              <TableHead>Hành động</TableHead>
-              <TableHead>Đối tượng</TableHead>
-              <TableHead>ID</TableHead>
-              <TableHead>IP</TableHead>
-              <TableHead>Trạng thái</TableHead>
-              <TableHead className="w-[60px]">Chi tiết</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              Array.from({ length: 5 }).map((_, i) => (
-                <TableRow key={i}>
-                  {Array.from({ length: 8 }).map((_, j) => (
-                    <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>
-                  ))}
-                </TableRow>
-              ))
-            ) : !data || data.content.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={8} className="text-center py-8 text-sm text-muted-foreground">
-                  Không có nhật ký nào
-                </TableCell>
-              </TableRow>
-            ) : (
-              data.content.map((log, i) => {
-                const st = statusBadge[log.status] ?? { label: log.status, variant: "secondary" as const }
-                return (
-                  <TableRow key={`${log.createdAt}-${i}`}>
-                    <TableCell className="text-xs whitespace-nowrap text-muted-foreground">{fmt(log.createdAt)}</TableCell>
-                    <TableCell className="text-xs">{log.username || "—"}</TableCell>
-                    <TableCell className="text-xs font-medium">{log.action}</TableCell>
-                    <TableCell className="text-xs">{log.entityName}</TableCell>
-                    <TableCell className="text-xs font-mono">{log.entityId || "—"}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground">{log.ipAddress || "—"}</TableCell>
-                    <TableCell><Badge variant={st.variant} className="text-[10px]">{st.label}</Badge></TableCell>
-                    <TableCell>
-                      <Button variant="ghost" size="icon" onClick={() => setViewLog(log)}>
-                        <Eye className="size-4" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                )
-              })
-            )}
-          </TableBody>
-        </Table>
-      </div>
+      <DataTable
+        columns={columns}
+        data={data?.content ?? []}
+        isLoading={loading}
+        emptyMessage="Không có nhật ký nào"
+      />
 
       {s && s.totalPages > 1 && (
-        <Pagination>
-          <PaginationContent>
-            <PaginationItem>
-              <PaginationPrevious
-                onClick={() => setPage(Math.max(0, page - 1))}
-                className={page === 0 ? "pointer-events-none opacity-50" : "cursor-pointer"}
-              />
-            </PaginationItem>
-            {(() => {
-              const t = s.totalPages, c = page
-              const pages: (number | "ellipsis")[] = []
-              if (t <= 7) { for (let i = 0; i < t; i++) pages.push(i) }
-              else {
-                pages.push(0)
-                if (c > 3) pages.push("ellipsis")
-                for (let i = Math.max(1, c - 2); i <= Math.min(t - 2, c + 2); i++) pages.push(i)
-                if (c < t - 4) pages.push("ellipsis")
-                pages.push(t - 1)
-              }
-              return pages.map((p, i) =>
-                p === "ellipsis" ? (
-                  <PaginationItem key={`e${i}`}>
-                    <span className="px-2 text-muted-foreground">...</span>
-                  </PaginationItem>
-                ) : (
-                  <PaginationItem key={p}>
-                    <PaginationLink isActive={p === c} onClick={() => setPage(p)} className="cursor-pointer">{p + 1}</PaginationLink>
-                  </PaginationItem>
-                )
-              )
-            })()}
-            <PaginationItem>
-              <PaginationNext
-                onClick={() => setPage(Math.min(s.totalPages - 1, page + 1))}
-                className={page >= s.totalPages - 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
-              />
-            </PaginationItem>
-          </PaginationContent>
-        </Pagination>
+        <PaginationBar page={page} totalPages={s.totalPages} onChange={(p) => setPage(p)} />
       )}
 
       <Dialog open={!!viewLog} onOpenChange={(v) => { if (!v) setViewLog(null) }}>

@@ -2,7 +2,7 @@ import { useState, useMemo } from "react"
 import { useNavigate } from "react-router-dom"
 import { useMutation, useQuery } from "@tanstack/react-query"
 import { createStockCheck } from "@/features/stock/services/stock-check-service"
-import { getImportReceipts } from "@/services/import-service"
+import { getImportReceipts } from "@/features/stock/services/import-service"
 import { mapResponsePage, mapProductUnit } from "@/utils/mappers"
 import http from "@/utils/http-client"
 import type { ImportReceipt, ProductUnit } from "@/utils/types"
@@ -20,6 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { ArrowLeft, Search, Package } from "lucide-react"
+import { Empty, EmptyTitle } from "@/components/ui/empty"
 import { toast } from "@/utils/toast"
 
 export const StockCheckCreatePage = () => {
@@ -164,9 +165,9 @@ export const StockCheckCreatePage = () => {
             ))}
           </div>
         ) : filtered.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-8">
-            {search ? "Không tìm thấy sản phẩm phù hợp." : "Không có sản phẩm nào trong kho."}
-          </p>
+          <div className="py-4">
+            <Empty><EmptyTitle>{search ? "Không tìm thấy sản phẩm phù hợp." : "Không có sản phẩm nào trong kho."}</EmptyTitle></Empty>
+          </div>
         ) : (
           <table className="w-full text-sm">
             <thead>

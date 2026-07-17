@@ -1,71 +1,71 @@
-import { useState, useMemo, useEffect } from "react"
-import { useSearchParams } from "react-router-dom"
-import { Search, Eye } from "lucide-react"
+import { useState } from "react"
+import { useDebounce } from "@/hooks/use-debounce"
+import { useNavigate, useSearchParams } from "react-router-dom"
+import { Search, Plus } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { Skeleton } from "@/components/ui/skeleton"
+import { DataTable, type Column } from "@/components/ui/data-table"
+import { PaginationBar } from "@/components/ui/pagination-bar"
 import { useProducts } from "@/hooks/use-products"
 import { useBrands } from "@/hooks/use-brands"
 import { useCategories } from "@/hooks/use-categories"
 import type { ProductResponse } from "@/utils/types"
 import { ViewProductModal } from "../components/view-product-modal"
 
+const PAGE_SIZE = 20
+
 export const ProductsPage = () => {
+  const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
-  const search = searchParams.get("q") ?? ""
   const brandFilter = searchParams.get("brandId") ? Number(searchParams.get("brandId")) : undefined
   const categoryFilter = searchParams.get("categoryId") ? Number(searchParams.get("categoryId")) : undefined
 
-  const [searchInput, setSearchInput] = useState(search)
-  const [debouncedSearch, setDebouncedSearch] = useState(search)
+  const [searchInput, setSearchInput] = useState(searchParams.get("q") ?? "")
+  const [page, setPage] = useState(0)
   const [viewProduct, setViewProduct] = useState<ProductResponse | null>(null)
 
-  const hasFilters = debouncedSearch || brandFilter || categoryFilter
+  const debouncedSearch = useDebounce(searchInput, 300)
 
-  useEffect(() => {
-    const t = setTimeout(() => setDebouncedSearch(searchInput), 300)
-    return () => clearTimeout(t)
-  }, [searchInput])
-
-  const { data: allProducts } = useProducts(0, 10000)
+  const { data, isLoading } = useProducts(page, PAGE_SIZE, debouncedSearch || undefined, brandFilter, categoryFilter)
   const brands = useBrands().data ?? []
   const categories = useCategories().data ?? []
 
-  const filtered = useMemo(() => {
-    const source = allProducts?.content ?? []
-    return source.filter((p) => {
-      if (debouncedSearch) {
-        const kw = debouncedSearch.toLowerCase()
-        if (!p.name.toLowerCase().includes(kw) && !(p.sku ?? "").toLowerCase().includes(kw)) return false
-      }
-      if (brandFilter && p.brandId !== brandFilter) return false
-      if (categoryFilter && p.categoryId !== categoryFilter) return false
-      return true
-    })
-  }, [allProducts, debouncedSearch, brandFilter, categoryFilter])
+  const products = data?.content ?? []
+  const totalPages = data?.pagination.totalPages ?? 0
 
-  const loading = !allProducts
+  const hasFilters = debouncedSearch || brandFilter || categoryFilter
+
+  const columns: Column<ProductResponse>[] = [
+    { header: "SKU", className: "w-[110px]", render: (p) => <span className="font-mono text-xs">{p.sku}</span> },
+    { header: "Tên", render: (p) => <span className="font-medium">{p.name}</span> },
+    { header: "Thương hiệu", className: "w-[120px]", render: (p) => <span className="text-muted-foreground">{p.brandName}</span> },
+    { header: "Danh mục", className: "w-[120px]", render: (p) => <span className="text-muted-foreground">{p.categoryName}</span> },
+    { header: "ĐVT", className: "w-[60px]", render: (p) => <span>{p.unit}</span> },
+    { header: "Giá", className: "w-[80px] text-right", render: (p) => <span className="tabular-nums">{p.sellPrice?.toLocaleString("vi-VN")}</span> },
+    { header: "Trạng thái", className: "w-[70px] text-center", render: (p) => <Badge variant={p.isActive ? "default" : "secondary"}>{p.isActive ? "Hoạt động" : "Ngừng"}</Badge> },
+    { header: "", className: "w-[70px]", render: (p) => (
+      <div className="flex gap-1">
+        <Button variant="ghost" size="icon" onClick={() => setViewProduct(p)}>
+          <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+        </Button>
+        <Button variant="ghost" size="icon" onClick={() => navigate(`/products/${p.id}`)}>
+          <svg className="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+        </Button>
+      </div>
+    )},
+  ]
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold tracking-tight">Sản phẩm</h1>
+        <Button onClick={() => navigate("/products/new")}>
+          <Plus className="size-4 mr-1" /> Thêm sản phẩm
+        </Button>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -75,115 +75,58 @@ export const ProductsPage = () => {
             placeholder="Tìm tên hoặc SKU..."
             className="pl-8"
             value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
+            onChange={(e) => { setSearchInput(e.target.value); setPage(0) }}
           />
         </div>
         <Select
           value={brandFilter ? String(brandFilter) : "all"}
           onValueChange={(v) => {
             const next = new URLSearchParams(searchParams)
-            next.set("page", "0")
             if (v === "all") next.delete("brandId")
             else next.set("brandId", v)
             setSearchParams(next)
+            setPage(0)
           }}
         >
-          <SelectTrigger className="w-[140px]">
-            <SelectValue placeholder="Thương hiệu" />
-          </SelectTrigger>
+          <SelectTrigger className="w-[140px]"><SelectValue placeholder="Thương hiệu" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Tất cả</SelectItem>
-            {brands.map((b) => (
-              <SelectItem key={b.id} value={String(b.id)}>{b.name}</SelectItem>
-            ))}
+            {brands.map((b) => <SelectItem key={b.id} value={String(b.id)}>{b.name}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select
           value={categoryFilter ? String(categoryFilter) : "all"}
           onValueChange={(v) => {
             const next = new URLSearchParams(searchParams)
-            next.set("page", "0")
             if (v === "all") next.delete("categoryId")
             else next.set("categoryId", v)
             setSearchParams(next)
+            setPage(0)
           }}
         >
-          <SelectTrigger className="w-[160px]">
-            <SelectValue placeholder="Danh mục" />
-          </SelectTrigger>
+          <SelectTrigger className="w-[160px]"><SelectValue placeholder="Danh mục" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Tất cả</SelectItem>
-            {categories.map((c) => (
-              <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
-            ))}
+            {categories.map((c) => <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>)}
           </SelectContent>
         </Select>
-        {(debouncedSearch || brandFilter || categoryFilter) && (
-          <Button variant="ghost" size="sm" onClick={() => { setSearchInput(""); setSearchParams(new URLSearchParams()) }}>
+        {hasFilters && (
+          <Button variant="ghost" size="sm" onClick={() => { setSearchInput(""); setSearchParams(new URLSearchParams()); setPage(0) }}>
             Xoá
           </Button>
         )}
       </div>
 
-      <div className="rounded-lg border overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-[110px]">SKU</TableHead>
-              <TableHead>Tên</TableHead>
-              <TableHead className="w-[120px]">Thương hiệu</TableHead>
-              <TableHead className="w-[120px]">Danh mục</TableHead>
-              <TableHead className="w-[60px]">ĐVT</TableHead>
-              <TableHead className="w-[80px] text-right">Giá</TableHead>
-              <TableHead className="w-[70px] text-center">Trạng thái</TableHead>
-              <TableHead className="w-[70px]">Thao tác</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              Array.from({ length: 6 }).map((_, i) => (
-                <TableRow key={i}>
-                  {Array.from({ length: 8 }).map((_, j) => (
-                    <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>
-                  ))}
-                </TableRow>
-              ))
-            ) : filtered.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={8} className="text-center text-sm text-muted-foreground py-8">
-                  {hasFilters ? "Không tìm thấy sản phẩm nào" : "Không có sản phẩm nào."}
-                </TableCell>
-              </TableRow>
-            ) : (
-              filtered.map((p) => (
-                <TableRow key={p.id}>
-                  <TableCell className="font-mono text-xs">{p.sku}</TableCell>
-                  <TableCell className="font-medium">{p.name}</TableCell>
-                  <TableCell className="text-muted-foreground">{p.brandName}</TableCell>
-                  <TableCell className="text-muted-foreground">{p.categoryName}</TableCell>
-                  <TableCell>{p.unit}</TableCell>
-                  <TableCell className="text-right tabular-nums">
-                    {p.sellPrice?.toLocaleString("vi-VN")}
-                  </TableCell>
-                  <TableCell className="text-center">
-                    <Badge variant={p.isActive ? "default" : "secondary"}>
-                      {p.isActive ? "Hoạt động" : "Ngừng"}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Button variant="ghost" size="icon" onClick={() => setViewProduct(p)}>
-                      <Eye className="size-4" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+      <DataTable
+        columns={columns}
+        data={products}
+        isLoading={isLoading}
+        emptyMessage={hasFilters ? "Không tìm thấy sản phẩm nào" : "Không có sản phẩm nào"}
+      />
 
-      {!hasFilters && <p className="text-xs text-muted-foreground">Tổng: {allProducts?.pagination.totalElements ?? 0} sản phẩm</p>}
-      {hasFilters && <p className="text-xs text-muted-foreground">Tìm thấy {filtered.length} sản phẩm</p>}
+      {totalPages > 1 && <PaginationBar page={page} totalPages={totalPages} onChange={setPage} />}
+
+      <p className="text-xs text-muted-foreground">{data?.pagination.totalElements ?? 0} sản phẩm</p>
 
       <ViewProductModal product={viewProduct} open={!!viewProduct} onOpenChange={(v) => { if (!v) setViewProduct(null) }} />
     </div>

@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from "react"
+import { useDebounce } from "@/hooks/use-debounce"
 import { getLocations, createLocation, updateLocation, toggleLocation } from "@/features/stock/services/location-service"
 import type { LocationResponse } from "@/utils/types"
 import { Button } from "@/components/ui/button"
@@ -6,16 +7,8 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Skeleton } from "@/components/ui/skeleton"
-import { Search, Plus, MapPin, RefreshCw, Pencil, ToggleLeft, ToggleRight } from "lucide-react"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
+import { Search, Plus, RefreshCw, Pencil, ToggleLeft, ToggleRight } from "lucide-react"
+import { DataTable, type Column } from "@/components/ui/data-table"
 import {
   Dialog,
   DialogContent,
@@ -40,17 +33,12 @@ export const LocationsPage = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState("")
-  const [debouncedSearch, setDebouncedSearch] = useState("")
+  const debouncedSearch = useDebounce(search, 300)
 
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null)
   const [form, setForm] = useState<FormData>(emptyForm)
   const [saving, setSaving] = useState(false)
-
-  useEffect(() => {
-    const t = setTimeout(() => setDebouncedSearch(search), 300)
-    return () => clearTimeout(t)
-  }, [search])
 
   const fetch = useCallback(() => {
     setLoading(true)
@@ -114,6 +102,30 @@ export const LocationsPage = () => {
     return loc.fullCode.toLowerCase().includes(kw) || (loc.description?.toLowerCase() ?? "").includes(kw)
   })
 
+  const columns: Column<LocationResponse>[] = [
+    { header: "Mã vị trí", render: (loc) => <span className="font-mono text-xs font-medium">{loc.fullCode}</span> },
+    { header: "Khu", render: (loc) => <span>Khu {loc.zoneCode}</span> },
+    { header: "Kệ", render: (loc) => <span>{loc.shelfCode}</span> },
+    { header: "Ngăn", render: (loc) => <span>{loc.binCode}</span> },
+    { header: "Mô tả", render: (loc) => <span className="text-muted-foreground text-xs max-w-[200px] truncate">{loc.description || "—"}</span> },
+    {
+      header: "Trạng thái",
+      render: (loc) => <Badge variant={loc.isActive ? "default" : "secondary"}>{loc.isActive ? "Đang hoạt động" : "Ngừng hoạt động"}</Badge>,
+    },
+    {
+      header: "Thao tác",
+      className: "w-[120px]",
+      render: (loc) => (
+        <div className="flex gap-1">
+          <Button variant="ghost" size="icon" onClick={() => openEdit(loc)} title="Sửa"><Pencil className="size-4" /></Button>
+          <Button variant="ghost" size="icon" onClick={() => handleToggle(loc.id)} title={loc.isActive ? "Vô hiệu hóa" : "Kích hoạt"}>
+            {loc.isActive ? <ToggleRight className="size-4 text-destructive" /> : <ToggleLeft className="size-4 text-muted-foreground" />}
+          </Button>
+        </div>
+      ),
+    },
+  ]
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -135,76 +147,21 @@ export const LocationsPage = () => {
         </div>
       </div>
 
-      <div className="rounded-lg border overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Mã vị trí</TableHead>
-              <TableHead>Khu</TableHead>
-              <TableHead>Kệ</TableHead>
-              <TableHead>Ngăn</TableHead>
-              <TableHead className="max-w-[200px]">Mô tả</TableHead>
-              <TableHead>Trạng thái</TableHead>
-              <TableHead className="w-[120px]">Thao tác</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              Array.from({ length: 5 }).map((_, i) => (
-                <TableRow key={i}>
-                  {Array.from({ length: 7 }).map((_, j) => (
-                    <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>
-                  ))}
-                </TableRow>
-              ))
-            ) : error ? (
-              <TableRow>
-                <TableCell colSpan={7} className="text-center py-8">
-                  <div className="flex flex-col items-center gap-2">
-                    <p className="text-sm text-destructive">{error}</p>
-                    <Button variant="outline" size="sm" onClick={fetch}>
-                      <RefreshCw className="size-3 mr-1" /> Thử lại
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ) : filtered.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={7} className="text-center py-8 text-sm text-muted-foreground">
-                  {debouncedSearch ? "Không tìm thấy vị trí nào" : "Chưa có vị trí nào"}
-                </TableCell>
-              </TableRow>
-            ) : (
-              filtered.map((loc) => (
-                <TableRow key={loc.id}>
-                  <TableCell className="font-mono text-xs font-medium">{loc.fullCode}</TableCell>
-                  <TableCell>Khu {loc.zoneCode}</TableCell>
-                  <TableCell>{loc.shelfCode}</TableCell>
-                  <TableCell>{loc.binCode}</TableCell>
-                  <TableCell className="text-muted-foreground text-xs max-w-[200px] truncate">
-                    {loc.description || "—"}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={loc.isActive ? "default" : "secondary"}>
-                      {loc.isActive ? "Đang hoạt động" : "Ngừng hoạt động"}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex gap-1">
-                      <Button variant="ghost" size="icon" onClick={() => openEdit(loc)} title="Sửa">
-                        <Pencil className="size-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => handleToggle(loc.id)} title={loc.isActive ? "Vô hiệu hóa" : "Kích hoạt"}>
-                        {loc.isActive ? <ToggleRight className="size-4 text-destructive" /> : <ToggleLeft className="size-4 text-muted-foreground" />}
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+      {error ? (
+        <div className="rounded-lg border p-8 text-center">
+          <p className="text-sm text-destructive mb-2">{error}</p>
+          <Button variant="outline" size="sm" onClick={fetch}>
+            <RefreshCw className="size-3 mr-1" /> Thử lại
+          </Button>
+        </div>
+      ) : (
+        <DataTable
+          columns={columns}
+          data={filtered}
+          isLoading={loading}
+          emptyMessage={debouncedSearch ? "Không tìm thấy vị trí nào" : "Chưa có vị trí nào"}
+        />
+      )}
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>

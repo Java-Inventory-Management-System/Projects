@@ -2,7 +2,7 @@ import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { useMutation, useQuery } from "@tanstack/react-query"
 import { createStockAdjustment } from "@/features/stock/services/stock-adjustment-service"
-import { getProducts } from "@/services/product-service"
+import { getProducts } from "@/features/stock/services/product-service"
 import http from "@/utils/http-client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -19,6 +19,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog"
 import { ArrowLeft, Search } from "lucide-react"
+import { Empty, EmptyTitle } from "@/components/ui/empty"
 import { toast } from "@/utils/toast"
 import { mapResponsePage, mapProductUnit } from "@/utils/mappers"
 
@@ -179,7 +180,7 @@ export const StockAdjustmentCreatePage = () => {
                     {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-8 w-full" />)}
                   </div>
                 ) : !unitsData || unitsData.content.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-4">Không tìm thấy sản phẩm.</p>
+                  <Empty className="py-4"><EmptyTitle>Không tìm thấy sản phẩm.</EmptyTitle></Empty>
                 ) : (
                   <table className="w-full text-sm">
                     <thead>
@@ -221,7 +222,7 @@ export const StockAdjustmentCreatePage = () => {
                     {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-8 w-full" />)}
                   </div>
                 ) : !productsData || productsData.content.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-4">Không tìm thấy sản phẩm.</p>
+                  <Empty className="py-4"><EmptyTitle>Không tìm thấy sản phẩm.</EmptyTitle></Empty>
                 ) : (
                   <table className="w-full text-sm">
                     <thead>
@@ -263,6 +264,7 @@ export const StockAdjustmentCreatePage = () => {
                 id="quantity"
                 type="number"
                 min={1}
+                required
                 value={quantity}
                 onChange={(e) => setQuantity(Number(e.target.value) || 1)}
                 className="w-32"
