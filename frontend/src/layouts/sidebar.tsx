@@ -19,6 +19,7 @@ export function Sidebar({ collapsed, onNavigate }: SidebarProps) {
 
   return (
     <aside
+      aria-label="Sidebar"
       data-collapsed={collapsed}
       className="bg-sidebar text-sidebar-foreground flex h-full flex-col border-r transition-[width] duration-200 ease-out"
       style={{ width: collapsed ? "var(--sidebar-w-collapsed)" : "var(--sidebar-w)" }}
@@ -32,7 +33,7 @@ export function Sidebar({ collapsed, onNavigate }: SidebarProps) {
         )}
       </div>
 
-      <nav className="flex-1 space-y-2 overflow-y-auto p-2">
+      <nav aria-label="Main navigation" className="flex-1 space-y-2 overflow-y-auto p-2">
         {visibleSections.map((section, si) => (
           <div key={si}>
             {si > 0 && <div className="border-t border-sidebar-border mx-2" />}

@@ -1,1 +1,1 @@
-export { getBrands } from "@/services/brand-service"
+export { getBrands, createBrand, updateBrand, toggleBrandActive } from "@/services/brand-service"
