@@ -19,7 +19,7 @@ public class PurchaseOrderController {
     private final PurchaseOrderService purchaseOrderService;
 
     @GetMapping
-    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_ADMIN)
+    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER)
     public ResponseObject<ResponsePage<PurchaseOrderResponse>> getAll(
             Pageable pageable,
             @RequestParam(required = false) String status) {
@@ -27,19 +27,19 @@ public class PurchaseOrderController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_ADMIN)
+    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER)
     public ResponseObject<PurchaseOrderResponse> getOne(@PathVariable Long id) {
         return ResponseObject.success(purchaseOrderService.findOne(id));
     }
 
     @PostMapping
-    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_ADMIN)
+    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER)
     public ResponseObject<PurchaseOrderResponse> create(@RequestBody CreatePurchaseOrderRequest request) {
         return ResponseObject.created(purchaseOrderService.create(request));
     }
 
     @PutMapping("/{id}/cancel")
-    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_ADMIN)
+    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER)
     public ResponseObject<PurchaseOrderResponse> cancel(@PathVariable Long id) {
         return ResponseObject.success(purchaseOrderService.cancel(id));
     }
