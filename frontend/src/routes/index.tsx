@@ -17,6 +17,9 @@ const ExportCreatePage = lazy(() => import("@/features/stock/pages/export-create
 const StockCheckListPage = lazy(() => import("@/features/stock/pages/stock-check-list-page").then((m) => ({ default: m.StockCheckListPage })))
 const StockCheckCreatePage = lazy(() => import("@/features/stock/pages/stock-check-create-page").then((m) => ({ default: m.StockCheckCreatePage })))
 const StockCheckDetailPage = lazy(() => import("@/features/stock/pages/stock-check-detail-page").then((m) => ({ default: m.StockCheckDetailPage })))
+const StockAdjustmentListPage = lazy(() => import("@/features/stock/pages/stock-adjustment-list-page").then((m) => ({ default: m.StockAdjustmentListPage })))
+const StockAdjustmentCreatePage = lazy(() => import("@/features/stock/pages/stock-adjustment-create-page").then((m) => ({ default: m.StockAdjustmentCreatePage })))
+const StockAdjustmentDetailPage = lazy(() => import("@/features/stock/pages/stock-adjustment-detail-page").then((m) => ({ default: m.StockAdjustmentDetailPage })))
 const ProductUnitListPage = lazy(() => import("@/features/stock/pages/product-unit-list-page").then((m) => ({ default: m.ProductUnitListPage })))
 const LocationsMapPage = lazy(() => import("@/features/stock/pages/locations-map-page").then((m) => ({ default: m.LocationsMapPage })))
 const UsersPage = lazy(() => import("@/features/admin/pages/users-page").then((m) => ({ default: m.UsersPage })))
@@ -75,6 +78,9 @@ export const router = createBrowserRouter([
           { path: "stock/checks", element: <Lazy><PageGuard roles={adminManagerStock}><StockCheckListPage /></PageGuard></Lazy> },
           { path: "stock/checks/new", element: <Lazy><PageGuard roles={adminManagerStock}><StockCheckCreatePage /></PageGuard></Lazy> },
           { path: "stock/checks/:id", element: <Lazy><PageGuard roles={adminManagerStock}><StockCheckDetailPage /></PageGuard></Lazy> },
+          { path: "stock/adjustments", element: <Lazy><PageGuard roles={adminManagerStock}><StockAdjustmentListPage /></PageGuard></Lazy> },
+          { path: "stock/adjustments/new", element: <Lazy><PageGuard roles={adminManagerStock}><StockAdjustmentCreatePage /></PageGuard></Lazy> },
+          { path: "stock/adjustments/:id", element: <Lazy><PageGuard roles={adminManagerStock}><StockAdjustmentDetailPage /></PageGuard></Lazy> },
           { path: "product-units", element: <Lazy><PageGuard roles={adminManagerStock}><ProductUnitListPage /></PageGuard></Lazy> },
           { path: "locations/map", element: <Lazy><PageGuard roles={adminManagerStock}><LocationsMapPage /></PageGuard></Lazy> },
           { path: "locations", element: <Navigate to="/locations/map" replace /> },

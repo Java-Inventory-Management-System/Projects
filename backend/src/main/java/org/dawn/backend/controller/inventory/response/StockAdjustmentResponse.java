@@ -1,0 +1,28 @@
+package org.dawn.backend.controller.inventory.response;
+
+import lombok.Builder;
+
+import java.time.Instant;
+
+@Builder
+public record StockAdjustmentResponse(
+        Long id,
+        String adjustCode,
+        String type,
+        Long productUnitId,
+        String serialNumber,
+        Long productId,
+        String productName,
+        String productSku,
+        Integer quantity,
+        String reason,
+        String imageUrl,
+        String status,
+        Long createdBy,
+        String createdByName,
+        Long approvedBy,
+        String approvedByName,
+        String approvalNote,
+        Instant createdAt,
+        Instant updatedAt
+) {}

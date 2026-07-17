@@ -313,6 +313,33 @@ export interface StockCheck {
   updatedAt: string
 }
 
+// ============ Stock Adjustment ============
+
+export type AdjustmentType = "DAMAGED" | "LOST" | "FOUND"
+export type AdjustmentStatus = "PENDING" | "APPROVED" | "REJECTED"
+
+export interface StockAdjustment {
+  id: number
+  adjustCode: string
+  type: AdjustmentType
+  productUnitId: number | null
+  serialNumber: string | null
+  productId: number | null
+  productName: string | null
+  productSku: string | null
+  quantity: number | null
+  reason: string
+  imageUrl: string | null
+  status: AdjustmentStatus
+  createdBy: number
+  createdByName: string | null
+  approvedBy: number | null
+  approvedByName: string | null
+  approvalNote: string | null
+  createdAt: string
+  updatedAt: string
+}
+
 // ============ Audit Log ============
 
 export interface AuditLog {

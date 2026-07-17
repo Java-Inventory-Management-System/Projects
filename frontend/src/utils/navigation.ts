@@ -44,6 +44,7 @@ export const navSections: NavSection[] = [
   {
     items: [
       { label: "Kiểm kho", icon: ClipboardCheck, path: "/stock/checks", roles: ["STOCK", "MANAGER", "ADMIN"] },
+      { label: "Điều chỉnh tồn", icon: ClipboardCheck, path: "/stock/adjustments", roles: ["STOCK", "MANAGER", "ADMIN"] },
       { label: "Nhập kho", icon: ArrowDownToLine, path: "/stock/imports", roles: ["STOCK", "MANAGER", "ADMIN"] },
       { label: "Xuất kho", icon: ArrowUpFromLine, path: "/stock/exports", roles: ["STOCK", "MANAGER", "ADMIN"] },
     ],

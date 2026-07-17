@@ -1,0 +1,20 @@
+CREATE TABLE stock_adjustments (
+    id              BIGINT AUTO_INCREMENT PRIMARY KEY,
+    adjust_code     VARCHAR(32)   NOT NULL UNIQUE,
+    type            VARCHAR(20)   NOT NULL COMMENT 'damaged / lost / found',
+    product_unit_id BIGINT        COMMENT 'NULL when found without known serial',
+    product_id      BIGINT        COMMENT 'For found without serial fallback',
+    quantity        INT           COMMENT 'For BULK products or found without serial',
+    reason          TEXT          NOT NULL,
+    image_url       VARCHAR(500)  COMMENT 'Optional evidence image',
+    status          VARCHAR(20)   NOT NULL DEFAULT 'PENDING' COMMENT 'PENDING / APPROVED / REJECTED',
+    created_by      BIGINT        NOT NULL,
+    approved_by     BIGINT,
+    approval_note   TEXT,
+    created_at      TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at      TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_sa_product_unit FOREIGN KEY (product_unit_id) REFERENCES product_units(id),
+    CONSTRAINT fk_sa_product      FOREIGN KEY (product_id)      REFERENCES products(id),
+    CONSTRAINT fk_sa_created_by   FOREIGN KEY (created_by)      REFERENCES users(id),
+    CONSTRAINT fk_sa_approved_by  FOREIGN KEY (approved_by)     REFERENCES users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

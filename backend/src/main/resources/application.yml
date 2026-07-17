@@ -51,6 +51,9 @@ springdoc:
   api-docs:
     path: /v3/api-docs
 
+# Upload
+app.upload-path: ${UPLOAD_PATH:uploads}
+
 # JWT
 app:
   jwtCookieName: ${JWT_COOKIE_NAME}
