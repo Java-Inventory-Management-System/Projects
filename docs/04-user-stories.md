@@ -280,7 +280,31 @@ Actor: **AD** = Admin, **QL** = Quản lý kho, **NV** = Nhân viên, **HT** = H
 
 ---
 
-### 8.12 Tổng hợp gap cần xác nhận lại với business (trước khi lock design)
+### 8.12 Epic 12 — Đặt hàng (Purchase Order)
+
+**US-44** | Là **QL**, tôi muốn tạo đơn đặt hàng với nhà cung cấp, sản phẩm, số lượng, đơn giá dự kiến và ngày giao, để chủ động lên kế hoạch nhập hàng trước khi NCC giao.
+- AC: Chọn NCC từ danh sách; thêm nhiều dòng sản phẩm (mỗi dòng: `product_id`, `quantity`, `unit_price`); nhập `expected_date` (mặc định +14 ngày); ghi chú tùy chọn; `po_code` tự sinh unique dạng `PO-yyyyMMdd-seq`; trạng thái khởi tạo `DRAFT`.
+- Nguồn: `purchase_orders`, `purchase_order_items`, mục 4.0.
+- Priority: Must.
+
+**US-45** | Là **NV**, khi tạo phiếu nhập tôi muốn chọn một đơn đặt hàng để liên kết, để hệ thống tự động lấy thông tin NCC và danh sách sản phẩm từ PO.
+- AC: Khi chọn PO → pre-fill `supplier_id` và danh sách `items`; nhân viên có thể thêm/bớt dòng, nhập serial + location + warranty như bình thường; phiếu nhập ghi `purchase_order_id` để truy vết.
+- Nguồn: `import_receipts.purchase_order_id`, mục 4.0 bước 3.
+- Priority: Must.
+
+**US-46** | Là **HT**, khi duyệt phiếu nhập có liên kết PO, tôi cần cập nhật `received_quantity` trên các dòng PO tương ứng và tự động tính lại trạng thái PO.
+- AC: Cộng dồn `received_quantity` theo `product_id`; nếu tất cả dòng đã nhận đủ → PO `COMPLETED`; nếu một số dòng nhận một phần → PO `PARTIAL`; nếu chưa có dòng nào → giữ `DRAFT`.
+- Nguồn: mục 4.0 bước 4.
+- Priority: Must.
+
+**US-47** | Là **QL**, tôi muốn hủy đơn đặt hàng nếu không còn nhu cầu.
+- AC: Không cho hủy nếu đã có phiếu nhập `COMPLETED` liên kết đến PO này.
+- Nguồn: mục 4.0 bước 5.
+- Priority: Should.
+
+---
+
+### 8.14 Tổng hợp gap cần xác nhận lại với business (trước khi lock design)
 
 | # | Gap | Story liên quan | Rủi ro nếu không xác nhận |
 |---|---|---|---|
@@ -296,7 +320,7 @@ Actor: **AD** = Admin, **QL** = Quản lý kho, **NV** = Nhân viên, **HT** = H
 | 10 | Số ảnh tối đa "5" chưa rõ nguồn | US-27 | Constraint tùy tiện, không traceable |
 | 11 | 4 role có cố định vĩnh viễn hay cần CRUD | US-37 | Có thể làm dư tính năng không cần thiết |
 
-### 8.13 Gap ở tầng domain-model gốc (cần bổ sung ERD/bảng trước khi implement, không chỉ thêm story)
+### 8.15 Gap ở tầng domain-model gốc (cần bổ sung ERD/bảng trước khi implement, không chỉ thêm story)
 
 | # | Luồng | Thiếu gì trong domain-model.md | Story bị chặn |
 |---|---|---|---|

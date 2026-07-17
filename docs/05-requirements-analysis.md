@@ -29,6 +29,15 @@
 | RQ-13 | CRUD vị trí kho (zone-shelf-bin)         | F    | Phỏng vấn | Must  | AD/QL    | US-35 |
 | RQ-14 | CRUD khách hàng (NV: xem + thêm)         | F    | Phỏng vấn | Must  | AD/QL/NV | US-36 |
 
+## Purchase Order
+
+| ID | Yêu cầu | Loại | Nguồn | Pri | Actor | US |
+|---|---|---|---|---|---|---|
+| RQ-53 | Tạo đơn đặt hàng (PO) với NCC + SP + SL + giá + ngày giao | F | Phỏng vấn | Must | QL | US-44 |
+| RQ-54 | Link PO khi tạo phiếu nhập — pre-fill NCC + SP | F | Phỏng vấn | Must | NV | US-45 |
+| RQ-55 | Tự động cập nhật received_quantity + trạng thái PO khi duyệt import | F | Phỏng vấn | Must | HT | US-46 |
+| RQ-56 | Hủy đơn đặt hàng | F | Phỏng vấn | Should | QL | US-47 |
+
 ## Inventory
 
 | ID    | Yêu cầu                                | Loại | Nguồn     | Pri    | Actor | US    |
