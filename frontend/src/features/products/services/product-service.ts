@@ -1,1 +1,1 @@
-export { getProducts, getProductById } from "@/services/product-service"
+export { getProducts, getProductById, createProduct, updateProduct, toggleProductActive } from "@/services/product-service"

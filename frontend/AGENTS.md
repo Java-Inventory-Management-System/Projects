@@ -59,19 +59,19 @@ The MCP server returns "not initialized." Ask the user: _"I notice this project 
 
 ## Runtime Conventions (từ buổi dev ngày 14/07/2026)
 
-### 1. Mock data architecture
+### 1. Service architecture
 
 ```
-mock-services/data.ts          ← seed data (thuần data, ko logic)
-mock-services/index.ts         ← CRUD functions + business logic mock
-features/stock/services/*.ts   ← proxy re-export (swap real API sau)
+services/*.ts                  ← real API calls (axios + http-client)
+features/*/services/*.ts       ← proxy re-export (giữ lại để sau này dễ swap)
+hooks/*.ts                     ← React Query hooks, import từ @/services/*
+pages/*.tsx                    ← dùng hooks, ko import service trực tiếp
 ```
 
-- `data.ts` chỉ chứa seed data, mỗi entity một mảng export
-- `index.ts` chứa tất cả async functions, không gọi API thật, các function chậm dùng `await delay(100)`
-- Mỗi feature có `services/` dir chứa proxy files re-export từ `@/mock-services`
-- Page files **ko bao giờ** import trực tiếp từ `@/mock-services` — phải qua proxy `features/*/services/*`
-- Page files **ko bao giờ** có hardcoded mock data arrays — gọi service function để fetch
+- All service calls go through `@/services/*` (real BE, no mock layer)
+- Proxy files trong `features/*/services/*` re-export từ `@/services/*` — để dễ migrate sau này
+- Page files **ko bao giờ** import trực tiếp từ `@/services/*` — phải qua proxy `features/*/services/*`
+- Page files **ko bao giờ** có hardcoded mock data arrays — gọi hooks/service functions
 
 ### 2. UI component conventions
 

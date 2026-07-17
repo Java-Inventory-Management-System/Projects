@@ -1,19 +1,20 @@
 import { useEffect, useMemo, useState } from "react"
+import { useLocationMap } from "@/hooks/use-location-map"
 import { useLocationMapStore } from "@/store/location-map-store"
-import type { DetailBin, FilterMode } from "@/store/location-map-store"
+import type { DetailBin, FilterMode } from "@/features/stock/utils/location-map-utils"
+import { nextCode } from "@/features/stock/utils/location-map-utils"
 import { createLocation, deleteLocation } from "@/features/stock/services/location-service"
 import { toast } from "@/utils/toast"
 
-function nextCode(existing: string[]): string {
-  const nums = existing.map((c) => parseInt(c, 10)).filter((n) => !Number.isNaN(n))
-  const max = nums.length > 0 ? Math.max(...nums) : 0
-  return String(max + 1).padStart(2, "0")
-}
-
 export function useLocationMapPage() {
-  const { data, loading, refreshing, error, fetchMap, patchZones } = useLocationMapStore()
+  const { data: fetched, isLoading, isFetching, error, refetch } = useLocationMap()
+  const { data: local, setData, patchZones } = useLocationMapStore()
 
-  useEffect(() => { fetchMap() }, [])
+  useEffect(() => {
+    if (fetched && !local) setData(fetched)
+  }, [fetched])
+
+  const data = local ?? fetched
 
   const totalBins = useMemo(() => {
     if (!data) return 0
@@ -22,12 +23,9 @@ export function useLocationMapPage() {
 
   const [search, setSearch] = useState("")
   const [filter, setFilter] = useState<FilterMode>("all")
-
   const [selectedBin, setSelectedBin] = useState<DetailBin | null>(null)
   const [sheetOpen, setSheetOpen] = useState(false)
-
   const [managing, setManaging] = useState(false)
-
   const [confirmBinId, setConfirmBinId] = useState<number | null>(null)
   const [confirmZoneCode, setConfirmZoneCode] = useState<string | null>(null)
   const [deactivatedIds, setDeactivatedIds] = useState<Record<number, true>>({})
@@ -116,10 +114,7 @@ export function useLocationMapPage() {
         ) }
       ),
     }))
-    deleteLocation(target.id).catch((err) => {
-      toast.error((err as Error).message || "Xóa thất bại")
-      fetchMap(true)
-    })
+    deleteLocation(target.id).catch(() => refetch())
   }
 
   function handleZoneDelete(zoneCode: string) {
@@ -202,11 +197,7 @@ export function useLocationMapPage() {
   }
 
   return {
-    data,
-    loading,
-    refreshing,
-    error,
-    fetchMap,
+    data, loading: isLoading, refreshing: isFetching, error: error?.message ?? null, fetchMap: () => refetch(),
     totalBins,
     search, setSearch,
     filter, setFilter,
