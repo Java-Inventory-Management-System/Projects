@@ -7,9 +7,9 @@ import {
   completeStockCheck,
   approveStockCheck,
   rejectStockCheck,
-} from "@/features/stock/services/stock-check-service"
+} from "@/services/stock-check-service"
 import { useAuthStore } from "@/store/auth-store"
-import type { StockCheck, StockCheckItem } from "@/utils/types"
+import type { StockCheckItem } from "@/utils/types"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
@@ -37,7 +37,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { Check, X, Save, ClipboardCheck, Upload, ChevronDown, ChevronUp } from "lucide-react"
+import { Check, X, Save, ClipboardCheck, Upload, Search } from "lucide-react"
 import { Empty, EmptyTitle } from "@/components/ui/empty"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { ButtonGroup } from "@/components/ui/button-group"
@@ -71,6 +71,7 @@ export const StockCheckDetailPage = () => {
   const user = useAuthStore((s) => s.user)
 
   const [localItems, setLocalItems] = useState<StockCheckItem[]>([])
+  const [searchQuery, setSearchQuery] = useState("")
   const [approvalModal, setApprovalModal] = useState<"approve" | "reject" | null>(null)
   const [approvalNote, setApprovalNote] = useState("")
 
@@ -195,7 +196,17 @@ export const StockCheckDetailPage = () => {
   const isManagerRole = user?.role === "MANAGER" || user?.role === "ADMIN"
   const canEdit = (check.status === "PENDING" || check.status === "IN_PROGRESS") && isStockRole
   const canApprove = check.status === "COMPLETED" && isManagerRole
-  const isTerminal = check.status === "APPROVED" || check.status === "REJECTED"
+  const mismatchCount = localItems.filter((i) => i.difference && i.difference !== "MATCH").length
+
+  const filteredItems = localItems.filter((item) => {
+    if (!searchQuery.trim()) return true
+    const q = searchQuery.toLowerCase()
+    return (
+      item.serialNumber.toLowerCase().includes(q) ||
+      item.productName.toLowerCase().includes(q) ||
+      item.productSku.toLowerCase().includes(q)
+    )
+  })
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
@@ -262,6 +273,20 @@ export const StockCheckDetailPage = () => {
         </TabsContent>
 
         <TabsContent value="results" className="space-y-6">
+      <div className="flex items-center gap-2">
+        <div className="relative flex-1 max-w-sm">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+          <Input
+            placeholder="Tìm theo serial, sản phẩm, SKU..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="h-9 pl-8"
+          />
+        </div>
+        {mismatchCount > 0 && (
+          <span className="text-xs text-destructive">{mismatchCount} chênh lệch</span>
+        )}
+      </div>
       <div className="rounded-lg border overflow-x-auto">
         <Table>
           <TableHeader>
@@ -276,7 +301,13 @@ export const StockCheckDetailPage = () => {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {localItems.map((item) => (
+            {filteredItems.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                  Không tìm thấy kết quả phù hợp
+                </TableCell>
+              </TableRow>
+            ) : filteredItems.map((item) => (
               <TableRow key={item.id}>
                 <TableCell className="font-mono text-xs">{item.serialNumber}</TableCell>
                 <TableCell>
@@ -422,6 +453,19 @@ export const StockCheckDetailPage = () => {
               <Check className="size-4 mr-1" /> Duyệt
             </Button>
           </ButtonGroup>
+        )}
+        {check.status === "APPROVED" && mismatchCount > 0 && (
+          <Button
+            variant="default"
+            onClick={() =>
+              navigate("/stock/adjustments/create", {
+                state: { reason: `Từ phiếu kiểm ${check.checkCode} — ${mismatchCount} item chênh lệch` },
+              })
+            }
+          >
+            <ClipboardCheck className="size-4 mr-1" />
+            Tạo phiếu điều chỉnh ({mismatchCount})
+          </Button>
         )}
       </div>
         </TabsContent>
