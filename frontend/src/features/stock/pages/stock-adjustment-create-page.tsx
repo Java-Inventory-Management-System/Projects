@@ -1,8 +1,8 @@
 import { useState } from "react"
-import { useNavigate } from "react-router-dom"
+import { useNavigate, useLocation } from "react-router-dom"
 import { useMutation, useQuery } from "@tanstack/react-query"
-import { createStockAdjustment } from "@/features/stock/services/stock-adjustment-service"
-import { getProducts } from "@/features/stock/services/product-service"
+import { createStockAdjustment } from "@/services/stock-adjustment-service"
+import { getProducts } from "@/services/product-service"
 import http from "@/utils/http-client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -38,6 +38,8 @@ interface FormErrors {
 
 export const StockAdjustmentCreatePage = () => {
   const navigate = useNavigate()
+  const location = useLocation()
+  const initialReason = (location.state as { reason?: string })?.reason ?? ""
 
   const [type, setType] = useState("")
   const [searchUnit, setSearchUnit] = useState("")
@@ -45,7 +47,7 @@ export const StockAdjustmentCreatePage = () => {
   const [selectedUnitId, setSelectedUnitId] = useState<number | null>(null)
   const [selectedProductId, setSelectedProductId] = useState<number | null>(null)
   const [quantity, setQuantity] = useState(1)
-  const [reason, setReason] = useState("")
+  const [reason, setReason] = useState(initialReason)
   const [imageUrl, setImageUrl] = useState("")
   const [showConfirm, setShowConfirm] = useState(false)
   const [errors, setErrors] = useState<FormErrors>({})
