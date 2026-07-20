@@ -20,7 +20,9 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { toast } from "@/utils/toast"
+import { downloadCsv } from "@/utils/download-csv"
 import { PrintReceiptButton } from "../components/print-receipt"
+import { FileDown } from "lucide-react"
 
 const statusLabel: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
   PENDING_APPROVAL: { label: "Chờ duyệt", variant: "outline" },
@@ -66,6 +68,20 @@ export function ExportDetailPage() {
   if (!receipt) return <Empty><EmptyTitle>Không tìm thấy phiếu xuất</EmptyTitle></Empty>
 
   const s = statusLabel[receipt.status] ?? { label: receipt.status, variant: "secondary" }
+
+  const handleDownloadInvoice = () => {
+    downloadCsv(
+      `${receipt.receiptCode}.csv`,
+      ["Sản phẩm", "SKU", "Số lượng", "Đơn giá", "Thành tiền"],
+      receipt.items.map((item) => [
+        item.productName,
+        item.productSku,
+        String(item.quantity),
+        item.unitPrice.toLocaleString("vi-VN"),
+        (item.quantity * item.unitPrice).toLocaleString("vi-VN"),
+      ]),
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -116,6 +132,10 @@ export function ExportDetailPage() {
             }}
             type="export"
           />
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={handleDownloadInvoice}>
+            <FileDown className="size-4" />
+            CSV
+          </Button>
         </div>
       </div>
 

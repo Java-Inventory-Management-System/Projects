@@ -20,7 +20,9 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { toast } from "@/utils/toast"
+import { downloadCsv } from "@/utils/download-csv"
 import { PrintReceiptButton } from "../components/print-receipt"
+import { FileDown } from "lucide-react"
 
 const statusLabel: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
   PENDING: { label: "Chờ xử lý", variant: "secondary" },
@@ -60,6 +62,21 @@ export function ImportDetailPage() {
   if (!receipt) return <Empty><EmptyTitle>Không tìm thấy phiếu nhập</EmptyTitle></Empty>
 
   const s = statusLabel[receipt.status] ?? { label: receipt.status, variant: "secondary" }
+
+  const handleDownloadCsv = () => {
+    downloadCsv(
+      `${receipt.receiptCode}.csv`,
+      ["Sản phẩm", "SKU", "Số lượng", "Đơn giá", "Bảo hành", "Thành tiền"],
+      receipt.items.map((item) => [
+        item.productName,
+        item.productSku,
+        String(item.quantity),
+        item.unitPrice.toLocaleString("vi-VN"),
+        item.warrantyMonths ? `${item.warrantyMonths} tháng` : "—",
+        (item.quantity * item.unitPrice).toLocaleString("vi-VN"),
+      ]),
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -110,6 +127,10 @@ export function ImportDetailPage() {
             }}
             type="import"
           />
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={handleDownloadCsv}>
+            <FileDown className="size-4" />
+            CSV
+          </Button>
         </div>
       </div>
 
