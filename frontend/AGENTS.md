@@ -63,14 +63,12 @@ The MCP server returns "not initialized." Ask the user: _"I notice this project 
 
 ```
 services/*.ts                  ← real API calls (axios + http-client)
-features/*/services/*.ts       ← proxy re-export (giữ lại để sau này dễ swap)
 hooks/*.ts                     ← React Query hooks, import từ @/services/*
 pages/*.tsx                    ← dùng hooks, ko import service trực tiếp
 ```
 
 - All service calls go through `@/services/*` (real BE, no mock layer)
-- Proxy files trong `features/*/services/*` re-export từ `@/services/*` — để dễ migrate sau này
-- Page files **ko bao giờ** import trực tiếp từ `@/services/*` — phải qua proxy `features/*/services/*`
+- Page files import trực tiếp từ `@/services/*`, hoặc qua hooks
 - Page files **ko bao giờ** có hardcoded mock data arrays — gọi hooks/service functions
 
 ### 2. UI component conventions
