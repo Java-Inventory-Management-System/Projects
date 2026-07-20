@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { useParams, useNavigate } from "react-router-dom"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { getExportReceiptById, approveExportReceipt, cancelExportReceipt } from "@/features/stock/services/export-service"
+import { getExportReceiptById, approveExportReceipt, cancelExportReceipt } from "@/services/export-service"
 import { usePermission } from "@/hooks/use-permission"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -20,6 +20,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { toast } from "@/utils/toast"
+import { PrintReceiptButton } from "../components/print-receipt"
 
 const statusLabel: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
   PENDING_APPROVAL: { label: "Chờ duyệt", variant: "outline" },
@@ -81,25 +82,41 @@ export function ExportDetailPage() {
           <h1 className="text-xl font-semibold tracking-tight">{receipt.receiptCode}</h1>
           <Badge variant={s.variant}>{s.label}</Badge>
         </div>
-        {receipt.status === "PENDING_APPROVAL" && (
-          <ButtonGroup>
-            {perm.canCancel() && (
-              <Button variant="outline" className="text-destructive" onClick={() => setConfirmAction("cancel")}>
-                <X className="size-4 mr-1" /> Hủy phiếu
-              </Button>
-            )}
-            {perm.canApprove(receipt.status) && (
-              <Button onClick={() => setConfirmAction("approve")}>
-                <Check className="size-4 mr-1" /> Duyệt
-              </Button>
-            )}
-          </ButtonGroup>
-        )}
-        {perm.canCancel() && receipt.status === "COMPLETED" && (
-          <Button variant="outline" className="text-destructive" onClick={() => setConfirmAction("cancel")}>
-            <X className="size-4 mr-1" /> Hủy phiếu
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          {receipt.status === "PENDING_APPROVAL" && (
+            <ButtonGroup>
+              {perm.canCancel() && (
+                <Button variant="outline" className="text-destructive" onClick={() => setConfirmAction("cancel")}>
+                  <X className="size-4 mr-1" /> Hủy phiếu
+                </Button>
+              )}
+              {perm.canApprove(receipt.status) && (
+                <Button onClick={() => setConfirmAction("approve")}>
+                  <Check className="size-4 mr-1" /> Duyệt
+                </Button>
+              )}
+            </ButtonGroup>
+          )}
+          {perm.canCancel() && receipt.status === "COMPLETED" && (
+            <Button variant="outline" className="text-destructive" onClick={() => setConfirmAction("cancel")}>
+              <X className="size-4 mr-1" /> Hủy phiếu
+            </Button>
+          )}
+          <PrintReceiptButton
+            receipt={{
+              code: receipt.receiptCode,
+              type: "export",
+              status: receipt.status,
+              createdAt: receipt.createdAt,
+              createdByName: receipt.createdByName,
+              approvedByName: receipt.approvedByName,
+              note: receipt.note,
+              totalAmount: receipt.totalAmount,
+              items: receipt.items,
+            }}
+            type="export"
+          />
+        </div>
       </div>
 
       <Card>
