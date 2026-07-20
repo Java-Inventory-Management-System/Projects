@@ -3,20 +3,19 @@ package org.dawn.backend.service.inventory;
 import org.dawn.backend.controller.inventory.response.LocationResponse;
 import org.dawn.backend.entity.inventory.Location;
 
-public class LocationMappingHelper {
-    private LocationMappingHelper() {}
+public interface LocationMappingHelper {
 
-    public static LocationResponse map(Location location) {
-        return new LocationResponse(
-                location.getId(),
-                location.getZoneCode(),
-                location.getShelfCode(),
-                location.getBinCode(),
-                location.getFullCode(),
-                location.getDescription(),
-                location.getIsActive(),
-                location.getCreatedAt(),
-                location.getUpdatedAt()
-        );
+    static LocationResponse map(Location location) {
+        return LocationResponse.builder()
+                .id(location.getId())
+                .zoneCode(location.getZoneCode())
+                .shelfCode(location.getShelfCode())
+                .binCode(location.getBinCode())
+                .fullCode(location.getFullCode())
+                .description(location.getDescription())
+                .isActive(location.getIsActive())
+                .createdAt(location.getCreatedAt())
+                .updatedAt(location.getUpdatedAt())
+                .build();
     }
 }

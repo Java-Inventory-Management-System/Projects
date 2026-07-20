@@ -3,3 +3,7 @@ data/
 .idea/
 .codegraph/
 infra/docker/tempo/tempo-data
+docs/*.xlsx
+*.xlsx
+
+.playwright-mcp/

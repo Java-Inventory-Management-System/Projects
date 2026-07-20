@@ -490,6 +490,471 @@ components:
         type: string
         format: date-time
 
+    # =========================== IMPORT RECEIPT ===========================
+    ImportReceiptRequest:
+      type: object
+      required: [supplierId, items]
+      properties:
+        receiptCode:
+          type: string
+        supplierId:
+          type: integer
+        note:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ImportItemRequest"
+
+    ImportItemRequest:
+      type: object
+      properties:
+        productId:
+          type: integer
+        quantity:
+          type: number
+          format: decimal
+        unitPrice:
+          type: number
+          format: decimal
+        warrantyMonths:
+          type: integer
+        serialNumbers:
+          type: array
+          items:
+            type: string
+        locationId:
+          type: integer
+
+    ImportReceiptResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        receiptCode:
+          type: string
+        supplierId:
+          type: integer
+        supplierName:
+          type: string
+        totalAmount:
+          type: number
+          format: decimal
+        status:
+          type: string
+          enum: [PENDING, PENDING_APPROVAL, COMPLETED, CANCELLED]
+        note:
+          type: string
+          nullable: true
+        createdBy:
+          type: integer
+        createdByName:
+          type: string
+        approvedBy:
+          type: integer
+          nullable: true
+        approvedByName:
+          type: string
+          nullable: true
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ImportItemResponse"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    ImportItemResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        productId:
+          type: integer
+        productName:
+          type: string
+        productSku:
+          type: string
+        quantity:
+          type: number
+          format: decimal
+        unitPrice:
+          type: number
+          format: decimal
+        warrantyMonths:
+          type: integer
+        createdUnits:
+          type: integer
+
+    # =========================== EXPORT RECEIPT ===========================
+    ExportReceiptRequest:
+      type: object
+      required: [reason, items]
+      properties:
+        reason:
+          type: string
+          enum: [SALE, INTERNAL, RETURN_SUPPLIER, DISPOSE]
+        customerId:
+          type: integer
+        note:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ExportItemRequest"
+
+    ExportItemRequest:
+      type: object
+      properties:
+        productId:
+          type: integer
+        quantity:
+          type: number
+          format: decimal
+        unitPrice:
+          type: number
+          format: decimal
+
+    ExportReceiptResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        receiptCode:
+          type: string
+        reason:
+          type: string
+        customerId:
+          type: integer
+          nullable: true
+        customerName:
+          type: string
+          nullable: true
+        totalAmount:
+          type: number
+          format: decimal
+        status:
+          type: string
+          enum: [PENDING_APPROVAL, COMPLETED, CANCELLED]
+        note:
+          type: string
+          nullable: true
+        createdBy:
+          type: integer
+        createdByName:
+          type: string
+        approvedBy:
+          type: integer
+          nullable: true
+        approvedByName:
+          type: string
+          nullable: true
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ExportItemResponse"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    ExportItemResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        productId:
+          type: integer
+        productName:
+          type: string
+        productSku:
+          type: string
+        quantity:
+          type: number
+          format: decimal
+        unitPrice:
+          type: number
+          format: decimal
+
+    # =========================== PRODUCT UNIT ===========================
+    ProductUnitResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        serialNumber:
+          type: string
+        productId:
+          type: integer
+        productName:
+          type: string
+        productSku:
+          type: string
+        trackingType:
+          type: string
+          enum: [SERIALIZED, BULK]
+        initialQuantity:
+          type: number
+          format: decimal
+        remainingQuantity:
+          type: number
+          format: decimal
+        importReceiptItemId:
+          type: integer
+        locationId:
+          type: integer
+          nullable: true
+        locationCode:
+          type: string
+          nullable: true
+        status:
+          type: string
+        importedAt:
+          type: string
+          format: date-time
+        warrantyMonths:
+          type: integer
+        warrantyStartDate:
+          type: string
+          format: date-time
+          nullable: true
+        warrantyExpiresAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    # =========================== STOCK CHECK ===========================
+    CreateStockCheckRequest:
+      type: object
+      required: [productUnitIds]
+      properties:
+        note:
+          type: string
+        productUnitIds:
+          type: array
+          items:
+            type: integer
+
+    StockCheckItemRequest:
+      type: object
+      properties:
+        productUnitId:
+          type: integer
+        actualStatus:
+          type: string
+        countedQuantity:
+          type: number
+          format: decimal
+        note:
+          type: string
+
+    StockCheckItemBatchRequest:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/StockCheckItemRequest"
+
+    ApproveStockCheckRequest:
+      type: object
+      properties:
+        approvalNote:
+          type: string
+
+    StockCheckResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        checkCode:
+          type: string
+        status:
+          type: string
+        note:
+          type: string
+          nullable: true
+        createdBy:
+          type: integer
+        createdByName:
+          type: string
+        approvedBy:
+          type: integer
+          nullable: true
+        approvedByName:
+          type: string
+          nullable: true
+        approvalNote:
+          type: string
+          nullable: true
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/StockCheckItemResponse"
+        totalItems:
+          type: integer
+        matchCount:
+          type: integer
+        missingCount:
+          type: integer
+        unexpectedCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    StockCheckItemResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        productUnitId:
+          type: integer
+        serialNumber:
+          type: string
+        productId:
+          type: integer
+        productName:
+          type: string
+        productSku:
+          type: string
+        expectedStatus:
+          type: string
+        actualStatus:
+          type: string
+        countedQuantity:
+          type: number
+          format: decimal
+        difference:
+          type: string
+        note:
+          type: string
+
+    # =========================== CUSTOMER ===========================
+    CustomerRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+          format: email
+        address:
+          type: string
+        note:
+          type: string
+
+    CustomerResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        phone:
+          type: string
+          nullable: true
+        email:
+          type: string
+          nullable: true
+        address:
+          type: string
+          nullable: true
+        note:
+          type: string
+          nullable: true
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    # =========================== LOCATION ===========================
+    LocationRequest:
+      type: object
+      properties:
+        zoneCode:
+          type: string
+        shelfCode:
+          type: string
+        binCode:
+          type: string
+        description:
+          type: string
+
+    LocationResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        zoneCode:
+          type: string
+        shelfCode:
+          type: string
+        binCode:
+          type: string
+        fullCode:
+          type: string
+        description:
+          type: string
+          nullable: true
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    # =========================== DASHBOARD ===========================
+    DashboardResponse:
+      type: object
+      properties:
+        totalProducts:
+          type: integer
+          format: int64
+        totalItems:
+          type: integer
+          format: int64
+        lowStockCount:
+          type: integer
+          format: int64
+        activeProducts:
+          type: integer
+          format: int64
+
+    # =========================== CATEGORY ZONE ===========================
+    CategoryZoneResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        categoryId:
+          type: integer
+        zoneCode:
+          type: string
+
   parameters:
     pageParam:
       name: page
@@ -1459,4 +1924,991 @@ paths:
                   - properties:
                       data:
                         $ref: "#/components/schemas/ResponsePage"
+
+  # =========================== IMPORT RECEIPT ===========================
+  /api/v1/import-receipt:
+    post:
+      tags: [Import Receipt]
+      summary: Create a new import receipt
+      operationId: createImportReceipt
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImportReceiptRequest"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/ImportReceiptResponse"
+
+    get:
+      tags: [Import Receipt]
+      summary: List import receipts (paginated)
+      operationId: listImportReceipts
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: receiptCode
+          in: query
+          schema:
+            type: string
+        - name: supplierId
+          in: query
+          schema:
+            type: integer
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - $ref: "#/components/parameters/pageParam"
+        - $ref: "#/components/parameters/sizeParam"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/ResponsePage"
+
+  /api/v1/import-receipt/{id}:
+    get:
+      tags: [Import Receipt]
+      summary: Get import receipt by ID
+      operationId: getImportReceipt
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/ImportReceiptResponse"
+
+  /api/v1/import-receipt/{id}/approve:
+    put:
+      tags: [Import Receipt]
+      summary: Approve import receipt
+      operationId: approveImportReceipt
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseObject"
+
+  /api/v1/import-receipt/{id}/cancel:
+    put:
+      tags: [Import Receipt]
+      summary: Cancel import receipt
+      operationId: cancelImportReceipt
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseObject"
+
+  /api/v1/import-receipt/{id}/units:
+    get:
+      tags: [Import Receipt]
+      summary: Get product units in an import receipt
+      operationId: getImportReceiptUnits
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/ProductUnitResponse"
+
+  # =========================== EXPORT RECEIPT ===========================
+  /api/v1/export-receipt:
+    post:
+      tags: [Export Receipt]
+      summary: Create a new export receipt
+      operationId: createExportReceipt
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExportReceiptRequest"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/ExportReceiptResponse"
+
+    get:
+      tags: [Export Receipt]
+      summary: List export receipts (paginated)
+      operationId: listExportReceipts
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: receiptCode
+          in: query
+          schema:
+            type: string
+        - name: reason
+          in: query
+          schema:
+            type: string
+        - name: customerId
+          in: query
+          schema:
+            type: integer
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - $ref: "#/components/parameters/pageParam"
+        - $ref: "#/components/parameters/sizeParam"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/ResponsePage"
+
+  /api/v1/export-receipt/{id}:
+    get:
+      tags: [Export Receipt]
+      summary: Get export receipt by ID
+      operationId: getExportReceipt
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/ExportReceiptResponse"
+
+  /api/v1/export-receipt/{id}/approve:
+    put:
+      tags: [Export Receipt]
+      summary: Approve export receipt
+      operationId: approveExportReceipt
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseObject"
+
+  /api/v1/export-receipt/{id}/cancel:
+    put:
+      tags: [Export Receipt]
+      summary: Cancel export receipt
+      operationId: cancelExportReceipt
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseObject"
+
+  # =========================== PRODUCT UNIT ===========================
+  /api/v1/product-unit:
+    get:
+      tags: [Product Unit]
+      summary: List product units with filters (paginated)
+      operationId: listProductUnits
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: productId
+          in: query
+          schema:
+            type: integer
+        - name: productName
+          in: query
+          schema:
+            type: string
+        - name: serialNumber
+          in: query
+          schema:
+            type: string
+        - name: locationId
+          in: query
+          schema:
+            type: integer
+        - name: status
+          in: query
+          schema:
+            type: string
+        - $ref: "#/components/parameters/pageParam"
+        - $ref: "#/components/parameters/sizeParam"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/ResponsePage"
+
+  /api/v1/product-unit/{id}:
+    get:
+      tags: [Product Unit]
+      summary: Get product unit by ID
+      operationId: getProductUnit
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/ProductUnitResponse"
+
+  /api/v1/product-unit/status/{status}:
+    get:
+      tags: [Product Unit]
+      summary: List product units by status
+      operationId: getProductUnitsByStatus
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: status
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: "#/components/parameters/pageParam"
+        - $ref: "#/components/parameters/sizeParam"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/ResponsePage"
+
+  /api/v1/product-unit/product/{productId}:
+    get:
+      tags: [Product Unit]
+      summary: List product units by product
+      operationId: getProductUnitsByProduct
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: productId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - $ref: "#/components/parameters/pageParam"
+        - $ref: "#/components/parameters/sizeParam"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/ResponsePage"
+
+  # =========================== STOCK CHECK ===========================
+  /api/v1/stock-check:
+    post:
+      tags: [Stock Check]
+      summary: Create a new stock check
+      operationId: createStockCheck
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateStockCheckRequest"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/StockCheckResponse"
+
+    get:
+      tags: [Stock Check]
+      summary: List stock checks (paginated)
+      operationId: listStockChecks
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - $ref: "#/components/parameters/pageParam"
+        - $ref: "#/components/parameters/sizeParam"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/ResponsePage"
+
+  /api/v1/stock-check/{id}:
+    get:
+      tags: [Stock Check]
+      summary: Get stock check by ID
+      operationId: getStockCheck
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/StockCheckResponse"
+
+  /api/v1/stock-check/{id}/items:
+    put:
+      tags: [Stock Check]
+      summary: Batch update stock check items
+      operationId: updateStockCheckItems
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StockCheckItemBatchRequest"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseObject"
+
+  /api/v1/stock-check/{id}/approve:
+    put:
+      tags: [Stock Check]
+      summary: Approve stock check
+      operationId: approveStockCheck
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApproveStockCheckRequest"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseObject"
+
+  /api/v1/stock-check/{id}/cancel:
+    put:
+      tags: [Stock Check]
+      summary: Cancel stock check
+      operationId: cancelStockCheck
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseObject"
+
+  /api/v1/stock-check/{id}/complete:
+    put:
+      tags: [Stock Check]
+      summary: Mark stock check as completed
+      operationId: completeStockCheck
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseObject"
+
+  /api/v1/stock-check/{id}/reject:
+    put:
+      tags: [Stock Check]
+      summary: Reject stock check
+      operationId: rejectStockCheck
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApproveStockCheckRequest"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseObject"
+
+  # =========================== CUSTOMER ===========================
+  /api/v1/customer:
+    post:
+      tags: [Customer]
+      summary: Create a new customer
+      operationId: createCustomer
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomerRequest"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/CustomerResponse"
+
+    get:
+      tags: [Customer]
+      summary: List customers (paginated)
+      operationId: listCustomers
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: isActive
+          in: query
+          schema:
+            type: boolean
+        - $ref: "#/components/parameters/pageParam"
+        - $ref: "#/components/parameters/sizeParam"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/ResponsePage"
+
+  /api/v1/customer/search:
+    get:
+      tags: [Customer]
+      summary: Search customers by keyword
+      operationId: searchCustomers
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: keyword
+          in: query
+          required: true
+          schema:
+            type: string
+        - $ref: "#/components/parameters/pageParam"
+        - $ref: "#/components/parameters/sizeParam"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/ResponsePage"
+
+  /api/v1/customer/{id}:
+    get:
+      tags: [Customer]
+      summary: Get customer by ID
+      operationId: getCustomer
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/CustomerResponse"
+
+    put:
+      tags: [Customer]
+      summary: Update customer
+      operationId: updateCustomer
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomerRequest"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseObject"
+
+    delete:
+      tags: [Customer]
+      summary: Delete customer (soft)
+      operationId: deleteCustomer
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseObject"
+
+  # =========================== LOCATION ===========================
+  /api/v1/location:
+    post:
+      tags: [Location]
+      summary: Create a new location
+      operationId: createLocation
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LocationRequest"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/LocationResponse"
+
+    get:
+      tags: [Location]
+      summary: List locations (paginated)
+      operationId: listLocations
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: isActive
+          in: query
+          schema:
+            type: boolean
+        - $ref: "#/components/parameters/pageParam"
+        - $ref: "#/components/parameters/sizeParam"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/ResponsePage"
+
+  /api/v1/location/search:
+    get:
+      tags: [Location]
+      summary: Search locations by keyword
+      operationId: searchLocations
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: keyword
+          in: query
+          required: true
+          schema:
+            type: string
+        - $ref: "#/components/parameters/pageParam"
+        - $ref: "#/components/parameters/sizeParam"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/ResponsePage"
+
+  /api/v1/location/{id}:
+    get:
+      tags: [Location]
+      summary: Get location by ID
+      operationId: getLocation
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/LocationResponse"
+
+    put:
+      tags: [Location]
+      summary: Update location
+      operationId: updateLocation
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LocationRequest"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseObject"
+
+    delete:
+      tags: [Location]
+      summary: Delete location (soft)
+      operationId: deleteLocation
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseObject"
+
+  # =========================== DASHBOARD ===========================
+  /api/v1/dashboard/stats:
+    get:
+      tags: [Dashboard]
+      summary: Get dashboard statistics
+      operationId: getDashboardStats
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/DashboardResponse"
+
+  # =========================== CATEGORY ZONE ===========================
+  /api/v1/category-zone:
+    get:
+      tags: [Category Zone]
+      summary: List all category zones
+      operationId: listCategoryZones
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/CategoryZoneResponse"
+
+  /api/v1/category-zone/map:
+    get:
+      tags: [Category Zone]
+      summary: Get zone map (categoryId -> zoneCode)
+      operationId: getCategoryZoneMap
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        type: object
+                        additionalProperties:
+                          type: string
+
+  /api/v1/category-zone/{categoryId}:
+    get:
+      tags: [Category Zone]
+      summary: Get category zone by category ID
+      operationId: getCategoryZone
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: categoryId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/CategoryZoneResponse"
 

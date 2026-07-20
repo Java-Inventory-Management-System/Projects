@@ -1,10 +1,13 @@
-import { useEffect, useState } from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
 import { useNavigate } from "react-router-dom"
-import { useAuthStore } from "@/store/auth-store"
+import { useMutation } from "@tanstack/react-query"
 import { createExportReceipt } from "@/features/stock/services/export-service"
-import { getProducts } from "@/features/stock/services/product-service"
-import { getCustomers } from "@/features/stock/services/customer-service"
-import type { ProductResponse, CustomerResponse, ResponsePage, ExportReason } from "@/utils/types"
+import { useProducts } from "@/hooks/use-products"
+import { getSerialsForExport } from "@/features/stock/services/product-unit-service"
+import { CustomerSelectModal } from "@/features/stock/components/customer-select-modal"
+import { exportFormSchema } from "@/features/stock/schemas/export-schema"
+import type { ExportFormData } from "@/features/stock/schemas/export-schema"
+import type { ExportReason, ProductUnit } from "@/utils/types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -24,7 +27,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { Trash2, Plus } from "lucide-react"
+import { Trash2, Plus, Search } from "lucide-react"
+import { toast } from "@/utils/toast"
 
 interface LineItem {
   tempId: number
@@ -36,30 +40,44 @@ interface LineItem {
 }
 
 const reasons: { value: ExportReason; label: string }[] = [
-  { value: "sale", label: "Bán hàng" },
-  { value: "internal", label: "Xuất nội bộ" },
-  { value: "return_supplier", label: "Trả nhà cung cấp" },
-  { value: "disposal", label: "Hủy hàng" },
+  { value: "SALE", label: "Bán hàng" },
+  { value: "INTERNAL", label: "Xuất nội bộ" },
+  { value: "RETURN_SUPPLIER", label: "Trả nhà cung cấp" },
+  { value: "DISPOSE", label: "Hủy hàng" },
 ]
 
-export function ExportCreatePage() {
-  const user = useAuthStore((s) => s.user)
+export const ExportCreatePage = () => {
   const navigate = useNavigate()
   const [reason, setReason] = useState("")
   const [customerId, setCustomerId] = useState("")
   const [note, setNote] = useState("")
   const [items, setItems] = useState<LineItem[]>([])
-  const [products, setProducts] = useState<ProductResponse[]>([])
-  const [customers, setCustomers] = useState<CustomerResponse[]>([])
+  const [customerName, setCustomerName] = useState("")
+  const [selectModalOpen, setSelectModalOpen] = useState(false)
   const [selectedProductId, setSelectedProductId] = useState("")
-  const [submitting, setSubmitting] = useState(false)
+
+  const { data: productsRes } = useProducts(0, 100)
+  const products = useMemo(() => productsRes?.content ?? [], [productsRes])
+
+  const [serials, setSerials] = useState<Record<number, ProductUnit[]>>({})
 
   useEffect(() => {
-    getProducts(0, 100).then((res: ResponsePage<ProductResponse>) => setProducts(res.content))
-    getCustomers(0, 50).then((res: ResponsePage<CustomerResponse>) => setCustomers(res.content))
-  }, [])
+    if (items.length === 0) { setSerials({}); return }
+    const tempIds = items.map((i) => i.tempId)
+    Promise.all(items.map((i) => getSerialsForExport(i.productId, i.quantity))).then((results) => {
+      const map: Record<number, ProductUnit[]> = {}
+      results.forEach((serials, idx) => { map[tempIds[idx]] = serials })
+      setSerials(map)
+    })
+  }, [items])
 
-  const addItem = () => {
+  const createMut = useMutation({
+    mutationFn: createExportReceipt,
+    onSuccess: () => { toast.success("Tạo phiếu xuất thành công"); navigate("/stock/exports") },
+    onError: (err: Error) => toast.error(err.message || "Có lỗi xảy ra"),
+  })
+
+  const addItem = useCallback(() => {
     if (!selectedProductId) return
     const product = products.find((p) => p.id === Number(selectedProductId))
     if (!product) return
@@ -75,45 +93,38 @@ export function ExportCreatePage() {
       },
     ])
     setSelectedProductId("")
-  }
+  }, [selectedProductId, products])
 
-  const updateItem = (tempId: number, field: "quantity" | "unitPrice", value: number) => {
+  const updateItem = useCallback((tempId: number, field: "quantity" | "unitPrice", value: number) => {
     setItems((prev) => prev.map((i) => (i.tempId === tempId ? { ...i, [field]: value } : i)))
-  }
+  }, [])
 
-  const removeItem = (tempId: number) => {
+  const removeItem = useCallback((tempId: number) => {
     setItems((prev) => prev.filter((i) => i.tempId !== tempId))
-  }
+  }, [])
 
-  const handleSubmit = async () => {
-    if (!reason || !user || items.length === 0) return
-    if (reason === "sale" && !customerId) return
-    setSubmitting(true)
-    try {
-      const customer = reason === "sale" ? customers.find((c) => c.id === Number(customerId)) : undefined
-      await createExportReceipt(
-        {
-          reason: reason as ExportReason,
-          customerId: customer?.id ?? null,
-          customerName: customer?.name ?? null,
-          note: note || null,
-          items: items.map((i) => ({
-            id: 0,
-            productId: i.productId,
-            productName: i.productName,
-            productSku: i.productSku,
-            quantity: i.quantity,
-            unitPrice: i.unitPrice,
-          })),
-        },
-        user.id,
-        user.fullName,
-      )
-      navigate("/stock/exports")
-    } finally {
-      setSubmitting(false)
+  const handleSubmit = useCallback(() => {
+    const raw: ExportFormData = { reason, customerId, note, items }
+    const parsed = exportFormSchema.safeParse(raw)
+    if (!parsed.success) {
+      const first = parsed.error.errors[0]
+      toast.error(first.message)
+      return
     }
-  }
+    if (reason === "SALE" && !customerId) { toast.error("Vui lòng chọn khách hàng"); return }
+    createMut.mutate({
+      reason: reason as ExportReason,
+      customerId: customerId ? Number(customerId) : null,
+      note: note || null,
+      items: items.map((i) => ({
+        productId: i.productId,
+        quantity: i.quantity,
+        unitPrice: i.unitPrice,
+      })),
+    })
+  }, [reason, customerId, note, items, createMut])
+
+  const hasSerials = useMemo(() => Object.values(serials).some((arr) => arr.length > 0), [serials])
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
@@ -138,19 +149,30 @@ export function ExportCreatePage() {
             </SelectContent>
           </Select>
         </div>
-        {reason === "sale" && (
+        {reason === "SALE" && (
           <div className="space-y-2">
             <Label htmlFor="customer">Khách hàng</Label>
-            <Select value={customerId} onValueChange={setCustomerId}>
-              <SelectTrigger id="customer">
-                <SelectValue placeholder="Chọn khách hàng" />
-              </SelectTrigger>
-              <SelectContent>
-                {customers.map((c) => (
-                  <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                className="flex-1 justify-start font-normal h-10"
+                onClick={() => setSelectModalOpen(true)}
+              >
+                {customerId ? (
+                  <span className="truncate">{customerName}</span>
+                ) : (
+                  <span className="text-muted-foreground flex items-center gap-2">
+                    <Search className="size-4" />
+                    Tìm kiếm / Chọn khách hàng...
+                  </span>
+                )}
+              </Button>
+              {customerId && (
+                <Button variant="ghost" size="icon" onClick={() => { setCustomerId(""); setCustomerName("") }}>
+                  <Trash2 className="size-4 text-destructive" />
+                </Button>
+              )}
+            </div>
           </div>
         )}
       </div>
@@ -225,6 +247,38 @@ export function ExportCreatePage() {
         </div>
       )}
 
+      {items.length > 0 && hasSerials && (
+        <div className="space-y-2">
+          <h3 className="text-sm font-semibold">Serial dự kiến xuất theo FIFO</h3>
+          <div className="rounded-lg border overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Sản phẩm</TableHead>
+                  <TableHead>Serial</TableHead>
+                  <TableHead>Vị trí</TableHead>
+                  <TableHead>Ngày nhập</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {items.map((item) => {
+                  const itemSerials = serials[item.tempId] ?? []
+                  if (itemSerials.length === 0) return null
+                  return itemSerials.map((s) => (
+                    <TableRow key={s.id}>
+                      <TableCell className="text-xs text-muted-foreground">{item.productName}</TableCell>
+                      <TableCell className="font-mono text-xs">{s.serialNumber}</TableCell>
+                      <TableCell className="font-mono text-xs text-muted-foreground">{s.locationCode ?? "—"}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{new Date(s.importedAt).toLocaleDateString("vi-VN")}</TableCell>
+                    </TableRow>
+                  ))
+                })}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
         <span className="text-sm font-semibold">
           Tổng: {items.reduce((s, i) => s + i.quantity * i.unitPrice, 0).toLocaleString("vi-VN")}₫
@@ -240,11 +294,19 @@ export function ExportCreatePage() {
         <Button variant="outline" onClick={() => navigate("/stock/exports")}>Hủy</Button>
         <Button
           onClick={handleSubmit}
-          disabled={!reason || items.length === 0 || submitting || (reason === "sale" && !customerId)}
+          disabled={!reason || items.length === 0 || createMut.isPending || (reason === "SALE" && !customerId)}
         >
-          {submitting ? "Đang tạo..." : "Tạo phiếu xuất"}
+          {createMut.isPending ? "Đang tạo..." : "Tạo phiếu xuất"}
         </Button>
+
       </div>
+
+      <CustomerSelectModal
+        open={selectModalOpen}
+        onOpenChange={setSelectModalOpen}
+        selectedCustomerId={customerId ? Number(customerId) : null}
+        onSelect={(id, name) => { setCustomerId(String(id)); setCustomerName(name) }}
+      />
     </div>
   )
 }

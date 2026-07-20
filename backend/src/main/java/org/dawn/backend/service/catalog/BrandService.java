@@ -67,7 +67,7 @@ public class BrandService {
             }
             brand.setName(newName);
         }
-        brand.setDescription(request.description());
+        if (request.description() != null) brand.setDescription(request.description());
         return BrandMappingHelper.map(brandRepository.save(brand));
     }
 

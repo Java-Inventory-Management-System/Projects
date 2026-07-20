@@ -12,6 +12,7 @@ import org.dawn.backend.constant.shared.LogConstant;
 import org.dawn.backend.constant.shared.Message;
 import org.dawn.backend.controller.inventory.request.ExportReceiptRequest;
 import org.dawn.backend.controller.inventory.response.ExportReceiptResponse;
+import org.dawn.backend.entity.auth.User;
 import org.dawn.backend.entity.catalog.Product;
 import org.dawn.backend.entity.inventory.ExportReceipt;
 import org.dawn.backend.entity.inventory.ExportReceiptItem;
@@ -21,6 +22,7 @@ import org.dawn.backend.entity.inventory.ProductUnitStatusLog;
 import org.dawn.backend.exception.wrapper.InvalidRequestException;
 import org.dawn.backend.exception.wrapper.ResourceAlreadyExistedException;
 import org.dawn.backend.exception.wrapper.ResourceNotFoundException;
+import org.dawn.backend.repository.auth.UserRepository;
 import org.dawn.backend.repository.catalog.ProductRepository;
 import org.dawn.backend.repository.inventory.CustomerRepository;
 import org.dawn.backend.repository.inventory.ExportReceiptItemRepository;
@@ -28,6 +30,7 @@ import org.dawn.backend.repository.inventory.ExportReceiptItemUnitRepository;
 import org.dawn.backend.repository.inventory.ExportReceiptRepository;
 import org.dawn.backend.repository.inventory.ProductUnitRepository;
 import org.dawn.backend.repository.inventory.ProductUnitStatusLogRepository;
+import org.dawn.backend.utils.ReceiptCodeGenerator;
 import org.dawn.backend.utils.SecurityUtils;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -35,8 +38,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.Instant;
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -52,6 +53,7 @@ public class ExportReceiptService {
     private final ProductUnitStatusLogRepository statusLogRepository;
     private final ProductRepository productRepository;
     private final CustomerRepository customerRepository;
+    private final UserRepository userRepository;
 
     private static final List<String> BULK_UNITS = List.of("METER", "KG");
 
@@ -70,23 +72,23 @@ public class ExportReceiptService {
     @AuditLog(action = LogConstant.Action.CREATE_EXPORT, entity = LogConstant.Entity.EXPORT_RECEIPT)
     public ExportReceiptResponse create(ExportReceiptRequest request) {
         Long userId = SecurityUtils.getCurrentUserId();
-        if (userId == null) throw new InvalidRequestException("User not authenticated");
+        if (userId == null) throw new InvalidRequestException(Message.Auth.USER_NOT_AUTHENTICATED);
 
         if (request.items() == null || request.items().isEmpty()) {
-            throw new InvalidRequestException("At least one item is required");
+            throw new InvalidRequestException(Message.Inventory.AT_LEAST_ONE_ITEM_REQUIRED);
         }
         if (request.reason() == null || request.reason().isBlank()) {
-            throw new InvalidRequestException("Export reason is required");
+            throw new InvalidRequestException(Message.Inventory.EXPORT_REASON_REQUIRED);
         }
         if (ExportReason.SALE.name().equalsIgnoreCase(request.reason()) && request.customerId() == null) {
-            throw new InvalidRequestException("Customer is required for sale export");
+            throw new InvalidRequestException(Message.Inventory.CUSTOMER_REQUIRED_FOR_SALE);
         }
 
         String reason = request.reason().toUpperCase();
         try {
             ExportReason.valueOf(reason);
         } catch (IllegalArgumentException e) {
-            throw new InvalidRequestException("Invalid export reason: " + request.reason());
+            throw new InvalidRequestException(Message.format(Message.Inventory.INVALID_EXPORT_REASON, request.reason()));
         }
 
         String receiptCode = generateReceiptCode();
@@ -192,7 +194,7 @@ public class ExportReceiptService {
             throw new InvalidRequestException(Message.Inventory.CREATOR_CANNOT_APPROVE);
         }
         if (!ExportReceiptStatus.PENDING_APPROVAL.name().equals(receipt.getStatus())) {
-            throw new InvalidRequestException("Only pending_approval receipts can be approved");
+            throw new InvalidRequestException(Message.Inventory.ONLY_PENDING_APPROVAL_CAN_APPROVE);
         }
 
         boolean isSale = ExportReason.SALE.name().equals(receipt.getReason());
@@ -307,16 +309,15 @@ public class ExportReceiptService {
                     .map(c -> c.getName()).orElse(null);
         }
 
-        return ExportReceiptMappingHelper.map(receipt, customerName, null, null, items, products);
+        var createdByName = userRepository.findById(receipt.getCreatedBy())
+                .map(User::getFullName).orElse(null);
+        var approvedByName = receipt.getApprovedBy() != null
+                ? userRepository.findById(receipt.getApprovedBy()).map(User::getFullName).orElse(null)
+                : null;
+        return ExportReceiptMappingHelper.map(receipt, customerName, createdByName, approvedByName, items, products);
     }
 
     private String generateReceiptCode() {
-        String datePart = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
-        String prefix = "EXP-" + datePart + "-";
-        int seq = 1;
-        while (exportReceiptRepository.existsByReceiptCode(prefix + String.format("%04d", seq))) {
-            seq++;
-        }
-        return prefix + String.format("%04d", seq);
+        return ReceiptCodeGenerator.generate("EXP-", exportReceiptRepository::existsByReceiptCode);
     }
 }

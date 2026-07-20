@@ -1,5 +1,8 @@
 import { create } from "zustand"
-import type { URole } from "@/utils/navigation"
+import type { URole } from "@/utils/types"
+import { login as loginApi, logout as logoutApi } from "@/services/auth-service"
+import { clearToken } from "@/utils/http-client"
+import { jwtDecode } from "@/utils/jwt"
 
 interface User {
   id: string
@@ -8,38 +11,65 @@ interface User {
   displayName: string
 }
 
+interface JwtPayload {
+  id: number
+  username: string
+  fullName: string
+  role: string
+}
+
 interface AuthState {
   user: User | null
   isLoading: boolean
   login: (username: string, password: string) => Promise<void>
-  logout: () => void
+  logout: () => Promise<void>
   hasRole: (roles: URole[]) => boolean
 }
 
-const MOCK_USERS: User[] = [
-  { id: "1", username: "admin", role: "ADMIN", displayName: "Admin" },
-  { id: "2", username: "manager", role: "MANAGER", displayName: "Quản lý kho" },
-  { id: "3", username: "sales", role: "SALES", displayName: "Nhân viên bán hàng" },
-  { id: "4", username: "stock", role: "STOCK", displayName: "Nhân viên kho" },
-]
+function mapUser(raw: { id: number; username: string; fullName: string; role: string }): User {
+  return { id: String(raw.id), username: raw.username, role: raw.role as URole, displayName: raw.fullName || raw.username }
+}
+
+function restoreUser(): User | null {
+  try {
+    const token = localStorage.getItem("accessToken")
+    if (!token) return null
+    const payload = jwtDecode<JwtPayload>(token)
+    if (!payload?.id) return null
+    const now = Date.now() / 1000
+    const exp = JSON.parse(atob(token.split(".")[1])).exp
+    if (exp && exp < now) return null
+    return mapUser(payload)
+  } catch {
+    clearToken()
+    return null
+  }
+}
 
 export const useAuthStore = create<AuthState>((set, get) => ({
-  user: null,
+  user: restoreUser(),
   isLoading: false,
 
-  login: async (username: string, _password: string) => {
+  login: async (username: string, password: string) => {
     set({ isLoading: true })
     try {
-      await new Promise((r) => setTimeout(r, 600))
-      const found = MOCK_USERS.find((u) => u.username === username)
-      if (!found) throw new Error("Invalid credentials")
-      set({ user: found })
+      const jwt = await loginApi({ username, password })
+      const payload = jwtDecode<JwtPayload>(jwt.accessToken)
+      set({ user: mapUser(payload) })
     } finally {
       set({ isLoading: false })
     }
   },
 
-  logout: () => set({ user: null }),
+  logout: async () => {
+    try {
+      await logoutApi()
+    } catch {
+      clearToken()
+    }
+    set({ user: null })
+    window.location.href = "/login"
+  },
 
   hasRole: (roles: URole[]) => {
     const user = get().user

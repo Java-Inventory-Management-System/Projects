@@ -3,7 +3,9 @@ package org.dawn.backend.controller.inventory;
 import lombok.RequiredArgsConstructor;
 import org.dawn.backend.config.web.response.ResponseObject;
 import org.dawn.backend.config.web.response.ResponsePage;
+import org.dawn.backend.constant.security.AuthorizationExpressions;
 import org.dawn.backend.controller.inventory.request.LocationRequest;
+import org.dawn.backend.controller.inventory.response.LocationMapResponse;
 import org.dawn.backend.controller.inventory.response.LocationResponse;
 import org.dawn.backend.service.inventory.LocationService;
 import org.springframework.data.domain.Pageable;
@@ -33,19 +35,24 @@ public class LocationController {
     }
 
     @PostMapping("")
-    @PreAuthorize("hasAnyRole('MANAGER')")
+    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER)
     public ResponseObject<LocationResponse> create(@RequestBody LocationRequest request) {
         return ResponseObject.created(locationService.create(request));
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('MANAGER')")
+    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER)
     public ResponseObject<LocationResponse> update(@PathVariable Long id, @RequestBody LocationRequest request) {
         return ResponseObject.success(locationService.update(id, request));
     }
 
+    @GetMapping("/map")
+    public ResponseObject<LocationMapResponse> getMap() {
+        return ResponseObject.success(locationService.getMap());
+    }
+
     @PutMapping("/{id}/toggle-active")
-    @PreAuthorize("hasAnyRole('MANAGER')")
+    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER)
     public ResponseObject<LocationResponse> toggleActive(@PathVariable Long id) {
         return ResponseObject.success(locationService.toggleActive(id));
     }

@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button"
 import { useAuthStore } from "@/store/auth-store"
 import { useNavigate } from "react-router-dom"
 import { LogOut, User, ChevronLeft, ChevronRight, Menu } from "lucide-react"
-import type { URole } from "@/utils/navigation"
+import type { URole } from "@/utils/types"
 
 interface TopbarProps {
   collapsed: boolean

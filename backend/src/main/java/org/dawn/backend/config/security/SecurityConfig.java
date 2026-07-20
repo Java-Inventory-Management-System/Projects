@@ -1,11 +1,11 @@
 package org.dawn.backend.config.security;
 
-import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.dawn.backend.service.auth.UserDetailService;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -17,11 +17,10 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import org.springframework.security.web.authentication.logout.LogoutHandler;
 
 @Configuration
 @EnableWebSecurity
-@EnableMethodSecurity(securedEnabled = true, jsr250Enabled = true)
+@EnableMethodSecurity(securedEnabled = true, jsr250Enabled = true, prePostEnabled = true)
 @RequiredArgsConstructor
 public class SecurityConfig {
     private static final String[] SWAGGER_URL = {
@@ -38,6 +37,7 @@ public class SecurityConfig {
     private static final String[] PUBLIC_URL = {
             "/api/v1/auth/**",
             "/auth/**",
+            "/api/v1/uploads/**",
     };
 
     private final AuthEntryPointJwt unauthorizedHandler;
@@ -45,8 +45,6 @@ public class SecurityConfig {
     private final RoleAccessHandler roleAccessHandler;
 
     private final CorsConfig corsConfig;
-
-    private final LogoutHandler logoutHandler;
 
     private final AuthTokenFilter authTokenFilter;
 
@@ -75,8 +73,7 @@ public class SecurityConfig {
                 .csrf(CsrfConfigurer::disable)
                 .exceptionHandling(this::configExceptionHandling)
                 .sessionManagement(this::configSession)
-                .authorizeHttpRequests(this::configAuth)
-                .logout(this::configLogout);
+                .authorizeHttpRequests(this::configAuth);
 
         http.addFilterBefore(authTokenFilter, UsernamePasswordAuthenticationFilter.class);
 
@@ -97,21 +94,20 @@ public class SecurityConfig {
 
     private void configAuth(AuthorizeHttpRequestsConfigurer<HttpSecurity>.AuthorizationManagerRequestMatcherRegistry config) {
         config
-
                 .requestMatchers(SWAGGER_URL)
                 .permitAll()
-                .requestMatchers(PUBLIC_URL)
+                .requestMatchers(HttpMethod.POST, "/api/v1/auth/**")
+                .permitAll()
+                .requestMatchers("/auth/**")
+                .permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/v1/auth/login")
+                .permitAll()
+                .requestMatchers("/api/v1/uploads/**")
+                .permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/v1/upload")
                 .permitAll()
                 .anyRequest()
                 .authenticated();
     }
 
-    private void configLogout(LogoutConfigurer<HttpSecurity> config) {
-        config
-                .logoutUrl("/api/v1/auth/logout")
-                .addLogoutHandler(logoutHandler)
-                .logoutSuccessHandler(
-                        (req, res, auth) ->
-                                res.setStatus(HttpServletResponse.SC_NO_CONTENT));
-    }
 }

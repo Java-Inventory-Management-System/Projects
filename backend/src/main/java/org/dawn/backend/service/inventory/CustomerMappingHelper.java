@@ -3,20 +3,19 @@ package org.dawn.backend.service.inventory;
 import org.dawn.backend.controller.inventory.response.CustomerResponse;
 import org.dawn.backend.entity.inventory.Customer;
 
-public class CustomerMappingHelper {
-    private CustomerMappingHelper() {}
+public interface CustomerMappingHelper {
 
-    public static CustomerResponse map(Customer customer) {
-        return new CustomerResponse(
-                customer.getId(),
-                customer.getName(),
-                customer.getPhone(),
-                customer.getEmail(),
-                customer.getAddress(),
-                customer.getNote(),
-                customer.getIsActive(),
-                customer.getCreatedAt(),
-                customer.getUpdatedAt()
-        );
+    static CustomerResponse map(Customer customer) {
+        return CustomerResponse.builder()
+                .id(customer.getId())
+                .name(customer.getName())
+                .phone(customer.getPhone())
+                .email(customer.getEmail())
+                .address(customer.getAddress())
+                .note(customer.getNote())
+                .isActive(customer.getIsActive())
+                .createdAt(customer.getCreatedAt())
+                .updatedAt(customer.getUpdatedAt())
+                .build();
     }
 }

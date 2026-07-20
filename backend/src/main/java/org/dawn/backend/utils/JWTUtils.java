@@ -5,10 +5,9 @@ import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
-import jakarta.servlet.http.Cookie;
-import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.ResponseCookie;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
@@ -34,18 +33,24 @@ public class JWTUtils {
 
     private final String endpoint = "/api/v1/auth/refresh-token";
 
-    public Cookie generateJwtRefreshCookie(String refreshCookie) {
-        return generateCookie(
-                jwtRefreshCookie,
-                refreshCookie,
-                endpoint);
+    public ResponseCookie generateJwtRefreshCookie(String refreshToken) {
+        return ResponseCookie.from(jwtRefreshCookie, refreshToken)
+                .path(endpoint)
+                .maxAge(refreshTokenExpirations / 1000)
+                .httpOnly(true)
+                .secure(true)
+                .sameSite("Strict")
+                .build();
     }
 
-    public Cookie getCleanJwtRefreshCookie() {
-        return generateCookie(
-                jwtRefreshCookie,
-                "",
-                endpoint);
+    public ResponseCookie generateCleanJwtRefreshCookie() {
+        return ResponseCookie.from(jwtRefreshCookie, "")
+                .path(endpoint)
+                .maxAge(0)
+                .httpOnly(true)
+                .secure(true)
+                .sameSite("Strict")
+                .build();
     }
 
     public Long getUserIdFromToken(String token) {
@@ -69,7 +74,7 @@ public class JWTUtils {
                 .getPayload();
     }
 
-    public String generateToken(Long id, String username, String email, String role) {
+    public String generateToken(Long id, String username, String email, String role, String fullName) {
         return Jwts
                 .builder()
                 .subject(username)
@@ -78,6 +83,7 @@ public class JWTUtils {
                 .claim("username", username)
                 .claim("email", email)
                 .claim("role", role)
+                .claim("fullName", fullName)
                 .expiration(new Date(new Date().getTime() + jwtExpirations))
                 .signWith(key())
                 .compact();
@@ -108,27 +114,5 @@ public class JWTUtils {
             log.error("Token validation failed: {}", e.getMessage());
             return false;
         }
-    }
-
-    private Cookie generateCookie(String name, String value, String path) {
-        Cookie cookie = new Cookie(name, value);
-        cookie.setPath(path);
-        cookie.setMaxAge(refreshTokenExpirations / 1000);
-        cookie.setHttpOnly(true);
-        cookie.setSecure(true);
-        return cookie;
-    }
-
-    private String getCookieByName(HttpServletRequest req, String name) {
-        Cookie[] cookies = req.getCookies();
-        if (cookies != null) {
-            for (Cookie cookie : cookies) {
-                if (cookie.getName().equals(name)) {
-                    return cookie.getValue();
-
-                }
-            }
-        }
-        return null;
     }
 }

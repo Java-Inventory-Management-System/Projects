@@ -1,10 +1,9 @@
 package org.dawn.backend.controller.auth;
 
-import jakarta.servlet.http.Cookie;
-import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dawn.backend.config.web.response.ResponseObject;
+import org.dawn.backend.constant.security.AuthorizationExpressions;
 import org.dawn.backend.controller.auth.request.ChangePasswordRequest;
 import org.dawn.backend.controller.auth.request.ForgotPasswordRequest;
 import org.dawn.backend.controller.auth.request.LoginRequest;
@@ -28,22 +27,28 @@ public class AuthController {
     private final JWTUtils jwtUtils;
 
     @PostMapping("/login")
-    public ResponseObject<JwtResponse> login(@RequestBody LoginRequest loginReq, HttpServletResponse res) {
-        JwtResponse jwt = authService.login(loginReq);
-        Cookie refreshToken = jwtUtils.generateJwtRefreshCookie(jwt.refreshToken());
-        res.addCookie(refreshToken);
-        return ResponseObject.success(jwt);
+    public ResponseObject<JwtResponse> login(@RequestBody LoginRequest loginReq) {
+        AuthService.LoginResult result = authService.login(loginReq);
+        return ResponseObject.success(result.response(),
+                jwtUtils.generateJwtRefreshCookie(result.refreshToken()));
     }
-
 
     @PostMapping("/refresh-token")
-    public ResponseObject<TokenRefreshResponse> refreshToken(@CookieValue(name = "${app.jwtRefreshCookieName}") String refreshToken) {
+    public ResponseObject<TokenRefreshResponse> refreshToken(
+            @CookieValue(name = "${app.jwtRefreshCookieName}") String refreshToken) {
         log.info("Refresh token received: {}", (refreshToken != null ? "present" : "null"));
-        return ResponseObject.success(authService.refreshToken(refreshToken));
-
+        AuthService.RefreshResult result = authService.refreshToken(refreshToken);
+        return ResponseObject.success(result.response(),
+                jwtUtils.generateJwtRefreshCookie(result.newRefreshToken()));
     }
 
-    @PreAuthorize("@roleSecurity.canUpdate(#id, authentication)")
+    @PostMapping("/logout")
+    public ResponseObject<String> logout() {
+        return ResponseObject.success("Logged out",
+                jwtUtils.generateCleanJwtRefreshCookie());
+    }
+
+    @PreAuthorize(AuthorizationExpressions.CAN_UPDATE_USER)
     @PutMapping("/{id}/reset-password")
     public ResponseObject<String> resetPassword(@PathVariable Long id) {
         return ResponseObject.success(authService.resetPassword(id));

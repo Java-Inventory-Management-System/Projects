@@ -5,8 +5,8 @@ import lombok.Builder;
 @Builder
 public record JwtResponse(
         String accessToken,
-        String refreshToken,
         Long userId,
         String username,
+        String fullName,
         Boolean isPasswordReset) {
 }

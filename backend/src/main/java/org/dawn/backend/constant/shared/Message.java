@@ -23,6 +23,7 @@ public class Message {
         public static final String REFRESH_TOKEN_NOT_FOUND = "Refresh token not found";
         public static final String UNAUTHORIZED = "Authentication required";
         public static final String FORBIDDEN = "You do not have permission to perform this action";
+        public static final String USER_NOT_AUTHENTICATED = "User not authenticated";
 
         // Login
         public static final String INVALID_CREDENTIALS = "Invalid email or password";
@@ -84,12 +85,17 @@ public class Message {
 
         public static final String LOCATION_NOT_FOUND = "Location not found";
         public static final String LOCATION_CODE_EXISTS = "Location code already exists";
+        public static final String LOCATION_CODE_REQUIRED = "Zone code, shelf code, and bin code are required";
+        public static final String CANNOT_DELETE_LOCATION_WITH_UNITS = "Cannot delete location with {0} product unit(s)";
         public static final String CUSTOMER_NOT_FOUND = "Customer not found";
         public static final String IMPORT_RECEIPT_NOT_FOUND = "Import receipt not found";
         public static final String IMPORT_ITEM_NOT_FOUND = "Import receipt item not found";
         public static final String RECEIPT_CODE_EXISTS = "Receipt code already exists";
         public static final String PRODUCT_UNIT_NOT_FOUND = "Product unit not found";
         public static final String SERIAL_ALREADY_EXISTS = "Serial number already exists";
+        public static final String SERIAL_ALREADY_EXISTS_LIST = "Serial already exists: {0}";
+        public static final String SERIAL_COUNT_MUST_MATCH = "Serial count must match quantity";
+        public static final String SERIAL_BLANK = "Serial number cannot be blank";
         public static final String IMPORT_ALREADY_COMPLETED = "Import receipt already completed";
         public static final String IMPORT_ALREADY_CANCELLED = "Import receipt already cancelled";
         public static final String IMPORT_CANNOT_CANCEL_UNITS_EXPORTED = "Cannot cancel: some units have been exported";
@@ -100,11 +106,36 @@ public class Message {
         public static final String EXPORT_RECEIPT_NOT_FOUND = "Export receipt not found";
         public static final String EXPORT_ALREADY_CANCELLED = "Export receipt already cancelled";
         public static final String INSUFFICIENT_STOCK = "Insufficient stock for {0}: available {1}, needed {2}";
+        public static final String AT_LEAST_ONE_ITEM_REQUIRED = "At least one item is required";
+        public static final String EXPORT_REASON_REQUIRED = "Export reason is required";
+        public static final String CUSTOMER_REQUIRED_FOR_SALE = "Customer is required for sale export";
+        public static final String INVALID_EXPORT_REASON = "Invalid export reason: {0}";
+        public static final String SUPPLIER_REQUIRED = "Supplier is required";
+        public static final String ONLY_PENDING_APPROVAL_CAN_APPROVE = "Only pending approval receipts can be approved";
         public static final String STOCK_CHECK_NOT_FOUND = "Stock check not found";
         public static final String STOCK_CHECK_ALREADY_APPROVED = "Stock check already approved";
         public static final String STOCK_CHECK_ALREADY_REJECTED = "Stock check already rejected";
         public static final String STOCK_CHECK_ALREADY_COMPLETED = "Stock check already completed";
         public static final String STOCK_CHECK_ITEMS_REQUIRED = "At least one stock check item is required";
+        public static final String STOCK_CHECK_MUST_BE_IN_PROGRESS = "Stock check must be in progress to record items";
+        public static final String ONLY_COMPLETED_CAN_APPROVE = "Only completed stock checks can be approved";
+        public static final String ONLY_COMPLETED_CAN_REJECT = "Only completed stock checks can be rejected";
+        public static final String ADJUSTMENT_NOT_FOUND = "Stock adjustment not found";
+        public static final String ADJUSTMENT_TYPE_REQUIRED = "Adjustment type is required";
+        public static final String INVALID_ADJUSTMENT_TYPE = "Invalid adjustment type: {0}";
+        public static final String ADJUSTMENT_REASON_REQUIRED = "Reason is required for adjustment";
+        public static final String ADJUSTMENT_UNIT_REQUIRED = "Product unit is required for {0} adjustment";
+        public static final String ADJUSTMENT_PRODUCT_REQUIRED = "Product is required for found adjustment without serial";
+        public static final String ADJUSTMENT_ALREADY_APPROVED = "Adjustment already approved";
+        public static final String ADJUSTMENT_ALREADY_REJECTED = "Adjustment already rejected";
+        public static final String ONLY_PENDING_CAN_APPROVE = "Only pending adjustments can be approved";
+        public static final String ONLY_PENDING_CAN_REJECT = "Only pending adjustments can be rejected";
+        public static final String ADJUSTMENT_UNIT_NOT_RESTORABLE = "Product unit is in status {0} and cannot be restored via found adjustment";
+
+        public static final String PO_NOT_FOUND = "Purchase order not found";
+        public static final String PO_CODE_EXISTS = "Purchase order code already exists";
+        public static final String PO_ALREADY_CANCELLED = "Purchase order already cancelled";
+        public static final String PO_HAS_COMPLETED_RECEIPTS = "Cannot cancel purchase order with completed import receipts";
     }
 
     // User

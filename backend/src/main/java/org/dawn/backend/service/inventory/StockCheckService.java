@@ -14,19 +14,20 @@ import org.dawn.backend.controller.inventory.request.ApproveStockCheckRequest;
 import org.dawn.backend.controller.inventory.request.CreateStockCheckRequest;
 import org.dawn.backend.controller.inventory.request.StockCheckItemRequest;
 import org.dawn.backend.controller.inventory.response.StockCheckResponse;
+import org.dawn.backend.entity.auth.User;
 import org.dawn.backend.entity.catalog.Product;
 import org.dawn.backend.entity.inventory.*;
 import org.dawn.backend.exception.wrapper.InvalidRequestException;
 import org.dawn.backend.exception.wrapper.ResourceNotFoundException;
+import org.dawn.backend.repository.auth.UserRepository;
 import org.dawn.backend.repository.catalog.ProductRepository;
 import org.dawn.backend.repository.inventory.*;
+import org.dawn.backend.utils.ReceiptCodeGenerator;
 import org.dawn.backend.utils.SecurityUtils;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -40,6 +41,7 @@ public class StockCheckService {
     private final ProductUnitRepository productUnitRepository;
     private final ProductUnitStatusLogRepository statusLogRepository;
     private final ProductRepository productRepository;
+    private final UserRepository userRepository;
 
     public ResponsePage<StockCheckResponse> findAll(Pageable pageable) {
         var page = stockCheckRepository.findAll(pageable);
@@ -56,7 +58,7 @@ public class StockCheckService {
     @AuditLog(action = LogConstant.Action.CREATE_STOCK_CHECK, entity = LogConstant.Entity.STOCK_CHECK)
     public StockCheckResponse create(CreateStockCheckRequest request) {
         Long userId = SecurityUtils.getCurrentUserId();
-        if (userId == null) throw new InvalidRequestException("User not authenticated");
+        if (userId == null) throw new InvalidRequestException(Message.Auth.USER_NOT_AUTHENTICATED);
 
         if (request.productUnitIds() == null || request.productUnitIds().isEmpty()) {
             throw new InvalidRequestException(Message.Inventory.STOCK_CHECK_ITEMS_REQUIRED);
@@ -92,7 +94,7 @@ public class StockCheckService {
                 .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.STOCK_CHECK_NOT_FOUND));
 
         if (!StockCheckStatus.IN_PROGRESS.name().equals(sc.getStatus())) {
-            throw new InvalidRequestException("Stock check must be IN_PROGRESS to record items");
+            throw new InvalidRequestException(Message.Inventory.STOCK_CHECK_MUST_BE_IN_PROGRESS);
         }
 
         var existingItems = stockCheckItemRepository.findByStockCheckId(stockCheckId);
@@ -150,7 +152,7 @@ public class StockCheckService {
                 .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.STOCK_CHECK_NOT_FOUND));
 
         if (!StockCheckStatus.COMPLETED.name().equals(sc.getStatus())) {
-            throw new InvalidRequestException("Only completed stock checks can be approved");
+            throw new InvalidRequestException(Message.Inventory.ONLY_COMPLETED_CAN_APPROVE);
         }
         if (sc.getCreatedBy().equals(userId)) {
             throw new InvalidRequestException(Message.Inventory.CREATOR_CANNOT_APPROVE);
@@ -205,7 +207,7 @@ public class StockCheckService {
                 .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.STOCK_CHECK_NOT_FOUND));
 
         if (!StockCheckStatus.COMPLETED.name().equals(sc.getStatus())) {
-            throw new InvalidRequestException("Only completed stock checks can be rejected");
+            throw new InvalidRequestException(Message.Inventory.ONLY_COMPLETED_CAN_REJECT);
         }
 
         sc.setStatus(StockCheckStatus.REJECTED.name());
@@ -213,6 +215,12 @@ public class StockCheckService {
         sc.setApprovalNote(request != null ? request.approvalNote() : null);
         sc = stockCheckRepository.save(sc);
         return enrich(sc);
+    }
+
+    public ResponsePage<StockCheckResponse> findMyChecks(Pageable pageable) {
+        Long userId = SecurityUtils.getCurrentUserId();
+        var page = stockCheckRepository.findByCreatedBy(userId, pageable);
+        return ResponsePage.of(page.map(this::enrich));
     }
 
     private StockCheckResponse enrich(StockCheck sc) {
@@ -223,16 +231,15 @@ public class StockCheckService {
         var productIds = units.values().stream().map(ProductUnit::getProductId).toList();
         var products = productRepository.findAllById(productIds).stream()
                 .collect(Collectors.toMap(Product::getId, p -> p));
-        return StockCheckMappingHelper.map(sc, null, null, items, units, products);
+        var createdByName = userRepository.findById(sc.getCreatedBy())
+                .map(User::getFullName).orElse(null);
+        var approvedByName = sc.getApprovedBy() != null
+                ? userRepository.findById(sc.getApprovedBy()).map(User::getFullName).orElse(null)
+                : null;
+        return StockCheckMappingHelper.map(sc, createdByName, approvedByName, items, units, products);
     }
 
     private String generateCheckCode() {
-        String datePart = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
-        String prefix = "SC-" + datePart + "-";
-        int seq = 1;
-        while (stockCheckRepository.existsByCheckCode(prefix + String.format("%04d", seq))) {
-            seq++;
-        }
-        return prefix + String.format("%04d", seq);
+        return ReceiptCodeGenerator.generate("SC-", stockCheckRepository::existsByCheckCode);
     }
 }

@@ -45,8 +45,9 @@ public class AuthService {
     private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final MailService mailService;
 
+    public record LoginResult(JwtResponse response, String refreshToken) {}
 
-    public JwtResponse login(LoginRequest req) {
+    public LoginResult login(LoginRequest req) {
 
         String identifier = req.username();
 
@@ -67,17 +68,19 @@ public class AuthService {
                 user.getId(),
                 user.getUsername(),
                 user.getEmail(),
-                user.getRole().getName().name());
+                user.getRole().getName().name(),
+                user.getFullName());
 
         RefreshToken refreshToken = refreshTokenService.createRefreshToken(user.getId());
-        return JwtResponse
+        JwtResponse response = JwtResponse
                 .builder()
                 .userId(user.getId())
                 .username(user.getUsername())
+                .fullName(user.getFullName())
                 .accessToken(jwt)
-                .refreshToken(refreshToken.getToken())
                 .isPasswordReset(Boolean.TRUE.equals(user.getIsPasswordReset()))
                 .build();
+        return new LoginResult(response, refreshToken.getToken());
     }
 
     @Transactional
@@ -182,25 +185,41 @@ public class AuthService {
         return "Đặt lại mật khẩu thành công";
     }
 
-    public TokenRefreshResponse refreshToken(String refreshToken) {
-        if (refreshToken == null || refreshToken.isEmpty()) {
+    public record RefreshResult(TokenRefreshResponse response, String newRefreshToken) {}
+
+    public RefreshResult refreshToken(String refreshTokenValue) {
+        if (refreshTokenValue == null || refreshTokenValue.isEmpty()) {
             throw new ResourceNotFoundException(Message.Auth.REFRESH_TOKEN_EXPIRED);
         }
 
-        return refreshTokenService.findByToken(refreshToken)
-                .map(refreshTokenService::verifyExpiration)
-                .map(RefreshToken::getUser)
-                .map(user -> {
-                    String jwtCookie = jwtUtils.generateToken(
-                            user.getId(),
-                            user.getUsername(),
-                            user.getEmail(),
-                            user.getRole().getName().name());
-                    return TokenRefreshResponse
-                            .builder()
-                            .accessToken(jwtCookie)
-                            .build();
-                })
+        RefreshToken oldToken = refreshTokenService.findByToken(refreshTokenValue)
                 .orElseThrow(() -> new ResourceNotFoundException(Message.Auth.REFRESH_TOKEN_NOT_FOUND));
+        refreshTokenService.verifyExpiration(oldToken);
+
+        User user = oldToken.getUser();
+        String accessToken = jwtUtils.generateToken(
+                user.getId(),
+                user.getUsername(),
+                user.getEmail(),
+                user.getRole().getName().name(),
+                user.getFullName());
+
+        RefreshToken newRefreshToken = refreshTokenService.createRefreshToken(user.getId());
+
+        TokenRefreshResponse response = TokenRefreshResponse
+                .builder()
+                .accessToken(accessToken)
+                .userId(user.getId())
+                .username(user.getUsername())
+                .fullName(user.getFullName())
+                .role(user.getRole().getName().name())
+                .isPasswordReset(Boolean.TRUE.equals(user.getIsPasswordReset()))
+                .build();
+
+        return new RefreshResult(response, newRefreshToken.getToken());
+    }
+
+    public void logout(String refreshTokenValue) {
+        refreshTokenService.deleteByToken(refreshTokenValue);
     }
 }

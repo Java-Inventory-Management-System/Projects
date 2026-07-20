@@ -15,7 +15,9 @@ import org.dawn.backend.controller.inventory.request.ImportReceiptRequest;
 import org.dawn.backend.controller.inventory.request.ImportReceiptRequest.ImportItemRequest;
 import org.dawn.backend.controller.inventory.response.ImportReceiptResponse;
 import org.dawn.backend.controller.inventory.response.ProductUnitResponse;
+import org.dawn.backend.entity.auth.User;
 import org.dawn.backend.entity.catalog.Product;
+import org.dawn.backend.entity.catalog.Supplier;
 import org.dawn.backend.entity.inventory.ImportReceipt;
 import org.dawn.backend.entity.inventory.ImportReceiptItem;
 import org.dawn.backend.entity.inventory.Location;
@@ -24,12 +26,19 @@ import org.dawn.backend.entity.inventory.ProductUnitStatusLog;
 import org.dawn.backend.exception.wrapper.InvalidRequestException;
 import org.dawn.backend.exception.wrapper.ResourceAlreadyExistedException;
 import org.dawn.backend.exception.wrapper.ResourceNotFoundException;
+import org.dawn.backend.repository.auth.UserRepository;
 import org.dawn.backend.repository.catalog.ProductRepository;
+import org.dawn.backend.repository.catalog.SupplierRepository;
+import org.dawn.backend.entity.inventory.PurchaseOrder;
+import org.dawn.backend.constant.inventory.PurchaseOrderStatus;
 import org.dawn.backend.repository.inventory.ImportReceiptItemRepository;
 import org.dawn.backend.repository.inventory.ImportReceiptRepository;
 import org.dawn.backend.repository.inventory.LocationRepository;
 import org.dawn.backend.repository.inventory.ProductUnitRepository;
 import org.dawn.backend.repository.inventory.ProductUnitStatusLogRepository;
+import org.dawn.backend.repository.inventory.PurchaseOrderItemRepository;
+import org.dawn.backend.repository.inventory.PurchaseOrderRepository;
+import org.dawn.backend.utils.ReceiptCodeGenerator;
 import org.dawn.backend.utils.SecurityUtils;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -37,8 +46,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.Instant;
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -55,6 +62,10 @@ public class ImportReceiptService {
     private final ProductUnitStatusLogRepository statusLogRepository;
     private final ProductRepository productRepository;
     private final LocationRepository locationRepository;
+    private final SupplierRepository supplierRepository;
+    private final UserRepository userRepository;
+    private final PurchaseOrderRepository purchaseOrderRepository;
+    private final PurchaseOrderItemRepository purchaseOrderItemRepository;
     private final EntityManager entityManager;
 
     private static final List<String> BULK_UNITS = List.of("METER", "KG");
@@ -68,7 +79,18 @@ public class ImportReceiptService {
             var products = productRepository.findAllById(productIds).stream()
                     .collect(Collectors.toMap(Product::getId, p -> p));
             var unitCounts = getUnitCounts(items);
-            return ImportReceiptMappingHelper.map(r, null, null, null, items, products, unitCounts);
+            var supplierName = supplierRepository.findById(r.getSupplierId())
+                    .map(Supplier::getName).orElse(null);
+            var createdByName = userRepository.findById(r.getCreatedBy())
+                    .map(User::getFullName).orElse(null);
+            var approvedByName = r.getApprovedBy() != null
+                    ? userRepository.findById(r.getApprovedBy()).map(User::getFullName).orElse(null)
+                    : null;
+            var poCode = r.getPurchaseOrderId() != null
+                    ? purchaseOrderRepository.findById(r.getPurchaseOrderId())
+                        .map(PurchaseOrder::getPoCode).orElse(null)
+                    : null;
+            return ImportReceiptMappingHelper.map(r, supplierName, createdByName, approvedByName, poCode, items, products, unitCounts);
         }));
     }
 
@@ -80,20 +102,31 @@ public class ImportReceiptService {
         var products = productRepository.findAllById(productIds).stream()
                 .collect(Collectors.toMap(Product::getId, p -> p));
         var unitCounts = getUnitCounts(items);
-        return ImportReceiptMappingHelper.map(receipt, null, null, null, items, products, unitCounts);
+        var supplierName = supplierRepository.findById(receipt.getSupplierId())
+                .map(Supplier::getName).orElse(null);
+        var createdByName = userRepository.findById(receipt.getCreatedBy())
+                .map(User::getFullName).orElse(null);
+        var approvedByName = receipt.getApprovedBy() != null
+                ? userRepository.findById(receipt.getApprovedBy()).map(User::getFullName).orElse(null)
+                : null;
+        var poCode = receipt.getPurchaseOrderId() != null
+                ? purchaseOrderRepository.findById(receipt.getPurchaseOrderId())
+                    .map(PurchaseOrder::getPoCode).orElse(null)
+                : null;
+        return ImportReceiptMappingHelper.map(receipt, supplierName, createdByName, approvedByName, poCode, items, products, unitCounts);
     }
 
     @Transactional
     @AuditLog(action = LogConstant.Action.CONFIRM_IMPORT, entity = LogConstant.Entity.IMPORT_RECEIPT)
     public ImportReceiptResponse createAndConfirm(ImportReceiptRequest request) {
         Long userId = SecurityUtils.getCurrentUserId();
-        if (userId == null) throw new InvalidRequestException("User not authenticated");
+        if (userId == null) throw new InvalidRequestException(Message.Auth.USER_NOT_AUTHENTICATED);
 
         if (request.items() == null || request.items().isEmpty()) {
-            throw new InvalidRequestException("At least one item is required");
+            throw new InvalidRequestException(Message.Inventory.AT_LEAST_ONE_ITEM_REQUIRED);
         }
         if (request.supplierId() == null) {
-            throw new InvalidRequestException("Supplier is required");
+            throw new InvalidRequestException(Message.Inventory.SUPPLIER_REQUIRED);
         }
 
         String receiptCode = request.receiptCode() != null ? request.receiptCode() : generateReceiptCode();
@@ -104,6 +137,7 @@ public class ImportReceiptService {
         ImportReceipt receipt = ImportReceipt.builder()
                 .receiptCode(receiptCode)
                 .supplierId(request.supplierId())
+                .purchaseOrderId(request.purchaseOrderId())
                 .status(ImportReceiptStatus.PENDING_APPROVAL.name())
                 .note(request.note())
                 .createdBy(userId)
@@ -153,29 +187,43 @@ public class ImportReceiptService {
                     throw new InvalidRequestException(Message.Inventory.SERIAL_REQUIRED_FOR_SERIALIZED);
                 }
                 if (serials.size() != qty.intValue()) {
-                    throw new InvalidRequestException("Serial count must match quantity");
+                    throw new InvalidRequestException(Message.Inventory.SERIAL_COUNT_MUST_MATCH);
                 }
-                for (String serial : serials) {
-                    if (serial == null || serial.isBlank()) {
-                        throw new InvalidRequestException("Serial number cannot be blank");
-                    }
-                    if (productUnitRepository.existsBySerialNumber(serial.trim())) {
-                        throw new ResourceAlreadyExistedException(Message.Inventory.SERIAL_ALREADY_EXISTS);
-                    }
-                    ProductUnit su = ProductUnit.builder()
-                            .serialNumber(serial.trim())
-                            .productId(itemReq.productId())
-                            .trackingType(trackingType)
-                            .initialQuantity(null)
-                            .remainingQuantity(null)
-                            .importReceiptItemId(item.getId())
-                            .locationId(itemReq.locationId())
-                            .status(ProductUnitStatus.IN_STOCK.name())
-                            .importedAt(Instant.now())
-                            .warrantyMonths(itemReq.warrantyMonths())
-                            .build();
-                    productUnitRepository.save(su);
+
+                var trimmedSerials = serials.stream()
+                        .map(String::trim)
+                        .peek(s -> {
+                            if (s.isBlank()) throw new InvalidRequestException(Message.Inventory.SERIAL_BLANK);
+                        })
+                        .toList();
+
+                var existing = productUnitRepository.findExistingSerialNumbers(trimmedSerials);
+                if (!existing.isEmpty()) {
+                    throw new ResourceAlreadyExistedException(
+                            Message.format(Message.Inventory.SERIAL_ALREADY_EXISTS_LIST, String.join(", ", existing))
+                    );
                 }
+
+                var now = Instant.now();
+                final var prodId = itemReq.productId();
+                final var locId = itemReq.locationId();
+                final var wm = itemReq.warrantyMonths();
+                final var itemId = item.getId();
+                var batch = trimmedSerials.stream()
+                        .map(s -> ProductUnit.builder()
+                                .serialNumber(s)
+                                .productId(prodId)
+                                .trackingType(trackingType)
+                                .initialQuantity(null)
+                                .remainingQuantity(null)
+                                .importReceiptItemId(itemId)
+                                .locationId(locId)
+                                .status(ProductUnitStatus.IN_STOCK.name())
+                                .importedAt(now)
+                                .warrantyMonths(wm)
+                                .build())
+                        .toList();
+                productUnitRepository.saveAll(batch);
             }
 
             BigDecimal lineTotal = itemReq.unitPrice() != null
@@ -191,7 +239,18 @@ public class ImportReceiptService {
         var products = productRepository.findAllById(productIds).stream()
                 .collect(Collectors.toMap(Product::getId, p -> p));
         var unitCounts = getUnitCounts(savedItems);
-        return ImportReceiptMappingHelper.map(receipt, null, null, null, savedItems, products, unitCounts);
+        var supplierName = supplierRepository.findById(receipt.getSupplierId())
+                .map(Supplier::getName).orElse(null);
+        var createdByName = userRepository.findById(receipt.getCreatedBy())
+                .map(User::getFullName).orElse(null);
+        var approvedByName = receipt.getApprovedBy() != null
+                ? userRepository.findById(receipt.getApprovedBy()).map(User::getFullName).orElse(null)
+                : null;
+        var poCode = receipt.getPurchaseOrderId() != null
+                ? purchaseOrderRepository.findById(receipt.getPurchaseOrderId())
+                    .map(PurchaseOrder::getPoCode).orElse(null)
+                : null;
+        return ImportReceiptMappingHelper.map(receipt, supplierName, createdByName, approvedByName, poCode, savedItems, products, unitCounts);
     }
 
     @Transactional
@@ -205,14 +264,49 @@ public class ImportReceiptService {
             throw new InvalidRequestException(Message.Inventory.CREATOR_CANNOT_APPROVE);
         }
         if (!ImportReceiptStatus.PENDING_APPROVAL.name().equals(receipt.getStatus())) {
-            throw new InvalidRequestException("Only pending_approval receipts can be approved");
+            throw new InvalidRequestException(Message.Inventory.ONLY_PENDING_APPROVAL_CAN_APPROVE);
         }
 
         receipt.setStatus(ImportReceiptStatus.COMPLETED.name());
         receipt.setApprovedBy(userId);
         receipt = importReceiptRepository.save(receipt);
 
+        if (receipt.getPurchaseOrderId() != null) {
+            updatePOProgress(receipt.getPurchaseOrderId());
+        }
+
         return findOne(receipt.getId());
+    }
+
+    private void updatePOProgress(Long poId) {
+        var po = purchaseOrderRepository.findById(poId).orElse(null);
+        if (po == null) return;
+
+        var items = purchaseOrderItemRepository.findByPoId(poId);
+        var completedReceipts = importReceiptRepository.findByPurchaseOrderId(poId).stream()
+                .filter(r -> ImportReceiptStatus.COMPLETED.name().equals(r.getStatus()))
+                .toList();
+        if (completedReceipts.isEmpty()) return;
+
+        var receiptItemIds = completedReceipts.stream()
+                .flatMap(r -> importReceiptItemRepository.findByReceiptId(r.getId()).stream())
+                .toList();
+
+        for (var poItem : items) {
+            BigDecimal received = receiptItemIds.stream()
+                    .filter(ri -> ri.getProductId().equals(poItem.getProductId()))
+                    .map(ImportReceiptItem::getQuantity)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            poItem.setReceivedQuantity(received);
+            purchaseOrderItemRepository.save(poItem);
+        }
+
+        boolean allFullyReceived = items.stream()
+                .allMatch(i -> i.getReceivedQuantity().compareTo(i.getQuantity()) >= 0);
+        if (allFullyReceived) {
+            po.setStatus(PurchaseOrderStatus.COMPLETED.name());
+            purchaseOrderRepository.save(po);
+        }
     }
 
     @Transactional
@@ -285,13 +379,7 @@ public class ImportReceiptService {
     }
 
     private String generateReceiptCode() {
-        String datePart = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
-        String prefix = "IMP-" + datePart + "-";
-        int seq = 1;
-        while (importReceiptRepository.existsByReceiptCode(prefix + String.format("%04d", seq))) {
-            seq++;
-        }
-        return prefix + String.format("%04d", seq);
+        return ReceiptCodeGenerator.generate("IMP-", importReceiptRepository::existsByReceiptCode);
     }
 
     private Map<Long, Integer> getUnitCounts(List<ImportReceiptItem> items) {

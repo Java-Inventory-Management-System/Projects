@@ -26,6 +26,7 @@ public class LogConstant {
         public static final String EDIT_SERIAL = "EDIT_SERIAL";
         public static final String CREATE_LOCATION = "CREATE_LOCATION";
         public static final String UPDATE_LOCATION = "UPDATE_LOCATION";
+        public static final String DELETE_LOCATION = "DELETE_LOCATION";
         public static final String TOGGLE_LOCATION = "TOGGLE_LOCATION";
         public static final String CREATE_CUSTOMER = "CREATE_CUSTOMER";
         public static final String UPDATE_CUSTOMER = "UPDATE_CUSTOMER";
@@ -37,6 +38,9 @@ public class LogConstant {
         public static final String COMPLETE_STOCK_CHECK = "COMPLETE_STOCK_CHECK";
         public static final String APPROVE_STOCK_CHECK = "APPROVE_STOCK_CHECK";
         public static final String REJECT_STOCK_CHECK = "REJECT_STOCK_CHECK";
+        public static final String CREATE_ADJUSTMENT = "CREATE_ADJUSTMENT";
+        public static final String APPROVE_ADJUSTMENT = "APPROVE_ADJUSTMENT";
+        public static final String REJECT_ADJUSTMENT = "REJECT_ADJUSTMENT";
     }
 
     public static class Entity {
@@ -52,6 +56,7 @@ public class LogConstant {
         public static final String EXPORT_RECEIPT = "EXPORT_RECEIPT";
         public static final String STOCK_CHECK = "STOCK_CHECK";
         public static final String STOCK_CHECK_ITEM = "STOCK_CHECK_ITEM";
+        public static final String STOCK_ADJUSTMENT = "STOCK_ADJUSTMENT";
     }
 
     public static class Status {

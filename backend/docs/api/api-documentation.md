@@ -662,4 +662,552 @@ interface AuditLog {
 
 ---
 
+## Import Receipt Endpoints (`/api/v1/import-receipt`)
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| GET | `/api/v1/import-receipt` | List import receipts (paginated) | Authenticated |
+| GET | `/api/v1/import-receipt/{id}` | Get receipt detail | Authenticated |
+| POST | `/api/v1/import-receipt` | Create + confirm import | MANAGER, STOCK |
+| PUT | `/api/v1/import-receipt/{id}/approve` | Approve receipt | MANAGER, ADMIN |
+| PUT | `/api/v1/import-receipt/{id}/cancel` | Cancel receipt | MANAGER, ADMIN |
+| GET | `/api/v1/import-receipt/{id}/units` | Get product units in receipt | Authenticated |
+
+**Request** (create): `ImportReceiptRequest`
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| `receiptCode` | string | ❌ | Auto-generated if empty |
+| `supplierId` | number | ✅ | |
+| `note` | string | ❌ | |
+| `items` | array | ✅ | List of ImportItemRequest |
+
+**ImportItemRequest:**
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| `productId` | number | ✅ | |
+| `quantity` | number (decimal) | ✅ | |
+| `unitPrice` | number (decimal) | ✅ | |
+| `warrantyMonths` | number | ❌ | |
+| `serialNumbers` | array[string] | ❌ | List of serials; auto-generated if empty |
+| `locationId` | number | ❌ | Location assignment |
+
+**Response**: `ImportReceiptResponse`
+| Field | Type |
+|-------|------|
+| `id` | number |
+| `receiptCode` | string |
+| `supplierId` | number |
+| `supplierName` | string |
+| `totalAmount` | number (decimal) |
+| `status` | string | PENDING / PENDING_APPROVAL / COMPLETED / CANCELLED |
+| `note` | string |
+| `createdBy` | number |
+| `createdByName` | string |
+| `approvedBy` | number (nullable) |
+| `approvedByName` | string (nullable) |
+| `items` | array of ImportItemResponse |
+| `createdAt` | string (ISO 8601) |
+| `updatedAt` | string (ISO 8601) |
+
+**ImportItemResponse:**
+| Field | Type |
+|-------|------|
+| `id` | number |
+| `productId` | number |
+| `productName` | string |
+| `productSku` | string |
+| `quantity` | number (decimal) |
+| `unitPrice` | number (decimal) |
+| `warrantyMonths` | number |
+| `createdUnits` | number |
+
+---
+
+## Export Receipt Endpoints (`/api/v1/export-receipt`)
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| GET | `/api/v1/export-receipt` | List export receipts (paginated) | Authenticated |
+| GET | `/api/v1/export-receipt/{id}` | Get receipt detail | Authenticated |
+| POST | `/api/v1/export-receipt` | Create export | MANAGER, STOCK |
+| PUT | `/api/v1/export-receipt/{id}/approve` | Approve export | MANAGER, ADMIN |
+| PUT | `/api/v1/export-receipt/{id}/cancel` | Cancel export | MANAGER, ADMIN |
+
+**Request** (create): `ExportReceiptRequest`
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| `reason` | string | ✅ | SALE / INTERNAL / RETURN_SUPPLIER / DISPOSE |
+| `customerId` | number | ❌ | Required if reason = SALE |
+| `note` | string | ❌ | |
+| `items` | array | ✅ | List of ExportItemRequest |
+
+**ExportItemRequest:**
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| `productId` | number | ✅ | |
+| `quantity` | number (decimal) | ✅ | |
+| `unitPrice` | number (decimal) | ✅ | |
+
+**Response**: `ExportReceiptResponse`
+| Field | Type |
+|-------|------|
+| `id` | number |
+| `receiptCode` | string |
+| `reason` | string | SALE / INTERNAL / RETURN_SUPPLIER / DISPOSE |
+| `customerId` | number (nullable) |
+| `customerName` | string (nullable) |
+| `totalAmount` | number (decimal) |
+| `status` | string | PENDING_APPROVAL / COMPLETED / CANCELLED |
+| `note` | string |
+| `createdBy` | number |
+| `createdByName` | string |
+| `approvedBy` | number (nullable) |
+| `approvedByName` | string (nullable) |
+| `items` | array of ExportItemResponse |
+| `createdAt` | string (ISO 8601) |
+| `updatedAt` | string (ISO 8601) |
+
+---
+
+## Product Unit Endpoints (`/api/v1/product-unit`)
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| GET | `/api/v1/product-unit` | List product units (paginated) | Authenticated |
+| GET | `/api/v1/product-unit/{id}` | Get unit detail | Authenticated |
+| GET | `/api/v1/product-unit/status/{status}` | List units by status | Authenticated |
+| GET | `/api/v1/product-unit/product/{productId}` | List units by product | Authenticated |
+
+**ProductUnitStatus enum**: `IN_STOCK`, `SOLD`, `DEFECTIVE`, `DAMAGED_IN_STORAGE`, `LOST`, `REMOVED`, `DISPOSED`, `UNDER_REPAIR`, `SENT_TO_MANUFACTURER`, `RETURNED`, `RETURNED_TO_SUPPLIER`
+
+**Response**: `ProductUnitResponse`
+| Field | Type | Notes |
+|-------|------|-------|
+| `id` | number | |
+| `serialNumber` | string | |
+| `productId` | number | |
+| `productName` | string | |
+| `productSku` | string | |
+| `trackingType` | string | SERIALIZED / BULK |
+| `initialQuantity` | number (decimal) | |
+| `remainingQuantity` | number (decimal) | |
+| `importReceiptItemId` | number | |
+| `locationId` | number (nullable) | |
+| `locationCode` | string (nullable) | |
+| `status` | string | ProductUnitStatus |
+| `importedAt` | string (ISO 8601) | FIFO basis |
+| `warrantyMonths` | number | |
+| `warrantyStartDate` | string (nullable) | |
+| `warrantyExpiresAt` | string (nullable) | |
+| `createdAt` | string (ISO 8601) | |
+| `updatedAt` | string (ISO 8601) | |
+
+---
+
+## Stock Check Endpoints (`/api/v1/stock-check`)
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| GET | `/api/v1/stock-check` | List stock checks (paginated) | MANAGER, ADMIN |
+| GET | `/api/v1/stock-check/{id}` | Get detail | MANAGER, ADMIN, STOCK |
+| POST | `/api/v1/stock-check` | Create (select units to check) | MANAGER, STOCK |
+| PUT | `/api/v1/stock-check/{id}/items` | Record actual status for items | MANAGER, STOCK |
+| PUT | `/api/v1/stock-check/{id}/complete` | Mark check as completed | MANAGER, STOCK |
+| PUT | `/api/v1/stock-check/{id}/approve` | Approve (applies differences) | MANAGER, ADMIN |
+| PUT | `/api/v1/stock-check/{id}/reject` | Reject | MANAGER, ADMIN |
+
+**StockCheckStatus**: `PENDING` → `IN_PROGRESS` → `COMPLETED` → `APPROVED` / `REJECTED`
+
+**Request** (create): `CreateStockCheckRequest`
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| `note` | string | ❌ | |
+| `productUnitIds` | array[number] | ✅ | List of unit IDs to check |
+
+**Request** (record items): `StockCheckItemRequest.BatchRequest`
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| `items` | array | ✅ | List of StockCheckItemRequest |
+
+**StockCheckItemRequest:**
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| `productUnitId` | number | ✅ | |
+| `actualStatus` | string | ❌ | Defaults to `IN_STOCK` |
+| `countedQuantity` | number (decimal) | ❌ | For bulk items |
+| `note` | string | ❌ | |
+
+**Request** (approve/reject): `ApproveStockCheckRequest`
+| Field | Type | Required |
+|-------|------|----------|
+| `approvalNote` | string | ❌ |
+
+**Response**: `StockCheckResponse`
+| Field | Type | Notes |
+|-------|------|-------|
+| `id` | number | |
+| `checkCode` | string | Auto-generated SC-yyyyMMdd-xxxx |
+| `status` | string | StockCheckStatus |
+| `note` | string | |
+| `createdBy` | number | |
+| `createdByName` | string | |
+| `approvedBy` | number (nullable) | |
+| `approvedByName` | string (nullable) | |
+| `approvalNote` | string (nullable) | |
+| `items` | array of StockCheckItemResponse | |
+| `totalItems` | number | |
+| `matchCount` | number | |
+| `missingCount` | number | |
+| `unexpectedCount` | number | |
+| `createdAt` | string (ISO 8601) | |
+| `updatedAt` | string (ISO 8601) | |
+
+**DifferenceType**: `MATCH`, `MISSING`, `UNEXPECTED`, `PARTIAL_SHORTAGE`
+
+**Note**: When approved, MISSING items → status `LOST`, UNEXPECTED items → status updated accordingly.
+
+---
+
+## Customer Endpoints (`/api/v1/customer`)
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| GET | `/api/v1/customer` | List customers (paginated) | Authenticated |
+| GET | `/api/v1/customer/search` | Search by keyword | Authenticated |
+| GET | `/api/v1/customer/{id}` | Get detail | Authenticated |
+| POST | `/api/v1/customer` | Create | Authenticated |
+| PUT | `/api/v1/customer/{id}` | Update | Authenticated |
+| PUT | `/api/v1/customer/{id}/toggle-active` | Toggle active | Authenticated |
+
+**Request** (create/update): `CustomerRequest`
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| `name` | string | ✅ | |
+| `phone` | string | ❌ | |
+| `email` | string | ❌ | |
+| `address` | string | ❌ | |
+| `note` | string | ❌ | |
+
+**Response**: `CustomerResponse`
+| Field | Type |
+|-------|------|
+| `id` | number |
+| `name` | string |
+| `phone` | string (nullable) |
+| `email` | string (nullable) |
+| `address` | string (nullable) |
+| `note` | string (nullable) |
+| `isActive` | boolean |
+| `createdAt` | string (ISO 8601) |
+| `updatedAt` | string (ISO 8601) |
+
+---
+
+## Location Endpoints (`/api/v1/location`)
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| GET | `/api/v1/location` | List locations (paginated) | Authenticated |
+| GET | `/api/v1/location/search` | Search by keyword | Authenticated |
+| GET | `/api/v1/location/{id}` | Get detail | Authenticated |
+| POST | `/api/v1/location` | Create | MANAGER |
+| PUT | `/api/v1/location/{id}` | Update | MANAGER |
+| PUT | `/api/v1/location/{id}/toggle-active` | Toggle active | MANAGER |
+
+**Request** (create/update): `LocationRequest`
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| `zoneCode` | string | ✅ | e.g. A |
+| `shelfCode` | string | ✅ | e.g. 01 |
+| `binCode` | string | ✅ | e.g. 01A |
+| `description` | string | ❌ | |
+
+**Full code** is auto-generated as `{zoneCode}-{shelfCode}-{binCode}`.
+
+---
+
+## Dashboard Endpoint (`/api/v1/dashboard`)
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| GET | `/api/v1/dashboard/stats` | Get dashboard statistics | Authenticated |
+
+**Response**: `DashboardResponse`
+| Field | Type | Notes |
+|-------|------|-------|
+| `totalProducts` | number | Number of active products |
+| `totalItems` | number | Total in-stock count (serialized = unit count, bulk = sum of remainingQuantity) |
+| `lowStockCount` | number | Products with total ≤ minStock |
+| `activeProducts` | number | Same as totalProducts (active-filtered) |
+
+---
+
+## Category Zone Endpoint (`/api/v1/category-zone`)
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| GET | `/api/v1/category-zone` | List all category zones | Authenticated |
+| GET | `/api/v1/category-zone/{categoryId}` | Get zone by category ID | Authenticated |
+| GET | `/api/v1/category-zone/map` | Get zone lookup map (categoryId → zoneCode) | Authenticated |
+
+**Response**: `CategoryZoneResponse`
+| Field | Type |
+|-------|------|
+| `id` | number |
+| `categoryId` | number |
+| `zoneCode` | string |
+
+**Zone map response** is a flat object: `{ [categoryId: number]: string }`.
+
+**Response**: `LocationResponse`
+| Field | Type |
+|-------|------|
+| `id` | number |
+| `zoneCode` | string |
+| `shelfCode` | string |
+| `binCode` | string |
+| `fullCode` | string (auto-generated) |
+| `description` | string (nullable) |
+| `isActive` | boolean |
+| `createdAt` | string (ISO 8601) |
+| `updatedAt` | string (ISO 8601) |
+
+---
+
+## TypeScript Type Definitions (Reference) — Bổ sung
+
+```typescript
+// ============ Import Receipt ============
+
+interface ImportReceiptRequest {
+  receiptCode?: string;
+  supplierId: number;
+  note?: string;
+  items: ImportItemRequest[];
+}
+
+interface ImportItemRequest {
+  productId: number;
+  quantity: number;
+  unitPrice: number;
+  warrantyMonths?: number;
+  serialNumbers?: string[];
+  locationId?: number;
+}
+
+interface ImportReceiptResponse {
+  id: number;
+  receiptCode: string;
+  supplierId: number;
+  supplierName: string;
+  totalAmount: number;
+  status: 'PENDING' | 'PENDING_APPROVAL' | 'COMPLETED' | 'CANCELLED';
+  note: string | null;
+  createdBy: number;
+  createdByName: string;
+  approvedBy: number | null;
+  approvedByName: string | null;
+  items: ImportItemResponse[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface ImportItemResponse {
+  id: number;
+  productId: number;
+  productName: string;
+  productSku: string;
+  quantity: number;
+  unitPrice: number;
+  warrantyMonths: number;
+  createdUnits: number;
+}
+
+// ============ Export Receipt ============
+
+interface ExportReceiptRequest {
+  reason: 'SALE' | 'INTERNAL' | 'RETURN_SUPPLIER' | 'DISPOSE';
+  customerId?: number;
+  note?: string;
+  items: ExportItemRequest[];
+}
+
+interface ExportItemRequest {
+  productId: number;
+  quantity: number;
+  unitPrice: number;
+}
+
+interface ExportReceiptResponse {
+  id: number;
+  receiptCode: string;
+  reason: string;
+  customerId: number | null;
+  customerName: string | null;
+  totalAmount: number;
+  status: 'PENDING_APPROVAL' | 'COMPLETED' | 'CANCELLED';
+  note: string | null;
+  createdBy: number;
+  createdByName: string;
+  approvedBy: number | null;
+  approvedByName: string | null;
+  items: ExportItemResponse[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface ExportItemResponse {
+  id: number;
+  productId: number;
+  productName: string;
+  productSku: string;
+  quantity: number;
+  unitPrice: number;
+}
+
+// ============ Product Unit ============
+
+type ProductUnitStatus =
+  | 'IN_STOCK' | 'SOLD' | 'DEFECTIVE' | 'DAMAGED_IN_STORAGE'
+  | 'LOST' | 'REMOVED' | 'DISPOSED' | 'UNDER_REPAIR'
+  | 'SENT_TO_MANUFACTURER' | 'RETURNED' | 'RETURNED_TO_SUPPLIER';
+
+interface ProductUnitResponse {
+  id: number;
+  serialNumber: string;
+  productId: number;
+  productName: string;
+  productSku: string;
+  trackingType: 'SERIALIZED' | 'BULK';
+  initialQuantity: number;
+  remainingQuantity: number;
+  importReceiptItemId: number;
+  locationId: number | null;
+  locationCode: string | null;
+  status: ProductUnitStatus;
+  importedAt: string;
+  warrantyMonths: number;
+  warrantyStartDate: string | null;
+  warrantyExpiresAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ============ Stock Check ============
+
+type StockCheckStatus = 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'APPROVED' | 'REJECTED';
+type DifferenceType = 'MATCH' | 'MISSING' | 'UNEXPECTED' | 'PARTIAL_SHORTAGE';
+
+interface CreateStockCheckRequest {
+  note?: string;
+  productUnitIds: number[];
+}
+
+interface StockCheckItemRequest {
+  productUnitId: number;
+  actualStatus?: ProductUnitStatus;
+  countedQuantity?: number;
+  note?: string;
+}
+
+interface ApproveStockCheckRequest {
+  approvalNote?: string;
+}
+
+interface StockCheckResponse {
+  id: number;
+  checkCode: string;
+  status: StockCheckStatus;
+  note: string | null;
+  createdBy: number;
+  createdByName: string;
+  approvedBy: number | null;
+  approvedByName: string | null;
+  approvalNote: string | null;
+  items: StockCheckItemResponse[];
+  totalItems: number;
+  matchCount: number;
+  missingCount: number;
+  unexpectedCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface StockCheckItemResponse {
+  id: number;
+  productUnitId: number;
+  serialNumber: string;
+  productId: number;
+  productName: string;
+  productSku: string;
+  expectedStatus: string;
+  actualStatus: string;
+  countedQuantity: number;
+  difference: DifferenceType;
+  note: string;
+}
+
+// ============ Customer ============
+
+interface CustomerRequest {
+  name: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  note?: string;
+}
+
+interface CustomerResponse {
+  id: number;
+  name: string;
+  phone: string | null;
+  email: string | null;
+  address: string | null;
+  note: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ============ Location ============
+
+interface LocationRequest {
+  zoneCode: string;
+  shelfCode: string;
+  binCode: string;
+  description?: string;
+}
+
+interface LocationResponse {
+  id: number;
+  zoneCode: string;
+  shelfCode: string;
+  binCode: string;
+  fullCode: string;
+  description: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ============ Dashboard ============
+
+interface DashboardResponse {
+  totalProducts: number;
+  totalItems: number;
+  lowStockCount: number;
+  activeProducts: number;
+}
+
+// ============ Category Zone ============
+
+interface CategoryZoneResponse {
+  id: number;
+  categoryId: number;
+  zoneCode: string;
+}
+```
+
+---
+
 > **Note**: All `...Request` types for update endpoints are **partial** — fields are only patched if provided. For create, required fields are marked in the request table above.

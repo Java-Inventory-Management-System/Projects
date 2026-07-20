@@ -3,10 +3,12 @@ package org.dawn.backend.controller.catalog;
 import lombok.RequiredArgsConstructor;
 import org.dawn.backend.config.web.response.ResponseObject;
 import org.dawn.backend.config.web.response.ResponsePage;
+import org.dawn.backend.constant.security.AuthorizationExpressions;
 import org.dawn.backend.controller.catalog.request.SupplierRequest;
 import org.dawn.backend.controller.catalog.response.SupplierResponse;
 import org.dawn.backend.service.catalog.SupplierService;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -17,26 +19,31 @@ public class SupplierController {
     private final SupplierService supplierService;
 
     @GetMapping("")
+    @PreAuthorize(AuthorizationExpressions.ROLE_STOCK_MANAGER_ADMIN)
     public ResponseObject<ResponsePage<SupplierResponse>> getAll(Pageable pageable) {
         return ResponseObject.success(supplierService.findAll(pageable));
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize(AuthorizationExpressions.ROLE_STOCK_MANAGER_ADMIN)
     public ResponseObject<SupplierResponse> getOne(@PathVariable Long id) {
         return ResponseObject.success(supplierService.findOne(id));
     }
 
     @PostMapping("")
+    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER)
     public ResponseObject<SupplierResponse> create(@RequestBody SupplierRequest request) {
         return ResponseObject.created(supplierService.create(request));
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER)
     public ResponseObject<SupplierResponse> update(@PathVariable Long id, @RequestBody SupplierRequest request) {
         return ResponseObject.success(supplierService.update(id, request));
     }
 
     @PutMapping("/{id}/toggle-active")
+    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER)
     public ResponseObject<SupplierResponse> toggleActive(@PathVariable Long id) {
         return ResponseObject.success(supplierService.toggleActive(id));
     }

@@ -1,17 +1,8 @@
-import { useEffect, useState } from "react"
-import { getDashboardStats } from "@/mock-services"
-import type { DashboardStats } from "@/utils/types"
+import { Card, CardContent } from "@/components/ui/card"
+import { useDashboardStats } from "@/hooks/use-dashboard-stats"
 
-export function DashboardPage() {
-  const [stats, setStats] = useState<DashboardStats | null>(null)
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    getDashboardStats().then((data) => {
-      setStats(data)
-      setLoading(false)
-    })
-  }, [])
+export const DashboardPage = () => {
+  const { data: stats, isLoading: loading } = useDashboardStats()
 
   return (
     <div className="space-y-6">
@@ -30,11 +21,13 @@ export function DashboardPage() {
   )
 }
 
-function StatCard({ label, value }: { label: string; value: string }) {
+const StatCard = ({ label, value }: { label: string; value: string }) => {
   return (
-    <div className="rounded-lg border bg-card p-4 text-card-foreground">
-      <p className="text-sm text-muted-foreground">{label}</p>
-      <p className="mt-1 text-2xl font-semibold tracking-tight">{value}</p>
-    </div>
+    <Card className="p-4">
+      <CardContent className="p-0">
+        <p className="text-sm text-muted-foreground">{label}</p>
+        <p className="mt-1 text-2xl font-semibold tracking-tight">{value}</p>
+      </CardContent>
+    </Card>
   )
 }

@@ -25,10 +25,13 @@ spring:
     hibernate:
       ddl-auto: none
     show-sql: true
+    properties:
+      hibernate.jdbc.batch_size: 50
+      hibernate.order_inserts: true
   # Flyway
   flyway:
     enabled: true
-    locations: classpath:db/migration
+    locations: classpath:db/migration/schema,classpath:db/migration/seed
     validate-on-migrate: false
     baseline-on-migrate: true
 
@@ -48,11 +51,20 @@ springdoc:
   api-docs:
     path: /v3/api-docs
 
-# JWT
+# Cloudinary
 app:
+  cloudinary:
+    cloud-name: ${CLOUDINARY_CLOUD_NAME:}
+    api-key: ${CLOUDINARY_API_KEY:}
+    api-secret: ${CLOUDINARY_API_SECRET:}
+
+  upload-path: ${UPLOAD_PATH:./uploads}
+
+  # JWT
   jwtCookieName: ${JWT_COOKIE_NAME}
   jwtRefreshCookieName: ${JWT_COOKIE_REFRESH_NAME}
   jwtSecret: ${JWT_SECRET}
   jwtExpirationsMs: ${JWT_EXPIRATION}
   jwtRefreshExpirationsMs: ${JWT_REFRESH_EXPIRATION}
   frontendUrl: ${FRONTEND_URL}
+

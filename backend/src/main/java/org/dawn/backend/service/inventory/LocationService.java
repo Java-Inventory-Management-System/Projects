@@ -7,15 +7,25 @@ import org.dawn.backend.config.web.response.ResponsePage;
 import org.dawn.backend.constant.shared.LogConstant;
 import org.dawn.backend.constant.shared.Message;
 import org.dawn.backend.controller.inventory.request.LocationRequest;
+import org.dawn.backend.controller.inventory.response.LocationMapResponse;
+import org.dawn.backend.controller.inventory.response.LocationMapResponse.ZoneData;
+import org.dawn.backend.controller.inventory.response.LocationMapResponse.ShelfData;
+import org.dawn.backend.controller.inventory.response.LocationMapResponse.BinData;
 import org.dawn.backend.controller.inventory.response.LocationResponse;
 import org.dawn.backend.entity.inventory.Location;
 import org.dawn.backend.exception.wrapper.InvalidRequestException;
 import org.dawn.backend.exception.wrapper.ResourceAlreadyExistedException;
 import org.dawn.backend.exception.wrapper.ResourceNotFoundException;
 import org.dawn.backend.repository.inventory.LocationRepository;
+import org.dawn.backend.repository.inventory.ProductUnitRepository;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -23,6 +33,30 @@ import org.springframework.transaction.annotation.Transactional;
 public class LocationService {
 
     private final LocationRepository locationRepository;
+    private final ProductUnitRepository productUnitRepository;
+
+    public LocationMapResponse getMap() {
+        var locations = locationRepository.findAllByOrderByZoneCodeAscShelfCodeAscBinCodeAsc();
+        var counts = productUnitRepository.countByLocation();
+
+        Map<String, List<Location>> byZone = locations.stream()
+            .collect(Collectors.groupingBy(Location::getZoneCode, LinkedHashMap::new, Collectors.toList()));
+
+        List<ZoneData> zones = byZone.entrySet().stream().map(entry -> {
+            String zoneCode = entry.getKey();
+            Map<String, List<Location>> byShelf = entry.getValue().stream()
+                .collect(Collectors.groupingBy(Location::getShelfCode, LinkedHashMap::new, Collectors.toList()));
+            List<ShelfData> shelves = byShelf.entrySet().stream().map(shelfEntry -> {
+                List<BinData> bins = shelfEntry.getValue().stream().map(loc ->
+                    new BinData(loc.getId(), loc.getBinCode(), loc.getFullCode(), counts.getOrDefault(loc.getId(), 0L))
+                ).toList();
+                return new ShelfData(shelfEntry.getKey(), bins);
+            }).toList();
+            return new ZoneData(zoneCode, shelves);
+        }).toList();
+
+        return new LocationMapResponse(zones);
+    }
 
     public ResponsePage<LocationResponse> findAll(Pageable pageable) {
         return ResponsePage.of(locationRepository
@@ -47,7 +81,7 @@ public class LocationService {
     @AuditLog(action = LogConstant.Action.CREATE_LOCATION, entity = LogConstant.Entity.LOCATION)
     public LocationResponse create(LocationRequest request) {
         if (request.zoneCode() == null || request.shelfCode() == null || request.binCode() == null) {
-            throw new InvalidRequestException("Zone code, shelf code, and bin code are required");
+            throw new InvalidRequestException(Message.Inventory.LOCATION_CODE_REQUIRED);
         }
         String fullCode = request.zoneCode() + "-" + request.shelfCode() + "-" + request.binCode();
         if (locationRepository.existsByFullCode(fullCode)) {
@@ -85,5 +119,18 @@ public class LocationService {
                 .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.LOCATION_NOT_FOUND));
         location.setIsActive(!Boolean.TRUE.equals(location.getIsActive()));
         return LocationMappingHelper.map(locationRepository.save(location));
+    }
+
+    @Transactional
+    @AuditLog(action = LogConstant.Action.DELETE_LOCATION, entity = LogConstant.Entity.LOCATION, entityClass = Location.class)
+    public void delete(Long id) {
+        Location location = locationRepository
+                .findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.LOCATION_NOT_FOUND));
+        long productCount = productUnitRepository.countByLocationId(id);
+        if (productCount > 0) {
+            throw new InvalidRequestException(Message.format(Message.Inventory.CANNOT_DELETE_LOCATION_WITH_UNITS, productCount));
+        }
+        locationRepository.delete(location);
     }
 }
