@@ -136,6 +136,31 @@ public class Message {
         public static final String PO_CODE_EXISTS = "Purchase order code already exists";
         public static final String PO_ALREADY_CANCELLED = "Purchase order already cancelled";
         public static final String PO_HAS_COMPLETED_RECEIPTS = "Cannot cancel purchase order with completed import receipts";
+
+        public static final String WARRANTY_REQUEST_NOT_FOUND = "Warranty request not found";
+        public static final String WARRANTY_SERIAL_REQUIRED = "Serial number is required for warranty lookup";
+        public static final String WARRANTY_SERIAL_AMBIGUOUS = "Serial lookup is ambiguous; please enter the exact serial number";
+        public static final String WARRANTY_SERIALIZED_ONLY = "Warranty requests are only supported for serialized products";
+        public static final String WARRANTY_UNIT_NOT_SOLD = "Only sold product units can start a warranty request";
+        public static final String WARRANTY_EXPIRED = "Product warranty has expired";
+        public static final String WARRANTY_NOT_ACTIVATED = "Product warranty has not been activated";
+        public static final String WARRANTY_ISSUE_REQUIRED = "Issue description is required";
+        public static final String WARRANTY_ALREADY_PENDING = "This product unit already has a pending warranty request";
+        public static final String WARRANTY_ONLY_PENDING = "Only pending warranty requests can be changed";
+        public static final String WARRANTY_RESOLUTION_REQUIRED = "Warranty resolution type is required";
+        public static final String WARRANTY_INVALID_RESOLUTION = "Invalid warranty resolution type: {0}";
+        public static final String WARRANTY_RESOLUTION_ALREADY_SELECTED = "A resolution has already been selected for this warranty request";
+        public static final String WARRANTY_REPLACEMENT_REQUIRED = "A replacement product unit is required";
+        public static final String WARRANTY_REPLACEMENT_SAME_UNIT = "The replacement unit must differ from the original unit";
+        public static final String WARRANTY_REPLACEMENT_PRODUCT_MISMATCH = "The replacement unit must be the same product";
+        public static final String WARRANTY_REPLACEMENT_NOT_AVAILABLE = "The replacement unit is not available in stock";
+        public static final String WARRANTY_RMA_NUMBER_REQUIRED = "RMA number is required";
+        public static final String WARRANTY_REJECT_REASON_REQUIRED = "A rejection reason is required";
+        public static final String WARRANTY_COMPLETION_RESULT_REQUIRED = "Warranty completion result is required";
+        public static final String WARRANTY_INVALID_COMPLETION_RESULT = "Invalid warranty completion result: {0}";
+        public static final String WARRANTY_CANNOT_COMPLETE = "Only repair or RMA warranty requests can be completed manually";
+        public static final String WARRANTY_INVALID_UNIT_STATE = "Product unit cannot transition from {0} for this warranty action";
+        public static final String WARRANTY_CANCEL_REASON_REQUIRED = "A cancellation reason is required";
     }
 
     // User

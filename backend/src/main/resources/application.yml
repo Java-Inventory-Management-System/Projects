@@ -6,7 +6,7 @@ spring:
     virtual:
       enabled: true
   config:
-    import: "optional:file:.env[.properties]"
+    import: "optional:file:./backend/.env[.properties],optional:file:./.env[.properties]"
   application:
     name: backend
   servlet:
@@ -67,4 +67,3 @@ app:
   jwtExpirationsMs: ${JWT_EXPIRATION}
   jwtRefreshExpirationsMs: ${JWT_REFRESH_EXPIRATION}
   frontendUrl: ${FRONTEND_URL}
-

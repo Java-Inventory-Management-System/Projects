@@ -1,10 +1,12 @@
 package org.dawn.backend.repository.inventory;
 
+import jakarta.persistence.LockModeType;
 import org.dawn.backend.entity.inventory.ProductUnit;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
@@ -18,7 +20,19 @@ import java.util.stream.Collectors;
 @Repository
 public interface ProductUnitRepository extends JpaRepository<ProductUnit, Long> {
     Optional<ProductUnit> findBySerialNumber(String serialNumber);
+    Optional<ProductUnit> findBySerialNumberIgnoreCase(String serialNumber);
     boolean existsBySerialNumber(String serialNumber);
+
+    @Query(value = """
+            SELECT pu.* FROM product_units pu
+            WHERE UPPER(REPLACE(REPLACE(REPLACE(pu.serial_number, 'O', '0'), 'I', '1'), 'L', '1')) = :normalized
+            ORDER BY pu.id
+            """, nativeQuery = true)
+    List<ProductUnit> findByNormalizedSerial(@Param("normalized") String normalized);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT p FROM ProductUnit p WHERE p.id = :id")
+    Optional<ProductUnit> findByIdForUpdate(@Param("id") Long id);
 
     @Query("SELECT p.serialNumber FROM ProductUnit p WHERE p.serialNumber IN :serials")
     Set<String> findExistingSerialNumbers(@Param("serials") List<String> serials);
