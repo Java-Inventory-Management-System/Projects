@@ -485,10 +485,10 @@ Lý do INTERNAL / RETURN_SUPPLIER / DISPOSE → không cần chọn customer.
 |-------|------|-------|
 | `/stock/imports` | ImportListPage | Danh sách phiếu nhập |
 | `/stock/imports/new` | ImportCreatePage | Tạo phiếu nhập |
-| `/stock/imports/:id` | ImportDetailPage | Chi tiết phiếu nhập + In phiếu |
+| `/stock/imports/:id` | ImportDetailPage | Chi tiết phiếu nhập + In phiếu + CSV |
 | `/stock/exports` | ExportListPage | Danh sách phiếu xuất |
 | `/stock/exports/new` | ExportCreatePage | Tạo phiếu xuất |
-| `/stock/exports/:id` | ExportDetailPage | Chi tiết phiếu xuất + In phiếu |
+| `/stock/exports/:id` | ExportDetailPage | Chi tiết phiếu xuất + In phiếu + CSV (xuất hóa đơn) |
 | `/stock/checks` | StockCheckListPage | Danh sách kiểm kê |
 | `/stock/checks/new` | StockCheckCreatePage | Tạo phiếu kiểm kê |
 | `/stock/checks/:id` | StockCheckDetailPage | Chi tiết + nhập kết quả, filter, tạo Adjustment từ chênh lệch |
@@ -498,7 +498,34 @@ Lý do INTERNAL / RETURN_SUPPLIER / DISPOSE → không cần chọn customer.
 
 ---
 
-## 11. Future improvements
+## 11. Page Size & Data Export
+
+### Page size selector
+
+Trên các trang danh sách có phân trang (imports, exports, checks, adjustments, products, ...),
+`PaginationBar` hiển thị dropdown chọn số kết quả mỗi trang:
+
+| Tuỳ chọn | Mô tả |
+|----------|-------|
+| 10 | Mặc định |
+| 20 | Phù hợp màn hình vừa |
+| 50 | Data-dense |
+| 100 | Xem toàn bộ gần đúng |
+
+Khi đổi page size, page tự reset về 0.
+Hiện đã áp dụng cho: danh sách nhập/xuất (receipt-list-page), danh sách ProductUnit.
+
+### CSV Export
+
+Nút **CSV** (icon FileDown) xuất hiện trên:
+- **ImportDetailPage**, **ExportDetailPage**: xuất danh sách sản phẩm trong phiếu ra file CSV (UTF-8 BOM, mở được bằng Excel)
+- **Dashboard**: mỗi tab dạng bảng (Theo danh mục, Sắp hết hàng, Giá trị tồn, Hoạt động) đều có nút CSV ở góc phải
+
+Cơ chế: `downloadCsv()` trong `utils/download-csv.ts` — tạo Blob + URL.createObjectURL + click ẩn, revoke sau khi download.
+
+---
+
+## 12. Future improvements
 
 - **Bulk import via Excel**: Upload file → map columns → preview → submit
 - **Export serial override**: Cho phép user chọn serial thay vì auto FIFO
