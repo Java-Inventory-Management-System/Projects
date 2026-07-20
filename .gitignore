@@ -7,3 +7,5 @@ docs/*.xlsx
 *.xlsx
 
 .playwright-mcp/
+dawn-api.postman_collection.json
+demo-serials.csv
