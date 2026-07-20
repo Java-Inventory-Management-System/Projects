@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react"
 import { useDebounce } from "@/hooks/use-debounce"
-import { getProductUnits } from "@/features/stock/services/product-unit-service"
-import { getProducts } from "@/features/stock/services/product-service"
+import { getProductUnits } from "@/services/product-unit-service"
+import { getProducts } from "@/services/product-service"
 import type { ProductUnit, ResponsePage, ProductResponse } from "@/utils/types"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -60,6 +60,7 @@ function fmt(d: string | null) {
 export const ProductUnitListPage = () => {
   const user = useAuthStore((s) => s.user)
   const [page, setPage] = useState(0)
+  const [pageSize, setPageSize] = useState(10)
   const [data, setData] = useState<ResponsePage<ProductUnit> | null>(null)
   const [allData, setAllData] = useState<ProductUnit[] | null>(null)
   const [loading, setLoading] = useState(true)
@@ -91,7 +92,7 @@ export const ProductUnitListPage = () => {
         .catch((err) => setError((err as Error).message || "Không thể tải danh sách"))
         .finally(() => setLoading(false))
     } else {
-      getProductUnits(page, 10, sort)
+      getProductUnits(page, pageSize, sort)
         .then((res) => { setData(res); setAllData(null) })
         .catch((err) => setError((err as Error).message || "Không thể tải danh sách"))
         .finally(() => setLoading(false))
@@ -217,7 +218,7 @@ export const ProductUnitListPage = () => {
       )}
 
       {!hasFilters && data && data.pagination.totalPages > 1 && (
-        <PaginationBar page={page} totalPages={data.pagination.totalPages} onChange={(p) => setPage(p)} />
+        <PaginationBar page={page} totalPages={data.pagination.totalPages} onChange={(p) => setPage(p)} pageSize={pageSize} onPageSizeChange={(s) => { setPageSize(s); setPage(0) }} />
       )}
 
       <ViewProductUnitModal unit={viewUnit} open={viewOpen} onOpenChange={setViewOpen} />

@@ -38,10 +38,11 @@ export function ReceiptListPage<R extends Receipt>({
   const qc = useQueryClient()
   const { canCancel: hasCancelPerm, canApprove: hasApprovePerm } = usePermission()
   const [page, setPage] = useState(0)
+  const [pageSize, setPageSize] = useState(10)
   const [viewReceipt, setViewReceipt] = useState<R | null>(null)
   const [cancelTarget, setCancelTarget] = useState<R | null>(null)
 
-  const { data, isLoading } = useHook(page, 10)
+  const { data, isLoading } = useHook(page, pageSize)
 
   const cancelMut = useMutation({
     mutationFn: (id: number) => cancelService(id),
@@ -110,7 +111,7 @@ export function ReceiptListPage<R extends Receipt>({
       />
 
       {data && data.pagination.totalPages > 1 && (
-        <PaginationBar page={page} totalPages={data.pagination.totalPages} onChange={setPage} />
+        <PaginationBar page={page} totalPages={data.pagination.totalPages} onChange={setPage} pageSize={pageSize} onPageSizeChange={(s) => { setPageSize(s); setPage(0) }} />
       )}
 
       <ViewModal receipt={viewReceipt} open={!!viewReceipt} onOpenChange={(v) => { if (!v) setViewReceipt(null) }} />
