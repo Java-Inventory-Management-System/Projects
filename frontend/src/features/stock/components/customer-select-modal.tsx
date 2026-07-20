@@ -17,7 +17,7 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination"
-import { createCustomer } from "@/features/stock/services/customer-service"
+import { createCustomer } from "@/services/customer-service"
 import { useCustomers } from "@/hooks/use-customers"
 
 import { toast } from "@/utils/toast"

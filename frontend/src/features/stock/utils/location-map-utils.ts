@@ -6,6 +6,7 @@ export interface DetailBin {
   fullCode: string
   binCode: string
   productCount: number
+  maxCapacity: number | null
 }
 
 export const LEVELS = [
@@ -15,7 +16,14 @@ export const LEVELS = [
   { threshold: 50, label: "Đầy", bg: "bg-blue-300", border: "border-blue-500", text: "text-blue-800" },
 ] as const
 
-export function binColor(count: number) {
+export function binColor(count: number, maxCapacity?: number | null) {
+  if (maxCapacity != null && maxCapacity > 0) {
+    if (count === 0) return LEVELS[0]
+    const pct = count / maxCapacity
+    if (pct < 0.5) return LEVELS[1]
+    if (pct < 0.9) return LEVELS[2]
+    return LEVELS[3]
+  }
   if (count === 0) return LEVELS[0]
   if (count < 10) return LEVELS[1]
   if (count < 50) return LEVELS[2]

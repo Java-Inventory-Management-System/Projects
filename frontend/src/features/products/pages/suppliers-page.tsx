@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { getSuppliers, createSupplier, updateSupplier, toggleSupplierActive } from "@/features/products/services/supplier-service"
+import { getSuppliers, createSupplier, updateSupplier, toggleSupplierActive } from "@/services/supplier-service"
 import type { SupplierResponse } from "@/utils/types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"

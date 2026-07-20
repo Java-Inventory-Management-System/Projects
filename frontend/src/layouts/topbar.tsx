@@ -9,7 +9,6 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { useAuthStore } from "@/store/auth-store"
-import { useNavigate } from "react-router-dom"
 import { LogOut, User, ChevronLeft, ChevronRight, Menu } from "lucide-react"
 import type { URole } from "@/utils/types"
 
@@ -29,7 +28,6 @@ const roleLabel: Record<URole, string> = {
 export function Topbar({ collapsed, onToggle, onMobileOpen }: TopbarProps) {
   const user = useAuthStore((s) => s.user)
   const logout = useAuthStore((s) => s.logout)
-  const navigate = useNavigate()
   if (!user) return null
 
   const initials = user.displayName
@@ -82,7 +80,7 @@ export function Topbar({ collapsed, onToggle, onMobileOpen }: TopbarProps) {
             </div>
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={() => { logout(); navigate("/login") }}>
+          <DropdownMenuItem onClick={() => logout()}>
             <LogOut className="size-4" />
             <span>Logout</span>
           </DropdownMenuItem>

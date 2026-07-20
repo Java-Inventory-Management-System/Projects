@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react"
-import { searchAuditLogs } from "@/features/admin/services/audit-service"
+import { searchAuditLogs } from "@/services/audit-service"
 import type { AuditLog, ResponsePage } from "@/utils/types"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"

@@ -1,5 +1,5 @@
 import { useImportReceipts } from "@/hooks/use-import-receipts"
-import { cancelImportReceipt, approveImportReceipt } from "@/features/stock/services/import-service"
+import { cancelImportReceipt, approveImportReceipt } from "@/services/import-service"
 import { ViewImportModal } from "../components/view-import-modal"
 import { ReceiptListPage } from "../components/receipt-list-page"
 import { Badge } from "@/components/ui/badge"

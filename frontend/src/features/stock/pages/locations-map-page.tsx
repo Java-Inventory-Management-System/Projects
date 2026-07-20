@@ -87,7 +87,7 @@ export function LocationsMapPage() {
             <Settings2 className="size-3.5 mr-1" />
             {managing ? "Xong" : "Quản lý vị trí"}
           </Button>
-          <Button variant="outline" size="sm" onClick={() => fetchMap(true)} disabled={loading || refreshing}>
+          <Button variant="outline" size="sm" onClick={() => fetchMap()} disabled={loading || refreshing}>
             <RefreshCw className={`size-3.5 mr-1 ${refreshing ? "animate-spin" : ""}`} />
             Làm mới
           </Button>
@@ -161,7 +161,7 @@ export function LocationsMapPage() {
           {filteredZones.map((zone) => {
             const allBins = zone.shelves.flatMap((s) => s.bins)
             const occupied = allBins.filter((b) => b.productCount > 0).length
-            const full = allBins.filter((b) => b.productCount >= 50).length
+            const full = allBins.filter((b) => b.maxCapacity != null && b.maxCapacity > 0 ? b.productCount >= b.maxCapacity : b.productCount >= 50).length
             const hasProducts = allBins.some((b) => b.productCount > 0)
             return (
               <div key={zone.zoneCode} className="rounded-lg border bg-card p-3 space-y-2">
@@ -221,9 +221,9 @@ export function LocationsMapPage() {
                       </p>
                       <div className="flex flex-wrap items-center gap-1.5">
                         {shelf.bins.map((bin) => {
-                          const detail = { id: bin.id, zoneCode: zone.zoneCode, fullCode: bin.fullCode, binCode: bin.binCode, productCount: bin.productCount }
+                          const detail = { id: bin.id, zoneCode: zone.zoneCode, fullCode: bin.fullCode, binCode: bin.binCode, productCount: bin.productCount, maxCapacity: bin.maxCapacity }
                           const active = isBinActive(detail)
-                          const color = binColor(bin.productCount)
+                          const color = binColor(bin.productCount, bin.maxCapacity)
                           return (
                             <div key={bin.id} className="relative">
                               {managing ? (
@@ -400,8 +400,26 @@ export function LocationsMapPage() {
               <div className="rounded-lg bg-muted p-3 space-y-1.5 text-sm">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Sản phẩm</span>
-                  <span className="font-medium">{selectedBin.productCount} đơn vị</span>
+                  <span className="font-medium">
+                    {selectedBin.maxCapacity != null
+                      ? `${selectedBin.productCount}/${selectedBin.maxCapacity} đơn vị`
+                      : `${selectedBin.productCount} đơn vị`}
+                  </span>
                 </div>
+                {selectedBin.maxCapacity != null && selectedBin.maxCapacity > 0 && (
+                  <div className="w-full h-1.5 rounded-full bg-muted-foreground/20 overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all ${
+                        selectedBin.productCount >= selectedBin.maxCapacity
+                          ? "bg-destructive"
+                          : selectedBin.productCount / selectedBin.maxCapacity >= 0.8
+                            ? "bg-amber-500"
+                            : "bg-primary"
+                      }`}
+                      style={{ width: `${Math.min(100, (selectedBin.productCount / selectedBin.maxCapacity) * 100)}%` }}
+                    />
+                  </div>
+                )}
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Trạng thái</span>
                   <span className={isBinActive(selectedBin) ? "text-green-600" : "text-muted-foreground"}>

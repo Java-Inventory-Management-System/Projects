@@ -24,8 +24,8 @@ export function mapSupplier(raw: unknown) {
 }
 
 export function mapLocation(raw: unknown) {
-  const r = raw as { id: number; zoneCode: string; zoneName?: string; shelfCode: string; binCode: string; fullCode: string; description?: string; isActive?: boolean; createdAt?: string; updatedAt?: string }
-  return { id: r.id, zoneCode: r.zoneCode, zoneName: r.zoneName ?? r.zoneCode, shelfCode: r.shelfCode, binCode: r.binCode, fullCode: r.fullCode, description: r.description ?? null, isActive: r.isActive ?? true, createdAt: r.createdAt ?? "", updatedAt: r.updatedAt ?? "" }
+  const r = raw as { id: number; zoneCode: string; zoneName?: string; shelfCode: string; binCode: string; fullCode: string; description?: string; isActive?: boolean; maxCapacity?: number | null; createdAt?: string; updatedAt?: string }
+  return { id: r.id, zoneCode: r.zoneCode, zoneName: r.zoneName ?? r.zoneCode, shelfCode: r.shelfCode, binCode: r.binCode, fullCode: r.fullCode, description: r.description ?? null, isActive: r.isActive ?? true, maxCapacity: r.maxCapacity ?? null, createdAt: r.createdAt ?? "", updatedAt: r.updatedAt ?? "" }
 }
 
 export function mapCustomer(raw: unknown) {
@@ -46,17 +46,6 @@ export function mapProduct(raw: unknown) {
     categoryId: r.categoryId ?? null, categoryName: r.categoryName ?? null,
     trackingType: r.trackingType ?? "BULK", minStock: r.minStock ?? 0, isActive: r.isActive ?? true,
     description: r.description ?? null, createdAt: r.createdAt, updatedAt: r.updatedAt,
-  }
-}
-
-export function mapInventoryItem(raw: unknown) {
-  const r = raw as {
-    id: number; productId: number; productName: string; productSku: string
-    quantity: number; minStock: number; location: string; updatedAt: string
-  }
-  return {
-    id: r.id, productId: r.productId, productName: r.productName, productSku: r.productSku,
-    quantity: r.quantity, minStock: r.minStock, location: r.location, updatedAt: r.updatedAt,
   }
 }
 
@@ -118,16 +107,6 @@ export function mapExportReceipt(raw: unknown) {
     createdBy: r.createdBy, createdByName: r.createdByName ?? "—", createdAt: r.createdAt,
     approvedBy: r.approvedBy ?? null, approvedByName: r.approvedByName ?? null,
     items: (r.items ?? []).map(mapExportItem),
-  }
-}
-
-export function mapDashboardStats(raw: unknown) {
-  const r = raw as { totalProducts: number; activeProducts: number; totalItems: number; lowStockCount: number }
-  return {
-    totalProducts: r.totalProducts ?? 0,
-    activeProducts: r.activeProducts ?? 0,
-    totalItems: r.totalItems ?? 0,
-    lowStockCount: r.lowStockCount ?? 0,
   }
 }
 
@@ -214,17 +193,9 @@ export function mapPriceAdjustment(raw: unknown) {
   }
 }
 
-export function mapInventorySummary(raw: unknown) {
-  const r = raw as { totalProducts: number; totalUnits: number; totalStockValue: number; lowStockCount: number; outOfStockCount: number }
-  return { totalProducts: r.totalProducts, totalUnits: r.totalUnits, totalStockValue: r.totalStockValue, lowStockCount: r.lowStockCount, outOfStockCount: r.outOfStockCount }
-}
 export function mapCategoryStock(raw: unknown) {
   const r = raw as { categoryId?: number | null; categoryName?: string | null; productCount: number; totalUnits: number; totalStockValue: number }
   return { categoryId: r.categoryId ?? null, categoryName: r.categoryName ?? null, productCount: r.productCount, totalUnits: r.totalUnits, totalStockValue: r.totalStockValue }
-}
-export function mapLowStockItem(raw: unknown) {
-  const r = raw as { productId: number; productName: string; productSku: string; quantity: number; minStock: number }
-  return { productId: r.productId, productName: r.productName, productSku: r.productSku, quantity: r.quantity, minStock: r.minStock }
 }
 export function mapStockValueItem(raw: unknown) {
   const r = raw as { productId: number; productName: string; productSku: string; categoryName?: string | null; quantity: number; unitPrice: number; totalValue: number }

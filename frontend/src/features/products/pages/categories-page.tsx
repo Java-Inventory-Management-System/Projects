@@ -1,5 +1,5 @@
 import { CatalogPage } from "../components/catalog-page"
-import { getCategories, createCategory, updateCategory, toggleCategoryActive } from "@/features/products/services/category-service"
+import { getCategories, createCategory, updateCategory, toggleCategoryActive } from "@/services/category-service"
 
 export function CategoriesPage() {
   return (

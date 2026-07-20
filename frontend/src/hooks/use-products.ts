@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createProduct, getProducts, getProductById, updateProduct, toggleProductActive } from "@/services/product-service"
-import type { CreateProductRequest, UpdateProductRequest } from "@/services/product-service"
+import type { CreateProductRequest, UpdateProductRequest } from "@/utils/types"
 
 export function useProducts(page = 0, size = 20, search?: string, brandId?: number, categoryId?: number) {
   return useQuery({

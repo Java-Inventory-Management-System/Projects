@@ -1,19 +1,6 @@
 import http from "@/utils/http-client"
-import type { CreateProductRequest, ProductResponse, ResponsePage } from "@/utils/types"
+import type { CreateProductRequest, UpdateProductRequest, ProductResponse, ResponsePage } from "@/utils/types"
 import { mapProduct, mapResponsePage } from "@/utils/mappers"
-
-export interface UpdateProductRequest {
-  name: string
-  sku: string | null
-  barcode: string | null
-  brandId: number | null
-  categoryId: number | null
-  description: string | null
-  unit: string | null
-  trackingType: string | null
-  sellPrice: number | null
-  minStock: number | null
-}
 
 export async function getProducts(
   page = 0,

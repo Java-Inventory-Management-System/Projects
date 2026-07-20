@@ -1,10 +1,10 @@
 import http from "@/utils/http-client"
 import type { InventorySummary, CategoryStock, LowStockItem, StockValueItem, ActivityItem, DeadStockItem, ResponsePage } from "@/utils/types"
-import { mapInventorySummary, mapCategoryStock, mapLowStockItem, mapStockValueItem, mapActivityItem, mapDeadStockItem, mapResponsePage } from "@/utils/mappers"
+import { mapCategoryStock, mapStockValueItem, mapActivityItem, mapDeadStockItem, mapResponsePage } from "@/utils/mappers"
 
 export async function getInventorySummary(): Promise<InventorySummary> {
   const res = await http.get("/report/inventory-summary")
-  return mapInventorySummary(res)
+  return res as unknown as InventorySummary
 }
 
 export async function getInventoryByCategory(): Promise<CategoryStock[]> {
@@ -14,7 +14,7 @@ export async function getInventoryByCategory(): Promise<CategoryStock[]> {
 
 export async function getLowStock(page = 0, size = 20): Promise<ResponsePage<LowStockItem>> {
   const res = await http.get("/report/low-stock", { params: { page, size } })
-  return mapResponsePage(res, mapLowStockItem)
+  return mapResponsePage(res, (item) => item as unknown as LowStockItem)
 }
 
 export async function getStockValue(): Promise<StockValueItem[]> {

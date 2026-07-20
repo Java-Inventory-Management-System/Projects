@@ -3,7 +3,7 @@ import { useLocationMap } from "@/hooks/use-location-map"
 import { useLocationMapStore } from "@/store/location-map-store"
 import type { DetailBin, FilterMode } from "@/features/stock/utils/location-map-utils"
 import { nextCode } from "@/features/stock/utils/location-map-utils"
-import { createLocation, deleteLocation } from "@/features/stock/services/location-service"
+import { createLocation, deleteLocation } from "@/services/location-service"
 import { toast } from "@/utils/toast"
 
 export function useLocationMapPage() {
@@ -40,7 +40,7 @@ export function useLocationMapPage() {
               if (search && !bin.fullCode.toLowerCase().includes(search.toLowerCase())) return false
               if (filter === "empty") return bin.productCount === 0
               if (filter === "stocked") return bin.productCount > 0
-              if (filter === "full") return bin.productCount >= 50
+              if (filter === "full") return bin.maxCapacity != null && bin.maxCapacity > 0 ? bin.productCount >= bin.maxCapacity : bin.productCount >= 50
               return true
             })
             return { ...shelf, bins }
@@ -77,7 +77,7 @@ export function useLocationMapPage() {
     const zoneCode = nextCode(existing)
     const shelfCode = "01"
     const binCode = "01"
-    const newBin = { id: -Date.now(), fullCode: `${zoneCode}-${shelfCode}-${binCode}`, binCode, productCount: 0 }
+    const newBin = { id: -Date.now(), fullCode: `${zoneCode}-${shelfCode}-${binCode}`, binCode, productCount: 0, maxCapacity: null }
     patchZones((prev) => ({ ...prev, zones: [...prev.zones, { zoneCode, shelves: [{ shelfCode, bins: [newBin] }] }] }))
     createLocation({ zoneCode, shelfCode, binCode })
       .then((res) => {
@@ -131,7 +131,7 @@ export function useLocationMapPage() {
     const shelf = zone?.shelves.find((s) => s.shelfCode === shelfCode)
     const existing = (shelf?.bins ?? []).map((b) => b.binCode)
     const binCode = nextCode(existing)
-    const newBin = { id: -Date.now(), fullCode: `${zoneCode}-${shelfCode}-${binCode}`, binCode, productCount: 0 }
+    const newBin = { id: -Date.now(), fullCode: `${zoneCode}-${shelfCode}-${binCode}`, binCode, productCount: 0, maxCapacity: null }
     patchZones((prev) => ({
       ...prev,
       zones: prev.zones.map((z) =>
@@ -168,7 +168,7 @@ export function useLocationMapPage() {
     const existingShelves = (zone?.shelves ?? []).map((s) => s.shelfCode)
     const shelfCode = nextCode(existingShelves)
     const binCode = "01"
-    const newBin = { id: -Date.now(), fullCode: `${zoneCode}-${shelfCode}-${binCode}`, binCode, productCount: 0 }
+    const newBin = { id: -Date.now(), fullCode: `${zoneCode}-${shelfCode}-${binCode}`, binCode, productCount: 0, maxCapacity: null }
     patchZones((prev) => ({
       ...prev,
       zones: prev.zones.map((z) =>

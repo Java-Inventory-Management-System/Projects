@@ -14,7 +14,6 @@ const BrandsPage = lazy(() => import("@/features/products/pages/brands-page").th
 const CategoriesPage = lazy(() => import("@/features/products/pages/categories-page").then((m) => ({ default: m.CategoriesPage })))
 const SuppliersPage = lazy(() => import("@/features/products/pages/suppliers-page").then((m) => ({ default: m.SuppliersPage })))
 const CustomersPage = lazy(() => import("@/features/products/pages/customers-page").then((m) => ({ default: m.CustomersPage })))
-const InventoryPage = lazy(() => import("@/features/inventory/pages/inventory-page").then((m) => ({ default: m.InventoryPage })))
 const NotFoundPage = lazy(() => import("@/features/common/pages/not-found-page").then((m) => ({ default: m.NotFoundPage })))
 const ImportListPage = lazy(() => import("@/features/stock/pages/import-list-page").then((m) => ({ default: m.ImportListPage })))
 const ImportCreatePage = lazy(() => import("@/features/stock/pages/import-create-page").then((m) => ({ default: m.ImportCreatePage })))
@@ -34,10 +33,8 @@ const PriceAdjustmentDetailPage = lazy(() => import("@/features/stock/pages/pric
 const POListPage = lazy(() => import("@/features/stock/pages/po-list-page").then((m) => ({ default: m.POListPage })))
 const POCreatePage = lazy(() => import("@/features/stock/pages/po-create-page").then((m) => ({ default: m.POCreatePage })))
 const PODetailPage = lazy(() => import("@/features/stock/pages/po-detail-page").then((m) => ({ default: m.PODetailPage })))
-const ReportsPage = lazy(() => import("@/features/stock/pages/reports-page").then((m) => ({ default: m.ReportsPage })))
-const ProductUnitListPage = lazy(() => import("@/features/stock/pages/product-unit-list-page").then((m) => ({ default: m.ProductUnitListPage })))
-const LocationsMapPage = lazy(() => import("@/features/stock/pages/locations-map-page").then((m) => ({ default: m.LocationsMapPage })))
-const LocationsPage = lazy(() => import("@/features/stock/pages/locations-page").then((m) => ({ default: m.LocationsPage })))
+
+const StockUnitsPage = lazy(() => import("@/features/stock/pages/stock-units-page").then((m) => ({ default: m.StockUnitsPage })))
 const UsersPage = lazy(() => import("@/features/admin/pages/users-page").then((m) => ({ default: m.UsersPage })))
 const AuditPage = lazy(() => import("@/features/admin/pages/audit-page").then((m) => ({ default: m.AuditPage })))
 
@@ -51,7 +48,7 @@ function PageGuard({ roles, children }: { roles: URole[]; children: ReactNode })
 }
 function RootRedirect() {
   const role = useAuthStore((s) => s.user?.role)
-  if (role === "STOCK") return <Navigate to="/inventory" replace />
+  if (role === "STOCK") return <Navigate to="/stock/units" replace />
   return <DashboardPage />
 }
 const adminManagerStock = ["ADMIN", "MANAGER", "STOCK"] as URole[]
@@ -80,7 +77,7 @@ export const router = createBrowserRouter([
           { path: "categories", element: <Lazy><PageGuard roles={adminManager}><CategoriesPage /></PageGuard></Lazy> },
           { path: "suppliers", element: <Lazy><PageGuard roles={adminManager}><SuppliersPage /></PageGuard></Lazy> },
           { path: "customers", element: <Lazy><PageGuard roles={adminManagerStock}><CustomersPage /></PageGuard></Lazy> },
-          { path: "inventory", element: <Lazy><PageGuard roles={adminManagerStock}><InventoryPage /></PageGuard></Lazy> },
+          { path: "inventory", element: <Navigate to="/stock/units" replace /> },
           { path: "stock/imports", element: <Lazy><PageGuard roles={adminManagerStock}><ImportListPage /></PageGuard></Lazy> },
           { path: "stock/imports/new", element: <Lazy><PageGuard roles={adminManagerStock}><ImportCreatePage /></PageGuard></Lazy> },
           { path: "stock/exports", element: <Lazy><PageGuard roles={adminManagerStock}><ExportListPage /></PageGuard></Lazy> },
@@ -99,10 +96,10 @@ export const router = createBrowserRouter([
           { path: "stock/purchase-orders", element: <Lazy><PageGuard roles={adminManager}><POListPage /></PageGuard></Lazy> },
           { path: "stock/purchase-orders/new", element: <Lazy><PageGuard roles={adminManager}><POCreatePage /></PageGuard></Lazy> },
           { path: "stock/purchase-orders/:id", element: <Lazy><PageGuard roles={adminManager}><PODetailPage /></PageGuard></Lazy> },
-          { path: "reports", element: <Lazy><PageGuard roles={adminManager}><ReportsPage /></PageGuard></Lazy> },
-          { path: "product-units", element: <Lazy><PageGuard roles={adminManagerStock}><ProductUnitListPage /></PageGuard></Lazy> },
-          { path: "locations/map", element: <Lazy><PageGuard roles={adminManagerStock}><LocationsMapPage /></PageGuard></Lazy> },
-          { path: "locations", element: <Lazy><PageGuard roles={adminManagerStock}><LocationsPage /></PageGuard></Lazy> },
+          { path: "reports", element: <Navigate to="/" replace /> },
+          { path: "stock/units", element: <Lazy><PageGuard roles={adminManagerStock}><StockUnitsPage /></PageGuard></Lazy> },
+          { path: "product-units", element: <Navigate to="/stock/units" replace /> },
+          { path: "locations", element: <Navigate to="/stock/units" replace /> },
           { path: "users", element: <Lazy><PageGuard roles={adminManager}><UsersPage /></PageGuard></Lazy> },
           { path: "audit", element: <Lazy><PageGuard roles={adminManager}><AuditPage /></PageGuard></Lazy> },
         ],

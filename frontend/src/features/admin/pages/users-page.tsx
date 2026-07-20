@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react"
 import { useDebounce } from "@/hooks/use-debounce"
-import { getUsers, createUser, updateUserInfo, updateUserRole, updateUserStatus, resetPassword } from "@/features/admin/services/user-service"
+import { getUsers, createUser, updateUserInfo, updateUserRole, updateUserStatus, resetPassword } from "@/services/user-service"
 import type { UserResponse, ResponsePage, URole } from "@/utils/types"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"

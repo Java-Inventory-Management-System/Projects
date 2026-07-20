@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query"
-import { getLocationMap } from "@/features/stock/services/location-service"
+import { getLocationMap } from "@/services/location-service"
 
 export function useLocationMap() {
   return useQuery({

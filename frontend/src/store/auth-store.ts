@@ -16,6 +16,7 @@ interface JwtPayload {
   username: string
   fullName: string
   role: string
+  exp?: number
 }
 
 interface AuthState {
@@ -36,9 +37,7 @@ function restoreUser(): User | null {
     if (!token) return null
     const payload = jwtDecode<JwtPayload>(token)
     if (!payload?.id) return null
-    const now = Date.now() / 1000
-    const exp = JSON.parse(atob(token.split(".")[1])).exp
-    if (exp && exp < now) return null
+    if (payload.exp && payload.exp < Date.now() / 1000) return null
     return mapUser(payload)
   } catch {
     clearToken()

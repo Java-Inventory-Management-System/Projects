@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { useDebounce } from "@/hooks/use-debounce"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { getCustomers, createCustomer, updateCustomer, toggleCustomerActive } from "@/features/products/services/customer-service"
+import { getCustomers, createCustomer, updateCustomer, toggleCustomerActive } from "@/services/customer-service"
 import type { CustomerResponse } from "@/utils/types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"

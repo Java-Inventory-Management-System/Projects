@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { useParams, useNavigate } from "react-router-dom"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { getPriceAdjustmentById, approvePriceAdjustment, rejectPriceAdjustment } from "@/features/stock/services/price-adjustment-service"
+import { getPriceAdjustmentById, approvePriceAdjustment, rejectPriceAdjustment } from "@/services/price-adjustment-service"
 import { usePermission } from "@/hooks/use-permission"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"

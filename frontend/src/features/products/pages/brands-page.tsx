@@ -1,5 +1,5 @@
 import { CatalogPage } from "../components/catalog-page"
-import { getBrands, createBrand, updateBrand, toggleBrandActive } from "@/features/products/services/brand-service"
+import { getBrands, createBrand, updateBrand, toggleBrandActive } from "@/services/brand-service"
 
 export function BrandsPage() {
   return (

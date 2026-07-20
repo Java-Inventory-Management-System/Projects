@@ -1,5 +1,5 @@
 import { useExportReceipts } from "@/hooks/use-export-receipts"
-import { cancelExportReceipt, approveExportReceipt } from "@/features/stock/services/export-service"
+import { cancelExportReceipt, approveExportReceipt } from "@/services/export-service"
 import { ViewExportModal } from "../components/view-export-modal"
 import { ReceiptListPage } from "../components/receipt-list-page"
 import { Badge } from "@/components/ui/badge"
