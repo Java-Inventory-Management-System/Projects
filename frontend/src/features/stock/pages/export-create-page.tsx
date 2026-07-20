@@ -1,9 +1,9 @@
 import { useState, useEffect, useMemo, useCallback } from "react"
 import { useNavigate } from "react-router-dom"
-import { useMutation } from "@tanstack/react-query"
-import { createExportReceipt } from "@/features/stock/services/export-service"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { createExportReceipt } from "@/services/export-service"
 import { useProducts } from "@/hooks/use-products"
-import { getSerialsForExport } from "@/features/stock/services/product-unit-service"
+import { getSerialsForExport } from "@/services/product-unit-service"
 import { CustomerSelectModal } from "@/features/stock/components/customer-select-modal"
 import { exportFormSchema } from "@/features/stock/schemas/export-schema"
 import type { ExportFormData } from "@/features/stock/schemas/export-schema"
@@ -48,6 +48,7 @@ const reasons: { value: ExportReason; label: string }[] = [
 
 export const ExportCreatePage = () => {
   const navigate = useNavigate()
+  const qc = useQueryClient()
   const [reason, setReason] = useState("")
   const [customerId, setCustomerId] = useState("")
   const [note, setNote] = useState("")
@@ -73,7 +74,7 @@ export const ExportCreatePage = () => {
 
   const createMut = useMutation({
     mutationFn: createExportReceipt,
-    onSuccess: () => { toast.success("Tạo phiếu xuất thành công"); navigate("/stock/exports") },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["export-receipts"] }); toast.success("Tạo phiếu xuất thành công"); navigate("/stock/exports") },
     onError: (err: Error) => toast.error(err.message || "Có lỗi xảy ra"),
   })
 

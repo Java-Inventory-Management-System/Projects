@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { useNavigate, useLocation } from "react-router-dom"
-import { useMutation, useQuery } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createStockAdjustment } from "@/services/stock-adjustment-service"
 import { getProducts } from "@/services/product-service"
 import http from "@/utils/http-client"
@@ -38,6 +38,7 @@ interface FormErrors {
 
 export const StockAdjustmentCreatePage = () => {
   const navigate = useNavigate()
+  const qc = useQueryClient()
   const location = useLocation()
   const initialReason = (location.state as { reason?: string })?.reason ?? ""
 
@@ -72,6 +73,7 @@ export const StockAdjustmentCreatePage = () => {
   const createMut = useMutation({
     mutationFn: createStockAdjustment,
     onSuccess: (res) => {
+      qc.invalidateQueries({ queryKey: ["stock-adjustments"] })
       toast.success("Tạo phiếu điều chỉnh thành công")
       navigate("/stock/adjustments")
     },

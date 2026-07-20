@@ -58,6 +58,9 @@ export function ExportDetailPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["export-receipt", id] })
       qc.invalidateQueries({ queryKey: ["export-receipts"] })
+      qc.invalidateQueries({ queryKey: ["inventory"] })
+      qc.invalidateQueries({ queryKey: ["inventory-summary"] })
+      qc.invalidateQueries({ queryKey: ["low-stock"] })
       toast.success("Thao tác thành công")
       setConfirmAction(null)
     },

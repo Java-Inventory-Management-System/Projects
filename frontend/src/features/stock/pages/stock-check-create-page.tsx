@@ -1,8 +1,8 @@
 import { useState, useMemo } from "react"
 import { useNavigate } from "react-router-dom"
-import { useMutation, useQuery } from "@tanstack/react-query"
-import { createStockCheck } from "@/features/stock/services/stock-check-service"
-import { getImportReceipts } from "@/features/stock/services/import-service"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { createStockCheck } from "@/services/stock-check-service"
+import { getImportReceipts } from "@/services/import-service"
 import { mapResponsePage, mapProductUnit } from "@/utils/mappers"
 import http from "@/utils/http-client"
 import type { ImportReceipt, ProductUnit } from "@/utils/types"
@@ -25,6 +25,7 @@ import { toast } from "@/utils/toast"
 
 export const StockCheckCreatePage = () => {
   const navigate = useNavigate()
+  const qc = useQueryClient()
   const [search, setSearch] = useState("")
   const [selectedIds, setSelectedIds] = useState<number[]>([])
   const [note, setNote] = useState("")
@@ -74,6 +75,7 @@ export const StockCheckCreatePage = () => {
   const createMut = useMutation({
     mutationFn: createStockCheck,
     onSuccess: (res) => {
+      qc.invalidateQueries({ queryKey: ["stock-checks"] })
       toast.success("Tạo phiếu kiểm thành công")
       navigate(`/stock/checks/${res.id}`)
     },

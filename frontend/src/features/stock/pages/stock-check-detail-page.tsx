@@ -92,14 +92,21 @@ export const StockCheckDetailPage = () => {
   const recordMut = useMutation({
     mutationFn: (data: { items: Array<{ productUnitId: number; actualStatus?: string; countedQuantity?: number; note?: string }> }) =>
       recordStockCheckItems(Number(id!), data),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["stock-check", id] }); toast.success("Đã ghi nhận kết quả kiểm") },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["stock-check", id] }); qc.invalidateQueries({ queryKey: ["stock-checks"] }); toast.success("Đã ghi nhận kết quả kiểm") },
     onError: (err: Error) => toast.error(err.message || "Ghi nhận thất bại"),
   })
+
+  const invalidateAll = () => {
+    qc.invalidateQueries({ queryKey: ["stock-check", id] })
+    qc.invalidateQueries({ queryKey: ["stock-checks"] })
+    qc.invalidateQueries({ queryKey: ["inventory"] })
+    qc.invalidateQueries({ queryKey: ["inventory-summary"] })
+  }
 
   const completeMut = useMutation({
     mutationFn: () => completeStockCheck(Number(id!)),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["stock-checks"] })
+      invalidateAll()
       toast.success("Phiếu kiểm đã hoàn tất, chờ duyệt")
       navigate("/stock/checks")
     },
@@ -109,7 +116,7 @@ export const StockCheckDetailPage = () => {
   const approveMut = useMutation({
     mutationFn: () => approveStockCheck(Number(id!), approvalNote || undefined),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["stock-checks"] })
+      invalidateAll()
       setApprovalModal(null); setApprovalNote("")
       toast.success("Đã duyệt phiếu kiểm")
       navigate("/stock/checks")
@@ -120,7 +127,7 @@ export const StockCheckDetailPage = () => {
   const rejectMut = useMutation({
     mutationFn: () => rejectStockCheck(Number(id!), approvalNote || undefined),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["stock-checks"] })
+      invalidateAll()
       setApprovalModal(null); setApprovalNote("")
       toast.success("Đã từ chối phiếu kiểm")
       navigate("/stock/checks")

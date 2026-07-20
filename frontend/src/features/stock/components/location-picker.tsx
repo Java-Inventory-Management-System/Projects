@@ -48,7 +48,7 @@ export function LocationPicker({ value, onSelect, suggestedLocationId }: Locatio
         </Button>
       </PopoverTrigger>
       <PopoverContent
-        className="w-[520px] p-3 max-h-96 overflow-y-auto"
+        className="sm:w-[520px] w-[90vw] p-3 max-h-96 overflow-y-auto"
         align="start"
       >
         {isLoading && !data ? (
@@ -87,7 +87,7 @@ export function LocationPicker({ value, onSelect, suggestedLocationId }: Locatio
                           {shelf.bins.map((bin) => {
                             const isSelected = String(bin.id) === value
                             const isSuggested = suggestedLocationId === bin.id && !isSelected
-                            const color = binColor(bin.productCount)
+                            const color = binColor(bin.productCount, bin.maxCapacity)
                             return (
                               <button
                                 key={bin.id}
@@ -100,7 +100,7 @@ export function LocationPicker({ value, onSelect, suggestedLocationId }: Locatio
                                   isSelected && "ring-2 ring-primary",
                                   isSuggested && !isSelected && "ring-1 ring-blue-400",
                                 )}
-                                title={`${bin.fullCode}${bin.productCount > 0 ? ` (${bin.productCount} sp)` : " (trống)"}`}
+                                title={`${bin.fullCode}${bin.maxCapacity != null ? ` (${bin.productCount}/${bin.maxCapacity})` : bin.productCount > 0 ? ` (${bin.productCount} sp)` : " (trống)"}`}
                               >
                                 {bin.binCode}
                               </button>

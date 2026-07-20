@@ -1,7 +1,9 @@
 import { NavLink } from "react-router-dom"
+import { useQuery } from "@tanstack/react-query"
 import { cn } from "@/utils/cn"
 import { useAuthStore } from "@/store/auth-store"
 import { filterNavItems, navSections } from "@/utils/navigation"
+import http from "@/utils/http-client"
 
 interface SidebarProps {
   collapsed: boolean
@@ -16,6 +18,22 @@ export function Sidebar({ collapsed, onNavigate }: SidebarProps) {
   const visibleSections = navSections
     .map((s) => ({ ...s, items: filterNavItems(s.items, user.role) }))
     .filter((s) => s.items.length > 0)
+
+  const { data: importPending } = useQuery({
+    queryKey: ["import-pending-count"],
+    queryFn: async () => { const r = await http.get("/import-receipt", { params: { page: 0, size: 1, status: "PENDING_APPROVAL" } }); return (r as { totalElements?: number }).totalElements ?? 0 },
+    refetchInterval: 60_000,
+  })
+
+  const { data: exportPending } = useQuery({
+    queryKey: ["export-pending-count"],
+    queryFn: async () => { const r = await http.get("/export-receipt", { params: { page: 0, size: 1, status: "PENDING_APPROVAL" } }); return (r as { totalElements?: number }).totalElements ?? 0 },
+    refetchInterval: 60_000,
+  })
+
+  const badgeCount: Record<string, number> = {}
+  if (importPending && importPending > 0) badgeCount["/stock/imports"] = importPending
+  if (exportPending && exportPending > 0) badgeCount["/stock/exports"] = exportPending
 
   return (
     <aside
@@ -48,7 +66,7 @@ export function Sidebar({ collapsed, onNavigate }: SidebarProps) {
                     onClick={onNavigate}
                     className={({ isActive }) =>
                       cn(
-                        "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                        "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors relative",
                         isActive
                           ? "bg-sidebar-accent text-sidebar-accent-foreground"
                           : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
@@ -56,7 +74,21 @@ export function Sidebar({ collapsed, onNavigate }: SidebarProps) {
                     }
                   >
                     <Icon className="size-4 shrink-0" />
-                    {!collapsed && <span>{item.label}</span>}
+                    {!collapsed && (
+                      <>
+                        <span className="flex-1">{item.label}</span>
+                        {badgeCount[item.path] && (
+                          <span className="flex size-5 items-center justify-center rounded-full bg-destructive text-[10px] font-semibold text-destructive-foreground leading-none">
+                            {badgeCount[item.path]}
+                          </span>
+                        )}
+                      </>
+                    )}
+                    {collapsed && badgeCount[item.path] && (
+                      <span className="absolute -right-1 -top-1 flex size-4 items-center justify-center rounded-full bg-destructive text-[9px] font-semibold text-destructive-foreground leading-none">
+                        {badgeCount[item.path]}
+                      </span>
+                    )}
                   </NavLink>
                 )
               })}

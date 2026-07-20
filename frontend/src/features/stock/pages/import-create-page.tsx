@@ -1,8 +1,8 @@
 import { useState, useMemo, useCallback, useEffect } from "react"
 import { useNavigate, useBlocker, useSearchParams } from "react-router-dom"
-import { useMutation } from "@tanstack/react-query"
-import { createImportReceipt } from "@/features/stock/services/import-service"
-import { suggestLocation } from "@/features/stock/services/location-service"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { createImportReceipt } from "@/services/import-service"
+import { suggestLocation } from "@/utils/suggest-location"
 import { useCategoryZones } from "@/hooks/use-category-zones"
 import { useProducts } from "@/hooks/use-products"
 import { useSuppliers } from "@/hooks/use-suppliers"
@@ -11,6 +11,7 @@ import { useLocations } from "@/hooks/use-locations"
 import { importFormSchema } from "@/features/stock/schemas/import-schema"
 import type { ImportFormData } from "@/features/stock/schemas/import-schema"
 import { toast } from "@/utils/toast"
+import { usePermission } from "@/hooks/use-permission"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -50,8 +51,17 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { Trash2, Plus, ScanLine, MapPin, Check, ChevronsUpDown, Circle, CircleCheckBig } from "lucide-react"
+import { Trash2, Plus, ScanLine, MapPin, Check, ChevronsUpDown, Circle, CircleCheckBig, ClipboardList } from "lucide-react"
 import { SerialModal } from "../components/serial-modal"
+import { ImportCreateSidebar } from "../components/import-create-sidebar"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog"
 
 interface LineItem {
   tempId: number
@@ -68,7 +78,10 @@ interface LineItem {
 
 export const ImportCreatePage = () => {
   const navigate = useNavigate()
+  const qc = useQueryClient()
   const [searchParams] = useSearchParams()
+  const { hasRole } = usePermission()
+  const isManager = hasRole("MANAGER", "ADMIN")
   const poIdParam = searchParams.get("poId")
 
   const [supplierId, setSupplierId] = useState("")
@@ -80,6 +93,8 @@ export const ImportCreatePage = () => {
   const [referenceDoc, setReferenceDoc] = useState("")
   const [serialModalOpen, setSerialModalOpen] = useState(false)
   const [activeItemId, setActiveItemId] = useState<number | null>(null)
+  const [pasteDialogOpen, setPasteDialogOpen] = useState(false)
+  const [pasteText, setPasteText] = useState("")
 
   const { data: productsRes } = useProducts(0, 100)
   const { data: suppliers = [] } = useSuppliers()
@@ -116,7 +131,7 @@ export const ImportCreatePage = () => {
 
   const createMut = useMutation({
     mutationFn: createImportReceipt,
-    onSuccess: () => { toast.success("Tạo phiếu nhập thành công"); navigate("/stock/imports") },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["import-receipts"] }); toast.success("Tạo phiếu nhập thành công"); navigate("/stock/imports") },
     onError: (err: Error) => toast.error(err.message || "Có lỗi xảy ra khi tạo phiếu nhập"),
   })
 
@@ -173,6 +188,29 @@ export const ImportCreatePage = () => {
     setItems((prev) => prev.map((i) => (i.tempId === tempId ? { ...i, serials: newSerials } : i)))
   }, [])
 
+  const handlePasteSerials = useCallback(() => {
+    const lines = pasteText.split("\n").filter(Boolean)
+    let parsed = 0
+    setItems((prev) =>
+      prev.map((item) => {
+        const line = lines.find((l) => l.trim().toLowerCase().startsWith(item.productSku.toLowerCase()))
+        if (!line) return item
+        const colonIdx = line.indexOf(":")
+        if (colonIdx === -1) return item
+        const serials = line
+          .slice(colonIdx + 1)
+          .split(/[,;]/)
+          .map((s) => s.trim())
+          .filter(Boolean)
+        if (serials.length === 0) return item
+        parsed++
+        return { ...item, serials }
+      }),
+    )
+    toast.success(`Đã gán serial cho ${parsed} sản phẩm`)
+    if (parsed > 0) { setPasteDialogOpen(false); setPasteText("") }
+  }, [pasteText])
+
   const totalAmount = useMemo(() => items.reduce((sum, i) => sum + i.quantity * i.unitPrice, 0), [items])
 
   const serialIssues = useMemo(() => items
@@ -221,8 +259,8 @@ export const ImportCreatePage = () => {
   }, [supplierId, receiptDate, referenceDoc, note, items, allSerialsOk, serialIssues, allLocationsOk, poIdParam, createMut])
 
   return (
-    <div className="mx-auto max-w-4xl grid grid-cols-1 gap-6">
-      <div className="space-y-4 self-start">
+    <div className="mx-auto w-full max-w-5xl grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-6">
+      <div className="space-y-4 min-w-0">
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="sm" onClick={() => navigate("/stock/imports")}>
           &larr; Quay lại
@@ -336,9 +374,9 @@ export const ImportCreatePage = () => {
               <TableRow>
                 <TableHead className="min-w-[200px]">Sản phẩm</TableHead>
                 <TableHead className="w-20 text-right">SL</TableHead>
-                <TableHead className="w-28 text-right">Đơn giá</TableHead>
-                <TableHead className="w-16 text-right">BH(th)</TableHead>
-                <TableHead className="w-28 text-right">Thành tiền</TableHead>
+                {isManager && <TableHead className="w-28 text-right">Đơn giá</TableHead>}
+                {isManager && <TableHead className="w-16 text-right">BH(th)</TableHead>}
+                {isManager && <TableHead className="w-28 text-right">Thành tiền</TableHead>}
                 <TableHead className="w-44">Vị trí</TableHead>
                 <TableHead className="w-28 text-center">Serial</TableHead>
                 <TableHead className="w-10" />
@@ -372,27 +410,33 @@ export const ImportCreatePage = () => {
                         onChange={(e) => updateItem(item.tempId, "quantity", Number(e.target.value))}
                       />
                     </TableCell>
-                    <TableCell>
-                      <Input
-                        type="number"
-                        min={0}
-                        className="h-9 w-24 text-right"
-                        value={item.unitPrice}
-                        onChange={(e) => updateItem(item.tempId, "unitPrice", Number(e.target.value))}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        type="number"
-                        min={0}
-                        className="h-9 w-16 text-right"
-                        value={item.warrantyMonths}
-                        onChange={(e) => updateItem(item.tempId, "warrantyMonths", Number(e.target.value))}
-                      />
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums text-sm font-medium">
-                      {(item.quantity * item.unitPrice).toLocaleString("vi-VN")}₫
-                    </TableCell>
+                    {isManager && (
+                      <TableCell>
+                        <Input
+                          type="number"
+                          min={0}
+                          className="h-9 w-24 text-right"
+                          value={item.unitPrice}
+                          onChange={(e) => updateItem(item.tempId, "unitPrice", Number(e.target.value))}
+                        />
+                      </TableCell>
+                    )}
+                    {isManager && (
+                      <TableCell>
+                        <Input
+                          type="number"
+                          min={0}
+                          className="h-9 w-16 text-right"
+                          value={item.warrantyMonths}
+                          onChange={(e) => updateItem(item.tempId, "warrantyMonths", Number(e.target.value))}
+                        />
+                      </TableCell>
+                    )}
+                    {isManager && (
+                      <TableCell className="text-right tabular-nums text-sm font-medium">
+                        {(item.quantity * item.unitPrice).toLocaleString("vi-VN")}₫
+                      </TableCell>
+                    )}
                     <TableCell>
                       <LocationPicker
                         value={item.locationId}
@@ -425,12 +469,18 @@ export const ImportCreatePage = () => {
       )}
 
       <div className="flex items-center justify-between">
-        <span className="text-sm font-semibold">
-          Tổng: {totalAmount.toLocaleString("vi-VN")}₫
-        </span>
+        {isManager && (
+          <span className="text-sm font-semibold">
+            Tổng: {totalAmount.toLocaleString("vi-VN")}₫
+          </span>
+        )}
         <p className="text-xs text-muted-foreground italic">
           Tổng serial cần nhập: {items.reduce((s, i) => s + i.quantity, 0)} &middot; Đã nhập: {items.reduce((s, i) => s + i.serials.length, 0)}
         </p>
+        <Button variant="ghost" size="sm" className="gap-1.5 text-xs h-8" onClick={() => setPasteDialogOpen(true)}>
+          <ClipboardList className="size-3.5" />
+          Dán serial hàng loạt
+        </Button>
       </div>
 
       <div className="space-y-2">
@@ -468,6 +518,10 @@ export const ImportCreatePage = () => {
       </div>
       </div>
 
+      <div className="hidden lg:block space-y-4 self-start sticky top-4">
+        <ImportCreateSidebar />
+      </div>
+
       {activeItem && (
         <SerialModal
           open={serialModalOpen}
@@ -479,6 +533,27 @@ export const ImportCreatePage = () => {
           onSave={(serials) => saveSerials(activeItem.tempId, serials)}
         />
       )}
+
+      <Dialog open={pasteDialogOpen} onOpenChange={setPasteDialogOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Dán serial hàng loạt</DialogTitle>
+            <DialogDescription>
+              Mỗi dòng một sản phẩm: <code className="text-xs bg-muted px-1">SKU: serial1, serial2</code>
+            </DialogDescription>
+          </DialogHeader>
+          <Textarea
+            className="min-h-[200px] font-mono text-sm"
+            placeholder={"SKU-001: SN240701-001, SN240701-002\nSKU-002: SN240701-003"}
+            value={pasteText}
+            onChange={(e) => setPasteText(e.target.value)}
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setPasteDialogOpen(false); setPasteText("") }}>Hủy</Button>
+            <Button onClick={handlePasteSerials} disabled={!pasteText.trim()}>Áp dụng</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

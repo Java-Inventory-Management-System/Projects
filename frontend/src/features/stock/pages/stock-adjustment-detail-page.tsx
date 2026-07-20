@@ -5,7 +5,7 @@ import {
   getStockAdjustmentById,
   approveStockAdjustment,
   rejectStockAdjustment,
-} from "@/features/stock/services/stock-adjustment-service"
+} from "@/services/stock-adjustment-service"
 import { useAuthStore } from "@/store/auth-store"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -56,6 +56,9 @@ export const StockAdjustmentDetailPage = () => {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["stock-adjustment", id] })
       qc.invalidateQueries({ queryKey: ["stock-adjustments"] })
+      qc.invalidateQueries({ queryKey: ["inventory"] })
+      qc.invalidateQueries({ queryKey: ["inventory-summary"] })
+      qc.invalidateQueries({ queryKey: ["low-stock"] })
       setApprovalAction(null); setApprovalNote("")
       toast.success("Đã duyệt phiếu điều chỉnh")
     },

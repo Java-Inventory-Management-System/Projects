@@ -2,6 +2,7 @@ import { useState, useCallback, type ComponentType } from "react"
 import { useNavigate } from "react-router-dom"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { usePermission } from "@/hooks/use-permission"
+import { useUrlState } from "@/hooks/use-url-state"
 import { Button } from "@/components/ui/button"
 import { DataTable, type Column } from "@/components/ui/data-table"
 import { PaginationBar } from "@/components/ui/pagination-bar"
@@ -37,8 +38,8 @@ export function ReceiptListPage<R extends Receipt>({
   const navigate = useNavigate()
   const qc = useQueryClient()
   const { canCancel: hasCancelPerm, canApprove: hasApprovePerm } = usePermission()
-  const [page, setPage] = useState(0)
-  const [pageSize, setPageSize] = useState(10)
+  const [page, setPage] = useUrlState("page", 0)
+  const [pageSize, setPageSize] = useUrlState("size", 10)
   const [viewReceipt, setViewReceipt] = useState<R | null>(null)
   const [cancelTarget, setCancelTarget] = useState<R | null>(null)
 
