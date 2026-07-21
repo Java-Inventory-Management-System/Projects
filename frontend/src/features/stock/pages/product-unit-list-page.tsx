@@ -22,6 +22,7 @@ import { DataTable, type Column } from "@/components/ui/data-table"
 import { PaginationBar } from "@/components/ui/pagination-bar"
 import { ViewProductUnitModal } from "../components/view-product-unit-modal"
 import { useAuthStore } from "@/store/auth-store"
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 
 const statusOptions: { value: string; label: string }[] = [
   { value: "all", label: "Tất cả" },
@@ -131,9 +132,14 @@ export const ProductUnitListPage = () => {
       header: "Thao tác",
       className: "w-[80px]",
       render: (u) => (
-        <Button variant="ghost" size="icon" onClick={() => { setViewUnit(u); setViewOpen(true) }}>
-          <Eye className="size-4" />
-        </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button variant="ghost" size="icon" onClick={() => { setViewUnit(u); setViewOpen(true) }}>
+              <Eye className="size-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Xem chi tiết</TooltipContent>
+        </Tooltip>
       ),
     },
   ]

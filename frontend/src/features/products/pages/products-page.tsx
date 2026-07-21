@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { useDebounce } from "@/hooks/use-debounce"
 import { useNavigate, useSearchParams } from "react-router-dom"
-import { Search, Plus } from "lucide-react"
+import { Search, Plus, Eye, Pencil } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import {
@@ -15,6 +15,8 @@ import { useBrands } from "@/hooks/use-brands"
 import { useCategories } from "@/hooks/use-categories"
 import type { ProductResponse } from "@/utils/types"
 import { ViewProductModal } from "../components/view-product-modal"
+import { usePermission } from "@/hooks/use-permission"
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 
 const PAGE_SIZE = 20
 
@@ -28,6 +30,7 @@ export const ProductsPage = () => {
   const [page, setPage] = useState(0)
   const [viewProduct, setViewProduct] = useState<ProductResponse | null>(null)
 
+  const perm = usePermission()
   const debouncedSearch = useDebounce(searchInput, 300)
 
   const { data, isLoading } = useProducts(page, PAGE_SIZE, debouncedSearch || undefined, brandFilter, categoryFilter)
@@ -47,14 +50,26 @@ export const ProductsPage = () => {
     { header: "ĐVT", className: "w-[60px]", render: (p) => <span>{p.unit}</span> },
     { header: "Giá", className: "w-[80px] text-right", render: (p) => <span className="tabular-nums">{p.sellPrice?.toLocaleString("vi-VN")}</span> },
     { header: "Trạng thái", className: "w-[70px] text-center", render: (p) => <Badge variant={p.isActive ? "default" : "secondary"}>{p.isActive ? "Hoạt động" : "Ngừng"}</Badge> },
-    { header: "", className: "w-[70px]", render: (p) => (
+    { header: "Thao tác", className: "w-[100px]", render: (p) => (
       <div className="flex gap-1">
-        <Button variant="ghost" size="icon" onClick={() => setViewProduct(p)}>
-          <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
-        </Button>
-        <Button variant="ghost" size="icon" onClick={() => navigate(`/products/${p.id}`)}>
-          <svg className="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-        </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button variant="ghost" size="icon" onClick={() => setViewProduct(p)}>
+              <Eye className="size-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Xem chi tiết</TooltipContent>
+        </Tooltip>
+        {perm.hasRole("ADMIN", "MANAGER") && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" onClick={() => navigate(`/products/${p.id}`)}>
+                <Pencil className="size-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Chỉnh sửa</TooltipContent>
+          </Tooltip>
+        )}
       </div>
     )},
   ]

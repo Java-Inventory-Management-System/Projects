@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Eye } from "lucide-react"
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 import { DataTable, type Column } from "@/components/ui/data-table"
 import {
   Dialog,
@@ -88,12 +89,17 @@ export const AuditPage = () => {
       },
     },
     {
-      header: "Chi tiết",
-      className: "w-[60px]",
+      header: "Thao tác",
+      className: "w-[70px]",
       render: (log) => (
-        <Button variant="ghost" size="icon" onClick={() => setViewLog(log)}>
-          <Eye className="size-4" />
-        </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button variant="ghost" size="icon" onClick={() => setViewLog(log)}>
+              <Eye className="size-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Xem chi tiết</TooltipContent>
+        </Tooltip>
       ),
     },
   ]

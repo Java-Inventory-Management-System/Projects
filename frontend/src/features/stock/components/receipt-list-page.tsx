@@ -10,6 +10,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Plus, Eye, Check, X } from "lucide-react"
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 import { toast } from "@/utils/toast"
 
 interface Receipt {
@@ -77,19 +78,34 @@ export function ReceiptListPage<R extends Receipt>({
     className: "w-[130px]",
     render: (r: R) => (
       <div className="flex items-center gap-1">
-                        <Button variant="ghost" size="icon" onClick={() => setViewReceipt(r)}>
-                          <Eye className="size-4" />
-                        </Button>
-                        {canApprove(r) && (
-                          <Button variant="ghost" size="icon" onClick={() => handleApprove(r)} disabled={approveMut.isPending}>
-                            <Check className="size-4 text-green-600" />
-                          </Button>
-                        )}
-                        {hasCancelPerm() && r.status !== "CANCELLED" && (
-                          <Button variant="ghost" size="icon" onClick={() => setCancelTarget(r)}>
-                            <X className="size-4 text-destructive" />
-                          </Button>
-                        )}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button variant="ghost" size="icon" onClick={() => setViewReceipt(r)}>
+              <Eye className="size-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Xem chi tiết</TooltipContent>
+        </Tooltip>
+        {canApprove(r) && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" onClick={() => handleApprove(r)} disabled={approveMut.isPending}>
+                <Check className="size-4 text-green-600" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Duyệt phiếu</TooltipContent>
+          </Tooltip>
+        )}
+        {hasCancelPerm() && r.status !== "CANCELLED" && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" onClick={() => setCancelTarget(r)}>
+                <X className="size-4 text-destructive" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Từ chối</TooltipContent>
+          </Tooltip>
+        )}
       </div>
     ),
   }

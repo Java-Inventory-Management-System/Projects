@@ -4,6 +4,7 @@ import { usePriceAdjustments, useMyPriceAdjustments } from "@/hooks/use-price-ad
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Plus, Eye } from "lucide-react"
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select"
@@ -56,12 +57,17 @@ export function PriceAdjustmentListPage() {
       },
     },
     {
-      header: "",
-      className: "w-14",
+      header: "Thao tác",
+      className: "w-[70px]",
       render: (r) => (
-        <Button variant="ghost" size="icon" onClick={() => navigate(`/stock/price-adjustments/${r.id}`)}>
-          <Eye className="size-3.5" />
-        </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button variant="ghost" size="icon" onClick={() => navigate(`/stock/price-adjustments/${r.id}`)}>
+              <Eye className="size-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Xem chi tiết</TooltipContent>
+        </Tooltip>
       ),
     },
   ]

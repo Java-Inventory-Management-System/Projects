@@ -5,6 +5,8 @@ import { useStockAdjustments, useMyStockAdjustments } from "@/hooks/use-stock-ad
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Plus, Eye, ChevronDown, ChevronUp } from "lucide-react"
+import { usePermission } from "@/hooks/use-permission"
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select"
@@ -37,6 +39,7 @@ export const StockAdjustmentListPage = () => {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const user = useAuthStore((s) => s.user)
+  const perm = usePermission()
 
   const page = Number(searchParams.get("page") ?? "0")
   const typeFilter = searchParams.get("type") ?? ""
@@ -94,9 +97,14 @@ export const StockAdjustmentListPage = () => {
       header: "Thao tác",
       className: "w-[70px]",
       render: (r) => (
-        <Button variant="ghost" size="icon" onClick={() => navigate(`/stock/adjustments/${r.id}`)}>
-          <Eye className="size-4" />
-        </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button variant="ghost" size="icon" onClick={() => navigate(`/stock/adjustments/${r.id}`)}>
+              <Eye className="size-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Xem chi tiết</TooltipContent>
+        </Tooltip>
       ),
     },
   ]
@@ -105,9 +113,11 @@ export const StockAdjustmentListPage = () => {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold tracking-tight">Điều chỉnh tồn kho</h1>
-        <Button onClick={() => navigate("/stock/adjustments/new")}>
-          <Plus className="size-4 mr-1" /> Tạo phiếu điều chỉnh
-        </Button>
+        {perm.hasRole("ADMIN", "MANAGER") && (
+          <Button onClick={() => navigate("/stock/adjustments/new")}>
+            <Plus className="size-4 mr-1" /> Tạo phiếu điều chỉnh
+          </Button>
+        )}
       </div>
 
       <Collapsible open={filterOpen} onOpenChange={setFilterOpen}>

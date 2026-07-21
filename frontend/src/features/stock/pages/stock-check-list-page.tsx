@@ -5,6 +5,7 @@ import { useStockChecks, useMyStockChecks } from "@/hooks/use-stock-checks"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Plus, Eye } from "lucide-react"
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 import { DataTable, type Column } from "@/components/ui/data-table"
 import { PaginationBar } from "@/components/ui/pagination-bar"
 import type { StockCheck } from "@/utils/types"
@@ -52,9 +53,14 @@ export const StockCheckListPage = () => {
       header: "Thao tác",
       className: "w-[80px]",
       render: (r) => (
-        <Button variant="ghost" size="icon" onClick={() => navigate(`/stock/checks/${r.id}`)}>
-          <Eye className="size-4" />
-        </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button variant="ghost" size="icon" onClick={() => navigate(`/stock/checks/${r.id}`)}>
+              <Eye className="size-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Xem chi tiết</TooltipContent>
+        </Tooltip>
       ),
     },
   ]

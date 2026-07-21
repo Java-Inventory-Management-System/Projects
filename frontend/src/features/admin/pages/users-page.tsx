@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/select"
 import { PaginationBar } from "@/components/ui/pagination-bar"
 import { toast } from "@/utils/toast"
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 
 const roleOptions: { value: URole; label: string }[] = [
   { value: "ADMIN", label: "Admin" },
@@ -185,12 +186,32 @@ export const UsersPage = () => {
       className: "w-[140px]",
       render: (u) => (
         <div className="flex gap-1">
-          <Button variant="ghost" size="icon" onClick={() => openEdit(u)} title="Sửa thông tin"><UserCog className="size-4" /></Button>
-          <Button variant="ghost" size="icon" onClick={() => { setRoleUserId(u.id); setRoleVal(u.role); setRoleOpen(true) }} title="Đổi vai trò"><Shield className="size-4" /></Button>
-          <Button variant="ghost" size="icon" onClick={() => handleResetPassword(u.id)} title="Reset mật khẩu"><KeyRound className="size-4" /></Button>
-          <Button variant="ghost" size="icon" onClick={() => handleToggleStatus(u)} title={u.isDeleted ? "Kích hoạt" : "Vô hiệu hóa"}>
-            {u.isDeleted ? <CheckCircle className="size-4 text-green-600" /> : <Ban className="size-4 text-destructive" />}
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" onClick={() => openEdit(u)}><UserCog className="size-4" /></Button>
+            </TooltipTrigger>
+            <TooltipContent>Sửa thông tin</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" onClick={() => { setRoleUserId(u.id); setRoleVal(u.role); setRoleOpen(true) }}><Shield className="size-4" /></Button>
+            </TooltipTrigger>
+            <TooltipContent>Đổi vai trò</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" onClick={() => handleResetPassword(u.id)}><KeyRound className="size-4" /></Button>
+            </TooltipTrigger>
+            <TooltipContent>Reset mật khẩu</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" onClick={() => handleToggleStatus(u)}>
+                {u.isDeleted ? <CheckCircle className="size-4 text-green-600" /> : <Ban className="size-4 text-destructive" />}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{u.isDeleted ? "Kích hoạt" : "Vô hiệu hoá"}</TooltipContent>
+          </Tooltip>
         </div>
       ),
     },
