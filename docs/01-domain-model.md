@@ -1,6 +1,6 @@
 # Domain Model — Hệ thống Quản lý Kho Linh Kiện Máy Tính
 
-> File này là bản copy phần domain từ `plan-du-an-quan-ly-kho.md`, tách riêng để dễ đọc và review.
+> Gộp từ: `01-entity-model.md`, `07-warehouse-flow.md` (các file này đã bị xóa sau khi gộp — xem git history nếu cần tra lại quá trình phân tích gốc).
 
 ---
 
@@ -264,7 +264,7 @@ erDiagram
         decimal15_2 remaining_quantity "bulk only: qty còn lại"
         bigint import_receipt_item_id FK
         bigint location_id FK
-        varchar30 status "in_stock|reserved|sold|defective|damaged_in_storage|lost|under_repair|sent_to_manufacturer|returned|returned_to_supplier|removed|disposed"
+        varchar30 status "pending_qc|in_stock|reserved|sold|defective|damaged_in_storage|lost|under_repair|sent_to_manufacturer|returned|returned_to_supplier|removed|disposed"
         timestamp imported_at "FIFO milestone"
         int warranty_months "copy từ import_receipt_items tại thời điểm nhập — cố ý duplicate để giữ nguyên chính sách BH gốc dù products/import sau này đổi"
         date warranty_start_date "activated on sale"
@@ -374,7 +374,11 @@ erDiagram
 
 ```mermaid
 stateDiagram-v2
-    [*] --> in_stock
+    [*] --> pending_qc
+
+    pending_qc --> in_stock : QC Pass — unit vào tồn khả dụng
+    pending_qc --> defective : QC FAIL_HARDWARE — DOA, trả NCC
+    note right of pending_qc : QC FAIL_ACCESSORY → giữ pending_qc,<br/>chờ bổ sung phụ kiện rồi re-QC<br/>(không phải self-loop,<br/>cùng trạng thái nhưng ghi nhận<br/>trên audit log riêng)
 
     in_stock --> reserved : Export reserve — giữ chỗ tạm thời
     in_stock --> sold : export_receipts.reason=sale/internal
@@ -415,6 +419,9 @@ stateDiagram-v2
 **Quy tắc chuyển trạng thái:**
 | Từ | Sang | Điều kiện/Kích hoạt |
 |---|---|---|
+| `pending_qc` | `in_stock` | QC Pass — unit đủ điều kiện nhập kho, chuyển vào tồn khả dụng (SOP §2.2 B3) |
+| `pending_qc` | `defective` | QC FAIL_HARDWARE — lỗi phần cứng thật, chuyển defective ngay, ghi chú "DOA - phát hiện lúc nhập", đi nhánh trả NCC nhanh (SOP §2.2 B3) |
+| `pending_qc` | (giữ nguyên) | QC FAIL_ACCESSORY — thiếu phụ kiện, không chuyển status (vẫn `pending_qc`), ghi chú thiếu gì, chờ bổ sung rồi re-QC. Ghi audit log riêng cho lần QC này (SOP §2.2 B3) |
 | `in_stock` | `reserved` | Reserve transaction ngắn — `SELECT ... FOR UPDATE`, đổi status, commit ngay. Phiếu xuất chuyển `pending_approval` (SOP §3.2 B3) |
 | `in_stock` | `sold` | Tạo `export_receipts` với `reason='sale'` hoặc `'internal'` |
 | `in_stock` | `defective` | Phát hiện lỗi khi nhập hoặc trong kho |
@@ -440,9 +447,9 @@ stateDiagram-v2
 > **`removed`, `disposed`, `returned_to_supplier` là state cuối (terminal)** — không có transition đi ra.
 > - `removed` ≠ `disposed`: `removed` chỉ dành cho **hủy phiếu nhập** (unit chưa từng rời `in_stock`); `disposed` chỉ dành cho **thanh lý hàng hỏng đã xác nhận trong kho** (luôn đi qua `export_receipts`, có phiếu, có thể tính giá vốn hao hụt). Hai state này **không dùng thay thế cho nhau**.
 > - Nếu hủy phiếu nhập bị nhấn nhầm, giải pháp là tạo lại phiếu nhập mới, **không** revert `removed → in_stock`, để giữ tính một chiều của hành động hủy và không phá vỡ audit trail (xem `product_unit_status_logs` ở mục 1).
-> - **Điều kiện `in_stock → removed` (đầy đủ)**: chỉ cho phép hủy phiếu nhập khi **toàn bộ** `product_units` sinh ra từ phiếu đó thỏa: (a) `serialized` — chưa từng xuất hiện trong `export_receipt_item_units`; (b) `bulk` — `remaining_quantity = initial_quantity` (chưa bị xuất dù chỉ một phần). Nếu phiếu nhập có unit đã rời `in_stock` (dù chỉ 1 trong 50), **không cho hủy phiếu** — chỉ có thể xử lý riêng lẻ những unit còn `in_stock` qua `stock_adjustments`, giữ nguyên phiếu nhập gốc ở trạng thái `completed`.
+> - **Điều kiện `in_stock → removed` hoặc `pending_qc → removed` (đầy đủ)**: chỉ cho phép hủy phiếu nhập khi **toàn bộ** `product_units` sinh ra từ phiếu đó đang ở `in_stock` (chưa xuất) **hoặc** `pending_qc` (FAIL_ACCESSORY chưa xử lý xong): (a) `serialized` — chưa từng xuất hiện trong `export_receipt_item_units`; (b) `bulk` — `remaining_quantity = initial_quantity` (chưa bị xuất dù chỉ một phần). Nếu phiếu nhập có unit đã rời một trong hai trạng thái này (dù chỉ 1 trong 50), **không cho hủy phiếu** — chỉ có thể xử lý riêng lẻ những unit còn `in_stock`/`pending_qc` qua `stock_adjustments`, giữ nguyên phiếu nhập gốc ở trạng thái `completed`.
 
-> `reserved`, `removed`, `disposed`, `defective`, `lost`, `damaged_in_storage`, `sent_to_manufacturer`, `under_repair`, `returned`, `returned_to_supplier` **không tính vào tồn kho khả dụng** — loại trừ khỏi công thức COUNT/SUM bên dưới, chỉ `in_stock` được tính.
+> `pending_qc`, `reserved`, `removed`, `disposed`, `defective`, `lost`, `damaged_in_storage`, `sent_to_manufacturer`, `under_repair`, `returned`, `returned_to_supplier` **không tính vào tồn kho khả dụng** — loại trừ khỏi công thức COUNT/SUM bên dưới, chỉ `in_stock` được tính.
 
 > Tồn kho hiện tại của 1 sản phẩm:
 >
@@ -467,6 +474,20 @@ stateDiagram-v2
 
 > Với `replace`: unit thay thế được chuyển `in_stock → sold` qua `warranty_requests`, đồng thời hệ thống **tự động tạo `export_receipt` ngầm** với `reason='internal'` và ghi chú `'warranty replacement for WR-xxx'` để đảm bảo giá vốn được ghi nhận. `export_receipt_item_units` ghi nhận unit thay thế với `sell_price = 0` (không phát sinh doanh thu) nhưng vẫn trừ giá vốn (cost of goods sold). Cách này giúp (1) không ảnh hưởng doanh thu báo cáo, (2) vẫn trừ đúng giá vốn, (3) FIFO tracking chính xác cho lần xuất kế tiếp.
 
+### 2.2 State Machine — PurchaseOrder
+
+```
+DRAFT → PARTIAL       : nhập lần đầu (có import receipt link)
+PARTIAL → PARTIAL     : nhập thêm lần nữa
+PARTIAL → COMPLETED   : tổng received = ordered
+DRAFT/PARTIAL → CANCELLED : hủy toàn bộ
+```
+
+- `DRAFT`: chưa có phiếu nhập nào link tới.
+- `PARTIAL`: đã nhận một phần (`received_quantity < quantity` ở ít nhất 1 dòng).
+- `COMPLETED`: tất cả dòng đã nhận đủ.
+- `CANCELLED`: không cho hủy nếu đã có phiếu nhập `COMPLETED` liên kết (xem US-47, `04-requirements-traceability.md`).
+
 ---
 
 ## 3. Quyết định kiến trúc
@@ -475,7 +496,7 @@ stateDiagram-v2
 | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Quản lý tồn kho         | ✅ **Theo serial number** — mỗi sản phẩm vật lý có mã riêng (bảng `product_units`), phục vụ truy vết & bảo hành chi tiết                                                                                                                   |
 | Xuất kho                | ✅ **FIFO tự động** — hệ thống tự chọn các `product_units` có `imported_at` sớm nhất để xuất, không cần nhân viên chọn thủ công                                                                                                            |
-| Phạm vi kho             | ✅ **Chỉ 1 kho duy nhất** — không cần bảng/khái niệm `warehouse_id`                                                                                                                                                                        |
+| Phạm vi kho             | ✅ **1 kho duy nhất ở giai đoạn đầu**, nhưng vẫn thiết kế sẵn `warehouse_id` để mở rộng sau — xem `10-sop-quy-trinh-nghiep-vu.md` mục 1.2                                                                                                                                                                        |
 | Quản lý vị trí kho      | ✅ **Location-based** — mỗi `product_unit` gán 1 vị trí (`location_id`). Khi nhập: chọn vị trí. Khi xuất: FIFO trong cùng vị trí hoặc lấy gần nhau nhất                                                                                    |
 | Điều chỉnh tồn thủ công | ✅ Hỗ trợ 3 loại: `damaged`, `lost`, `found` — tất cả đều cần duyệt + lý do + audit log                                                                                                                                                    |
 | Ảnh sản phẩm            | ✅ **Nhiều ảnh / sản phẩm (gallery)** — tối đa 5 ảnh, đánh dấu 1 ảnh `is_primary` làm ảnh đại diện                                                                                                                                         |

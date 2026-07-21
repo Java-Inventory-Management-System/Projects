@@ -1,6 +1,6 @@
 # Câu hỏi mở cần xác nhận với Business
 
-> Tổng hợp từ đồng bộ 12 file tài liệu WMS với `10-sop-quy-trinh-nghiep-vu.md`.
+> Tổng hợp từ đồng bộ bộ tài liệu WMS vào các file living.
 > Ngày: 21/07/2026
 
 | # | Câu hỏi | Liên quan | Chi tiết | Nguồn |
@@ -17,3 +17,7 @@
 | 10 | **Chuỗi đổi BH lặp** — có chặn >2 lần? | SOP §6.4 | Hiện tại chỉ cảnh báo (không chặn) nếu 1 serial gốc đã qua >2 lần đổi. Cần chốt: chỉ cảnh báo hay chặn cứng? | 10-sop §6.4 |
 | 11 | **Warranty inheritance có đúng luật BVNTD VN không?** | NFR-19b | SOP §6.2 đã chốt CÁCH LÀM (kế thừa `warranty_start_date` gốc khi đổi serial), nhưng chưa xác nhận cách làm này có tuân thủ Luật Bảo vệ quyền lợi người tiêu dùng VN không. Cần review pháp lý trước khi go-live | 06 §5 NFR-19b |
 | ~~12~~ | ~~Resolution "trả nhà cung cấp" trong xử lý bảo hành bị bỏ khi SOP thu gọn 5→4 hướng — xếp vào đâu?~~ | US-16 | **Đã chốt:** `return_supplier` không còn là warranty resolution — xử lý qua export_receipt riêng (SOP §3). Case "lỗi NSX, không sửa được, không RMA" xếp vào REPAIR (gửi NCC là 1 nhánh của REPAIR) hoặc REFUND tùy tình huống. `01`/`02`/`04` đã đồng bộ theo quyết định này. | — |
+| 13 | **Mất/rách tem bảo hành — chính sách xử lý?** | SOP §6.3 B1 | 2 hướng: (a) mất tem vẫn tra cứu được bằng serial, chỉ mất quyền đổi mới nhanh tại shop (REPLACE → REPAIR/SENT_TO_MANUFACTURER); (b) mất tem = từ chối toàn bộ BH shop. Nếu shop không dùng tem riêng → mục này đánh dấu "Không áp dụng". Cần business chốt hướng trước khi go-live. | 10-sop §6.3 |
+| 14 | **RELOCATE trong lúc kiểm kê active cùng zone** — có nên chặn? | SOP §4.2 (thao tác RELOCATE) | RELOCATE hiện được phép làm bất kỳ lúc nào, không kiểm tra zone đích có đang thuộc phạm vi 1 stock check IN_PROGRESS hay không. Nếu unit bị relocate vào/ra khỏi zone đang kiểm giữa chừng → kết quả đếm sai lệch không rõ nguyên nhân. Cần chốt: chặn cứng, chỉ cảnh báo, hay chấp nhận rủi ro (tần suất thấp)? | Phát hiện qua rà soát UX bảo hành/kiểm kê, 21/07/2026 |
+| 15 | **STOCK tự REJECTED ở bước kiểm tra bảo hành — có cần QL xác nhận lần 2?** | SOP §6.3 Bước 2 | Hiện tại STOCK ghi `REJECTED` (không lỗi/không thuộc BH) là auto-resolve thẳng, không qua QL duyệt như 4 resolution còn lại. Cần chốt: có chấp nhận STOCK tự quyết định từ chối khách hay bắt buộc QL xác nhận để tránh STOCK tự ý từ chối sai? | 10-sop §6.3, phát hiện qua thiết kế UX WarrantyDetailPage |
+| 16 | **SLA REPLACE hết serial — có nút "chuyển sang REFUND thay thế" hay không?** | US-18, câu hỏi #1 đã có | Làm rõ thêm cho câu hỏi #1: ngoài việc chốt số ngày SLA, cần quyết định UI có cho phép QL/STOCK chủ động đổi hướng từ REPLACE sang REFUND khi đang chờ hàng quá lâu hay không, hay bắt buộc phải chờ đủ đúng loại hàng để đổi. | Phát hiện qua thiết kế UX WarrantyDetailPage §3.5 |
