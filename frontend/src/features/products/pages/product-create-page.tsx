@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { FieldError } from "@/components/ui/field"
 import {
   Select,
   SelectContent,
@@ -35,10 +37,16 @@ export function ProductCreatePage() {
   const [sellPrice, setSellPrice] = useState("")
   const [minStock, setMinStock] = useState("0")
   const [description, setDescription] = useState("")
+  const [errors, setErrors] = useState<Record<string, string>>({})
+
+  const clearError = (field: string) => setErrors((prev) => { const n = { ...prev }; delete n[field]; return n })
 
   const handleSubmit = async () => {
-    if (!name.trim()) { toast.error("Tên sản phẩm là bắt buộc"); return }
-    if (sku && !/^[A-Za-z0-9-]+$/.test(sku)) { toast.error("SKU chỉ gồm chữ, số và dấu gạch"); return }
+    const e: Record<string, string> = {}
+    if (!name.trim()) e.name = "Tên sản phẩm là bắt buộc"
+    if (sku && !/^[A-Za-z0-9-]+$/.test(sku)) e.sku = "SKU chỉ gồm chữ, số và dấu gạch"
+    setErrors(e)
+    if (Object.keys(e).length > 0) return
 
     await createProduct.mutateAsync({
       name: name.trim(),
@@ -68,11 +76,13 @@ export function ProductCreatePage() {
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2 sm:col-span-2">
           <Label htmlFor="name">Tên sản phẩm <span className="text-destructive">*</span></Label>
-          <Input id="name" required value={name} onChange={(e) => setName(e.target.value)} placeholder="VD: RAM Kingston 16GB DDR4" />
+          <Input id="name" required value={name} onChange={(e) => { setName(e.target.value); clearError("name") }} placeholder="VD: RAM Kingston 16GB DDR4" />
+          <FieldError errors={errors.name ? [{ message: errors.name }] : undefined} />
         </div>
         <div className="space-y-2">
           <Label htmlFor="sku">SKU</Label>
-          <Input id="sku" value={sku} onChange={(e) => setSku(e.target.value)} placeholder="Tự sinh nếu để trống" />
+          <Input id="sku" value={sku} onChange={(e) => { setSku(e.target.value); clearError("sku") }} placeholder="Tự sinh nếu để trống" />
+          <FieldError errors={errors.sku ? [{ message: errors.sku }] : undefined} />
         </div>
         <div className="space-y-2">
           <Label htmlFor="barcode">Barcode</Label>
@@ -105,14 +115,16 @@ export function ProductCreatePage() {
             </SelectContent>
           </Select>
         </div>
-        <div className="space-y-2">
-          <Label htmlFor="trackingType">Kiểu theo dõi</Label>
-          <Select value={trackingType} onValueChange={setTrackingType}>
-            <SelectTrigger id="trackingType"><SelectValue placeholder="Chọn kiểu" /></SelectTrigger>
-            <SelectContent>
-              {TRACKING_TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-            </SelectContent>
-          </Select>
+        <div className="space-y-2 sm:col-span-2">
+          <Label>Kiểu theo dõi</Label>
+          <RadioGroup value={trackingType} onValueChange={setTrackingType} className="flex gap-6">
+            {TRACKING_TYPES.map((t) => (
+              <div key={t} className="flex items-center gap-2">
+                <RadioGroupItem value={t} id={`tracking-${t}`} />
+                <Label htmlFor={`tracking-${t}`} className="font-normal">{t === "SERIALIZED" ? "Theo serial" : "Hàng rời"}</Label>
+              </div>
+            ))}
+          </RadioGroup>
         </div>
         <div className="space-y-2">
           <Label htmlFor="sellPrice">Giá bán</Label>

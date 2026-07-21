@@ -10,6 +10,7 @@ import { usePurchaseOrderById } from "@/hooks/use-purchase-orders"
 import { useLocations } from "@/hooks/use-locations"
 import { importFormSchema } from "@/features/stock/schemas/import-schema"
 import type { ImportFormData } from "@/features/stock/schemas/import-schema"
+import { FieldError } from "@/components/ui/field"
 import { toast } from "@/utils/toast"
 import { usePermission } from "@/hooks/use-permission"
 import { Badge } from "@/components/ui/badge"
@@ -95,6 +96,7 @@ export const ImportCreatePage = () => {
   const [activeItemId, setActiveItemId] = useState<number | null>(null)
   const [pasteDialogOpen, setPasteDialogOpen] = useState(false)
   const [pasteText, setPasteText] = useState("")
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({})
 
   const { data: productsRes } = useProducts(0, 100)
   const { data: suppliers = [] } = useSuppliers()
@@ -229,8 +231,9 @@ export const ImportCreatePage = () => {
     const raw: ImportFormData = { supplierId, receiptDate, referenceDoc, note, items }
     const parsed = importFormSchema.safeParse(raw)
     if (!parsed.success) {
-      const first = parsed.error.errors[0]
-      toast.error(first.message)
+      const e: Record<string, string> = {}
+      parsed.error.issues.forEach((issue) => { e[issue.path.join(".")] = issue.message })
+      setFormErrors(e)
       return
     }
     if (!allSerialsOk) {
@@ -241,6 +244,7 @@ export const ImportCreatePage = () => {
       toast.error("Vui lòng chọn vị trí kho cho tất cả sản phẩm")
       return
     }
+    setFormErrors({})
     const purchaseOrderId = poIdParam ? Number(poIdParam) : undefined
     createMut.mutate({
       receiptCode: referenceDoc || undefined,
@@ -277,7 +281,7 @@ export const ImportCreatePage = () => {
       <div className="grid gap-4 sm:grid-cols-3 shrink-0">
         <div className="space-y-2">
           <Label htmlFor="supplier">Nhà cung cấp</Label>
-          <Select value={supplierId} onValueChange={setSupplierId}>
+          <Select value={supplierId} onValueChange={(v) => { setSupplierId(v); setFormErrors((prev) => { const n = { ...prev }; delete n.supplierId; return n }) }}>
             <SelectTrigger id="supplier">
               <SelectValue placeholder="Chọn NCC" />
             </SelectTrigger>
@@ -287,10 +291,12 @@ export const ImportCreatePage = () => {
               ))}
             </SelectContent>
           </Select>
+          <FieldError errors={formErrors.supplierId ? [{ message: formErrors.supplierId }] : undefined} />
         </div>
         <div className="space-y-2">
           <Label htmlFor="receiptDate">Ngày nhập</Label>
-          <Input id="receiptDate" type="date" required value={receiptDate} onChange={(e) => setReceiptDate(e.target.value)} />
+          <Input id="receiptDate" type="date" required value={receiptDate} onChange={(e) => { setReceiptDate(e.target.value); setFormErrors((prev) => { const n = { ...prev }; delete n.receiptDate; return n }) }} />
+          <FieldError errors={formErrors.receiptDate ? [{ message: formErrors.receiptDate }] : undefined} />
         </div>
         <div className="space-y-2">
           <Label htmlFor="referenceDoc">Số hóa đơn/chứng từ</Label>
