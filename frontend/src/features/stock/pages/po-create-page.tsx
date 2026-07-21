@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react"
+import { useState, useMemo, useCallback, useEffect } from "react"
 import { useNavigate, useBlocker } from "react-router-dom"
 import { useCreatePurchaseOrder } from "@/hooks/use-purchase-orders"
 import { useProducts } from "@/hooks/use-products"
@@ -51,8 +51,10 @@ export function POCreatePage() {
 
   const createMut = useCreatePurchaseOrder()
 
+  const [hasSubmitted, setHasSubmitted] = useState(false)
+  useEffect(() => { if (items.length === 0) setHasSubmitted(false) }, [items])
   const hasUnsaved = items.length > 0
-  useBlocker(({ currentLocation, nextLocation }) => hasUnsaved && currentLocation.pathname !== nextLocation.pathname)
+  useBlocker(({ currentLocation, nextLocation }) => hasUnsaved && !hasSubmitted && currentLocation.pathname !== nextLocation.pathname)
 
   const nextTempId = useMemo(() => { let id = Date.now(); return () => id++ }, [])
 
@@ -89,7 +91,7 @@ export function POCreatePage() {
       items: items.map((i) => ({ productId: i.productId, quantity: i.quantity, unitPrice: i.unitPrice })),
     }, {
       onSuccess: () => { toast.success("Tạo đơn hàng thành công"); navigate("/stock/purchase-orders") },
-      onError: (e: Error) => toast.error(e.message),
+      onError: (e: Error) => { setHasSubmitted(true); toast.error(e.message || "Không thể tạo đơn hàng") },
     })
   }, [supplierId, expectedDate, note, items, createMut, navigate])
 

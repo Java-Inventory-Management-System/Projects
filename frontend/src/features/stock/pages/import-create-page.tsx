@@ -153,6 +153,8 @@ export const ImportCreatePage = () => {
   const [serialModalOpen, setSerialModalOpen] = useState(false)
   const [activeItemId, setActiveItemId] = useState<number | null>(null)
   const [pasteDialogOpen, setPasteDialogOpen] = useState(false)
+  const [submitted, setSubmitted] = useState(false)
+  useEffect(() => { if (items.length === 0) setSubmitted(false) }, [items])
   const [pasteText, setPasteText] = useState("")
   const [formErrors, setFormErrors] = useState<Record<string, string>>({})
   const [locationPickerItem, setLocationPickerItem] = useState<number | null>(null)
@@ -198,7 +200,7 @@ export const ImportCreatePage = () => {
 
   useBlocker(
     ({ currentLocation, nextLocation }) =>
-      hasUnsaved && currentLocation.pathname !== nextLocation.pathname,
+      hasUnsaved && !submitted && currentLocation.pathname !== nextLocation.pathname,
   )
 
   useEffect(() => {
@@ -213,7 +215,7 @@ export const ImportCreatePage = () => {
   const createMut = useMutation({
     mutationFn: createImportReceipt,
     onSuccess: () => { clearDraft("/stock/imports/new"); qc.invalidateQueries({ queryKey: ["import-receipts"] }); toast.success("Tạo phiếu nhập thành công"); navigate("/stock/imports") },
-    onError: (err: Error) => toast.error(err.message || "Có lỗi xảy ra khi tạo phiếu nhập"),
+    onError: (err: Error) => { setSubmitted(true); toast.error(err.message || "Có lỗi xảy ra khi tạo phiếu nhập") },
   })
 
   const nextTempId = useMemo(() => {

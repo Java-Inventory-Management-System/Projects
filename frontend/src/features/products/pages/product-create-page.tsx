@@ -48,20 +48,24 @@ export function ProductCreatePage() {
     setErrors(e)
     if (Object.keys(e).length > 0) return
 
-    await createProduct.mutateAsync({
-      name: name.trim(),
-      sku: sku || null,
-      barcode: barcode || null,
-      brandId: brandId ? Number(brandId) : null,
-      categoryId: categoryId ? Number(categoryId) : null,
-      unit: unit || null,
-      trackingType: trackingType || null,
-      sellPrice: sellPrice ? Number(sellPrice) : null,
-      minStock: minStock ? Number(minStock) : null,
-      description: description || null,
-    })
-    toast.success("Tạo sản phẩm thành công")
-    navigate("/products")
+    try {
+      await createProduct.mutateAsync({
+        name: name.trim(),
+        sku: sku || null,
+        barcode: barcode || null,
+        brandId: brandId ? Number(brandId) : null,
+        categoryId: categoryId ? Number(categoryId) : null,
+        unit: unit || null,
+        trackingType: trackingType || null,
+        sellPrice: sellPrice ? Number(sellPrice) : null,
+        minStock: minStock ? Number(minStock) : null,
+        description: description || null,
+      })
+      toast.success("Tạo sản phẩm thành công")
+      navigate("/products")
+    } catch (err) {
+      toast.error((err as Error).message || "Không thể tạo sản phẩm")
+    }
   }
 
   return (

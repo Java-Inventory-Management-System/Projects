@@ -39,7 +39,7 @@ export function PriceAdjustmentCreatePage() {
       reason: reason.trim(),
     }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["price-adjustments"] }); toast.success("Tạo phiếu điều chỉnh giá thành công"); navigate("/stock/price-adjustments") },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(e.message || "Không thể tạo phiếu điều chỉnh giá"),
   })
 
   const handleSubmit = () => {
