@@ -1,6 +1,7 @@
 # Bổ sung — Tài liệu đi kèm `wms-nhap-xuat-tong-hop.md`
 
 > File này chứa các ý đã thảo luận nhưng bị bỏ sót khi tổng hợp lần đầu. Đọc cùng với file chính (`09-business-analysis.md`), không thay thế.
+> **Xem `10-sop-quy-trinh-nghiep-vu.md` cho quy trình nghiệp vụ đã chốt.**
 
 ---
 

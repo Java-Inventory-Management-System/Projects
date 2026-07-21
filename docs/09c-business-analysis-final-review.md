@@ -1,25 +1,26 @@
 # Bổ sung lần 2 — Rà soát cuối
 
 > File này là bản rà soát cuối cùng, đối chiếu từng mục (1-28) của `08-inventory-analysis.md` để đảm bảo không còn sót. Đọc cùng 2 file trước, không thay thế.
+> **Xem `10-sop-quy-trinh-nghiep-vu.md` cho quy trình nghiệp vụ đã chốt — một số bug/gap trong file này đã có quyết định trong SOP.**
 
 ---
 
 ## 1. Bug/gap còn sót từ `08-inventory-analysis.md`
 
-| # | Vấn đề | Nguồn (mục trong 08) | Chi tiết |
-|---|---|---|---|
-| 1 | **Field mismatch `productId` vs `id`** — P0, latent type error | 21.1 | Backend `InventoryItemResponse` trả `productId` (không có `id`). Frontend `InventoryItem` khai báo `id: number`. Hiện tại `inventory-page.tsx` **không dùng `item.id`** nên chưa crash, nhưng là latent bug — nếu component nào đó access `item.id` sẽ undefined. Cần align (thêm `id` vào backend hoặc xóa khỏi FE type) |
-| 2 | **Không validate supplier tồn tại khi tạo phiếu nhập** | 15.1 | `ImportReceiptService.createAndConfirm()` không check `supplier_id` có thật trong DB hay không |
-| 3 | **Không sửa được phiếu nhập ở trạng thái `pending_approval`** | 15.1 | Khác Draft (chỉ lưu tạm chưa gửi duyệt) — đây là nhu cầu sửa số lượng/giá của phiếu ĐÃ gửi duyệt nhưng CHƯA được QL duyệt. Hiện chỉ có approve/cancel, không có update |
-| 4 | **Partial PO import bị chặn ở UI dù backend đã hỗ trợ** | 15.1 | `updatePOProgress` đã handle `PARTIAL` status, nhưng form nhập từ PO ở UI không cho nhập 1 phần (VD PO 100, muốn nhập 60 trước) |
-| 5 | **Thiếu endpoint `GET /export-receipt/{id}/units`** | 15.2 | Import có endpoint tương đương, export thì không — bất đối xứng API, gây khó khi cần hiển thị chi tiết units đã xuất |
-| 6 | **Không có soft-delete cho phiếu nhập/xuất** | 15.3 | Cancel là cách duy nhất để "xóa" — nếu tạo nhầm phiếu hoàn toàn (chưa ai động vào), không có cách xóa sạch khỏi danh sách, phiếu cancelled vẫn tồn tại mãi trong list |
-| 7 | **`export_receipts` thiếu `purchase_order_id`** | 15.3 | Import có link PO để trace nguồn gốc, export thì không — khi làm sales return (khách trả hàng), không link ngược được về PO gốc của lô hàng đó |
-| 8 | **Không có notification/alert chủ động cho low-stock** | 2 | Hiện chỉ có endpoint report thụ động (`/report/low-stock`), người dùng phải tự vào xem. Thiếu `@Scheduled` job + bảng `notifications` để báo chủ động khi tồn dưới `min_stock` |
-| 9 | **Cần tách `SellPriceHistory` khỏi `price_adjustments`** | 12 | `price_adjustments` (đã có trong code) là flow CÓ DUYỆT dành cho giá vốn nhập. Đổi giá bán (`sell_price`) là hành động thường xuyên, không cần duyệt, nhưng vẫn cần audit trail thụ động riêng (ai đổi, lúc nào, giá cũ→mới) — nếu dùng chung `price_adjustments` sẽ ép giá bán phải qua duyệt không cần thiết |
-| 10 | **Customer deduplication** | 14 | Không có unique constraint `phone`/`email`, không check trùng khi tạo mới, chỉ search theo tên → dễ tạo trùng khách hàng, sai lệch báo cáo sales-by-customer |
-| 11 | **Batch operations cho xuất kho còn thiếu** | 8 | Export chỉ add từng sản phẩm một (single Select, import đã có multi-select), không có bulk approve/cancel nhiều phiếu, không có Excel upload cho export (import đã có) |
-| 12 | **Barcode/RFID hoàn toàn chưa có** | 13 | Không có barcode generation (EAN-13/Code128), không scanning, `ProductUnit` không có field barcode riêng — ảnh hưởng trực tiếp tốc độ nhập serial/kiểm kê thủ công |
+| # | Vấn đề | Nguồn (mục trong 08) | Chi tiết | SOP? |
+|---|---|---|---|---|:---:|
+| 1 | **Field mismatch `productId` vs `id`** — P0, latent type error | 21.1 | Backend `InventoryItemResponse` trả `productId` (không có `id`). Frontend `InventoryItem` khai báo `id: number`. Hiện tại `inventory-page.tsx` không dùng `item.id` nên chưa crash, là latent bug | ❌ Ngoài phạm vi 7 luồng |
+| 2 | **Không validate supplier tồn tại khi tạo phiếu nhập** | 15.1 | `ImportReceiptService.createAndConfirm()` không check `supplier_id` có thật trong DB | ✅ **SOP §2.2 B1 yêu cầu validate** |
+| 3 | **Không sửa được phiếu nhập ở `pending_approval`** | 15.1 | Chỉ có approve/cancel, không có update | ✅ **SOP §2.2 thêm draft — sửa trước duyệt** |
+| 4 | **Partial PO import bị chặn ở UI** | 15.1 | Backend đã handle PARTIAL, UI chưa cho nhập 1 phần | ❌ Ngoài phạm vi SOP |
+| 5 | **Thiếu endpoint `GET /export-receipt/{id}/units`** | 15.2 | Import có, export không | ❌ Ngoài phạm vi SOP |
+| 6 | **Không có soft-delete cho phiếu nhập/xuất** | 15.3 | Cancel là cách "xóa" duy nhất, phiếu cancelled tồn tại mãi | ✅ **SOP §1.2: không soft-delete, giữ audit** |
+| 7 | **`export_receipts` thiếu `purchase_order_id`** | 15.3 | Import có link PO, export không — khó trace khi sales return | ❌ Ngoài phạm vi SOP |
+| 8 | **Không có notification/alert chủ động low-stock** | 2 | Chỉ có report thụ động, thiếu `@Scheduled` job | ❌ Ngoài phạm vi SOP |
+| 9 | **Cần tách `SellPriceHistory` khỏi `price_adjustments`** | 12 | Giá bán không cần duyệt, cần audit trail riêng | ✅ **SOP §8.4 có `sell_price_history` riêng** |
+| 10 | **Customer deduplication** | 14 | Không unique constraint phone/email | ❌ Ngoài phạm vi 7 luồng |
+| 11 | **Batch operations cho xuất kho còn thiếu** | 8 | Single Select, không bulk approve/cancel | ❌ Ngoài phạm vi SOP |
+| 12 | **Barcode/RFID hoàn toàn chưa có** | 13 | `ProductUnit` không có field barcode | ❌ Ngoài phạm vi SOP |
 
 ---
 

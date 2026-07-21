@@ -2,6 +2,7 @@
 
 > Hệ thống Quản lý Kho Linh Kiện Máy Tính — tổng hợp từ phiên phân tích domain-model + code review thực tế.
 > Dùng làm context prompt cho AI khác — không phải tài liệu đọc cho người.
+> **Xem `10-sop-quy-trinh-nghiep-vu.md` cho quy trình nghiệp vụ đã chốt.** File này là phân tích gốc, có thể lạc hậu một số điểm so với SOP.
 
 ---
 
@@ -35,18 +36,22 @@ Tạo phiếu (chọn NCC, link PO nếu có) → status = pending
 
 **Điều kiện hủy phiếu đã completed**: chỉ được nếu 100% units sinh từ phiếu đó chưa từng rời `in_stock` (serialized: chưa có trong `export_receipt_item_units`; bulk: `remaining_quantity = initial_quantity`). Có dù chỉ 1 unit đã xuất → không hủy được cả phiếu.
 
-### 1.2 Xuất kho
+### 1.2 Xuất kho (domain-model gốc — lưu ý: đã được sửa bởi SOP)
 
 ```
 Tạo phiếu: chọn lý do (sale/internal/return_supplier/dispose)
   — reason=sale bắt buộc customer_id
   → Chọn SP + SL → check tồn ngay, thiếu → báo max khả dụng, cho xuất partial
-  → FIFO auto-select: SELECT ... WHERE status='in_stock' ORDER BY imported_at ASC LIMIT n FOR UPDATE
-  → Reserve: phiếu → pending_approval, serial đã chọn "bị khóa"
+  → FIFO auto-select: SELECT ... WHERE status='in_stock' ORDER BY imported_at ASC, id ASC
+  → NV có thể override serial (bắt buộc lý do) — SOP bổ sung
+  → Reserve (transaction ngắn, FOR UPDATE, status → reserved) — SOP bổ sung
+  → Phiếu → pending_approval
   → QL duyệt (approved_by ≠ created_by)
     → Duyệt → completed: units → sold; nếu sale, set warranty_start/expires_at
     → Từ chối → cancelled: giải phóng serial
 ```
+
+> ⚠ So với domain-model gốc, SOP đã bổ sung: override serial tay, reserve transaction ngắn, flow xuất thiếu. Xem `10-sop-quy-trinh-nghiep-vu.md §3`.
 
 ### 1.3 Trạng thái `product_units` (code thật — 11 status)
 
@@ -236,28 +241,32 @@ Nguyên tắc: không bao giờ UPDATE trực tiếp `unit_price` trên dòng ph
 
 ---
 
-## 7. Gap chính sách nghiệp vụ cần xác nhận với chủ cửa hàng/QL (không phải quyết định kỹ thuật thuần túy)
+## 7. Gap chính sách nghiệp vụ — trạng thái theo SOP
 
-| # | Gap | Rủi ro nếu không xác nhận |
-|---|---|---|
-| 1 | FIFO cứng, không cho chọn tay serial | Có thể chặn use case thực tế (khách muốn serial mới hơn) |
-| 2 | `removed` không thể revert khi hủy nhầm phiếu nhập | Thao tác sai không có đường lùi |
-| 3 | Warranty inheritance (kế thừa hạn BH khi đổi serial) là chính sách business | Có thể sai luật bảo vệ người tiêu dùng VN |
-| 4 | Tồn âm "có thể bật" nhưng thiếu luồng backorder đi kèm | Bật tính năng nhưng thiếu logic hỗ trợ |
-| 5 | SLA xử lý bảo hành khi hết serial để đổi | Khách có thể chờ vô thời hạn |
-| 6 | Backup approval khi chỉ có 1 QL và họ vắng mặt | Nghẽn quy trình duyệt |
-| 7 | Mapping unit↔tracking_type hard-code trong Service layer | Thêm UOM mới phải sửa code |
-| 8 | Retention policy cho audit log | Có thể vi phạm luật lưu trữ chứng từ kế toán VN |
-| 9 | Role `SALES` không xuất hiện ở bất kỳ ma trận quyền nhập/xuất nào | Không rõ SALES có quyền gì trong luồng bán hàng |
-| 10 | Số ảnh tối đa "5"/sản phẩm — nguồn gốc con số chưa rõ | Constraint tùy tiện |
+> Các gap dưới đây đã được phân tích và **phần lớn đã có quyết định trong SOP**. Cột ghi chú dẫn chiếu.
+
+| # | Gap | Trạng thái | Quyết định / Tham chiếu |
+|---|---|---|---|
+| 1 | FIFO cứng, không cho chọn tay serial | ✅ **Đã chốt** | Cho override tay + bắt buộc lý do. Xem `10-sop-quy-trinh-nghiep-vu.md §3.2 B2` |
+| 2 | `removed` không thể revert khi hủy nhầm | ✅ **Đã chốt** | Không thêm revert. Thay vào đó: bổ sung draft + sửa phiếu trước duyệt. Xem `10-sop-quy-trinh-nghiep-vu.md §2.2` |
+| 3 | Warranty inheritance khi đổi serial | ✅ **Đã chốt** | Giữ nguyên `warranty_start_date` gốc, không reset. Xem `10-sop-quy-trinh-nghiep-vu.md §6.2` |
+| 4 | Tồn âm | ✅ **Đã chốt** | Chặn với serialized. Với bulk: mặc định chặn, có thể mở sau. Xem `10-sop-quy-trinh-nghiep-vu.md §3.2 B1` |
+| 5 | SLA bảo hành khi hết serial đổi | ⏳ **Còn mở** | Phụ thuộc chính sách NCC, cần xác nhận thêm |
+| 6 | Backup approval khi QL vắng | ✅ **Đã chốt** | Admin duyệt thay. Xem `10-sop-quy-trinh-nghiep-vu.md §1.2` |
+| 7 | Mapping unit↔tracking_type hard-code | ✅ **Đã chốt** | Chấp nhận, thêm UOM = sửa code. Xem `10-sop-quy-trinh-nghiep-vu.md §1.4` |
+| 8 | Retention policy audit log | ⏳ **Còn mở** | Cần xác nhận với kế toán / luật |
+| 9 | Role `SALES` quyền gì | ✅ **Đã chốt** | Tạo phiếu xuất, in phiếu, chuyển duyệt. Xem `10-sop-quy-trinh-nghiep-vu.md §1.3` |
+| 10 | Số ảnh tối đa 5/sản phẩm | ⏳ **Còn mở** | Ngoài phạm vi 7 luồng nghiệp vụ chính |
 
 ---
 
 ## 8. Việc cần làm tiếp theo (đề xuất thứ tự ưu tiên)
 
-1. **P0 — chốt trước khi code thêm feature mới**: quyết định nguồn sự thật giữa domain-model gốc vs code thật (mục 2), đặc biệt là enum status `product_units` (11 vs 15+ giá trị).
-2. **P0 — fix bug đang chạy**: double-booking export (thêm `PESSIMISTIC_WRITE`/status `reserved`), 4-eyes ở StockAdjustmentService (uncomment block), thêm `@Version` cho concurrency-critical entities, không UPDATE thẳng `unit_price` khi approve price adjustment, check unit status trước khi set SOLD ở export approve, thêm `PESSIMISTIC_WRITE` cho adjustment apply methods. `warrantyMonths` đã copy OK — không cần fix.
-3. **P1 — hoàn thiện gap đã có thiết kế**: Draft cho import, Return flow (Import/Sales Return), `maxCapacity` ở backend, COGS thật.
-4. **P1 — feature mới theo yêu cầu**: auto-assign location, QC/inspection step khi nhập.
-5. **P2 — case validate thêm**: các edge case ở mục 6, ưu tiên theo tần suất xảy ra thực tế trong vận hành.
-6. **Xác nhận chính sách business** ở mục 7 với chủ cửa hàng trước khi lock design cứng vào code.
+> Hầu hết chính sách business đã được chốt trong `10-sop-quy-trinh-nghiep-vu.md`. Các mục dưới đây là việc cần làm dựa trên phân tích code + SOP.
+
+1. **P0 — fix bug đang chạy**: double-booking export (thêm `PESSIMISTIC_WRITE`/status `reserved`), 4-eyes ở StockAdjustmentService (uncomment block), thêm `@Version` cho concurrency-critical entities, không UPDATE thẳng `unit_price` khi approve price adjustment, check unit status trước khi set SOLD ở export approve, thêm `PESSIMISTIC_WRITE` cho adjustment apply methods. `warrantyMonths` đã copy OK — không cần fix.
+2. **P0 — implement reserve transaction ngắn**: theo SOP, tách reserve khỏi approve. Dùng transaction ngắn `FOR UPDATE` → status `reserved` → commit, release lock.
+3. **P1 — implement flow theo SOP**: Draft cho import (cho sửa trước duyệt), Return flow (`return_receipts`), `warehouse_id`, `cost_price` + `total_cogs`, `sell_price_history`.
+4. **P1 — feature mới theo SOP**: auto-assign location, QC/inspection step khi nhập, xử lý xuất thiếu (exception flow + adjustment auto).
+5. **P2 — case validate thêm**: các edge case ở mục 6 (6.1–6.5), ưu tiên theo tần suất vận hành.
+6. **Còn mở — xác nhận với chủ shop**: giá nhập lệch PO (ghi chú trong SOP §2.2 B1), SLA bảo hành (mục 7#5), retention policy (mục 7#8).
