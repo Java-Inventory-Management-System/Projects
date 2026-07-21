@@ -1,6 +1,7 @@
 package org.dawn.backend.service.auth;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.dawn.backend.constant.shared.Message;
 import org.dawn.backend.entity.auth.RefreshToken;
 import org.dawn.backend.entity.auth.User;
@@ -15,6 +16,7 @@ import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 
+@Slf4j
 @RequiredArgsConstructor
 @Service
 public class RefreshTokenService {

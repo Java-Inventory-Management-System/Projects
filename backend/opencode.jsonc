@@ -18,7 +18,7 @@
   "mcp": {
     "codegraph": {
       "type": "local",
-      "command": ["/home/dawnbreaker/.local/bin/codegraph", "serve", "--mcp"],
+      "command": ["codegraph.cmd", "serve", "--mcp"],
       "enabled": true,
     },
   },

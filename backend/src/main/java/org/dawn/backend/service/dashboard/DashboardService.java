@@ -1,6 +1,7 @@
 package org.dawn.backend.service.dashboard;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.dawn.backend.controller.dashboard.response.DashboardResponse;
 import org.dawn.backend.entity.catalog.Product;
 import org.dawn.backend.entity.inventory.ProductUnit;
@@ -12,6 +13,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class DashboardService {

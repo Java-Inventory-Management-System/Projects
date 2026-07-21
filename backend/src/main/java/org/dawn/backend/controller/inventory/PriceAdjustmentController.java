@@ -21,6 +21,7 @@ public class PriceAdjustmentController {
     private final PriceAdjustmentService priceAdjustmentService;
 
     @GetMapping("/my")
+    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_STOCK)
     public ResponseObject<ResponsePage<PriceAdjustmentResponse>> getMyAdjustments(
             Pageable pageable,
             @RequestParam(required = false) String status) {
@@ -36,11 +37,13 @@ public class PriceAdjustmentController {
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_ADMIN_STOCK)
     public ResponseObject<PriceAdjustmentResponse> getOne(@PathVariable Long id) {
         return ResponseObject.success(priceAdjustmentService.findOne(id));
     }
 
     @PostMapping
+    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_STOCK)
     public ResponseObject<PriceAdjustmentResponse> create(@RequestBody CreatePriceAdjustmentRequest request) {
         return ResponseObject.created(priceAdjustmentService.create(request));
     }

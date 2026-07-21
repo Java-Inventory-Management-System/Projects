@@ -1,6 +1,7 @@
 package org.dawn.backend.service.inventory;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.dawn.backend.config.web.response.ResponsePage;
 import org.dawn.backend.controller.inventory.response.InventoryItemResponse;
 import org.dawn.backend.entity.catalog.Product;
@@ -18,6 +19,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class InventoryService {

@@ -12,6 +12,7 @@ import org.dawn.backend.entity.base.AbstractMappedEntity;
 @AllArgsConstructor
 @SuperBuilder
 @EqualsAndHashCode(callSuper = true)
+@ToString(callSuper = true)
 public class ProductImage extends AbstractMappedEntity {
 
     @Column(name = "product_id", nullable = false)

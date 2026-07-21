@@ -1,6 +1,7 @@
 package org.dawn.backend.service.inventory;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.dawn.backend.config.anno.AuditLog;
 import org.dawn.backend.config.web.response.ResponsePage;
 import org.dawn.backend.constant.inventory.ExportReason;
@@ -49,6 +50,7 @@ import java.util.List;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class WarrantyRequestService {
 
     private final WarrantyRequestRepository warrantyRequestRepository;
@@ -165,7 +167,6 @@ public class WarrantyRequestService {
                 .customerId(customer != null ? customer.getId() : null)
                 .issueDescription(request.issueDescription().trim())
                 .status(WarrantyRequestStatus.PENDING.name())
-                .handledBy(userId)
                 .note(request.note())
                 .build();
         return enrich(warrantyRequestRepository.save(warranty));

@@ -89,6 +89,7 @@ public class StockCheckService {
     }
 
     @Transactional
+    @AuditLog(action = LogConstant.Action.RECORD_STOCK_CHECK, entity = LogConstant.Entity.STOCK_CHECK)
     public StockCheckResponse recordItems(Long stockCheckId, StockCheckItemRequest.BatchRequest request) {
         var sc = stockCheckRepository.findById(stockCheckId)
                 .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.STOCK_CHECK_NOT_FOUND));
@@ -132,6 +133,7 @@ public class StockCheckService {
     }
 
     @Transactional
+    @AuditLog(action = LogConstant.Action.COMPLETE_STOCK_CHECK, entity = LogConstant.Entity.STOCK_CHECK)
     public StockCheckResponse complete(Long id) {
         var sc = stockCheckRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.STOCK_CHECK_NOT_FOUND));

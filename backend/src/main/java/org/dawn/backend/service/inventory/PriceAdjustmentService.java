@@ -43,7 +43,7 @@ public class PriceAdjustmentService {
 
     public PriceAdjustmentResponse findOne(Long id) {
         var adj = priceAdjustmentRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Price adjustment not found"));
+                .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.PRICE_ADJ_NOT_FOUND));
         return enrich(adj);
     }
 
@@ -62,13 +62,13 @@ public class PriceAdjustmentService {
         if (userId == null) throw new InvalidRequestException(Message.Auth.USER_NOT_AUTHENTICATED);
 
         if (request.importReceiptItemId() == null) {
-            throw new InvalidRequestException("Import receipt item is required");
+            throw new InvalidRequestException(Message.Inventory.PRICE_ADJ_ITEM_REQUIRED);
         }
         if (request.newPrice() == null || request.newPrice().compareTo(java.math.BigDecimal.ZERO) < 0) {
-            throw new InvalidRequestException("New price must be a non-negative value");
+            throw new InvalidRequestException(Message.Inventory.PRICE_ADJ_NEW_PRICE_NEGATIVE);
         }
         if (request.reason() == null || request.reason().isBlank()) {
-            throw new InvalidRequestException("Reason is required for price adjustment");
+            throw new InvalidRequestException(Message.Inventory.PRICE_ADJ_REASON_REQUIRED);
         }
 
         var item = importReceiptItemRepository.findById(request.importReceiptItemId())
@@ -76,7 +76,7 @@ public class PriceAdjustmentService {
 
         java.math.BigDecimal oldPrice = item.getUnitPrice() != null ? item.getUnitPrice() : java.math.BigDecimal.ZERO;
         if (oldPrice.compareTo(request.newPrice()) == 0) {
-            throw new InvalidRequestException("New price is the same as the current price");
+            throw new InvalidRequestException(Message.Inventory.PRICE_ADJ_SAME_PRICE);
         }
 
         String adjustCode = ReceiptCodeGenerator.generate("PADJ-", priceAdjustmentRepository::existsByAdjustCode);
@@ -101,10 +101,10 @@ public class PriceAdjustmentService {
         if (userId == null) throw new InvalidRequestException(Message.Auth.USER_NOT_AUTHENTICATED);
 
         var adj = priceAdjustmentRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Price adjustment not found"));
+                .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.PRICE_ADJ_NOT_FOUND));
 
         if (!"PENDING".equals(adj.getStatus())) {
-            throw new InvalidRequestException("Only pending price adjustments can be approved");
+            throw new InvalidRequestException(Message.Inventory.PRICE_ADJ_ONLY_PENDING_APPROVE);
         }
         if (adj.getCreatedBy().equals(userId)) {
             throw new InvalidRequestException(Message.Inventory.CREATOR_CANNOT_APPROVE);
@@ -129,10 +129,10 @@ public class PriceAdjustmentService {
         if (userId == null) throw new InvalidRequestException(Message.Auth.USER_NOT_AUTHENTICATED);
 
         var adj = priceAdjustmentRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Price adjustment not found"));
+                .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.PRICE_ADJ_NOT_FOUND));
 
         if (!"PENDING".equals(adj.getStatus())) {
-            throw new InvalidRequestException("Only pending price adjustments can be rejected");
+            throw new InvalidRequestException(Message.Inventory.PRICE_ADJ_ONLY_PENDING_REJECT);
         }
 
         adj.setStatus("REJECTED");
@@ -151,17 +151,13 @@ public class PriceAdjustmentService {
 
         String productName = null;
         String productSku = null;
-        try {
-            var item = importReceiptItemRepository.findById(adj.getImportReceiptItemId()).orElse(null);
-            if (item != null) {
-                var product = productRepository.findById(item.getProductId()).orElse(null);
-                if (product != null) {
-                    productName = product.getName();
-                    productSku = product.getSku();
-                }
+        var item = importReceiptItemRepository.findById(adj.getImportReceiptItemId()).orElse(null);
+        if (item != null) {
+            var product = productRepository.findById(item.getProductId()).orElse(null);
+            if (product != null) {
+                productName = product.getName();
+                productSku = product.getSku();
             }
-        } catch (Exception e) {
-            log.warn("Could not resolve product info for price adjustment {}", adj.getId());
         }
 
         return PriceAdjustmentMappingHelper.map(adj, productName, productSku, createdByName, approvedByName);

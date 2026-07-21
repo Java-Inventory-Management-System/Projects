@@ -7,9 +7,12 @@ import org.dawn.backend.controller.catalog.response.ProductImageResponse;
 import org.dawn.backend.entity.catalog.ProductImage;
 import org.dawn.backend.exception.wrapper.ResourceNotFoundException;
 import org.dawn.backend.repository.catalog.ProductImageRepository;
+import org.dawn.backend.constant.shared.LogConstant;
 import org.dawn.backend.constant.shared.Message;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import org.dawn.backend.config.anno.AuditLog;
 
 import java.util.List;
 
@@ -28,6 +31,7 @@ public class ProductImageService {
     }
 
     @Transactional
+    @AuditLog(action = LogConstant.Action.CREATE_PRODUCT_IMAGE, entity = LogConstant.Entity.PRODUCT_IMAGE)
     public ProductImageResponse create(ProductImageRequest request) {
         ProductImage image = ProductImage.builder()
                 .productId(request.productId())
@@ -39,6 +43,7 @@ public class ProductImageService {
     }
 
     @Transactional
+    @AuditLog(action = LogConstant.Action.DELETE_PRODUCT_IMAGE, entity = LogConstant.Entity.PRODUCT_IMAGE)
     public void delete(Long id) {
         ProductImage image = productImageRepository
                 .findById(id)
@@ -47,6 +52,7 @@ public class ProductImageService {
     }
 
     @Transactional
+    @AuditLog(action = LogConstant.Action.DELETE_PRODUCT_IMAGE, entity = LogConstant.Entity.PRODUCT_IMAGE)
     public void deleteByProductId(Long productId) {
         productImageRepository.deleteByProductId(productId);
     }

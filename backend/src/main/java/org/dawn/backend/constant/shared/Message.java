@@ -161,6 +161,15 @@ public class Message {
         public static final String WARRANTY_CANNOT_COMPLETE = "Only repair or RMA warranty requests can be completed manually";
         public static final String WARRANTY_INVALID_UNIT_STATE = "Product unit cannot transition from {0} for this warranty action";
         public static final String WARRANTY_CANCEL_REASON_REQUIRED = "A cancellation reason is required";
+
+        // Price adjustment
+        public static final String PRICE_ADJ_NOT_FOUND = "Price adjustment not found";
+        public static final String PRICE_ADJ_ITEM_REQUIRED = "Import receipt item is required";
+        public static final String PRICE_ADJ_NEW_PRICE_NEGATIVE = "New price must be a non-negative value";
+        public static final String PRICE_ADJ_SAME_PRICE = "New price is the same as the current price";
+        public static final String PRICE_ADJ_REASON_REQUIRED = "Reason is required for price adjustment";
+        public static final String PRICE_ADJ_ONLY_PENDING_APPROVE = "Only pending price adjustments can be approved";
+        public static final String PRICE_ADJ_ONLY_PENDING_REJECT = "Only pending price adjustments can be rejected";
     }
 
     // User

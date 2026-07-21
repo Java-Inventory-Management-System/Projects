@@ -16,7 +16,7 @@ import java.time.Instant;
 @SuperBuilder
 @Hidden
 @EqualsAndHashCode(exclude = "user", callSuper = true)
-@ToString(exclude = "user")
+@ToString(callSuper = true, exclude = "user")
 public class RefreshToken extends BaseEntity {
     @Column(name = "user_id", nullable = false)
     private Long userId;

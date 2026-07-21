@@ -1,6 +1,7 @@
 package org.dawn.backend.service.catalog;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.dawn.backend.controller.catalog.response.CategoryZoneResponse;
 import org.dawn.backend.exception.wrapper.ResourceNotFoundException;
 import org.dawn.backend.repository.catalog.CategoryZoneRepository;
@@ -10,6 +11,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class CategoryZoneService {

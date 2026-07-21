@@ -18,6 +18,7 @@ import java.time.Instant;
 @SuperBuilder
 @Hidden
 @EqualsAndHashCode(callSuper = true)
+@ToString(callSuper = true)
 public class PasswordResetToken extends AuditableEntity {
     @Column(name = "user_id", nullable = false)
     private Long userId;

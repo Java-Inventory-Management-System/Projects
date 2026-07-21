@@ -1,6 +1,7 @@
 package org.dawn.backend.service.report;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.dawn.backend.config.web.response.ResponsePage;
 import org.dawn.backend.controller.report.response.*;
 import org.dawn.backend.entity.catalog.Category;
@@ -29,6 +30,7 @@ import java.time.Instant;
 import java.util.*;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ReportService {

@@ -1,8 +1,11 @@
 package org.dawn.backend.service.inventory;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.dawn.backend.config.anno.AuditLog;
 import org.dawn.backend.config.web.response.ResponsePage;
 import org.dawn.backend.constant.inventory.PurchaseOrderStatus;
+import org.dawn.backend.constant.shared.LogConstant;
 import org.dawn.backend.constant.shared.Message;
 import org.dawn.backend.controller.inventory.request.CreatePurchaseOrderRequest;
 import org.dawn.backend.controller.inventory.request.CreatePurchaseOrderRequest.POItemRequest;
@@ -33,6 +36,7 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class PurchaseOrderService {
 
     private final PurchaseOrderRepository purchaseOrderRepository;
@@ -56,6 +60,7 @@ public class PurchaseOrderService {
     }
 
     @Transactional
+    @AuditLog(action = LogConstant.Action.CREATE_PURCHASE_ORDER, entity = LogConstant.Entity.PURCHASE_ORDER)
     public PurchaseOrderResponse create(CreatePurchaseOrderRequest request) {
         Long userId = SecurityUtils.getCurrentUserId();
         if (userId == null) throw new InvalidRequestException(Message.Auth.USER_NOT_AUTHENTICATED);
@@ -100,6 +105,7 @@ public class PurchaseOrderService {
     }
 
     @Transactional
+    @AuditLog(action = LogConstant.Action.CANCEL_PURCHASE_ORDER, entity = LogConstant.Entity.PURCHASE_ORDER)
     public PurchaseOrderResponse cancel(Long id) {
         var po = purchaseOrderRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.PO_NOT_FOUND));

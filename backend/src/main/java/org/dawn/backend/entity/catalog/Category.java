@@ -12,6 +12,7 @@ import org.dawn.backend.entity.base.AuditableEntity;
 @AllArgsConstructor
 @SuperBuilder
 @EqualsAndHashCode(callSuper = true)
+@ToString(callSuper = true)
 public class Category extends AuditableEntity {
 
     @Column(name = "name", nullable = false, unique = true, length = 100)
