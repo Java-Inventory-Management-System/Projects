@@ -82,7 +82,7 @@ export const ProductsPage = () => {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-semibold tracking-tight">Sản phẩm</h1>
         <Button onClick={() => navigate("/products/new")}>
           <Plus className="size-4 mr-1" /> Thêm sản phẩm

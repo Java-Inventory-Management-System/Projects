@@ -182,7 +182,7 @@ export const StockAdjustmentCreatePage = () => {
       <div className="space-y-2">
         <Label>Loại điều chỉnh <span className="text-destructive">*</span></Label>
         <RadioGroup value={type} onValueChange={(v) => { setType(v); setSelectedUnitId(null); setSelectedProductId(null); setErrors({}) }}>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {typeOptions.map((opt) => (
               <Label
                 key={opt.value}

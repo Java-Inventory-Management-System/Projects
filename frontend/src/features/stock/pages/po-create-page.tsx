@@ -96,7 +96,7 @@ export function POCreatePage() {
   }, [supplierId, expectedDate, note, items, createMut, navigate])
 
   return (
-    <div className="mx-auto max-w-7xl grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div className="mx-auto max-w-7xl grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
       <div className="lg:col-span-2 space-y-4 self-start">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="sm" onClick={() => navigate("/stock/purchase-orders")}>
@@ -131,7 +131,7 @@ export function POCreatePage() {
                   <ChevronsUpDown className="size-4 shrink-0 opacity-50" />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-[400px] p-0">
+              <PopoverContent className="w-[90vw] max-w-[400px] p-0">
                 <Command>
                   <CommandInput placeholder="Tìm theo tên hoặc SKU..." />
                   <CommandList>

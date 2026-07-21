@@ -230,7 +230,7 @@ export const UsersPage = () => {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-semibold tracking-tight">Quản lý người dùng</h1>
         <Button onClick={() => { setCreateOpen(true); setTempPassword(null) }}>
           <Plus className="size-4 mr-1" /> Thêm người dùng

@@ -86,12 +86,12 @@ export function PriceAdjustmentListPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-semibold tracking-tight">Điều chỉnh giá</h1>
         <Button onClick={() => navigate("/stock/price-adjustments/new")}><Plus className="size-4 mr-1" /> Tạo phiếu</Button>
       </div>
 
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         <Select value={statusFilter} onValueChange={(v) => { const next = new URLSearchParams(searchParams); next.set("page", "0"); if (v) next.set("status", v); else next.delete("status"); setSearchParams(next) }}>
           <SelectTrigger className="w-36"><SelectValue placeholder="Tất cả" /></SelectTrigger>
           <SelectContent>

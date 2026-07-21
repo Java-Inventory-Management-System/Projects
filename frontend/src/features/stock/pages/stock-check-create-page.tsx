@@ -114,7 +114,7 @@ export const StockCheckCreatePage = () => {
             className="pl-9"
           />
         </div>
-        <div className="flex gap-2 items-start">
+        <div className="flex flex-wrap gap-2 items-start">
           <Select value={receiptFilter} onValueChange={setReceiptFilter}>
             <SelectTrigger className="w-64">
               <SelectValue placeholder="Lọc theo lô nhập..." />

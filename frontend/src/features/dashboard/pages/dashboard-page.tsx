@@ -45,7 +45,7 @@ export const DashboardPage = () => {
   return (
     <div className="space-y-4">
       <h1 className="text-xl font-semibold tracking-tight">Dashboard</h1>
-      <div className="flex gap-1 border-b pb-px">
+      <div className="flex flex-wrap gap-1 border-b pb-px">
         {visibleTabs.map((t) => (
           <button key={t.key} onClick={() => setTab(t.key)}
             className={`px-3 py-1.5 text-sm font-medium transition-colors rounded-t-md ${safeTab === t.key ? "border-b-2 border-primary text-primary" : "text-muted-foreground hover:text-foreground"}`}>

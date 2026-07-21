@@ -121,7 +121,7 @@ export function ReceiptListPage<R extends Receipt>({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
         <Button onClick={() => navigate(newRoute)}>
           <Plus className="size-4 mr-1" />

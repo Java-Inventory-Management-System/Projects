@@ -146,7 +146,7 @@ export const ExportCreatePage = () => {
   const hasSerials = useMemo(() => Object.values(serials).some((arr) => arr.length > 0), [serials])
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
+    <div className="mx-auto max-w-4xl space-y-4 lg:space-y-6">
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="sm" onClick={() => navigate("/stock/exports")}>
           &larr; Quay lại

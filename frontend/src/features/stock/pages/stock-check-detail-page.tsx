@@ -172,7 +172,7 @@ export const StockCheckDetailPage = () => {
         </TabsList>
 
         <TabsContent value="info" className="space-y-4">
-          <div className="grid grid-cols-2 gap-4 text-sm">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
             <div><span className="text-muted-foreground">Created by:</span><p className="font-medium">{check.createdByName}</p></div>
             <div><span className="text-muted-foreground">Date:</span><p className="font-medium">{new Date(check.createdAt).toLocaleString("vi-VN")}</p></div>
             {check.approvedByName && <div><span className="text-muted-foreground">Approved by:</span><p className="font-medium">{check.approvedByName}</p></div>}

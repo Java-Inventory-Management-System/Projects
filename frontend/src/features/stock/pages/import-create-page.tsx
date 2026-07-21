@@ -376,7 +376,7 @@ export const ImportCreatePage = () => {
   }
 
   return (
-    <div className="mx-auto w-full max-w-5xl grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-6">
+    <div className="mx-auto w-full max-w-5xl grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-4 lg:gap-6">
       <div className="space-y-4 min-w-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -459,7 +459,7 @@ export const ImportCreatePage = () => {
                       <ChevronsUpDown className="size-4 shrink-0 opacity-50" />
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-[400px] p-0" align="start">
+                  <PopoverContent className="w-[90vw] max-w-[400px] p-0" align="start">
                     <Command>
                       <CommandInput placeholder="Tìm sản phẩm..." />
                       <CommandList>
