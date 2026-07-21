@@ -582,7 +582,7 @@ export const ImportCreatePage = () => {
                                       Đổi
                                     </Button>
                                   </SheetTrigger>
-                                  <SheetContent side="right" className="w-[320px]">
+                                  <SheetContent side="right" className="w-[85vw] sm:w-[320px]">
                                     <SheetHeader>
                                       <SheetTitle className="text-sm">Chọn vị trí — {item.productName}</SheetTitle>
                                     </SheetHeader>
