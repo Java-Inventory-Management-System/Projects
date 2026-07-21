@@ -126,10 +126,18 @@ erDiagram
         int sort_order
         timestamp created_at
     }
+    warehouses ||--o{ locations : "contains"
     locations ||--o{ product_units : "stores_at"
 
+    warehouses {
+        bigint id PK
+        varchar255 name UK "'Kho chính'"
+        timestamp created_at
+        timestamp updated_at
+    }
     locations {
         bigint id PK
+        bigint warehouse_id FK "mặc định warehouse mặc định"
         varchar10 zone_code "'A' | 'B' | 'C'"
         varchar10 shelf_code "'01' | '02'"
         varchar10 bin_code "'01A'"
@@ -228,7 +236,7 @@ erDiagram
     %% export_receipts là NGUỒN DUY NHẤT kích hoạt các transition sau trên product_units (không có đường tắt nào khác):
     %%   - reason='sale'            -> product_units.status: in_stock -> sold
     %%   - reason='internal'        -> product_units.status: in_stock -> sold (dùng nội bộ, không phát sinh doanh thu nhưng vẫn trừ tồn qua phiếu xuất)
-    %%   - reason='return_supplier' -> product_units.status: sold -> returned_to_supplier (qua warranty, không cần export_receipt riêng)
+    %%   - reason='return_supplier' -> product_units.status: sold -> returned_to_supplier (không qua warranty, xử lý qua export_receipt riêng)
     %%   - reason='dispose'         -> product_units.status: damaged_in_storage -> disposed
     %% => Bỏ mọi transition "tự thân" không qua export_receipts. Mục 2 đã cập nhật lại theo đúng quy tắc này.
     %% export_receipts đã thêm approved_by — đồng bộ 4-eyes với import_receipts/stock_checks/stock_adjustments.
@@ -256,11 +264,13 @@ erDiagram
         decimal15_2 remaining_quantity "bulk only: qty còn lại"
         bigint import_receipt_item_id FK
         bigint location_id FK
-        varchar30 status "in_stock|sold|defective|damaged_in_storage|lost|under_repair|sent_to_manufacturer|returned|returned_to_supplier|removed|disposed"
+        varchar30 status "in_stock|reserved|sold|defective|damaged_in_storage|lost|under_repair|sent_to_manufacturer|returned|returned_to_supplier|removed|disposed"
         timestamp imported_at "FIFO milestone"
         int warranty_months "copy từ import_receipt_items tại thời điểm nhập — cố ý duplicate để giữ nguyên chính sách BH gốc dù products/import sau này đổi"
         date warranty_start_date "activated on sale"
         date warranty_expires_at
+        decimal15_2 cost_price "snapshot từ import_receipt_item.unit_price tại thời điểm nhập"
+        boolean is_warranty_active DEFAULT TRUE
         timestamp created_at
     }
     export_receipt_item_units {
@@ -341,7 +351,7 @@ erDiagram
         bigint product_unit_id FK
         bigint customer_id FK
         text issue_description
-        varchar30 resolution_type "replace | rma | repair | reject | return_supplier — xem bảng mapping sang product_units.status bên dưới mục 2"
+        varchar30 resolution_type "replace | repair | refund | reject — xem bảng mapping sang product_units.status bên dưới mục 2"
         bigint replacement_unit_id FK "nullable — chỉ set khi resolution_type=replace; unit này chuyển in_stock→sold. CẦN CHỐT: có tạo kèm export_receipt để lên báo cáo doanh thu/kế toán không, hay chỉ đổi status qua warranty_requests?"
         varchar100 rma_number
         timestamp sent_to_partner_at
@@ -360,23 +370,27 @@ erDiagram
 
 ## 2. State Machine — Trạng thái `product_units`
 
-> ⚠️ **Đã sửa so với bản trước**: (1) sơ đồ ASCII cũ và bảng transition bị lệch nhau — đã chuyển sang mermaid `stateDiagram-v2` để luôn khớp nhau; (2) bổ sung transition thiếu (`lost → in_stock`); (3) tách `disposed` ra khỏi `removed` — trước đây 2 sự kiện khác nhau (hủy phiếu nhập vs. thanh lý hàng hỏng) bị gộp chung 1 status, gây khó tra cứu nguyên nhân; (4) mọi transition xuất unit ra khỏi kho (`sold`, `returned_to_supplier`, `disposed`) giờ **bắt buộc đi qua `export_receipts`** (xem ghi chú "CHỐT" ở mục 1), không còn transition "tự thân" nữa.
+> ⚠️ **Đã sửa so với bản trước**: (1) sơ đồ ASCII cũ và bảng transition bị lệch nhau — đã chuyển sang mermaid `stateDiagram-v2` để luôn khớp nhau; (2) bổ sung transition thiếu (`lost → in_stock`, `in_stock → reserved`); (3) tách `disposed` ra khỏi `removed` — trước đây 2 sự kiện khác nhau (hủy phiếu nhập vs. thanh lý hàng hỏng) bị gộp chung 1 status, gây khó tra cứu nguyên nhân; (4) mọi transition xuất unit ra khỏi kho (`sold`, `returned_to_supplier`, `disposed`) giờ **bắt buộc đi qua `export_receipts`** (xem ghi chú "CHỐT" ở mục 1), không còn transition "tự thân" nữa.
 
 ```mermaid
 stateDiagram-v2
     [*] --> in_stock
 
+    in_stock --> reserved : Export reserve — giữ chỗ tạm thời
     in_stock --> sold : export_receipts.reason=sale/internal
     in_stock --> defective : Phát hiện lỗi khi nhập/trong kho
     in_stock --> damaged_in_storage : Hỏng trong quá trình lưu kho
     in_stock --> lost : Mất hàng (điều chỉnh, có duyệt)
     in_stock --> removed : Hủy phiếu nhập sau xác nhận
 
+    reserved --> sold : QL duyệt phiếu xuất
+    reserved --> in_stock : QL từ chối / huỷ phiếu xuất
+
     sold --> returned : Khách trả hàng
     sold --> under_repair : Nhận bảo hành — sửa tại chỗ
     sold --> sent_to_manufacturer : Gửi hãng bảo hành (RMA)
     sold --> defective : BH resolution=replace
-    sold --> returned_to_supplier : BH resolution=return_supplier
+    sold --> returned_to_supplier : export_receipts.reason=return_supplier
 
     under_repair --> sold : Sửa xong, trả khách
     under_repair --> defective : Không sửa được
@@ -401,11 +415,14 @@ stateDiagram-v2
 **Quy tắc chuyển trạng thái:**
 | Từ | Sang | Điều kiện/Kích hoạt |
 |---|---|---|
+| `in_stock` | `reserved` | Reserve transaction ngắn — `SELECT ... FOR UPDATE`, đổi status, commit ngay. Phiếu xuất chuyển `pending_approval` (SOP §3.2 B3) |
 | `in_stock` | `sold` | Tạo `export_receipts` với `reason='sale'` hoặc `'internal'` |
 | `in_stock` | `defective` | Phát hiện lỗi khi nhập hoặc trong kho |
 | `in_stock` | `damaged_in_storage` | Hỏng trong quá trình lưu kho (điều chỉnh) |
 | `in_stock` | `lost` | Mất hàng (điều chỉnh tồn, có duyệt) |
 | `in_stock` | `removed` | Hủy phiếu nhập sau khi đã xác nhận (unit chưa từng xuất kho — xem điều kiện chi tiết bên dưới) |
+| `reserved` | `sold` | QL duyệt phiếu xuất |
+| `reserved` | `in_stock` | QL từ chối / hủy phiếu xuất — giải phóng reserve |
 | `sold` | `returned` | Khách trả hàng |
 | `sold` | `under_repair` | Nhận bảo hành — sửa chữa tại chỗ |
 | `sold` | `sent_to_manufacturer` | Gửi hãng bảo hành (RMA) — xuất phát từ unit **đã bán**, khớp với `warranty_requests.customer_id` |
@@ -414,7 +431,7 @@ stateDiagram-v2
 | `under_repair` | `defective` | Không sửa được |
 | `sent_to_manufacturer` | `sold` | Hãng trả hàng đã sửa xong |
 | `sent_to_manufacturer` | `defective` | Hãng từ chối BH |
-| `sold` | `returned_to_supplier` | `warranty_requests.resolution_type = 'return_supplier'` — warranty tự kích hoạt, không cần tạo export_receipt riêng; nếu cần chứng từ kế toán, hệ thống tự sinh export_receipt ngầm |
+| `sold` | `returned_to_supplier` | `export_receipts.reason = 'return_supplier'` — không qua warranty |
 | `returned` | `in_stock` | Hàng trả đủ điều kiện nhập lại kho |
 | `returned` | `defective` | Hàng trả bị lỗi |
 | `lost` | `in_stock` | Tìm lại được hàng đã báo mất — qua `stock_adjustments` với `type='found'` |
@@ -425,7 +442,7 @@ stateDiagram-v2
 > - Nếu hủy phiếu nhập bị nhấn nhầm, giải pháp là tạo lại phiếu nhập mới, **không** revert `removed → in_stock`, để giữ tính một chiều của hành động hủy và không phá vỡ audit trail (xem `product_unit_status_logs` ở mục 1).
 > - **Điều kiện `in_stock → removed` (đầy đủ)**: chỉ cho phép hủy phiếu nhập khi **toàn bộ** `product_units` sinh ra từ phiếu đó thỏa: (a) `serialized` — chưa từng xuất hiện trong `export_receipt_item_units`; (b) `bulk` — `remaining_quantity = initial_quantity` (chưa bị xuất dù chỉ một phần). Nếu phiếu nhập có unit đã rời `in_stock` (dù chỉ 1 trong 50), **không cho hủy phiếu** — chỉ có thể xử lý riêng lẻ những unit còn `in_stock` qua `stock_adjustments`, giữ nguyên phiếu nhập gốc ở trạng thái `completed`.
 
-> `removed`, `disposed`, `defective`, `lost`, `damaged_in_storage`, `sent_to_manufacturer`, `under_repair`, `returned`, `returned_to_supplier` **không tính vào tồn kho khả dụng** — loại trừ khỏi công thức COUNT/SUM bên dưới, chỉ `in_stock` được tính.
+> `reserved`, `removed`, `disposed`, `defective`, `lost`, `damaged_in_storage`, `sent_to_manufacturer`, `under_repair`, `returned`, `returned_to_supplier` **không tính vào tồn kho khả dụng** — loại trừ khỏi công thức COUNT/SUM bên dưới, chỉ `in_stock` được tính.
 
 > Tồn kho hiện tại của 1 sản phẩm:
 >
@@ -439,14 +456,13 @@ stateDiagram-v2
 
 ### 2.1 Mapping `warranty_requests.resolution_type` → transition của `product_units`
 
-> **[bổ sung]** Bảng này trước đây chưa tồn tại — `resolution_type` có 5 giá trị nhưng không rõ giá trị nào kích hoạt transition nào trên `product_unit_id` gốc (`warranty_requests.product_unit_id`).
+> `resolution_type` có 4 giá trị. `rma` được hấp thụ vào `repair` (gửi NCC là sub-case của sửa chữa). `return_supplier` không còn là resolution của warranty — xử lý qua export_receipt riêng.
 
 | `resolution_type` | Transition trên unit gốc (`product_unit_id`) | Transition trên `replacement_unit_id` (nếu có) |
 |---|---|---|
-| `repair` | `sold → under_repair` → (`under_repair → sold`) khi sửa xong | — |
-| `rma` | `sold → sent_to_manufacturer` → (`sent_to_manufacturer → sold`/`defective`) theo phản hồi hãng | — |
+| `repair` | `sold → under_repair` → (`under_repair → sold` khi sửa xong) hoặc `sent_to_manufacturer` nếu gửi NCC | — |
 | `replace` | `sold → defective` (unit lỗi coi như xử lý xong, không hoàn kho) | `in_stock → sold` (unit thay thế giao cho khách) |
-| `return_supplier` | `sold → returned_to_supplier` (trực tiếp, không qua `defective`) | — |
+| `refund` | `sold → returned` (hoàn tiền, unit nhận lại từ khách) | — |
 | `reject` | **Không đổi status** — unit vẫn giữ nguyên `sold`, chỉ đóng `warranty_requests.status = 'cancelled'` (từ chối yêu cầu BH) | — |
 
 > Với `replace`: unit thay thế được chuyển `in_stock → sold` qua `warranty_requests`, đồng thời hệ thống **tự động tạo `export_receipt` ngầm** với `reason='internal'` và ghi chú `'warranty replacement for WR-xxx'` để đảm bảo giá vốn được ghi nhận. `export_receipt_item_units` ghi nhận unit thay thế với `sell_price = 0` (không phát sinh doanh thu) nhưng vẫn trừ giá vốn (cost of goods sold). Cách này giúp (1) không ảnh hưởng doanh thu báo cáo, (2) vẫn trừ đúng giá vốn, (3) FIFO tracking chính xác cho lần xuất kế tiếp.

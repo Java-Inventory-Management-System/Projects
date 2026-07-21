@@ -44,14 +44,15 @@
 | ID     | Requirement     | Mô tả                                                                              | Priority |
 | ------ | --------------- | ---------------------------------------------------------------------------------- | -------- |
 | NFR-18 | Audit retention | Chưa có yêu cầu — cần xác nhận với business (tối thiểu 1 năm theo luật kế toán VN) | TBD      |
-| NFR-19 | Warranty policy | Kế thừa hạn BH cũ khi đổi serial — cần xác nhận đúng luật BVND VN                  | TBD      |
+| NFR-19  | Warranty policy — cách làm | Kế thừa hạn BH cũ khi đổi serial — giữ nguyên `warranty_start_date` gốc, không reset (đã chốt ở SOP §6.2) | Must |
+| NFR-19b | Warranty policy — pháp lý  | Cách làm ở NFR-19 có tuân thủ Luật Bảo vệ quyền lợi người tiêu dùng VN không — chưa xác nhận, cần review pháp lý trước khi go-live | TBD  |
 
 ## 6. Operations
 
 | ID     | Requirement    | Mô tả                                             | Priority |
 | ------ | -------------- | ------------------------------------------------- | -------- |
 | NFR-20 | Docker Compose | MySQL 8, Mailtrap (disabled mặc định)             | Must     |
-| NFR-21 | Backup/duyệt   | Khi QL vắng mặt — chưa có luồng escalation/backup | TBD      |
+| NFR-21 | Backup/duyệt   | Khi QL vắng mặt — Admin duyệt thay | Must |
 
 ## 7. Constraints
 

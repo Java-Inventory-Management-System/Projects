@@ -101,7 +101,7 @@
 
 | ID    | Yêu cầu                             | Loại | Nguồn         | Pri | Ghi chú                                    |
 | ----- | ----------------------------------- | ---- | ------------- | --- | ------------------------------------------ |
-| RQ-49 | Quy trình trả hàng khách (ngoài BH) | F    | Edge cases    | TBD | Thiếu bảng `return_receipts`, audit action |
-| RQ-50 | Điều chỉnh giá nhập sau xác nhận    | F    | Edge cases    | TBD | Thiếu bảng `price_adjustments`             |
-| RQ-51 | Retention policy audit log          | N    | Domain review | TBD | Chưa có yêu cầu từ business                |
-| RQ-52 | Backup duyệt khi QL vắng            | N    | SAD review    | TBD | Chưa có luồng escalation                   |
+| RQ-49 | Quy trình trả hàng khách (ngoài BH) | F    | Edge cases    | Should | Đã có thiết kế (`return_receipts` + flow chi tiết, `sell_price_history`) |
+| RQ-50 | Điều chỉnh giá nhập sau xác nhận    | F    | Edge cases    | Should | Đã có thiết kế (`price_adjustments` flow) |
+| RQ-51 | Retention policy audit log          | N    | Domain review | TBD | Chưa có yêu cầu từ business — cần xác nhận (xem 11-open-questions) |
+| RQ-52 | Backup duyệt khi QL vắng            | N    | SAD review    | Must | Admin duyệt thay |

@@ -42,7 +42,7 @@ Khi import được duyệt, BE tạo ProductUnits từ items:
 - **PENDING_APPROVAL → COMPLETED**: duyệt → **tạo ProductUnits, tăng stock**
 - **PENDING_APPROVAL → CANCELLED**: hủy trước khi duyệt, ko ảnh hưởng
 - **COMPLETED → CANCELLED**: hủy phiếu đã duyệt → **xóa ProductUnits, giảm stock**
-- **PENDING → COMPLETED (auto)**: nếu ko cần duyệt (giá trị nhỏ / role được phép)
+- **PENDING → COMPLETED (auto)**: không áp dụng — luôn cần duyệt 4-eyes
 
 ### ExportReceipt
 
@@ -50,15 +50,20 @@ Khi import được duyệt, BE tạo ProductUnits từ items:
                 ┌──────────────────────┐
                 │  PENDING_APPROVAL    │  ← Vừa tạo, cần duyệt
                 └──────────┬───────────┘
-                          / \
-                        /     \
-              ┌────────▼─┐   ┌─▼─────────┐
-              │ COMPLETED │   │ CANCELLED │
-              └───────────┘   └───────────┘
+                          /|\
+                        /  |  \
+              ┌────────▼─┐ │ ┌─▼─────────┐
+              │ COMPLETED │ │ │ CANCELLED │
+              └───────────┘ │ └───────────┘
+                            │
+                    ┌───────▼────────┐
+                    │   EXCEPTION     │  ← Phát hiện thiếu khi xuất thực tế
+                    └────────────────┘
 ```
 
 - **PENDING_APPROVAL → COMPLETED**: duyệt → **giảm stock, set ProductUnit status = SOLD/REMOVED**
 - **PENDING_APPROVAL → CANCELLED**: hủy trước duyệt, ko ảnh hưởng
+- **PENDING_APPROVAL → EXCEPTION**: STOCK phát hiện thiếu hàng thực tế so với phiếu (SOP §3.3)
 - **COMPLETED → CANCELLED**: hủy phiếu đã xuất → **tăng stock lại, restore ProductUnit status**
 
 ### PO — PurchaseOrder
@@ -339,9 +344,9 @@ Khi có capacity, filter mở rộng thêm:
 
 Bước chọn location trong form import:
 - Hệ thống gợi ý bin: ưu tiên **bin có % capacity thấp nhất** trong zone của category
-- Bin đã `productCount >= maxCapacity` → bị **khoá** (ko chọn được)
+- Bin đã `productCount >= maxCapacity` → **cảnh báo mềm** (vẫn chọn được, hiển thị warning "Bin đã đầy, cân nhắc chọn bin khác")
 - LocationPicker hiển thị `fullCode + productCount/maxCapacity` cho từng bin
-- User có thể override, nhưng nếu chọn bin đầy → cảnh báo
+- User có thể override, nhưng nếu chọn bin đầy → cảnh báo mềm (không chặn)
 
 ### Location map UI
 

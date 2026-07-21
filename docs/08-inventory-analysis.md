@@ -113,15 +113,16 @@
 - ❌ Export: không cho phép chọn location cụ thể để xuất (FIFO tự động chọn unit đầu tiên).
 
 ### Tác động
-- Có thể nhập hàng vào bin đã đầy → sai lệch inventory vật lý.
+- Không có capacity → không có cảnh báo khi bin sắp đầy, nhân viên dễ nhập chồng quá sức chứa thực tế.
 - Không thể tối ưu layout kho dựa trên sức chứa.
 - Nhân viên xuất hàng không kiểm soát được lấy hàng từ bin nào.
+- **Quyết định:** không chặn cứng khi đầy — chỉ cảnh báo mềm (SOP §2.2 B3), vì kích thước linh kiện đa dạng, khó định lượng capacity chính xác.
 
 ### Giải pháp đề xuất
 1. Thêm `maxCapacity DECIMAL(15,2) NULL` vào `Location`.
 2. Thêm logic validation ở `ImportReceiptService`:
    - Khi tạo/duyệt import, tính tổng `remainingQuantity` của các `ProductUnit` trong location + quantity nhập.
-   - Nếu vượt quá `maxCapacity` → throw `LocationFullException`.
+   - Nếu vượt quá `maxCapacity` → **cảnh báo mềm** (soft warning, không chặn) — nhân viên vẫn có thể chọn bin đầy, nhưng UI hiển thị warning "Bin đã đầy, cân nhắc chọn bin khác" (SOP §2.2 B3).
    - BULK product: so sánh `quantity` với capacity còn lại.
    - SERIALIZED product: mỗi unit = 1.
 3. `LocationMapData` trả về thêm `maxCapacity`, `currentOccupancy`, `isFull`.

@@ -61,13 +61,13 @@ Actor: **AD** = Admin, **QL** = Quản lý kho, **NV** = Nhân viên, **HT** = H
 - AC: Query `ORDER BY imported_at ASC ... FOR UPDATE`; danh sách serial hiển thị cho NV xem trước khi xác nhận; gom theo `location_id` để giảm di chuyển nhưng thứ tự ưu tiên vẫn là `imported_at`.
 - Nguồn: mục 4.2 bước 3, mục 3 (FIFO tự động).
 - Priority: Must.
-- **Cần xác nhận:** có tình huống khách yêu cầu serial cụ thể (không theo FIFO) không — ví dụ kiểm tra ngày sản xuất, lô mới hơn? Nếu có, cần story riêng cho "chọn tay override FIFO" — hiện domain-model chưa có.
+- **Đã chốt:** Cho phép NV override serial tay + bắt buộc lý do. Không cần story riêng — gộp vào luồng xuất chuẩn.
 
 **US-10** | Là **NV**, tôi muốn được báo số lượng tối đa có thể xuất khi tồn không đủ, để chọn xuất một phần thay vì bị chặn hoàn toàn.
 - AC: Hệ thống tính tồn khả dụng trước khi cho thêm dòng; cho phép xuất partial; không cho phép tồn âm (trừ khi cấu hình bật).
 - Nguồn: mục 4.2 bước 2, mục 5 (edge case "Xuất không đủ hàng").
 - Priority: Must.
-- **Cần xác nhận:** "tồn âm có thể bật trong cài đặt" — có use case thực tế nào (pre-order hàng hiếm) cần việc này không, hay chỉ là cửa thoát kỹ thuật chưa có luồng nghiệp vụ đi kèm (thông báo khách, ngày dự kiến có hàng...)?
+- **Đã chốt:** Chặn tồn âm với serialized. Với bulk: mặc định chặn, có thể mở sau nếu có nhu cầu.
 
 **US-11** | Là **NV**, tôi muốn xuất tạm (reserve) phiếu xuất, để khoá serial và chờ QL duyệt.
 - AC: Hệ thống lock serial đã chọn (`SELECT ... FOR UPDATE`), phiếu chuyển `pending_approval`; ghi audit log. Serial bị khoá không được chọn bởi phiếu xuất khác.
@@ -75,7 +75,7 @@ Actor: **AD** = Admin, **QL** = Quản lý kho, **NV** = Nhân viên, **HT** = H
 - Priority: Must.
 
 **US-42** | Là **QL**, tôi muốn duyệt phiếu xuất, để xác nhận xuất kho và kích hoạt bảo hành (nếu là bán hàng).
-- AC: Chỉ QL/AD được duyệt; `approved_by ≠ created_by`. Khi duyệt: `product_units.status → sold`; nếu `reason = sale` → set `warranty_start_date` = ngày duyệt, tính `warranty_expires_at`; phiếu `completed`; ghi audit log #4. Nếu từ chối → phiếu `cancelled`, giải phóng serial.
+- AC: Chỉ QL/AD được duyệt; `approved_by ≠ created_by`. Khi duyệt: `product_units.status` từ `reserved` → `sold`; nếu `reason = sale` → set `warranty_start_date` = ngày duyệt, tính `warranty_expires_at`; phiếu `completed`; ghi audit log #4. Nếu từ chối → phiếu `cancelled`, giải phóng serial (`reserved` → `in_stock`).
 - Nguồn: mục 4.2 bước 5, mục 7.2 audit #4, mục 6 (phân quyền).
 - Priority: Must.
 
@@ -108,11 +108,11 @@ Actor: **AD** = Admin, **QL** = Quản lý kho, **NV** = Nhân viên, **HT** = H
 - Nguồn: `warranty_requests`, mục 4.3 bước 2-3.
 - Priority: Must.
 
-**US-16** | Là **NV**, tôi muốn xử lý yêu cầu bảo hành theo 1 trong 4 hướng (đổi mới/RMA/sửa/từ chối/trả NCC), để giải quyết dứt điểm từng ca bảo hành.
-- AC: Đổi mới → serial mới kế thừa hạn bảo hành còn lại của serial cũ; RMA → lưu `rma_number`, `sent_to_partner_at`; sửa chữa → chuyển `under_repair`, không tính tồn; từ chối → ghi rõ lý do.
+**US-16** | Là **NV**, tôi muốn xử lý yêu cầu bảo hành theo 1 trong 4 hướng (sửa chữa/đổi mới/hoàn tiền/từ chối), để giải quyết dứt điểm từng ca bảo hành.
+- AC: Sửa chữa → chuyển `under_repair`, không tính tồn; nếu gửi NCC → lưu `rma_number`, `sent_to_partner_at`; sửa xong → `sold`, không sửa được → `defective`. Đổi mới → serial cũ chuyển `defective`; serial mới `in_stock → sold`, kế thừa hạn BH còn lại (giữ nguyên `warranty_start_date` gốc). Hoàn tiền → unit chuyển `returned`. Từ chối → không đổi status, ghi rõ lý do.
 - Nguồn: mục 4.3 bước 4, mục 7.5 (Warranty Inheritance), mục 2 (state machine).
 - Priority: Must.
-- **Cần xác nhận (quan trọng):** quy tắc "kế thừa cứng hạn bảo hành cũ" là **chính sách của cửa hàng**, không phải chỉ là quyết định kỹ thuật — cần chủ cửa hàng/QL xác nhận đây đúng là chính sách áp dụng, và có tuân luật bảo vệ người tiêu dùng VN không, trước khi cắm cứng vào state machine.
+- **Đã chốt:** Kế thừa hạn BH cũ — giữ nguyên `warranty_start_date` gốc, không reset.
 
 **US-17** | Là **NV**, tôi muốn hoàn tất phiếu bảo hành, để đóng ca xử lý và ghi audit log.
 - AC: `status = completed`, ghi hướng xử lý thực tế + người xử lý + ngày hoàn tất.
@@ -138,7 +138,7 @@ Actor: **AD** = Admin, **QL** = Quản lý kho, **NV** = Nhân viên, **HT** = H
 - AC: Chỉ QL/AD được duyệt; bắt buộc nhập lý do duyệt; ghi audit log #7.
 - Nguồn: mục 4.4 bước 4, mục 7.2 audit #7, mục 6 (phân quyền).
 - Priority: Must.
-- **Cần xác nhận:** nếu QL vắng mặt, ai backup duyệt? Chưa có luồng ủy quyền/escalation.
+- **Đã chốt:** Admin duyệt thay khi QL vắng. Không cần luồng ủy quyền riêng.
 
 **US-21** | Là **HT**, khi loại điều chỉnh là `found` và không rõ serial, tôi cần tạo bản ghi tổng chờ xử lý, để không chặn quy trình vì thiếu serial cụ thể.
 - AC: `product_unit_id = NULL`, dùng `product_id` + `quantity` thay thế; CHECK constraint đảm bảo 1 trong 2 cách được set.
@@ -187,7 +187,7 @@ Actor: **AD** = Admin, **QL** = Quản lý kho, **NV** = Nhân viên, **HT** = H
 - AC: Validate mapping `unit ↔ tracking_type` bắt buộc (piece/box/set → serialized; meter/kg → bulk); sai → reject ở Service layer.
 - Nguồn: mục 7.1, mục 7.8.
 - Priority: Must.
-- **Cần xác nhận:** mapping đang hard-code trong Service layer — nếu thêm UOM mới (vd "lít"), phải sửa code thủ công. Có chấp nhận được không, hay cần làm thành bảng cấu hình?
+- **Đã chốt:** Chấp nhận hard-code. Thêm UOM = sửa code.
 
 **US-27** | Là **AD/QL**, tôi muốn upload tối đa 5 ảnh cho sản phẩm và đánh dấu 1 ảnh đại diện, để hiển thị sản phẩm trực quan.
 - AC: `is_primary` duy nhất 1 ảnh/sản phẩm; `sort_order` cho thứ tự hiển thị.

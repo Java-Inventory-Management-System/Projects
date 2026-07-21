@@ -53,9 +53,9 @@ Tạo phiếu: chọn lý do (sale/internal/return_supplier/dispose)
 
 > ⚠ So với domain-model gốc, SOP đã bổ sung: override serial tay, reserve transaction ngắn, flow xuất thiếu. Xem `10-sop-quy-trinh-nghiep-vu.md §3`.
 
-### 1.3 Trạng thái `product_units` (code thật — 11 status)
+### 1.3 Trạng thái `product_units` (12 status — 11 code thật + 1 RESERVED mới theo SOP)
 
-`IN_STOCK, SOLD, DEFECTIVE, DAMAGED_IN_STORAGE, LOST, REMOVED (terminal), DISPOSED (terminal), UNDER_REPAIR, SENT_TO_MANUFACTURER, RETURNED, RETURNED_TO_SUPPLIER (terminal)`
+`IN_STOCK, RESERVED (mới — SOP §3.2 B3), SOLD, DEFECTIVE, DAMAGED_IN_STORAGE, LOST, REMOVED (terminal), DISPOSED (terminal), UNDER_REPAIR, SENT_TO_MANUFACTURER, RETURNED, RETURNED_TO_SUPPLIER (terminal)`
 
 Quy tắc quan trọng:
 - `removed` = hủy phiếu nhập (chưa từng rời in_stock); `disposed` = thanh lý hàng hỏng đã xác nhận trong kho — 2 state này KHÔNG dùng thay thế nhau.
@@ -94,8 +94,8 @@ Phân biệt 2 loại giá cần tách rõ:
 |---|---|---|---|---|
 | 1 | Thời điểm tạo `product_units` khi nhập | Tạo ngay lúc xác nhận (pending_approval), chặn export tới khi completed | Tạo khi phiếu → COMPLETED (duyệt xong) | `PENDING` status là dead code — `createAndConfirm()` tạo thẳng `PENDING_APPROVAL`, bỏ qua bước `pending` riêng |
 | 2 | Hủy phiếu nhập đã COMPLETED | Chỉ hủy nếu 100% units chưa rời in_stock; `removed` terminal, không revert | "xóa ProductUnits" khi cancel, không điều kiện | Cancel có check đầy đủ: kiểm tra từng unit còn `IN_STOCK`, bulk check `remaining == initial`. Đúng spec |
-| 3 | Auto-approve phiếu nhập | Duyệt "bắt buộc" (US-05/US-08 trong 02) | Có nhánh "PENDING → COMPLETED (auto)" không giải thích điều kiện | Không thấy trong code review |
-| 4 | Enum status `product_units` | domain-model có thể có 15+, nhưng code thật chỉ 11 (`in_stock, sold, defective, damaged_in_storage, lost, removed, disposed, under_repair, sent_to_manufacturer, returned, returned_to_supplier`) | Không đề cập | Code có **11 status**: `IN_STOCK, SOLD, DEFECTIVE, DAMAGED_IN_STORAGE, LOST, REMOVED, DISPOSED, UNDER_REPAIR, SENT_TO_MANUFACTURER, RETURNED, RETURNED_TO_SUPPLIER`. **Không có `IN_TRANSIT`** — các status còn thiếu so với spec gốc cần được đối chiếu |
+| 3 | Auto-approve phiếu nhập | Duyệt "bắt buộc" (US-05/US-08 trong 02) | Có nhánh "PENDING → COMPLETED (auto)" không giải thích điều kiện. Đã xoá — luôn cần 4-eyes | Không thấy trong code review |
+| 4 | Enum status `product_units` | domain-model có thể có 15+, nhưng code thật chỉ 11 (`in_stock, sold, defective, damaged_in_storage, lost, removed, disposed, under_repair, sent_to_manufacturer, returned, returned_to_supplier`) | Không đề cập | Code có **11 status** (cần thêm `RESERVED` theo SOP): `IN_STOCK, RESERVED (mới), SOLD, DEFECTIVE, DAMAGED_IN_STORAGE, LOST, REMOVED, DISPOSED, UNDER_REPAIR, SENT_TO_MANUFACTURER, RETURNED, RETURNED_TO_SUPPLIER`. **Không có `IN_TRANSIT`** — các status còn thiếu so với spec gốc cần được đối chiếu |
 | 5 | `stock_adjustments.type` | `damaged \| lost \| found` (lowercase) | `DAMAGED / LOST / FOUND` (uppercase, thêm nhánh tách MISSING→LOST/DAMAGED) | Java enum `AdjustmentType`: `DAMAGED, LOST, FOUND` (uppercase). SQL comment V9 ghi `'damaged / lost / found'` (lowercase) nhưng chỉ là comment. Giá trị JPA lưu DB = tên enum → uppercase |
 
 **Hành động cần làm**: quyết định nguồn sự thật duy nhất (khuyến nghị: domain-model gốc là target-state, code hiện tại là điểm xuất phát cần vá dần) trước khi viết thêm feature mới, tránh vừa code vừa đá nhau giữa 2 spec.
