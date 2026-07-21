@@ -93,8 +93,13 @@ export function StockCheckItemsTable({ items, canEdit, onUpdate, onBulkSet, sear
               <TableRow>
                 <TableCell colSpan={7} className="text-center text-muted-foreground py-8">No matching items</TableCell>
               </TableRow>
-            ) : filtered.map((item) => (
-              <TableRow key={item.id}>
+            ) : filtered.map((item) => {
+              const diff = item.difference
+              const rowClass = diff === "MISSING" ? "bg-red-50/40 dark:bg-red-950/10" :
+                diff === "UNEXPECTED" ? "bg-green-50/40 dark:bg-green-950/10" :
+                diff === "MATCH" ? "text-muted-foreground" : ""
+              return (
+              <TableRow key={item.id} className={rowClass}>
                 <TableCell className="font-mono text-xs">{item.serialNumber}</TableCell>
                 <TableCell>
                   <span className="font-medium">{item.productName}</span>
@@ -122,7 +127,11 @@ export function StockCheckItemsTable({ items, canEdit, onUpdate, onBulkSet, sear
                 </TableCell>
                 <TableCell>
                   {item.difference ? (
-                    <Badge variant={item.difference === "MATCH" ? "secondary" : "destructive"} className="text-xs">
+                    <Badge variant={
+                      item.difference === "MATCH" ? "secondary" :
+                      item.difference === "MISSING" ? "destructive" :
+                      item.difference === "UNEXPECTED" ? "default" : "outline"
+                    } className="text-xs">
                       {diffLabels[item.difference] ?? item.difference}
                     </Badge>
                   ) : "—"}
@@ -134,7 +143,7 @@ export function StockCheckItemsTable({ items, canEdit, onUpdate, onBulkSet, sear
                   ) : item.note ?? "—"}
                 </TableCell>
               </TableRow>
-            ))}
+            )})}
           </TableBody>
         </Table>
       </div>

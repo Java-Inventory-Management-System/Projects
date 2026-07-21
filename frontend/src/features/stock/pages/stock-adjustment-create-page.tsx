@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useNavigate, useLocation } from "react-router-dom"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createStockAdjustment } from "@/services/stock-adjustment-service"
@@ -18,6 +18,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog"
+import { useFormDraft, clearDraft } from "@/hooks/use-form-draft"
 import { ArrowLeft, Search } from "lucide-react"
 import { Empty, EmptyTitle } from "@/components/ui/empty"
 import { toast } from "@/utils/toast"
@@ -40,7 +41,8 @@ export const StockAdjustmentCreatePage = () => {
   const navigate = useNavigate()
   const qc = useQueryClient()
   const location = useLocation()
-  const initialReason = (location.state as { reason?: string })?.reason ?? ""
+  const locationState = location.state as { reason?: string; mismatches?: Array<{ productUnitId: number; productName: string; productSku: string; serialNumber: string; difference: string }>; batch?: boolean } | null
+  const initialReason = locationState?.reason ?? ""
 
   const [type, setType] = useState("")
   const [searchUnit, setSearchUnit] = useState("")
@@ -51,7 +53,22 @@ export const StockAdjustmentCreatePage = () => {
   const [reason, setReason] = useState(initialReason)
   const [imageUrl, setImageUrl] = useState("")
   const [showConfirm, setShowConfirm] = useState(false)
+  const [showDraftDialog, setShowDraftDialog] = useState(false)
   const [errors, setErrors] = useState<FormErrors>({})
+
+  const draftState = useMemo(() => ({ type, reason }), [type, reason])
+  const isDirty = !!type || !!reason.trim()
+  const { draftAvailable, restore, dismiss } = useFormDraft(
+    "/stock/adjustments/new",
+    draftState as unknown as Record<string, unknown>,
+    isDirty,
+    (data) => {
+      const d = data as { type?: string; reason?: string }
+      if (d.type) setType(d.type)
+      if (d.reason) setReason(d.reason)
+    },
+  )
+  useEffect(() => { if (draftAvailable) setShowDraftDialog(true) }, [draftAvailable])
 
   const { data: unitsData, isLoading: unitsLoading } = useQuery({
     queryKey: ["product-units", searchUnit],
@@ -72,12 +89,28 @@ export const StockAdjustmentCreatePage = () => {
 
   const createMut = useMutation({
     mutationFn: createStockAdjustment,
-    onSuccess: (res) => {
+    onSuccess: () => {
+      clearDraft("/stock/adjustments/new")
       qc.invalidateQueries({ queryKey: ["stock-adjustments"] })
       toast.success("Tạo phiếu điều chỉnh thành công")
       navigate("/stock/adjustments")
     },
     onError: (err: Error) => toast.error(err.message || "Có lỗi xảy ra"),
+  })
+
+  const batchMut = useMutation({
+    mutationFn: async (items: Array<{ productUnitId: number; difference: string }>) => {
+      for (const item of items) {
+        const type = item.difference === "UNEXPECTED" ? "FOUND" : "LOST"
+        await createStockAdjustment({ type, productUnitId: item.productUnitId, reason: reason.trim() || `Batch from stock check` })
+      }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["stock-adjustments"] })
+      toast.success(`Đã tạo ${locationState?.mismatches?.length ?? 0} phiếu điều chỉnh`)
+      navigate("/stock/adjustments")
+    },
+    onError: (err: Error) => toast.error(err.message || "Có lỗi khi tạo hàng loạt"),
   })
 
   const validate = (): boolean => {
@@ -95,12 +128,23 @@ export const StockAdjustmentCreatePage = () => {
   }
 
   const handleSubmit = () => {
+    if (locationState?.batch && locationState.mismatches) {
+      setShowConfirm(true)
+      return
+    }
     if (!validate()) return
     setShowConfirm(true)
   }
 
   const confirmSubmit = () => {
     setShowConfirm(false)
+    if (locationState?.batch && locationState.mismatches) {
+      batchMut.mutate(locationState.mismatches.map((m) => ({
+        productUnitId: m.productUnitId,
+        difference: m.difference,
+      })))
+      return
+    }
     const data: { type: string; productUnitId?: number; productId?: number; quantity?: number; reason: string; imageUrl?: string } = {
       type,
       reason: reason.trim(),
@@ -298,48 +342,85 @@ export const StockAdjustmentCreatePage = () => {
 
       <div className="flex justify-end gap-3">
         <Button variant="outline" onClick={() => navigate("/stock/adjustments")}>Hủy</Button>
-        <Button onClick={handleSubmit} disabled={createMut.isPending || !type}>
-          {createMut.isPending ? "Đang tạo..." : "Tạo phiếu điều chỉnh"}
+        <Button onClick={handleSubmit} disabled={createMut.isPending || batchMut.isPending || (!locationState?.batch && !type)}>
+          {createMut.isPending || batchMut.isPending ? "Đang tạo..." : locationState?.batch ? `Tạo Adjustment (${locationState.mismatches?.length ?? 0})` : "Tạo phiếu điều chỉnh"}
         </Button>
       </div>
+
+      <Dialog open={showDraftDialog} onOpenChange={(v) => { if (!v) { setShowDraftDialog(false); dismiss() } }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Khôi phục dữ liệu</DialogTitle>
+            <DialogDescription>Bạn có dữ liệu điều chỉnh chưa lưu từ lần trước. Muốn khôi phục?</DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => { setShowDraftDialog(false); dismiss() }}>Bỏ qua</Button>
+            <Button onClick={() => { setShowDraftDialog(false); restore() }}>Khôi phục</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={showConfirm} onOpenChange={(v) => { if (!v) setShowConfirm(false) }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Xác nhận tạo phiếu điều chỉnh</DialogTitle>
+            <DialogTitle>{locationState?.batch ? "Xác nhận tạo hàng loạt" : "Xác nhận tạo phiếu điều chỉnh"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-2 text-sm">
-            <div className="flex gap-2">
-              <span className="text-muted-foreground w-24 shrink-0">Loại:</span>
-              <span className="font-medium">{typeOptions.find((o) => o.value === type)?.label}</span>
-            </div>
-            {selectedUnitId && (
-              <div className="flex gap-2">
-                <span className="text-muted-foreground w-24 shrink-0">Serial ID:</span>
-                <span className="font-mono text-xs">{selectedUnitId}</span>
-              </div>
-            )}
-            {selectedProductId && !selectedUnitId && (
+            {locationState?.batch && locationState.mismatches ? (
               <>
                 <div className="flex gap-2">
-                  <span className="text-muted-foreground w-24 shrink-0">Sản phẩm ID:</span>
-                  <span>{selectedProductId}</span>
+                  <span className="text-muted-foreground w-28 shrink-0">Số lượng:</span>
+                  <span className="font-medium">{locationState.mismatches.length} phiếu</span>
                 </div>
+                <div className="rounded-lg border max-h-32 overflow-y-auto divide-y text-xs">
+                  {locationState.mismatches.map((m, i) => (
+                    <div key={i} className="flex items-center gap-2 px-2 py-1.5">
+                      <Badge variant={m.difference === "UNEXPECTED" ? "default" : "destructive"} className="text-[10px]">{m.difference}</Badge>
+                      <span className="font-mono">{m.serialNumber}</span>
+                      <span className="text-muted-foreground truncate">{m.productName}</span>
+                    </div>
+                  ))}
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Lý do:</span>
+                  <Input className="mt-1 h-8 text-sm" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Lý do (dùng chung cho tất cả)" />
+                </div>
+              </>
+            ) : (
+              <>
                 <div className="flex gap-2">
-                  <span className="text-muted-foreground w-24 shrink-0">Số lượng:</span>
-                  <span>{quantity}</span>
+                  <span className="text-muted-foreground w-24 shrink-0">Loại:</span>
+                  <span className="font-medium">{typeOptions.find((o) => o.value === type)?.label}</span>
+                </div>
+                {selectedUnitId && (
+                  <div className="flex gap-2">
+                    <span className="text-muted-foreground w-24 shrink-0">Serial ID:</span>
+                    <span className="font-mono text-xs">{selectedUnitId}</span>
+                  </div>
+                )}
+                {selectedProductId && !selectedUnitId && (
+                  <>
+                    <div className="flex gap-2">
+                      <span className="text-muted-foreground w-24 shrink-0">Sản phẩm ID:</span>
+                      <span>{selectedProductId}</span>
+                    </div>
+                    <div className="flex gap-2">
+                      <span className="text-muted-foreground w-24 shrink-0">Số lượng:</span>
+                      <span>{quantity}</span>
+                    </div>
+                  </>
+                )}
+                <div>
+                  <span className="text-muted-foreground">Lý do:</span>
+                  <p className="mt-0.5 rounded-md border bg-muted/20 px-3 py-2 leading-relaxed">{reason}</p>
                 </div>
               </>
             )}
-            <div>
-              <span className="text-muted-foreground">Lý do:</span>
-              <p className="mt-0.5 rounded-md border bg-muted/20 px-3 py-2 leading-relaxed">{reason}</p>
-            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowConfirm(false)}>Quay lại</Button>
-            <Button onClick={confirmSubmit} disabled={createMut.isPending}>
-              {createMut.isPending ? "Đang tạo..." : "Xác nhận"}
+            <Button onClick={confirmSubmit} disabled={createMut.isPending || batchMut.isPending}>
+              {createMut.isPending || batchMut.isPending ? "Đang tạo..." : "Xác nhận"}
             </Button>
           </DialogFooter>
         </DialogContent>

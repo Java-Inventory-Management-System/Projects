@@ -142,8 +142,24 @@ export const StockCheckDetailPage = () => {
             </ButtonGroup>
           )}
           {check.status === "APPROVED" && mismatchCount > 0 && (
-            <Button onClick={() => navigate("/stock/adjustments/new", { state: { reason: `From ${check.checkCode} — ${mismatchCount} items mismatch` } })}>
-              <ClipboardCheck className="size-4 mr-1" /> Create Adjustment ({mismatchCount})
+            <Button onClick={() => {
+              const mismatches = localItems.filter((i) => i.difference && i.difference !== "MATCH")
+              navigate("/stock/adjustments/new", {
+                state: {
+                  reason: `From ${check.checkCode} — ${mismatchCount} items mismatch`,
+                  mismatches: mismatches.map((m) => ({
+                    productUnitId: m.productUnitId,
+                    productName: m.productName,
+                    productSku: m.productSku,
+                    serialNumber: m.serialNumber,
+                    difference: m.difference,
+                    expectedStatus: m.expectedStatus,
+                  })),
+                  batch: true,
+                },
+              })
+            }}>
+              <ClipboardCheck className="size-4 mr-1" /> Tạo Adjustment ({mismatchCount})
             </Button>
           )}
         </div>

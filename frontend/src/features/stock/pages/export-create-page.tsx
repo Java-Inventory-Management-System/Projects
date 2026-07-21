@@ -28,6 +28,10 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Trash2, Plus, Search } from "lucide-react"
+import { useFormDraft, clearDraft } from "@/hooks/use-form-draft"
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+} from "@/components/ui/dialog"
 import { toast } from "@/utils/toast"
 
 interface LineItem {
@@ -60,7 +64,21 @@ export const ExportCreatePage = () => {
   const { data: productsRes } = useProducts(0, 100)
   const products = useMemo(() => productsRes?.content ?? [], [productsRes])
 
+  const [showDraftDialog, setShowDraftDialog] = useState(false)
   const [serials, setSerials] = useState<Record<number, ProductUnit[]>>({})
+
+  const draftState = useMemo(() => ({ reason, customerId, customerName, note, items }), [reason, customerId, customerName, note, items])
+  const isDirty = items.length > 0
+  const { draftAvailable, restore, dismiss } = useFormDraft(
+    "/stock/exports/new",
+    draftState as unknown as Record<string, unknown>,
+    isDirty,
+    (data) => {
+      const d = data as typeof draftState
+      setReason(d.reason ?? ""); setCustomerId(d.customerId ?? ""); setCustomerName(d.customerName ?? ""); setNote(d.note ?? ""); setItems(d.items ?? [])
+    },
+  )
+  useEffect(() => { if (draftAvailable) setShowDraftDialog(true) }, [draftAvailable])
 
   useEffect(() => {
     if (items.length === 0) { setSerials({}); return }
@@ -74,7 +92,7 @@ export const ExportCreatePage = () => {
 
   const createMut = useMutation({
     mutationFn: createExportReceipt,
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["export-receipts"] }); toast.success("Tạo phiếu xuất thành công"); navigate("/stock/exports") },
+    onSuccess: () => { clearDraft("/stock/exports/new"); qc.invalidateQueries({ queryKey: ["export-receipts"] }); toast.success("Tạo phiếu xuất thành công"); navigate("/stock/exports") },
     onError: (err: Error) => toast.error(err.message || "Có lỗi xảy ra"),
   })
 
@@ -301,6 +319,19 @@ export const ExportCreatePage = () => {
         </Button>
 
       </div>
+
+      <Dialog open={showDraftDialog} onOpenChange={(v) => { if (!v) { setShowDraftDialog(false); dismiss() } }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Khôi phục dữ liệu</DialogTitle>
+            <DialogDescription>Bạn có dữ liệu xuất kho chưa lưu từ lần trước. Muốn khôi phục?</DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => { setShowDraftDialog(false); dismiss() }}>Bỏ qua</Button>
+            <Button onClick={() => { setShowDraftDialog(false); restore() }}>Khôi phục</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <CustomerSelectModal
         open={selectModalOpen}
