@@ -2,13 +2,13 @@ import http from "@/utils/http-client"
 import type { ResponsePage, StockCheck } from "@/utils/types"
 import { mapResponsePage, mapStockCheck } from "@/utils/mappers"
 
-export async function getStockChecks(page = 0, size = 20): Promise<ResponsePage<StockCheck>> {
-  const res = await http.get("/stock-check", { params: { page, size, sort: "createdAt,desc" } })
+export async function getStockChecks(page = 0, size = 20, sort?: string): Promise<ResponsePage<StockCheck>> {
+  const res = await http.get("/stock-check", { params: { page, size, sort: sort ?? "createdAt,desc" } })
   return mapResponsePage(res, mapStockCheck)
 }
 
-export async function getMyStockChecks(page = 0, size = 20): Promise<ResponsePage<StockCheck>> {
-  const res = await http.get("/stock-check/my", { params: { page, size, sort: "createdAt,desc" } })
+export async function getMyStockChecks(page = 0, size = 20, sort?: string): Promise<ResponsePage<StockCheck>> {
+  const res = await http.get("/stock-check/my", { params: { page, size, sort: sort ?? "createdAt,desc" } })
   return mapResponsePage(res, mapStockCheck)
 }
 

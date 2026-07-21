@@ -20,11 +20,12 @@ const reasonLabel: Record<string, string> = {
 }
 
 const columns: Column<ExportReceipt>[] = [
-  { header: "Mã phiếu", render: (r) => <span className="font-mono text-xs">{r.receiptCode}</span> },
+  { header: "Mã phiếu", sortKey: "receiptCode", render: (r) => <span className="font-mono text-xs">{r.receiptCode}</span> },
   { header: "Lý do", render: (r) => <span>{reasonLabel[r.reason] ?? r.reason}</span> },
   { header: "Khách hàng", render: (r) => <span className="text-muted-foreground">{r.customerName ?? "—"}</span> },
   {
     header: "Tổng tiền",
+    sortKey: "totalAmount",
     className: "text-right",
     render: (r) => <span className="tabular-nums">{r.totalAmount.toLocaleString("vi-VN")}₫</span>,
   },
@@ -38,6 +39,7 @@ const columns: Column<ExportReceipt>[] = [
   { header: "Người tạo", render: (r) => <span className="text-muted-foreground">{r.createdByName}</span> },
   {
     header: "Ngày tạo",
+    sortKey: "createdAt",
     render: (r) => (
       <span className="text-muted-foreground text-xs">{new Date(r.createdAt).toLocaleDateString("vi-VN")}</span>
     ),

@@ -14,10 +14,11 @@ const statusLabel: Record<string, { label: string; variant: "default" | "seconda
 }
 
 const columns: Column<ImportReceipt>[] = [
-  { header: "Mã phiếu", render: (r) => <span className="font-mono text-xs">{r.receiptCode}</span> },
+  { header: "Mã phiếu", sortKey: "receiptCode", render: (r) => <span className="font-mono text-xs">{r.receiptCode}</span> },
   { header: "Nhà cung cấp", render: (r) => <span className="font-medium">{r.supplierName || "—"}</span> },
   {
     header: "Tổng tiền",
+    sortKey: "totalAmount",
     className: "text-right",
     render: (r) => <span className="tabular-nums">{r.totalAmount.toLocaleString("vi-VN")}₫</span>,
   },
@@ -31,6 +32,7 @@ const columns: Column<ImportReceipt>[] = [
   { header: "Người tạo", render: (r) => <span className="text-muted-foreground">{r.createdByName || "—"}</span> },
   {
     header: "Ngày tạo",
+    sortKey: "createdAt",
     render: (r) => (
       <span className="text-muted-foreground text-xs">{new Date(r.createdAt).toLocaleDateString("vi-VN")}</span>
     ),

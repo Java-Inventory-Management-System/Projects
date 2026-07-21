@@ -1,3 +1,4 @@
+import { useState, useCallback } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import { useAuthStore } from "@/store/auth-store"
 import { usePriceAdjustments, useMyPriceAdjustments } from "@/hooks/use-price-adjustments"
@@ -9,7 +10,6 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select"
 import { DataTable, type Column } from "@/components/ui/data-table"
-import { PaginationBar } from "@/components/ui/pagination-bar"
 import type { PriceAdjustment } from "@/utils/types"
 
 const statusLabel: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
@@ -26,24 +26,36 @@ export function PriceAdjustmentListPage() {
   const statusFilter = searchParams.get("status") ?? ""
   const isAdminManager = user?.role === "ADMIN" || user?.role === "MANAGER"
 
+  const [pageSize, setPageSize] = useState(20)
+  const [sort, setSort] = useState<{ key: string; dir: "asc" | "desc" } | undefined>(undefined)
+  const sortStr = sort ? `${sort.key},${sort.dir}` : undefined
+
+  const handleSort = useCallback((key: string) => {
+    setSort((prev) => {
+      if (prev?.key !== key) return { key, dir: "asc" }
+      if (prev.dir === "asc") return { key, dir: "desc" }
+      return undefined
+    })
+  }, [])
+
   const { data, isLoading } = isAdminManager
-    ? usePriceAdjustments(page, 20, statusFilter || undefined)
-    : useMyPriceAdjustments(page, 20, statusFilter || undefined)
+    ? usePriceAdjustments(page, pageSize, sortStr, statusFilter || undefined)
+    : useMyPriceAdjustments(page, pageSize, sortStr, statusFilter || undefined)
 
   const setPage = (p: number) => { const next = new URLSearchParams(searchParams); next.set("page", String(p)); setSearchParams(next) }
-  const list = data?.content ?? []
-  const totalPages = data?.pagination.totalPages ?? 0
 
   const columns: Column<PriceAdjustment>[] = [
-    { header: "Mã phiếu", render: (r) => <span className="font-mono text-xs">{r.adjustCode}</span> },
+    { header: "Mã phiếu", sortKey: "adjustCode", render: (r) => <span className="font-mono text-xs">{r.adjustCode}</span> },
     { header: "Sản phẩm", render: (r) => <span className="text-sm">{r.productName ?? "—"}</span> },
     {
       header: "Giá cũ",
+      sortKey: "oldPrice",
       className: "w-24 text-right",
       render: (r) => <span className="tabular-nums">{r.oldPrice.toLocaleString("vi-VN")}₫</span>,
     },
     {
       header: "Giá mới",
+      sortKey: "newPrice",
       className: "w-24 text-right",
       render: (r) => <span className="tabular-nums">{r.newPrice.toLocaleString("vi-VN")}₫</span>,
     },
@@ -93,14 +105,18 @@ export function PriceAdjustmentListPage() {
 
       <DataTable
         columns={columns}
-        data={list}
+        data={data?.content ?? []}
         isLoading={isLoading}
         emptyMessage="Chưa có phiếu điều chỉnh giá nào"
+        sort={sort}
+        onSort={handleSort}
+        totalElements={data?.pagination.totalElements}
+        page={page}
+        totalPages={data?.pagination.totalPages}
+        pageSize={pageSize}
+        onPageChange={(p) => setPage(p)}
+        onPageSizeChange={(s) => { setPageSize(s); setPage(0) }}
       />
-
-      {totalPages > 1 && (
-        <PaginationBar page={page} totalPages={totalPages} onChange={(p) => setPage(p)} />
-      )}
     </div>
   )
 }

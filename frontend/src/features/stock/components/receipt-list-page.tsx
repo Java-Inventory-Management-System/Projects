@@ -5,7 +5,6 @@ import { usePermission } from "@/hooks/use-permission"
 import { useUrlState } from "@/hooks/use-url-state"
 import { Button } from "@/components/ui/button"
 import { DataTable, type Column } from "@/components/ui/data-table"
-import { PaginationBar } from "@/components/ui/pagination-bar"
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
@@ -24,7 +23,7 @@ interface Props<R extends Receipt> {
   newRoute: string
   emptyMessage: string
   queryKey: string
-  useHook: (page: number, size: number) => { data?: { content: R[]; pagination: { totalPages: number } }; isLoading: boolean }
+  useHook: (page: number, size: number, sort?: string) => { data?: { content: R[]; pagination: { totalPages: number; totalElements: number } }; isLoading: boolean }
   cancelService: (id: number) => Promise<unknown>
   approveService: (id: number) => Promise<unknown>
   ViewModal: ComponentType<{ receipt: R | null; open: boolean; onOpenChange: (v: boolean) => void }>
@@ -43,8 +42,18 @@ export function ReceiptListPage<R extends Receipt>({
   const [pageSize, setPageSize] = useUrlState("size", 10)
   const [viewReceipt, setViewReceipt] = useState<R | null>(null)
   const [cancelTarget, setCancelTarget] = useState<R | null>(null)
+  const [sort, setSort] = useState<{ key: string; dir: "asc" | "desc" } | undefined>(undefined)
+  const sortStr = sort ? `${sort.key},${sort.dir}` : undefined
 
-  const { data, isLoading } = useHook(page, pageSize)
+  const handleSort = useCallback((key: string) => {
+    setSort((prev) => {
+      if (prev?.key !== key) return { key, dir: "asc" }
+      if (prev.dir === "asc") return { key, dir: "desc" }
+      return undefined
+    })
+  }, [])
+
+  const { data, isLoading } = useHook(page, pageSize, sortStr)
 
   const cancelMut = useMutation({
     mutationFn: (id: number) => cancelService(id),
@@ -125,11 +134,15 @@ export function ReceiptListPage<R extends Receipt>({
         data={data?.content ?? []}
         isLoading={isLoading}
         emptyMessage={emptyMessage}
+        sort={sort}
+        onSort={handleSort}
+        totalElements={data?.pagination.totalElements}
+        page={page}
+        totalPages={data?.pagination.totalPages}
+        pageSize={pageSize}
+        onPageChange={setPage}
+        onPageSizeChange={(s) => { setPageSize(s); setPage(0) }}
       />
-
-      {data && data.pagination.totalPages > 1 && (
-        <PaginationBar page={page} totalPages={data.pagination.totalPages} onChange={setPage} pageSize={pageSize} onPageSizeChange={(s) => { setPageSize(s); setPage(0) }} />
-      )}
 
       <ViewModal receipt={viewReceipt} open={!!viewReceipt} onOpenChange={(v) => { if (!v) setViewReceipt(null) }} />
 

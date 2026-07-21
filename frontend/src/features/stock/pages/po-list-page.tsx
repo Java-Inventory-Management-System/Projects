@@ -1,8 +1,7 @@
-import { useState } from "react"
+import { useState, useCallback } from "react"
 import { useNavigate } from "react-router-dom"
 import { usePurchaseOrders } from "@/hooks/use-purchase-orders"
 import { DataTable, type Column } from "@/components/ui/data-table"
-import { PaginationBar } from "@/components/ui/pagination-bar"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Plus, Eye } from "lucide-react"
@@ -22,15 +21,27 @@ export function POListPage() {
   const navigate = useNavigate()
   const perm = usePermission()
   const [page, setPage] = useState(0)
-  const { data, isLoading } = usePurchaseOrders(page, 20)
+  const [pageSize, setPageSize] = useState(20)
+  const [sort, setSort] = useState<{ key: string; dir: "asc" | "desc" } | undefined>(undefined)
+  const sortStr = sort ? `${sort.key},${sort.dir}` : undefined
+
+  const handleSort = useCallback((key: string) => {
+    setSort((prev) => {
+      if (prev?.key !== key) return { key, dir: "asc" }
+      if (prev.dir === "asc") return { key, dir: "desc" }
+      return undefined
+    })
+  }, [])
+
+  const { data, isLoading } = usePurchaseOrders(page, pageSize, sortStr)
 
   const columns: Column<PurchaseOrder>[] = [
-    { header: "Mã PO", render: (p) => <span className="font-mono text-xs">{p.poCode}</span> },
+    { header: "Mã PO", sortKey: "poCode", render: (p) => <span className="font-mono text-xs">{p.poCode}</span> },
     { header: "NCC", render: (p) => <span className="font-medium">{p.supplierName}</span> },
-    { header: "Tổng tiền", className: "text-right", render: (p) => <span className="tabular-nums">{p.totalAmount.toLocaleString("vi-VN")}₫</span> },
+    { header: "Tổng tiền", sortKey: "totalAmount", className: "text-right", render: (p) => <span className="tabular-nums">{p.totalAmount.toLocaleString("vi-VN")}₫</span> },
     { header: "Ngày giao", render: (p) => <span className="text-sm">{new Date(p.expectedDate).toLocaleDateString("vi-VN")}</span> },
     { header: "Trạng thái", render: (p) => { const s = statusConfig[p.status] ?? { label: p.status, variant: "secondary" }; return <Badge variant={s.variant}>{s.label}</Badge> }},
-    { header: "Ngày tạo", render: (p) => <span className="text-xs text-muted-foreground">{new Date(p.createdAt).toLocaleDateString("vi-VN")}</span> },
+    { header: "Ngày tạo", sortKey: "createdAt", render: (p) => <span className="text-xs text-muted-foreground">{new Date(p.createdAt).toLocaleDateString("vi-VN")}</span> },
     { header: "Thao tác", className: "w-[70px]", render: (p) => (
       <Tooltip>
         <TooltipTrigger asChild>
@@ -53,8 +64,20 @@ export function POListPage() {
           </Button>
         )}
       </div>
-      <DataTable columns={columns} data={data?.content ?? []} isLoading={isLoading} emptyMessage="Chưa có đơn đặt hàng nào" />
-      {data && data.pagination.totalPages > 1 && <PaginationBar page={page} totalPages={data.pagination.totalPages} onChange={setPage} />}
+      <DataTable
+        columns={columns}
+        data={data?.content ?? []}
+        isLoading={isLoading}
+        emptyMessage="Chưa có đơn đặt hàng nào"
+        sort={sort}
+        onSort={handleSort}
+        totalElements={data?.pagination.totalElements}
+        page={page}
+        totalPages={data?.pagination.totalPages}
+        pageSize={pageSize}
+        onPageChange={setPage}
+        onPageSizeChange={(s) => { setPageSize(s); setPage(0) }}
+      />
     </div>
   )
 }

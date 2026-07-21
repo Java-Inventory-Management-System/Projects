@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { searchAuditLogs } from "@/services/audit-service"
 import type { AuditLog, ResponsePage } from "@/utils/types"
 import { Button } from "@/components/ui/button"
@@ -21,7 +21,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { PaginationBar } from "@/components/ui/pagination-bar"
 
 const statusBadge: Record<string, { label: string; variant: "default" | "destructive" | "secondary" }> = {
   SUCCESS: { label: "Thành công", variant: "default" },
@@ -42,6 +41,17 @@ export const AuditPage = () => {
   const [data, setData] = useState<ResponsePage<AuditLog> | null>(null)
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(0)
+  const [pageSize, setPageSize] = useState(20)
+  const [sort, setSort] = useState<{ key: string; dir: "asc" | "desc" } | undefined>(undefined)
+  const sortStr = sort ? `${sort.key},${sort.dir}` : undefined
+
+  const handleSort = useCallback((key: string) => {
+    setSort((prev) => {
+      if (prev?.key !== key) return { key, dir: "asc" }
+      if (prev.dir === "asc") return { key, dir: "desc" }
+      return undefined
+    })
+  }, [])
 
   const [actionFilter, setActionFilter] = useState("all")
   const [entityFilter, setEntityFilter] = useState("")
@@ -53,7 +63,8 @@ export const AuditPage = () => {
     try {
       const res = await searchAuditLogs({
         page: p,
-        size: 20,
+        size: pageSize,
+        sort: sortStr,
         action: actionFilter === "all" ? undefined : actionFilter,
         entity: entityFilter || undefined,
         status: statusFilter === "all" ? undefined : statusFilter,
@@ -67,13 +78,14 @@ export const AuditPage = () => {
   }
 
   useEffect(() => { setPage(0) }, [actionFilter, entityFilter, statusFilter])
-  useEffect(() => { fetch(page) }, [page, actionFilter, entityFilter, statusFilter])
+  useEffect(() => { fetch(page) }, [page, pageSize, sortStr, actionFilter, entityFilter, statusFilter])
 
   const s = data?.pagination
 
   const columns: Column<AuditLog>[] = [
     {
       header: "Thời gian",
+      sortKey: "createdAt",
       render: (log) => <span className="text-xs whitespace-nowrap text-muted-foreground">{fmt(log.createdAt)}</span>,
     },
     { header: "Người dùng", render: (log) => <span className="text-xs">{log.username || "—"}</span> },
@@ -143,11 +155,15 @@ export const AuditPage = () => {
         data={data?.content ?? []}
         isLoading={loading}
         emptyMessage="Không có nhật ký nào"
+        sort={sort}
+        onSort={handleSort}
+        totalElements={s?.totalElements}
+        page={page}
+        totalPages={s?.totalPages}
+        pageSize={pageSize}
+        onPageChange={setPage}
+        onPageSizeChange={(s) => { setPageSize(s); setPage(0) }}
       />
-
-      {s && s.totalPages > 1 && (
-        <PaginationBar page={page} totalPages={s.totalPages} onChange={(p) => setPage(p)} />
-      )}
 
       <Dialog open={!!viewLog} onOpenChange={(v) => { if (!v) setViewLog(null) }}>
         <DialogContent className="max-w-2xl">

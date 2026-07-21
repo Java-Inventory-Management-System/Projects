@@ -5,11 +5,12 @@ import { mapProduct, mapResponsePage } from "@/utils/mappers"
 export async function getProducts(
   page = 0,
   size = 20,
+  sort?: string,
   search?: string,
   brandId?: number,
   categoryId?: number,
 ): Promise<ResponsePage<ProductResponse>> {
-  const params: Record<string, string | number> = { page, size }
+  const params: Record<string, string | number> = { page, size, sort: sort ?? "createdAt,desc" }
   if (search) params.search = search
   if (brandId) params.brandId = brandId
   if (categoryId) params.categoryId = categoryId

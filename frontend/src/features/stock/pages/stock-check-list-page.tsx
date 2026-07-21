@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useCallback } from "react"
 import { useNavigate } from "react-router-dom"
 import { useAuthStore } from "@/store/auth-store"
 import { useStockChecks, useMyStockChecks } from "@/hooks/use-stock-checks"
@@ -7,7 +7,6 @@ import { Badge } from "@/components/ui/badge"
 import { Plus, Eye } from "lucide-react"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 import { DataTable, type Column } from "@/components/ui/data-table"
-import { PaginationBar } from "@/components/ui/pagination-bar"
 import type { StockCheck } from "@/utils/types"
 
 const statusLabel: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
@@ -22,11 +21,23 @@ export const StockCheckListPage = () => {
   const navigate = useNavigate()
   const user = useAuthStore((s) => s.user)
   const [page, setPage] = useState(0)
+  const [pageSize, setPageSize] = useState(10)
+  const [sort, setSort] = useState<{ key: string; dir: "asc" | "desc" } | undefined>(undefined)
+  const sortStr = sort ? `${sort.key},${sort.dir}` : undefined
+
+  const handleSort = useCallback((key: string) => {
+    setSort((prev) => {
+      if (prev?.key !== key) return { key, dir: "asc" }
+      if (prev.dir === "asc") return { key, dir: "desc" }
+      return undefined
+    })
+  }, [])
+
   const isStock = user?.role === "STOCK"
-  const { data, isLoading } = isStock ? useMyStockChecks(page, 10) : useStockChecks(page, 10)
+  const { data, isLoading } = isStock ? useMyStockChecks(page, pageSize, sortStr) : useStockChecks(page, pageSize, sortStr)
 
   const columns: Column<StockCheck>[] = [
-    { header: "Mã phiếu", render: (r) => <span className="font-mono text-xs">{r.checkCode}</span> },
+    { header: "Mã phiếu", sortKey: "checkCode", render: (r) => <span className="font-mono text-xs">{r.checkCode}</span> },
     {
       header: "Trạng thái",
       render: (r) => {
@@ -37,6 +48,7 @@ export const StockCheckListPage = () => {
     { header: "Người tạo", render: (r) => <span className="text-muted-foreground">{r.createdByName}</span> },
     {
       header: "Ngày tạo",
+      sortKey: "createdAt",
       render: (r) => (
         <span className="text-muted-foreground text-xs">{new Date(r.createdAt).toLocaleDateString("vi-VN")}</span>
       ),
@@ -79,11 +91,15 @@ export const StockCheckListPage = () => {
         data={data?.content ?? []}
         isLoading={isLoading}
         emptyMessage="Chưa có phiếu kiểm nào"
+        sort={sort}
+        onSort={handleSort}
+        totalElements={data?.pagination.totalElements}
+        page={page}
+        totalPages={data?.pagination.totalPages}
+        pageSize={pageSize}
+        onPageChange={setPage}
+        onPageSizeChange={(s) => { setPageSize(s); setPage(0) }}
       />
-
-      {data && data.pagination.totalPages > 1 && (
-        <PaginationBar page={page} totalPages={data.pagination.totalPages} onChange={(p) => setPage(p)} />
-      )}
     </div>
   )
 }
