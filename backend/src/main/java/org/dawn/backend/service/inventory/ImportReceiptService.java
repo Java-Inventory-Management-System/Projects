@@ -298,15 +298,20 @@ public class ImportReceiptService {
                     .map(ImportReceiptItem::getQuantity)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
             poItem.setReceivedQuantity(received);
-            purchaseOrderItemRepository.save(poItem);
         }
+        purchaseOrderItemRepository.saveAll(items);
 
+        boolean anyReceived = items.stream()
+                .anyMatch(i -> i.getReceivedQuantity().compareTo(BigDecimal.ZERO) > 0);
         boolean allFullyReceived = items.stream()
                 .allMatch(i -> i.getReceivedQuantity().compareTo(i.getQuantity()) >= 0);
+
         if (allFullyReceived) {
             po.setStatus(PurchaseOrderStatus.COMPLETED.name());
-            purchaseOrderRepository.save(po);
+        } else if (anyReceived) {
+            po.setStatus(PurchaseOrderStatus.PARTIAL.name());
         }
+        purchaseOrderRepository.save(po);
     }
 
     @Transactional

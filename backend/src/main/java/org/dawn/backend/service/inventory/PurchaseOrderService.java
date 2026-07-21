@@ -114,9 +114,7 @@ public class PurchaseOrderService {
             throw new InvalidRequestException(Message.Inventory.PO_ALREADY_CANCELLED);
         }
 
-        boolean hasCompletedReceipts = importReceiptRepository.findAll().stream()
-                .anyMatch(r -> Long.valueOf(id).equals(r.getPurchaseOrderId())
-                        && "COMPLETED".equals(r.getStatus()));
+        boolean hasCompletedReceipts = importReceiptRepository.existsByPurchaseOrderIdAndStatus(id, "COMPLETED");
 
         if (hasCompletedReceipts) {
             throw new InvalidRequestException(Message.Inventory.PO_HAS_COMPLETED_RECEIPTS);

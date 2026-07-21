@@ -38,6 +38,7 @@ const StockUnitsPage = lazy(() => import("@/features/stock/pages/stock-units-pag
 const UsersPage = lazy(() => import("@/features/admin/pages/users-page").then((m) => ({ default: m.UsersPage })))
 const AuditPage = lazy(() => import("@/features/admin/pages/audit-page").then((m) => ({ default: m.AuditPage })))
 
+import { ErrorBoundary } from "@/components/ui/error-boundary"
 import { useAuthStore } from "@/store/auth-store"
 import type { URole } from "@/utils/types"
 const ForbiddenPage = lazy(() => import("@/features/common/pages/forbidden-page").then((m) => ({ default: m.ForbiddenPage })))
@@ -53,9 +54,10 @@ function RootRedirect() {
 }
 const adminManagerStock = ["ADMIN", "MANAGER", "STOCK"] as URole[]
 const adminManager = ["ADMIN", "MANAGER"] as URole[]
+const managerOnly = ["MANAGER"] as URole[]
 
 function Lazy({ children }: { children: ReactNode }) {
-  return <Suspense fallback={<div className="flex min-h-[60vh] items-center justify-center"><p className="text-sm text-muted-foreground">Loading...</p></div>}>{children}</Suspense>
+  return <Suspense fallback={<div className="flex min-h-[60vh] items-center justify-center"><p className="text-sm text-muted-foreground">Loading...</p></div>}><ErrorBoundary>{children}</ErrorBoundary></Suspense>
 }
 
 export const router = createBrowserRouter([
@@ -93,9 +95,9 @@ export const router = createBrowserRouter([
           { path: "stock/price-adjustments", element: <Lazy><PageGuard roles={adminManagerStock}><PriceAdjustmentListPage /></PageGuard></Lazy> },
           { path: "stock/price-adjustments/new", element: <Lazy><PageGuard roles={adminManagerStock}><PriceAdjustmentCreatePage /></PageGuard></Lazy> },
           { path: "stock/price-adjustments/:id", element: <Lazy><PageGuard roles={adminManagerStock}><PriceAdjustmentDetailPage /></PageGuard></Lazy> },
-          { path: "stock/purchase-orders", element: <Lazy><PageGuard roles={adminManager}><POListPage /></PageGuard></Lazy> },
-          { path: "stock/purchase-orders/new", element: <Lazy><PageGuard roles={adminManager}><POCreatePage /></PageGuard></Lazy> },
-          { path: "stock/purchase-orders/:id", element: <Lazy><PageGuard roles={adminManager}><PODetailPage /></PageGuard></Lazy> },
+          { path: "stock/purchase-orders", element: <Lazy><PageGuard roles={managerOnly}><POListPage /></PageGuard></Lazy> },
+          { path: "stock/purchase-orders/new", element: <Lazy><PageGuard roles={managerOnly}><POCreatePage /></PageGuard></Lazy> },
+          { path: "stock/purchase-orders/:id", element: <Lazy><PageGuard roles={managerOnly}><PODetailPage /></PageGuard></Lazy> },
           { path: "reports", element: <Navigate to="/" replace /> },
           { path: "stock/units", element: <Lazy><PageGuard roles={adminManagerStock}><StockUnitsPage /></PageGuard></Lazy> },
           { path: "product-units", element: <Navigate to="/stock/units" replace /> },

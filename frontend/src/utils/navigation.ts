@@ -31,33 +31,33 @@ export interface NavSection {
 export const navSections: NavSection[] = [
   {
     items: [
-      { label: "Dashboard", icon: LayoutDashboard, path: "/", roles: ["ADMIN", "MANAGER", "SALES"] },
-      { label: "Products", icon: Package, path: "/products", roles: ["ADMIN", "MANAGER", "SALES", "STOCK"] },
-      { label: "Thương hiệu", icon: Building2, path: "/brands", roles: ["ADMIN", "MANAGER"] },
-      { label: "Danh mục", icon: Tags, path: "/categories", roles: ["ADMIN", "MANAGER"] },
-      { label: "NCC", icon: Truck, path: "/suppliers", roles: ["ADMIN", "MANAGER"] },
-      { label: "Khách hàng", icon: Contact, path: "/customers", roles: ["ADMIN", "MANAGER", "STOCK"] },
-      { label: "Kho hàng", icon: ScanBarcode, path: "/stock/units", roles: ["ADMIN", "MANAGER", "STOCK"] },
+      { label: "Dashboard", icon: LayoutDashboard, path: "/", roles: ["ADMIN", "MANAGER"] },
+      { label: "Products", icon: Package, path: "/products", roles: ["ADMIN", "MANAGER", "STOCK"] },
+      { label: "Brands", icon: Building2, path: "/brands", roles: ["ADMIN", "MANAGER"] },
+      { label: "Categories", icon: Tags, path: "/categories", roles: ["ADMIN", "MANAGER"] },
+      { label: "Suppliers", icon: Truck, path: "/suppliers", roles: ["ADMIN", "MANAGER"] },
+      { label: "Customers", icon: Contact, path: "/customers", roles: ["ADMIN", "MANAGER", "STOCK"] },
+      { label: "Inventory", icon: ScanBarcode, path: "/stock/units", roles: ["ADMIN", "MANAGER", "STOCK"] },
     ],
   },
   {
     items: [
-      { label: "Đơn đặt hàng", icon: FileText, path: "/stock/purchase-orders", roles: ["ADMIN", "MANAGER"] },
+      { label: "Purchase Orders", icon: FileText, path: "/stock/purchase-orders", roles: ["MANAGER"] },
 
     ],
   },
   {
     items: [
-      { label: "Nhập kho", icon: ArrowDownToLine, path: "/stock/imports", roles: ["STOCK", "MANAGER", "ADMIN"] },
-      { label: "Xuất kho", icon: ArrowUpFromLine, path: "/stock/exports", roles: ["STOCK", "MANAGER", "ADMIN"] },
-      { label: "Kiểm kho", icon: ClipboardCheck, path: "/stock/checks", roles: ["STOCK", "MANAGER", "ADMIN"] },
-      { label: "Điều chỉnh tồn", icon: ClipboardCheck, path: "/stock/adjustments", roles: ["STOCK", "MANAGER", "ADMIN"] },
+      { label: "Imports", icon: ArrowDownToLine, path: "/stock/imports", roles: ["STOCK", "MANAGER", "ADMIN"] },
+      { label: "Exports", icon: ArrowUpFromLine, path: "/stock/exports", roles: ["STOCK", "MANAGER", "ADMIN"] },
+      { label: "Stock Checks", icon: ClipboardCheck, path: "/stock/checks", roles: ["STOCK", "MANAGER", "ADMIN"] },
+      { label: "Adjustments", icon: ClipboardCheck, path: "/stock/adjustments", roles: ["STOCK", "MANAGER", "ADMIN"] },
     ],
   },
   {
     items: [
       { label: "Users", icon: Users, path: "/users", roles: ["ADMIN"] },
-      { label: "Audit", icon: History, path: "/audit", roles: ["ADMIN"] },
+      { label: "Audit", icon: History, path: "/audit", roles: ["ADMIN", "MANAGER"] },
     ],
   },
 ]
