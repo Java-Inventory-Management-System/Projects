@@ -36,8 +36,8 @@ function mapUser(raw: unknown): UserResponse {
   }
 }
 
-export async function getUsers(page = 0, size = 20): Promise<ResponsePage<UserResponse>> {
-  const res = await http.get("/user", { params: { page, size } })
+export async function getUsers(page = 0, size = 20, sort?: string): Promise<ResponsePage<UserResponse>> {
+  const res = await http.get("/user", { params: { page, size, ...(sort ? { sort } : {}) } })
   return mapResponsePage(res, mapUser)
 }
 

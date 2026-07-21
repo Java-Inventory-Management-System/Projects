@@ -1,9 +1,9 @@
 import { useQuery } from "@tanstack/react-query"
 import { getExportReceipts } from "@/services/export-service"
 
-export function useExportReceipts(page = 0, size = 20) {
+export function useExportReceipts(page = 0, size = 20, sort?: string) {
   return useQuery({
-    queryKey: ["export-receipts", page, size],
-    queryFn: () => getExportReceipts(page, size),
+    queryKey: ["export-receipts", page, size, sort],
+    queryFn: () => getExportReceipts(page, size, sort),
   })
 }

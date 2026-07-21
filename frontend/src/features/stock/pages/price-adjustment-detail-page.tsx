@@ -88,7 +88,7 @@ export function PriceAdjustmentDetailPage() {
 
       <Card>
         <CardContent className="pt-6">
-          <div className="grid grid-cols-2 gap-4 text-sm">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
             <div><span className="text-muted-foreground">Sản phẩm:</span><p className="font-medium">{adj.productName ?? "—"} {adj.productSku && <span className="text-muted-foreground">({adj.productSku})</span>}</p></div>
             <div><span className="text-muted-foreground">Giá cũ:</span><p className="font-medium">{adj.oldPrice.toLocaleString("vi-VN")}₫</p></div>
             <div><span className="text-muted-foreground">Giá mới:</span><p className="font-medium">{adj.newPrice.toLocaleString("vi-VN")}₫</p></div>

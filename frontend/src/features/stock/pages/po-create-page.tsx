@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react"
+import { useState, useMemo, useCallback, useEffect } from "react"
 import { useNavigate, useBlocker } from "react-router-dom"
 import { useCreatePurchaseOrder } from "@/hooks/use-purchase-orders"
 import { useProducts } from "@/hooks/use-products"
@@ -51,8 +51,10 @@ export function POCreatePage() {
 
   const createMut = useCreatePurchaseOrder()
 
+  const [hasSubmitted, setHasSubmitted] = useState(false)
+  useEffect(() => { if (items.length === 0) setHasSubmitted(false) }, [items])
   const hasUnsaved = items.length > 0
-  useBlocker(({ currentLocation, nextLocation }) => hasUnsaved && currentLocation.pathname !== nextLocation.pathname)
+  useBlocker(({ currentLocation, nextLocation }) => hasUnsaved && !hasSubmitted && currentLocation.pathname !== nextLocation.pathname)
 
   const nextTempId = useMemo(() => { let id = Date.now(); return () => id++ }, [])
 
@@ -89,12 +91,12 @@ export function POCreatePage() {
       items: items.map((i) => ({ productId: i.productId, quantity: i.quantity, unitPrice: i.unitPrice })),
     }, {
       onSuccess: () => { toast.success("Tạo đơn hàng thành công"); navigate("/stock/purchase-orders") },
-      onError: (e: Error) => toast.error(e.message),
+      onError: (e: Error) => { setHasSubmitted(true); toast.error(e.message || "Không thể tạo đơn hàng") },
     })
   }, [supplierId, expectedDate, note, items, createMut, navigate])
 
   return (
-    <div className="mx-auto max-w-7xl grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div className="mx-auto max-w-7xl grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
       <div className="lg:col-span-2 space-y-4 self-start">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="sm" onClick={() => navigate("/stock/purchase-orders")}>
@@ -129,7 +131,7 @@ export function POCreatePage() {
                   <ChevronsUpDown className="size-4 shrink-0 opacity-50" />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-[400px] p-0">
+              <PopoverContent className="w-[90vw] max-w-[400px] p-0">
                 <Command>
                   <CommandInput placeholder="Tìm theo tên hoặc SKU..." />
                   <CommandList>

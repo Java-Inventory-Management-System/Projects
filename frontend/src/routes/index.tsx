@@ -39,6 +39,7 @@ const UsersPage = lazy(() => import("@/features/admin/pages/users-page").then((m
 const AuditPage = lazy(() => import("@/features/admin/pages/audit-page").then((m) => ({ default: m.AuditPage })))
 
 import { ErrorBoundary } from "@/components/ui/error-boundary"
+import { PageSkeleton } from "@/components/ui/page-skeleton"
 import { useAuthStore } from "@/store/auth-store"
 import type { URole } from "@/utils/types"
 const ForbiddenPage = lazy(() => import("@/features/common/pages/forbidden-page").then((m) => ({ default: m.ForbiddenPage })))
@@ -57,7 +58,7 @@ const adminManager = ["ADMIN", "MANAGER"] as URole[]
 const managerOnly = ["MANAGER"] as URole[]
 
 function Lazy({ children }: { children: ReactNode }) {
-  return <Suspense fallback={<div className="flex min-h-[60vh] items-center justify-center"><p className="text-sm text-muted-foreground">Loading...</p></div>}><ErrorBoundary>{children}</ErrorBoundary></Suspense>
+  return <Suspense fallback={<PageSkeleton />}><ErrorBoundary>{children}</ErrorBoundary></Suspense>
 }
 
 export const router = createBrowserRouter([

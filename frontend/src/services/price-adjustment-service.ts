@@ -2,15 +2,15 @@ import http from "@/utils/http-client"
 import type { PriceAdjustment, ResponsePage } from "@/utils/types"
 import { mapResponsePage, mapPriceAdjustment } from "@/utils/mappers"
 
-export async function getPriceAdjustments(page = 0, size = 20, status?: string): Promise<ResponsePage<PriceAdjustment>> {
-  const params: Record<string, string | number> = { page, size }
+export async function getPriceAdjustments(page = 0, size = 20, sort?: string, status?: string): Promise<ResponsePage<PriceAdjustment>> {
+  const params: Record<string, string | number> = { page, size, sort: sort ?? "createdAt,desc" }
   if (status) params.status = status
   const res = await http.get("/price-adjustment", { params })
   return mapResponsePage(res, mapPriceAdjustment)
 }
 
-export async function getMyPriceAdjustments(page = 0, size = 20, status?: string): Promise<ResponsePage<PriceAdjustment>> {
-  const params: Record<string, string | number> = { page, size }
+export async function getMyPriceAdjustments(page = 0, size = 20, sort?: string, status?: string): Promise<ResponsePage<PriceAdjustment>> {
+  const params: Record<string, string | number> = { page, size, sort: sort ?? "createdAt,desc" }
   if (status) params.status = status
   const res = await http.get("/price-adjustment/my", { params })
   return mapResponsePage(res, mapPriceAdjustment)

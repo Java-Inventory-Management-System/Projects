@@ -3,9 +3,9 @@ import { searchAuditLogs } from "@/services/audit-service"
 import type { AuditSearchParams } from "@/services/audit-service"
 
 export function useAuditLogs(params: AuditSearchParams = {}) {
-  const { action, entity, userId, status, from, to, page = 0, size = 20 } = params
+  const { action, entity, userId, status, from, to, sort, page = 0, size = 20 } = params
   return useQuery({
-    queryKey: ["audit-logs", { action, entity, userId, status, from, to, page, size }],
+    queryKey: ["audit-logs", { action, entity, userId, status, from, to, sort, page, size }],
     queryFn: () => searchAuditLogs(params),
   })
 }

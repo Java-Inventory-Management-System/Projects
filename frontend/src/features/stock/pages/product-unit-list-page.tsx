@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useDebounce } from "@/hooks/use-debounce"
 import { getProductUnits } from "@/services/product-unit-service"
 import { getProducts } from "@/services/product-service"
@@ -19,9 +19,9 @@ import {
   Collapsible, CollapsibleContent, CollapsibleTrigger,
 } from "@/components/ui/collapsible"
 import { DataTable, type Column } from "@/components/ui/data-table"
-import { PaginationBar } from "@/components/ui/pagination-bar"
 import { ViewProductUnitModal } from "../components/view-product-unit-modal"
 import { useAuthStore } from "@/store/auth-store"
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 
 const statusOptions: { value: string; label: string }[] = [
   { value: "all", label: "Tất cả" },
@@ -71,6 +71,17 @@ export const ProductUnitListPage = () => {
   const [statusFilter, setStatusFilter] = useState("all")
   const [productFilter, setProductFilter] = useState("all")
   const [sortOrder, setSortOrder] = useState("desc")
+  const [sort, setSort] = useState<{ key: string; dir: "asc" | "desc" } | undefined>(undefined)
+  const sortStr = sort ? `${sort.key},${sort.dir}` : undefined
+
+  const handleSort = useCallback((key: string) => {
+    setSort((prev) => {
+      if (prev?.key !== key) return { key, dir: "asc" }
+      if (prev.dir === "asc") return { key, dir: "desc" }
+      return undefined
+    })
+  }, [])
+
   const [products, setProducts] = useState<ProductResponse[]>([])
   const [viewUnit, setViewUnit] = useState<ProductUnit | null>(null)
   const [viewOpen, setViewOpen] = useState(false)
@@ -107,7 +118,7 @@ export const ProductUnitListPage = () => {
   })
 
   const columns: Column<ProductUnit>[] = [
-    { header: "Serial", render: (u) => <span className="font-mono text-xs">{u.serialNumber}</span> },
+    { header: "Serial", sortKey: "serialNumber", render: (u) => <span className="font-mono text-xs">{u.serialNumber}</span> },
     {
       header: "Sản phẩm",
       render: (u) => (
@@ -125,15 +136,20 @@ export const ProductUnitListPage = () => {
       },
     },
     { header: "Vị trí", render: (u) => <span className="text-muted-foreground">{u.locationCode ?? "—"}</span> },
-    { header: "Ngày nhập", render: (u) => <span className="text-muted-foreground text-xs">{fmt(u.importedAt)}</span> },
+    { header: "Ngày nhập", sortKey: "importedAt", render: (u) => <span className="text-muted-foreground text-xs">{fmt(u.importedAt)}</span> },
     { header: "BH đến", render: (u) => <span className="text-muted-foreground text-xs">{fmt(u.warrantyExpiresAt)}</span> },
     {
       header: "Thao tác",
       className: "w-[80px]",
       render: (u) => (
-        <Button variant="ghost" size="icon" onClick={() => { setViewUnit(u); setViewOpen(true) }}>
-          <Eye className="size-4" />
-        </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button variant="ghost" size="icon" onClick={() => { setViewUnit(u); setViewOpen(true) }}>
+              <Eye className="size-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Xem chi tiết</TooltipContent>
+        </Tooltip>
       ),
     },
   ]
@@ -214,11 +230,15 @@ export const ProductUnitListPage = () => {
           data={filtered}
           isLoading={loading}
           emptyMessage={hasFilters ? "Không có sản phẩm nào" : "Chưa có sản phẩm trong kho"}
+          sort={sort}
+          onSort={handleSort}
+          totalElements={data?.pagination.totalElements}
+          page={page}
+          totalPages={data?.pagination.totalPages}
+          pageSize={pageSize}
+          onPageChange={setPage}
+          onPageSizeChange={(s) => { setPageSize(s); setPage(0) }}
         />
-      )}
-
-      {!hasFilters && data && data.pagination.totalPages > 1 && (
-        <PaginationBar page={page} totalPages={data.pagination.totalPages} onChange={(p) => setPage(p)} pageSize={pageSize} onPageSizeChange={(s) => { setPageSize(s); setPage(0) }} />
       )}
 
       <ViewProductUnitModal unit={viewUnit} open={viewOpen} onOpenChange={setViewOpen} />

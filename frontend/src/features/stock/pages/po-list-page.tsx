@@ -1,11 +1,12 @@
-import { useState } from "react"
+import { useState, useCallback } from "react"
 import { useNavigate } from "react-router-dom"
 import { usePurchaseOrders } from "@/hooks/use-purchase-orders"
 import { DataTable, type Column } from "@/components/ui/data-table"
-import { PaginationBar } from "@/components/ui/pagination-bar"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Plus, Eye } from "lucide-react"
+import { usePermission } from "@/hooks/use-permission"
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 import type { PurchaseOrder } from "@/utils/types"
 import { Empty, EmptyTitle } from "@/components/ui/empty"
 
@@ -18,33 +19,65 @@ const statusConfig: Record<string, { label: string; variant: "default" | "second
 
 export function POListPage() {
   const navigate = useNavigate()
+  const perm = usePermission()
   const [page, setPage] = useState(0)
-  const { data, isLoading } = usePurchaseOrders(page, 20)
+  const [pageSize, setPageSize] = useState(20)
+  const [sort, setSort] = useState<{ key: string; dir: "asc" | "desc" } | undefined>(undefined)
+  const sortStr = sort ? `${sort.key},${sort.dir}` : undefined
+
+  const handleSort = useCallback((key: string) => {
+    setSort((prev) => {
+      if (prev?.key !== key) return { key, dir: "asc" }
+      if (prev.dir === "asc") return { key, dir: "desc" }
+      return undefined
+    })
+  }, [])
+
+  const { data, isLoading } = usePurchaseOrders(page, pageSize, sortStr)
 
   const columns: Column<PurchaseOrder>[] = [
-    { header: "Mã PO", render: (p) => <span className="font-mono text-xs">{p.poCode}</span> },
+    { header: "Mã PO", sortKey: "poCode", render: (p) => <span className="font-mono text-xs">{p.poCode}</span> },
     { header: "NCC", render: (p) => <span className="font-medium">{p.supplierName}</span> },
-    { header: "Tổng tiền", className: "text-right", render: (p) => <span className="tabular-nums">{p.totalAmount.toLocaleString("vi-VN")}₫</span> },
+    { header: "Tổng tiền", sortKey: "totalAmount", className: "text-right", render: (p) => <span className="tabular-nums">{p.totalAmount.toLocaleString("vi-VN")}₫</span> },
     { header: "Ngày giao", render: (p) => <span className="text-sm">{new Date(p.expectedDate).toLocaleDateString("vi-VN")}</span> },
     { header: "Trạng thái", render: (p) => { const s = statusConfig[p.status] ?? { label: p.status, variant: "secondary" }; return <Badge variant={s.variant}>{s.label}</Badge> }},
-    { header: "Ngày tạo", render: (p) => <span className="text-xs text-muted-foreground">{new Date(p.createdAt).toLocaleDateString("vi-VN")}</span> },
-    { header: "", className: "w-[70px]", render: (p) => (
-      <Button variant="ghost" size="icon" onClick={() => navigate(`/stock/purchase-orders/${p.id}`)}>
-        <Eye className="size-4" />
-      </Button>
+    { header: "Ngày tạo", sortKey: "createdAt", render: (p) => <span className="text-xs text-muted-foreground">{new Date(p.createdAt).toLocaleDateString("vi-VN")}</span> },
+    { header: "Thao tác", className: "w-[70px]", render: (p) => (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button variant="ghost" size="icon" onClick={() => navigate(`/stock/purchase-orders/${p.id}`)}>
+            <Eye className="size-4" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>Xem chi tiết</TooltipContent>
+      </Tooltip>
     )},
   ]
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-semibold tracking-tight">Đơn đặt hàng</h1>
-        <Button onClick={() => navigate("/stock/purchase-orders/new")}>
-          <Plus className="size-4 mr-1" /> Tạo đơn hàng
-        </Button>
+        {perm.hasRole("ADMIN", "MANAGER") && (
+          <Button onClick={() => navigate("/stock/purchase-orders/new")}>
+            <Plus className="size-4 mr-1" /> Tạo đơn hàng
+          </Button>
+        )}
       </div>
-      <DataTable columns={columns} data={data?.content ?? []} isLoading={isLoading} emptyMessage="Chưa có đơn đặt hàng nào" />
-      {data && data.pagination.totalPages > 1 && <PaginationBar page={page} totalPages={data.pagination.totalPages} onChange={setPage} />}
+      <DataTable
+        columns={columns}
+        data={data?.content ?? []}
+        isLoading={isLoading}
+        emptyMessage="Chưa có đơn đặt hàng nào"
+        sort={sort}
+        onSort={handleSort}
+        totalElements={data?.pagination.totalElements}
+        page={page}
+        totalPages={data?.pagination.totalPages}
+        pageSize={pageSize}
+        onPageChange={setPage}
+        onPageSizeChange={(s) => { setPageSize(s); setPage(0) }}
+      />
     </div>
   )
 }

@@ -20,6 +20,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Trash2, Upload, X } from "lucide-react"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Switch } from "@/components/ui/switch"
 import { AspectRatio } from "@/components/ui/aspect-ratio"
 import { ButtonGroup } from "@/components/ui/button-group"
@@ -174,14 +175,16 @@ export function ProductEditPage() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="trackingType">Kiểu theo dõi</Label>
-              <Select value={trackingType} onValueChange={setTrackingType}>
-                <SelectTrigger id="trackingType"><SelectValue placeholder="Chọn kiểu" /></SelectTrigger>
-                <SelectContent>
-                  {TRACKING_TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                </SelectContent>
-              </Select>
+            <div className="space-y-2 sm:col-span-2">
+              <Label>Kiểu theo dõi</Label>
+              <RadioGroup value={trackingType} onValueChange={setTrackingType} className="flex gap-6">
+                {TRACKING_TYPES.map((t) => (
+                  <div key={t} className="flex items-center gap-2">
+                    <RadioGroupItem value={t} id={`edit-tracking-${t}`} />
+                    <Label htmlFor={`edit-tracking-${t}`} className="font-normal">{t === "SERIALIZED" ? "Theo serial" : "Hàng rời"}</Label>
+                  </div>
+                ))}
+              </RadioGroup>
             </div>
             <div className="space-y-2">
               <Label htmlFor="sellPrice">Giá bán</Label>

@@ -34,3 +34,6 @@ build/
 
 *.log
 matcher_bytecode.txt
+
+### vibecode ###
+opencode.jsonc

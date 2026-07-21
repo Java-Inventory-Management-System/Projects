@@ -23,8 +23,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { PaginationBar } from "@/components/ui/pagination-bar"
 import { toast } from "@/utils/toast"
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 
 const roleOptions: { value: URole; label: string }[] = [
   { value: "ADMIN", label: "Admin" },
@@ -45,6 +45,18 @@ function fmt(d: string) {
 
 export const UsersPage = () => {
   const [page, setPage] = useState(0)
+  const [pageSize, setPageSize] = useState(20)
+  const [sort, setSort] = useState<{ key: string; dir: "asc" | "desc" } | undefined>(undefined)
+  const sortStr = sort ? `${sort.key},${sort.dir}` : undefined
+
+  const handleSort = useCallback((key: string) => {
+    setSort((prev) => {
+      if (prev?.key !== key) return { key, dir: "asc" }
+      if (prev.dir === "asc") return { key, dir: "desc" }
+      return undefined
+    })
+  }, [])
+
   const [data, setData] = useState<ResponsePage<UserResponse> | null>(null)
   const [allData, setAllData] = useState<UserResponse[] | null>(null)
   const [loading, setLoading] = useState(true)
@@ -70,17 +82,17 @@ export const UsersPage = () => {
     setLoading(true)
     setError(null)
     if (debouncedSearch) {
-      getUsers(0, 10000)
+      getUsers(0, 10000, sortStr)
         .then((res) => { setAllData(res.content); setData(null) })
         .catch((err) => setError((err as Error).message || "Không thể tải danh sách"))
         .finally(() => setLoading(false))
     } else {
-      getUsers(page, 20)
+      getUsers(page, pageSize, sortStr)
         .then((res) => { setData(res); setAllData(null) })
         .catch((err) => setError((err as Error).message || "Không thể tải danh sách"))
         .finally(() => setLoading(false))
     }
-  }, [page, debouncedSearch])
+  }, [page, pageSize, sortStr, debouncedSearch])
 
   useEffect(() => { fetch() }, [fetch])
 
@@ -168,9 +180,9 @@ export const UsersPage = () => {
   const s = data?.pagination
 
   const columns: Column<UserResponse>[] = [
-    { header: "Username", render: (u) => <span className="font-mono text-xs">{u.username}</span> },
-    { header: "Họ tên", render: (u) => <span className="font-medium">{u.fullName}</span> },
-    { header: "Email", render: (u) => <span className="text-muted-foreground">{u.email}</span> },
+    { header: "Username", sortKey: "username", render: (u) => <span className="font-mono text-xs">{u.username}</span> },
+    { header: "Họ tên", sortKey: "fullName", render: (u) => <span className="font-medium">{u.fullName}</span> },
+    { header: "Email", sortKey: "email", render: (u) => <span className="text-muted-foreground">{u.email}</span> },
     { header: "Vai trò", render: (u) => <Badge variant="outline" className="text-xs">{u.role}</Badge> },
     {
       header: "Trạng thái",
@@ -179,18 +191,38 @@ export const UsersPage = () => {
         return <Badge variant={st.variant}>{st.label}</Badge>
       },
     },
-    { header: "Ngày tạo", render: (u) => <span className="text-xs text-muted-foreground">{fmt(u.createdAt)}</span> },
+    { header: "Ngày tạo", sortKey: "createdAt", render: (u) => <span className="text-xs text-muted-foreground">{fmt(u.createdAt)}</span> },
     {
       header: "Thao tác",
       className: "w-[140px]",
       render: (u) => (
         <div className="flex gap-1">
-          <Button variant="ghost" size="icon" onClick={() => openEdit(u)} title="Sửa thông tin"><UserCog className="size-4" /></Button>
-          <Button variant="ghost" size="icon" onClick={() => { setRoleUserId(u.id); setRoleVal(u.role); setRoleOpen(true) }} title="Đổi vai trò"><Shield className="size-4" /></Button>
-          <Button variant="ghost" size="icon" onClick={() => handleResetPassword(u.id)} title="Reset mật khẩu"><KeyRound className="size-4" /></Button>
-          <Button variant="ghost" size="icon" onClick={() => handleToggleStatus(u)} title={u.isDeleted ? "Kích hoạt" : "Vô hiệu hóa"}>
-            {u.isDeleted ? <CheckCircle className="size-4 text-green-600" /> : <Ban className="size-4 text-destructive" />}
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" onClick={() => openEdit(u)}><UserCog className="size-4" /></Button>
+            </TooltipTrigger>
+            <TooltipContent>Sửa thông tin</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" onClick={() => { setRoleUserId(u.id); setRoleVal(u.role); setRoleOpen(true) }}><Shield className="size-4" /></Button>
+            </TooltipTrigger>
+            <TooltipContent>Đổi vai trò</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" onClick={() => handleResetPassword(u.id)}><KeyRound className="size-4" /></Button>
+            </TooltipTrigger>
+            <TooltipContent>Reset mật khẩu</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" onClick={() => handleToggleStatus(u)}>
+                {u.isDeleted ? <CheckCircle className="size-4 text-green-600" /> : <Ban className="size-4 text-destructive" />}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{u.isDeleted ? "Kích hoạt" : "Vô hiệu hoá"}</TooltipContent>
+          </Tooltip>
         </div>
       ),
     },
@@ -198,7 +230,7 @@ export const UsersPage = () => {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-semibold tracking-tight">Quản lý người dùng</h1>
         <Button onClick={() => { setCreateOpen(true); setTempPassword(null) }}>
           <Plus className="size-4 mr-1" /> Thêm người dùng
@@ -230,11 +262,15 @@ export const UsersPage = () => {
           data={filtered}
           isLoading={loading}
           emptyMessage={debouncedSearch ? "Không tìm thấy người dùng nào" : "Chưa có người dùng nào"}
+          sort={sort}
+          onSort={handleSort}
+          totalElements={s?.totalElements}
+          page={!debouncedSearch ? page : undefined}
+          totalPages={!debouncedSearch ? s?.totalPages : undefined}
+          pageSize={!debouncedSearch ? pageSize : undefined}
+          onPageChange={!debouncedSearch ? setPage : undefined}
+          onPageSizeChange={!debouncedSearch ? (s) => { setPageSize(s); setPage(0) } : undefined}
         />
-      )}
-
-      {!debouncedSearch && s && s.totalPages > 1 && (
-        <PaginationBar page={page} totalPages={s.totalPages} onChange={(p) => setPage(p)} />
       )}
 
       <Dialog open={createOpen} onOpenChange={(v) => { setCreateOpen(v); if (!v) setTempPassword(null) }}>

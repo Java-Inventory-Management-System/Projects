@@ -29,31 +29,31 @@
 // WINDOW CONFIG
 // WINDOW CONFIG
 // WINDOW CONFIG
-{
-  "$schema": "https://opencode.ai/config.json",
-  "lsp": {
-    "jdtls": {
-      "command": ["jdtls"],
-      "env": {
-        "JAVA_TOOL_OPTIONS": "-Xmx384m -XX:+UseG1GC",
-      },
-      "initialization": {
-        "settings": {
-          "java": {
-            "autobuild": { "enabled": false },
-            "import": {
-              "exclusions": ["**/node_modules/**", "**/.git/**"],
-            },
-          },
-        },
-      },
-    },
-  },
-  "mcp": {
-    "codegraph": {
-      "type": "local",
-      "command": ["codegraph", "serve", "--mcp"],
-      "enabled": true,
-    },
-  },
-}
+// {
+//   "$schema": "https://opencode.ai/config.json",
+//   "lsp": {
+//     "jdtls": {
+//       "command": ["jdtls"],
+//       "env": {
+//         "JAVA_TOOL_OPTIONS": "-Xmx384m -XX:+UseG1GC",
+//       },
+//       "initialization": {
+//         "settings": {
+//           "java": {
+//             "autobuild": { "enabled": false },
+//             "import": {
+//               "exclusions": ["**/node_modules/**", "**/.git/**"],
+//             },
+//           },
+//         },
+//       },
+//     },
+//   },
+//   "mcp": {
+//     "codegraph": {
+//       "type": "local",
+//       "command": ["codegraph", "serve", "--mcp"],
+//       "enabled": true,
+//     },
+//   },
+// }

@@ -1,7 +1,7 @@
-import { useState } from "react"
+import { useState, useCallback } from "react"
 import { useDebounce } from "@/hooks/use-debounce"
 import { useNavigate, useSearchParams } from "react-router-dom"
-import { Search, Plus } from "lucide-react"
+import { Search, Plus, Eye, Pencil } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import {
@@ -9,14 +9,13 @@ import {
 } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { DataTable, type Column } from "@/components/ui/data-table"
-import { PaginationBar } from "@/components/ui/pagination-bar"
 import { useProducts } from "@/hooks/use-products"
 import { useBrands } from "@/hooks/use-brands"
 import { useCategories } from "@/hooks/use-categories"
 import type { ProductResponse } from "@/utils/types"
 import { ViewProductModal } from "../components/view-product-modal"
-
-const PAGE_SIZE = 20
+import { usePermission } from "@/hooks/use-permission"
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 
 export const ProductsPage = () => {
   const navigate = useNavigate()
@@ -26,42 +25,64 @@ export const ProductsPage = () => {
 
   const [searchInput, setSearchInput] = useState(searchParams.get("q") ?? "")
   const [page, setPage] = useState(0)
+  const [pageSize, setPageSize] = useState(20)
+  const [sort, setSort] = useState<{ key: string; dir: "asc" | "desc" } | undefined>(undefined)
+  const sortStr = sort ? `${sort.key},${sort.dir}` : undefined
+
+  const handleSort = useCallback((key: string) => {
+    setSort((prev) => {
+      if (prev?.key !== key) return { key, dir: "asc" }
+      if (prev.dir === "asc") return { key, dir: "desc" }
+      return undefined
+    })
+  }, [])
+
   const [viewProduct, setViewProduct] = useState<ProductResponse | null>(null)
 
+  const perm = usePermission()
   const debouncedSearch = useDebounce(searchInput, 300)
 
-  const { data, isLoading } = useProducts(page, PAGE_SIZE, debouncedSearch || undefined, brandFilter, categoryFilter)
+  const { data, isLoading } = useProducts(page, pageSize, sortStr, debouncedSearch || undefined, brandFilter, categoryFilter)
   const brands = useBrands().data ?? []
   const categories = useCategories().data ?? []
-
-  const products = data?.content ?? []
-  const totalPages = data?.pagination.totalPages ?? 0
 
   const hasFilters = debouncedSearch || brandFilter || categoryFilter
 
   const columns: Column<ProductResponse>[] = [
-    { header: "SKU", className: "w-[110px]", render: (p) => <span className="font-mono text-xs">{p.sku}</span> },
-    { header: "Tên", render: (p) => <span className="font-medium">{p.name}</span> },
+    { header: "SKU", sortKey: "sku", className: "w-[110px]", render: (p) => <span className="font-mono text-xs">{p.sku}</span> },
+    { header: "Tên", sortKey: "name", render: (p) => <span className="font-medium">{p.name}</span> },
     { header: "Thương hiệu", className: "w-[120px]", render: (p) => <span className="text-muted-foreground">{p.brandName}</span> },
     { header: "Danh mục", className: "w-[120px]", render: (p) => <span className="text-muted-foreground">{p.categoryName}</span> },
     { header: "ĐVT", className: "w-[60px]", render: (p) => <span>{p.unit}</span> },
-    { header: "Giá", className: "w-[80px] text-right", render: (p) => <span className="tabular-nums">{p.sellPrice?.toLocaleString("vi-VN")}</span> },
+    { header: "Giá", sortKey: "sellPrice", className: "w-[80px] text-right", render: (p) => <span className="tabular-nums">{p.sellPrice?.toLocaleString("vi-VN")}</span> },
     { header: "Trạng thái", className: "w-[70px] text-center", render: (p) => <Badge variant={p.isActive ? "default" : "secondary"}>{p.isActive ? "Hoạt động" : "Ngừng"}</Badge> },
-    { header: "", className: "w-[70px]", render: (p) => (
+    { header: "Thao tác", className: "w-[100px]", render: (p) => (
       <div className="flex gap-1">
-        <Button variant="ghost" size="icon" onClick={() => setViewProduct(p)}>
-          <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
-        </Button>
-        <Button variant="ghost" size="icon" onClick={() => navigate(`/products/${p.id}`)}>
-          <svg className="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-        </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button variant="ghost" size="icon" onClick={() => setViewProduct(p)}>
+              <Eye className="size-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Xem chi tiết</TooltipContent>
+        </Tooltip>
+        {perm.hasRole("ADMIN", "MANAGER") && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" onClick={() => navigate(`/products/${p.id}`)}>
+                <Pencil className="size-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Chỉnh sửa</TooltipContent>
+          </Tooltip>
+        )}
       </div>
     )},
   ]
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-semibold tracking-tight">Sản phẩm</h1>
         <Button onClick={() => navigate("/products/new")}>
           <Plus className="size-4 mr-1" /> Thêm sản phẩm
@@ -119,14 +140,18 @@ export const ProductsPage = () => {
 
       <DataTable
         columns={columns}
-        data={products}
+        data={data?.content ?? []}
         isLoading={isLoading}
         emptyMessage={hasFilters ? "Không tìm thấy sản phẩm nào" : "Không có sản phẩm nào"}
+        sort={sort}
+        onSort={handleSort}
+        totalElements={data?.pagination.totalElements}
+        page={page}
+        totalPages={data?.pagination.totalPages}
+        pageSize={pageSize}
+        onPageChange={setPage}
+        onPageSizeChange={(s) => { setPageSize(s); setPage(0) }}
       />
-
-      {totalPages > 1 && <PaginationBar page={page} totalPages={totalPages} onChange={setPage} />}
-
-      <p className="text-xs text-muted-foreground">{data?.pagination.totalElements ?? 0} sản phẩm</p>
 
       <ViewProductModal product={viewProduct} open={!!viewProduct} onOpenChange={(v) => { if (!v) setViewProduct(null) }} />
     </div>

@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react"
-import { Search, Plus, CheckCircle, UserPlus, ArrowLeft, Phone, Mail, MapPin, Loader2 } from "lucide-react"
+import { Search, Plus, CheckCircle, UserPlus, ArrowLeft, Phone, Mail, MapPin } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
@@ -20,6 +20,7 @@ import {
 import { createCustomer } from "@/services/customer-service"
 import { useCustomers } from "@/hooks/use-customers"
 
+import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "@/utils/toast"
 
 interface CustomerSelectModalProps {
@@ -141,8 +142,16 @@ export const CustomerSelectModal = ({ open, onOpenChange, onSelect, selectedCust
 
             <div className="rounded-lg border divide-y max-h-[50vh] overflow-y-auto">
               {loading ? (
-                <div className="flex items-center justify-center py-12">
-                  <Loader2 className="size-5 animate-spin text-muted-foreground" />
+                <div className="divide-y">
+                  {[1,2,3].map((i) => (
+                    <div key={i} className="flex items-start gap-3 px-4 py-3">
+                      <Skeleton className="size-5 rounded-full shrink-0" />
+                      <div className="flex-1 space-y-1.5">
+                        <Skeleton className="h-4 w-32" />
+                        <Skeleton className="h-3 w-48" />
+                      </div>
+                    </div>
+                  ))}
                 </div>
               ) : !data || data.content.length === 0 ? (
                 <p className="text-center text-sm text-muted-foreground py-12">
@@ -246,8 +255,9 @@ export const CustomerSelectModal = ({ open, onOpenChange, onSelect, selectedCust
               <Input
                 id="new-phone"
                 value={newPhone}
-                onChange={(e) => setNewPhone(e.target.value)}
+                onChange={(e) => setNewPhone(e.target.value.replace(/[^0-9]/g, "").slice(0, 11))}
                 placeholder="090xxxxxxx"
+                inputMode="numeric"
               />
             </div>
             <div className="space-y-2">

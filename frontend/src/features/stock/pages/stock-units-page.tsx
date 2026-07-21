@@ -1,8 +1,10 @@
-import { useState } from "react"
-import { ProductUnitListPage } from "@/features/stock/pages/product-unit-list-page"
-import { LocationsMapPage } from "@/features/stock/pages/locations-map-page"
-import { InventoryPage } from "@/features/inventory/pages/inventory-page"
-import { StockOverviewTab } from "@/features/stock/pages/stock-overview-tab"
+import { useState, lazy, Suspense } from "react"
+import { Skeleton } from "@/components/ui/skeleton"
+
+const StockOverviewTab = lazy(() => import("./stock-overview-tab").then((m) => ({ default: m.StockOverviewTab })))
+const ProductUnitListPage = lazy(() => import("./product-unit-list-page").then((m) => ({ default: m.ProductUnitListPage })))
+const InventoryPage = lazy(() => import("@/features/inventory/pages/inventory-page").then((m) => ({ default: m.InventoryPage })))
+const LocationsMapPage = lazy(() => import("./locations-map-page").then((m) => ({ default: m.LocationsMapPage })))
 
 const TABS = [
   { key: "overview", label: "Tổng quan" },
@@ -12,6 +14,8 @@ const TABS = [
 ] as const
 
 type TabKey = (typeof TABS)[number]["key"]
+
+const TAB_FALLBACK = <Skeleton className="h-96 w-full" />
 
 export function StockUnitsPage() {
   const [tab, setTab] = useState<TabKey>("overview")
@@ -26,10 +30,10 @@ export function StockUnitsPage() {
           </button>
         ))}
       </div>
-      {tab === "overview" && <StockOverviewTab />}
-      {tab === "list" && <ProductUnitListPage />}
-      {tab === "inventory" && <InventoryPage />}
-      {tab === "map" && <LocationsMapPage />}
+      {tab === "overview" && <Suspense fallback={TAB_FALLBACK}><StockOverviewTab /></Suspense>}
+      {tab === "list" && <Suspense fallback={TAB_FALLBACK}><ProductUnitListPage /></Suspense>}
+      {tab === "inventory" && <Suspense fallback={TAB_FALLBACK}><InventoryPage /></Suspense>}
+      {tab === "map" && <Suspense fallback={TAB_FALLBACK}><LocationsMapPage /></Suspense>}
     </div>
   )
 }

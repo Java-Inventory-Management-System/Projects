@@ -142,8 +142,24 @@ export const StockCheckDetailPage = () => {
             </ButtonGroup>
           )}
           {check.status === "APPROVED" && mismatchCount > 0 && (
-            <Button onClick={() => navigate("/stock/adjustments/new", { state: { reason: `From ${check.checkCode} — ${mismatchCount} items mismatch` } })}>
-              <ClipboardCheck className="size-4 mr-1" /> Create Adjustment ({mismatchCount})
+            <Button onClick={() => {
+              const mismatches = localItems.filter((i) => i.difference && i.difference !== "MATCH")
+              navigate("/stock/adjustments/new", {
+                state: {
+                  reason: `From ${check.checkCode} — ${mismatchCount} items mismatch`,
+                  mismatches: mismatches.map((m) => ({
+                    productUnitId: m.productUnitId,
+                    productName: m.productName,
+                    productSku: m.productSku,
+                    serialNumber: m.serialNumber,
+                    difference: m.difference,
+                    expectedStatus: m.expectedStatus,
+                  })),
+                  batch: true,
+                },
+              })
+            }}>
+              <ClipboardCheck className="size-4 mr-1" /> Tạo Adjustment ({mismatchCount})
             </Button>
           )}
         </div>
@@ -156,7 +172,7 @@ export const StockCheckDetailPage = () => {
         </TabsList>
 
         <TabsContent value="info" className="space-y-4">
-          <div className="grid grid-cols-2 gap-4 text-sm">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
             <div><span className="text-muted-foreground">Created by:</span><p className="font-medium">{check.createdByName}</p></div>
             <div><span className="text-muted-foreground">Date:</span><p className="font-medium">{new Date(check.createdAt).toLocaleString("vi-VN")}</p></div>
             {check.approvedByName && <div><span className="text-muted-foreground">Approved by:</span><p className="font-medium">{check.approvedByName}</p></div>}

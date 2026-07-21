@@ -45,7 +45,7 @@ export const DashboardPage = () => {
   return (
     <div className="space-y-4">
       <h1 className="text-xl font-semibold tracking-tight">Dashboard</h1>
-      <div className="flex gap-1 border-b pb-px">
+      <div className="flex flex-wrap gap-1 border-b pb-px">
         {visibleTabs.map((t) => (
           <button key={t.key} onClick={() => setTab(t.key)}
             className={`px-3 py-1.5 text-sm font-medium transition-colors rounded-t-md ${safeTab === t.key ? "border-b-2 border-primary text-primary" : "text-muted-foreground hover:text-foreground"}`}>
@@ -96,11 +96,11 @@ function SummaryTab() {
   return (
     <div className="space-y-6">
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        <StatCard label="Sản phẩm" value={isLoading ? "..." : String(summary?.totalProducts ?? "—")} />
-        <StatCard label="Tổng tồn" value={isLoading ? "..." : String(summary?.totalUnits ?? "—")} />
-        <StatCard label="Giá trị tồn" value={isLoading || !summary ? "..." : `${summary.totalStockValue.toLocaleString("vi-VN")}₫`} />
-        <StatCard label="Sắp hết" value={isLoading ? "..." : String(summary?.lowStockCount ?? "—")} highlight={!!summary?.lowStockCount} />
-        <StatCard label="Hết hàng" value={isLoading ? "..." : String(summary?.outOfStockCount ?? "—")} highlight={!!summary?.outOfStockCount} />
+        <StatCard label="Sản phẩm" value={String(summary?.totalProducts ?? "—")} isLoading={isLoading} />
+        <StatCard label="Tổng tồn" value={String(summary?.totalUnits ?? "—")} isLoading={isLoading} />
+        <StatCard label="Giá trị tồn" value={summary ? `${summary.totalStockValue.toLocaleString("vi-VN")}₫` : "—"} isLoading={isLoading} />
+        <StatCard label="Sắp hết" value={String(summary?.lowStockCount ?? "—")} isLoading={isLoading} highlight={!!summary?.lowStockCount} />
+        <StatCard label="Hết hàng" value={String(summary?.outOfStockCount ?? "—")} isLoading={isLoading} highlight={!!summary?.outOfStockCount} />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
@@ -199,11 +199,20 @@ function SummaryTab() {
   )
 }
 
-const StatCard = ({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) => (
+const StatCard = ({ label, value, highlight, isLoading }: { label: string; value: string; highlight?: boolean; isLoading?: boolean }) => (
   <Card className="p-4">
     <CardContent className="p-0">
-      <p className="text-sm text-muted-foreground">{label}</p>
-      <p className={`mt-1 text-2xl font-semibold tracking-tight tabular-nums ${highlight ? "text-destructive" : ""}`}>{value}</p>
+      {isLoading ? (
+        <div className="space-y-2">
+          <Skeleton className="h-4 w-24" />
+          <Skeleton className="h-8 w-16" />
+        </div>
+      ) : (
+        <>
+          <p className="text-sm text-muted-foreground">{label}</p>
+          <p className={`mt-1 text-2xl font-semibold tracking-tight tabular-nums ${highlight ? "text-destructive" : ""}`}>{value}</p>
+        </>
+      )}
     </CardContent>
   </Card>
 )

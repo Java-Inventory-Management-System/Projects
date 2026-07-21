@@ -5,11 +5,12 @@ import { useStockAdjustments, useMyStockAdjustments } from "@/hooks/use-stock-ad
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Plus, Eye, ChevronDown, ChevronUp } from "lucide-react"
+import { usePermission } from "@/hooks/use-permission"
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select"
 import { DataTable, type Column } from "@/components/ui/data-table"
-import { PaginationBar } from "@/components/ui/pagination-bar"
 import {
   Collapsible, CollapsibleContent, CollapsibleTrigger,
 } from "@/components/ui/collapsible"
@@ -37,16 +38,29 @@ export const StockAdjustmentListPage = () => {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const user = useAuthStore((s) => s.user)
+  const perm = usePermission()
 
   const page = Number(searchParams.get("page") ?? "0")
   const typeFilter = searchParams.get("type") ?? ""
   const statusFilter = searchParams.get("status") ?? ""
 
   const [filterOpen, setFilterOpen] = useState(true)
+  const [pageSize, setPageSize] = useState(10)
+  const [sort, setSort] = useState<{ key: string; dir: "asc" | "desc" } | undefined>(undefined)
+  const sortStr = sort ? `${sort.key},${sort.dir}` : undefined
+
+  const handleSort = useCallback((key: string) => {
+    setSort((prev) => {
+      if (prev?.key !== key) return { key, dir: "asc" }
+      if (prev.dir === "asc") return { key, dir: "desc" }
+      return undefined
+    })
+  }, [])
+
   const isStock = user?.role === "STOCK"
   const { data, isLoading } = isStock
-    ? useMyStockAdjustments(page, 10, typeFilter || undefined, statusFilter || undefined)
-    : useStockAdjustments(page, 10, typeFilter || undefined, statusFilter || undefined)
+    ? useMyStockAdjustments(page, pageSize, sortStr, typeFilter || undefined, statusFilter || undefined)
+    : useStockAdjustments(page, pageSize, sortStr, typeFilter || undefined, statusFilter || undefined)
 
   const updateParams = useCallback(
     (updates: Record<string, string | undefined>) => {
@@ -61,7 +75,7 @@ export const StockAdjustmentListPage = () => {
   )
 
   const columns: Column<StockAdjustment>[] = [
-    { header: "Mã phiếu", render: (r) => <span className="font-mono text-xs">{r.adjustCode}</span> },
+    { header: "Mã phiếu", sortKey: "adjustCode", render: (r) => <span className="font-mono text-xs">{r.adjustCode}</span> },
     {
       header: "Loại",
       render: (r) => <Badge variant={typeColor[r.type] ?? "outline"}>{typeLabel[r.type] ?? r.type}</Badge>,
@@ -86,6 +100,7 @@ export const StockAdjustmentListPage = () => {
     { header: "Người tạo", render: (r) => <span className="text-muted-foreground">{r.createdByName}</span> },
     {
       header: "Ngày tạo",
+      sortKey: "createdAt",
       render: (r) => (
         <span className="text-muted-foreground text-xs">{new Date(r.createdAt).toLocaleDateString("vi-VN")}</span>
       ),
@@ -94,20 +109,27 @@ export const StockAdjustmentListPage = () => {
       header: "Thao tác",
       className: "w-[70px]",
       render: (r) => (
-        <Button variant="ghost" size="icon" onClick={() => navigate(`/stock/adjustments/${r.id}`)}>
-          <Eye className="size-4" />
-        </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button variant="ghost" size="icon" onClick={() => navigate(`/stock/adjustments/${r.id}`)}>
+              <Eye className="size-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Xem chi tiết</TooltipContent>
+        </Tooltip>
       ),
     },
   ]
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-semibold tracking-tight">Điều chỉnh tồn kho</h1>
-        <Button onClick={() => navigate("/stock/adjustments/new")}>
-          <Plus className="size-4 mr-1" /> Tạo phiếu điều chỉnh
-        </Button>
+        {perm.hasRole("ADMIN", "MANAGER") && (
+          <Button onClick={() => navigate("/stock/adjustments/new")}>
+            <Plus className="size-4 mr-1" /> Tạo phiếu điều chỉnh
+          </Button>
+        )}
       </div>
 
       <Collapsible open={filterOpen} onOpenChange={setFilterOpen}>
@@ -163,11 +185,15 @@ export const StockAdjustmentListPage = () => {
         data={data?.content ?? []}
         isLoading={isLoading}
         emptyMessage="Không có phiếu điều chỉnh nào"
+        sort={sort}
+        onSort={handleSort}
+        totalElements={data?.pagination.totalElements}
+        page={page}
+        totalPages={data?.pagination.totalPages}
+        pageSize={pageSize}
+        onPageChange={(p) => updateParams({ page: String(p) })}
+        onPageSizeChange={(s) => { setPageSize(s); updateParams({ page: undefined }) }}
       />
-
-      {data && data.pagination.totalPages > 1 && (
-        <PaginationBar page={page} totalPages={data.pagination.totalPages} onChange={(p) => updateParams({ page: String(p) })} />
-      )}
     </div>
   )
 }

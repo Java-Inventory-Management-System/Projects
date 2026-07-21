@@ -1,14 +1,15 @@
+import { useState, useCallback } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import { useAuthStore } from "@/store/auth-store"
 import { usePriceAdjustments, useMyPriceAdjustments } from "@/hooks/use-price-adjustments"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Plus, Eye } from "lucide-react"
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select"
 import { DataTable, type Column } from "@/components/ui/data-table"
-import { PaginationBar } from "@/components/ui/pagination-bar"
 import type { PriceAdjustment } from "@/utils/types"
 
 const statusLabel: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
@@ -25,24 +26,36 @@ export function PriceAdjustmentListPage() {
   const statusFilter = searchParams.get("status") ?? ""
   const isAdminManager = user?.role === "ADMIN" || user?.role === "MANAGER"
 
+  const [pageSize, setPageSize] = useState(20)
+  const [sort, setSort] = useState<{ key: string; dir: "asc" | "desc" } | undefined>(undefined)
+  const sortStr = sort ? `${sort.key},${sort.dir}` : undefined
+
+  const handleSort = useCallback((key: string) => {
+    setSort((prev) => {
+      if (prev?.key !== key) return { key, dir: "asc" }
+      if (prev.dir === "asc") return { key, dir: "desc" }
+      return undefined
+    })
+  }, [])
+
   const { data, isLoading } = isAdminManager
-    ? usePriceAdjustments(page, 20, statusFilter || undefined)
-    : useMyPriceAdjustments(page, 20, statusFilter || undefined)
+    ? usePriceAdjustments(page, pageSize, sortStr, statusFilter || undefined)
+    : useMyPriceAdjustments(page, pageSize, sortStr, statusFilter || undefined)
 
   const setPage = (p: number) => { const next = new URLSearchParams(searchParams); next.set("page", String(p)); setSearchParams(next) }
-  const list = data?.content ?? []
-  const totalPages = data?.pagination.totalPages ?? 0
 
   const columns: Column<PriceAdjustment>[] = [
-    { header: "Mã phiếu", render: (r) => <span className="font-mono text-xs">{r.adjustCode}</span> },
+    { header: "Mã phiếu", sortKey: "adjustCode", render: (r) => <span className="font-mono text-xs">{r.adjustCode}</span> },
     { header: "Sản phẩm", render: (r) => <span className="text-sm">{r.productName ?? "—"}</span> },
     {
       header: "Giá cũ",
+      sortKey: "oldPrice",
       className: "w-24 text-right",
       render: (r) => <span className="tabular-nums">{r.oldPrice.toLocaleString("vi-VN")}₫</span>,
     },
     {
       header: "Giá mới",
+      sortKey: "newPrice",
       className: "w-24 text-right",
       render: (r) => <span className="tabular-nums">{r.newPrice.toLocaleString("vi-VN")}₫</span>,
     },
@@ -56,24 +69,29 @@ export function PriceAdjustmentListPage() {
       },
     },
     {
-      header: "",
-      className: "w-14",
+      header: "Thao tác",
+      className: "w-[70px]",
       render: (r) => (
-        <Button variant="ghost" size="icon" onClick={() => navigate(`/stock/price-adjustments/${r.id}`)}>
-          <Eye className="size-3.5" />
-        </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button variant="ghost" size="icon" onClick={() => navigate(`/stock/price-adjustments/${r.id}`)}>
+              <Eye className="size-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Xem chi tiết</TooltipContent>
+        </Tooltip>
       ),
     },
   ]
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-semibold tracking-tight">Điều chỉnh giá</h1>
         <Button onClick={() => navigate("/stock/price-adjustments/new")}><Plus className="size-4 mr-1" /> Tạo phiếu</Button>
       </div>
 
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         <Select value={statusFilter} onValueChange={(v) => { const next = new URLSearchParams(searchParams); next.set("page", "0"); if (v) next.set("status", v); else next.delete("status"); setSearchParams(next) }}>
           <SelectTrigger className="w-36"><SelectValue placeholder="Tất cả" /></SelectTrigger>
           <SelectContent>
@@ -87,14 +105,18 @@ export function PriceAdjustmentListPage() {
 
       <DataTable
         columns={columns}
-        data={list}
+        data={data?.content ?? []}
         isLoading={isLoading}
         emptyMessage="Chưa có phiếu điều chỉnh giá nào"
+        sort={sort}
+        onSort={handleSort}
+        totalElements={data?.pagination.totalElements}
+        page={page}
+        totalPages={data?.pagination.totalPages}
+        pageSize={pageSize}
+        onPageChange={(p) => setPage(p)}
+        onPageSizeChange={(s) => { setPageSize(s); setPage(0) }}
       />
-
-      {totalPages > 1 && (
-        <PaginationBar page={page} totalPages={totalPages} onChange={(p) => setPage(p)} />
-      )}
     </div>
   )
 }

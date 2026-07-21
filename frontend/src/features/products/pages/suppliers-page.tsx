@@ -12,8 +12,11 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog"
 import { toast } from "@/utils/toast"
+import { usePermission } from "@/hooks/use-permission"
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 
 export function SuppliersPage() {
+  const perm = usePermission()
   const qc = useQueryClient()
   const { data: suppliers = [], isLoading } = useQuery({
     queryKey: ["suppliers"],
@@ -59,17 +62,31 @@ export function SuppliersPage() {
     { header: "Địa chỉ", render: (s) => <span className="text-sm">{s.address ?? "—"}</span> },
     { header: "MST", render: (s) => <span className="text-sm">{s.taxCode ?? "—"}</span> },
     { header: "Trạng thái", className: "w-24 text-center", render: (s) => <Badge variant={s.isActive ? "default" : "secondary"}>{s.isActive ? "Hoạt động" : "Ngừng"}</Badge> },
-    { header: "", className: "w-20", render: (s) => (
+    { header: "Thao tác", className: "w-[90px]", render: (s) => (
       <div className="flex gap-1">
-        <Button variant="ghost" size="icon" onClick={() => openEdit(s)}><Pencil className="size-3.5" /></Button>
-        <Button variant="ghost" size="icon" onClick={() => toggle.mutate(s.id)}><Power className="size-3.5" /></Button>
+        {perm.hasRole("ADMIN", "MANAGER") && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" onClick={() => openEdit(s)}><Pencil className="size-3.5" /></Button>
+            </TooltipTrigger>
+            <TooltipContent>Chỉnh sửa</TooltipContent>
+          </Tooltip>
+        )}
+        {perm.hasRole("ADMIN", "MANAGER") && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" onClick={() => toggle.mutate(s.id)}><Power className="size-3.5" /></Button>
+            </TooltipTrigger>
+            <TooltipContent>{s.isActive ? "Vô hiệu hoá" : "Kích hoạt"}</TooltipContent>
+          </Tooltip>
+        )}
       </div>
     )},
   ]
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-semibold tracking-tight">Nhà cung cấp</h1>
         <Button onClick={openCreate}><Plus className="size-4 mr-1" /> Thêm</Button>
       </div>

@@ -2,10 +2,10 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { getPurchaseOrders, getPurchaseOrderById, createPurchaseOrder as createPOService, cancelPurchaseOrder } from "@/services/purchase-order-service"
 import type { CreatePurchaseOrderRequest } from "@/utils/types"
 
-export function usePurchaseOrders(page = 0, size = 20, status?: string) {
+export function usePurchaseOrders(page = 0, size = 20, sort?: string, status?: string) {
   return useQuery({
-    queryKey: ["purchase-orders", page, size, status],
-    queryFn: () => getPurchaseOrders(page, size, status),
+    queryKey: ["purchase-orders", page, size, sort, status],
+    queryFn: () => getPurchaseOrders(page, size, sort, status),
   })
 }
 

@@ -22,7 +22,7 @@ export const LoginPage = () => {
       await login(username, password)
       navigate("/")
     } catch {
-      setError("Invalid username or password")
+      setError("Sai tên đăng nhập hoặc mật khẩu")
     }
   }
 
@@ -33,17 +33,17 @@ export const LoginPage = () => {
           <div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-lg bg-primary text-lg font-bold text-primary-foreground">
             W
           </div>
-          <h1 className="text-xl font-semibold tracking-tight">Warehouse Management</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Sign in to your account</p>
+          <h1 className="text-xl font-semibold tracking-tight">Quản lý kho</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Đăng nhập để tiếp tục</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="username">Username</Label>
+            <Label htmlFor="username">Tên đăng nhập</Label>
             <Input
               id="username"
               type="text"
-              placeholder="admin, manager, sales, stock"
+                placeholder="admin / manager / sales / stock"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               required
@@ -51,12 +51,12 @@ export const LoginPage = () => {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
+            <Label htmlFor="password">Mật khẩu</Label>
             <div className="relative">
               <Input
                 id="password"
                 type={showPassword ? "text" : "password"}
-                placeholder="Enter any password"
+                placeholder="Nhập mật khẩu"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
@@ -81,7 +81,7 @@ export const LoginPage = () => {
           )}
 
           <Button type="submit" className="w-full" disabled={isLoading}>
-            {isLoading ? "Signing in..." : "Sign in"}
+            {isLoading ? "Đang đăng nhập..." : "Đăng nhập"}
           </Button>
         </form>
       </div>
