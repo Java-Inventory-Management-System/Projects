@@ -1,0 +1,66 @@
+package org.dawn.backend.service.system;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.dawn.backend.constant.inventory.ProductUnitStatus;
+import org.dawn.backend.constant.inventory.StockCheckStatus;
+import org.dawn.backend.entity.catalog.Product;
+import org.dawn.backend.entity.inventory.ProductUnit;
+import org.dawn.backend.repository.catalog.ProductRepository;
+import org.dawn.backend.repository.inventory.ProductUnitRepository;
+import org.dawn.backend.repository.inventory.StockCheckRepository;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.Duration;
+import java.time.Instant;
+import java.util.List;
+
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class ScheduledTaskService {
+
+    private final StockCheckRepository stockCheckRepository;
+    private final ProductUnitRepository productUnitRepository;
+    private final ProductRepository productRepository;
+
+    @Scheduled(cron = "0 0 2 * * ?")
+    @Transactional
+    public void expireStaleStockChecks() {
+        List<String> activeStatuses = List.of(StockCheckStatus.PENDING.name(), StockCheckStatus.IN_PROGRESS.name());
+        Instant cutoff = Instant.now().minus(Duration.ofDays(1));
+        var stale = stockCheckRepository.findByStatusInAndCreatedAtBefore(activeStatuses, cutoff);
+        for (var sc : stale) {
+            sc.setStatus(StockCheckStatus.EXPIRED.name());
+            stockCheckRepository.save(sc);
+            log.warn("Stock check {} auto-expired (created at {}, older than 1 day)", sc.getCheckCode(), sc.getCreatedAt());
+        }
+        if (!stale.isEmpty()) {
+            log.info("Expired {} stale stock check(s)", stale.size());
+        }
+    }
+
+    @Scheduled(cron = "0 0 6 * * ?")
+    public void checkLowStock() {
+        List<Product> activeProducts = productRepository.findByIsActiveTrue();
+        for (var product : activeProducts) {
+            long inStock = productUnitRepository.countByProductIdAndStatus(product.getId(), ProductUnitStatus.IN_STOCK.name());
+            if (product.getMinStock() != null && inStock <= product.getMinStock()) {
+                log.warn("Low stock alert: product {} (SKU: {}) — in stock: {}, min_stock: {}",
+                        product.getName(), product.getSku(), inStock, product.getMinStock());
+            }
+        }
+    }
+
+    @Scheduled(cron = "0 0 7 * * ?")
+    public void checkDeadStock() {
+        long configurableDays = 90;
+        Instant cutoff = Instant.now().minus(Duration.ofDays(configurableDays));
+        List<ProductUnit> deadUnits = productUnitRepository.findDeadStockUnits(cutoff);
+        if (!deadUnits.isEmpty()) {
+            log.warn("Dead stock alert: {} unit(s) inactive for >{} days", deadUnits.size(), configurableDays);
+        }
+    }
+}

@@ -1,0 +1,59 @@
+server:
+  port: 8888
+
+spring:
+  threads:
+    virtual:
+      enabled: true
+  application:
+    name: backend-test
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 10MB
+      max-request-size: 10MB
+  datasource:
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;MODE=MySQL
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+    hikari:
+      maximum-pool-size: 2
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate.jdbc.batch_size: 50
+      hibernate.order_inserts: true
+  flyway:
+    enabled: false
+  mail:
+    enabled: false
+    host: localhost
+    port: 1025
+    username: test
+    password: test
+    from: test@localhost
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.mail.MailSenderAutoConfiguration
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+  api-docs:
+    path: /v3/api-docs
+
+app:
+  cloudinary:
+    cloud-name:
+    api-key:
+    api-secret:
+  upload-path: ./uploads
+  jwtCookieName: test-jwt
+  jwtRefreshCookieName: test-refresh
+  jwtSecret: test-secret-key-that-is-at-least-256-bits-long-for-hs256
+  jwtExpirationsMs: 3600000
+  jwtRefreshExpirationsMs: 604800000
+  frontendUrl: http://localhost:3000
