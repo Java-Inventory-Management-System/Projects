@@ -285,7 +285,7 @@ public class WarrantyRequestService {
 
         transition(original, ProductUnitStatus.SOLD, ProductUnitStatus.DEFECTIVE, warranty.getId(), userId);
         transition(replacement, ProductUnitStatus.IN_STOCK, ProductUnitStatus.SOLD, warranty.getId(), userId);
-        replacement.setWarrantyStartDate(Instant.now());
+        replacement.setWarrantyStartDate(original.getWarrantyStartDate());
         replacement.setWarrantyExpiresAt(original.getWarrantyExpiresAt());
         productUnitRepository.save(replacement);
 

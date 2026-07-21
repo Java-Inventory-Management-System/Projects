@@ -140,11 +140,9 @@ public class StockAdjustmentService {
         if (!AdjustmentStatus.PENDING.name().equals(adj.getStatus())) {
             throw new InvalidRequestException(Message.Inventory.ONLY_PENDING_CAN_APPROVE);
         }
-        /* tạm thời bỏ 4-eyes
         if (adj.getCreatedBy().equals(userId)) {
             throw new InvalidRequestException(Message.Inventory.CREATOR_CANNOT_APPROVE);
         }
-        */
 
         String type = adj.getType();
         if (AdjustmentType.DAMAGED.name().equals(type)) {
