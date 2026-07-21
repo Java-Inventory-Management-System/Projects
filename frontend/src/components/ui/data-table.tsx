@@ -37,8 +37,8 @@ export function DataTable<T>({
   const hasPagination = page !== undefined && totalPages !== undefined && onPageChange !== undefined
 
   const toolbar = hasPagination && (
-    <div className="flex items-center justify-between">
-      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+    <div className="relative flex items-center justify-center">
+      <div className="absolute left-0 flex items-center gap-2 text-sm text-muted-foreground">
         {totalElements !== undefined && <span>{totalElements.toLocaleString("vi-VN")} kết quả</span>}
         {pageSize !== undefined && onPageSizeChange && (
           <>
@@ -73,11 +73,13 @@ export function DataTable<T>({
                       onClick={() => onSort(c.sortKey!)}
                       className="inline-flex items-center gap-1 font-medium"
                     >
-                      {c.header}
+                      <span className={cn(sort?.key === c.sortKey && "text-blue-600")}>{c.header}</span>
                       {sort?.key === c.sortKey ? (
-                        sort.dir === "asc" ? <ArrowUp className="size-3.5" /> : <ArrowDown className="size-3.5" />
+                        sort.dir === "asc"
+                          ? <ArrowUp className="size-3.5 text-blue-600" />
+                          : <ArrowDown className="size-3.5 text-blue-600" />
                       ) : (
-                        <ArrowUp className="size-3.5 opacity-20" />
+                        <ArrowUp className="size-3.5 text-muted-foreground/50" />
                       )}
                     </button>
                   ) : (
