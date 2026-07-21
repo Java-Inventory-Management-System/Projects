@@ -110,8 +110,10 @@ public class Message {
         public static final String EXPORT_REASON_REQUIRED = "Export reason is required";
         public static final String CUSTOMER_REQUIRED_FOR_SALE = "Customer is required for sale export";
         public static final String INVALID_EXPORT_REASON = "Invalid export reason: {0}";
+        public static final String DISPOSE_ONLY_DAMAGED = "Only damaged units can be disposed";
         public static final String SUPPLIER_REQUIRED = "Supplier is required";
         public static final String ONLY_PENDING_APPROVAL_CAN_APPROVE = "Only pending approval receipts can be approved";
+        public static final String ONLY_PENDING_APPROVAL_CAN_CANCEL = "Only pending approval receipts can be cancelled";
         public static final String STOCK_CHECK_NOT_FOUND = "Stock check not found";
         public static final String STOCK_CHECK_ALREADY_APPROVED = "Stock check already approved";
         public static final String STOCK_CHECK_ALREADY_REJECTED = "Stock check already rejected";
@@ -170,6 +172,21 @@ public class Message {
         public static final String PRICE_ADJ_REASON_REQUIRED = "Reason is required for price adjustment";
         public static final String PRICE_ADJ_ONLY_PENDING_APPROVE = "Only pending price adjustments can be approved";
         public static final String PRICE_ADJ_ONLY_PENDING_REJECT = "Only pending price adjustments can be rejected";
+
+        // Return receipt
+        public static final String RETURN_RECEIPT_NOT_FOUND = "Return receipt not found";
+        public static final String RETURN_RECEIPT_CODE_EXISTS = "Return receipt code already exists";
+        public static final String RETURN_REASON_REQUIRED = "Return reason is required";
+        public static final String RETURN_ITEMS_REQUIRED = "At least one return item is required";
+        public static final String RETURN_EXPORT_REQUIRED = "Original export receipt is required";
+        public static final String RETURN_ALREADY_CANCELLED = "Return receipt already cancelled";
+        public static final String RETURN_ALREADY_COMPLETED = "Return receipt already completed";
+        public static final String RETURN_ONLY_PENDING = "Only pending return receipts can be processed";
+        public static final String RETURN_CUSTOMER_REQUIRED = "Customer is required";
+        public static final String RETURN_INVALID_REASON = "Invalid return reason: {0}";
+        public static final String RETURN_INVALID_CONDITION = "Invalid return condition: {0}";
+        public static final String RETURN_INVALID_ACTION = "Invalid resulting action: {0}";
+        public static final String RETURN_UNIT_NOT_SOLD = "Product unit is not in sold status";
     }
 
     // User

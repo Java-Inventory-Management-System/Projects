@@ -50,6 +50,9 @@ public class LogConstant {
         public static final String RECORD_STOCK_CHECK = "RECORD_STOCK_CHECK";
         public static final String CREATE_PRODUCT_IMAGE = "CREATE_PRODUCT_IMAGE";
         public static final String DELETE_PRODUCT_IMAGE = "DELETE_PRODUCT_IMAGE";
+        public static final String CREATE_RETURN = "CREATE_RETURN";
+        public static final String APPROVE_RETURN = "APPROVE_RETURN";
+        public static final String CANCEL_RETURN = "CANCEL_RETURN";
     }
 
     public static class Entity {
@@ -69,6 +72,7 @@ public class LogConstant {
         public static final String WARRANTY_REQUEST = "WARRANTY_REQUEST";
         public static final String PURCHASE_ORDER = "PURCHASE_ORDER";
         public static final String PRODUCT_IMAGE = "PRODUCT_IMAGE";
+        public static final String RETURN_RECEIPT = "RETURN_RECEIPT";
     }
 
     public static class Status {
