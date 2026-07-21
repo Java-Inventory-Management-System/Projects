@@ -6,39 +6,43 @@ import lombok.experimental.SuperBuilder;
 import org.dawn.backend.entity.base.AuditableEntity;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 
 @Entity
-@Table(name = "import_receipts")
+@Table(name = "return_receipts")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @SuperBuilder
 @EqualsAndHashCode(callSuper = true)
 @ToString(callSuper = true)
-public class ImportReceipt extends AuditableEntity {
+public class ReturnReceipt extends AuditableEntity {
 
     @Column(name = "receipt_code", nullable = false, unique = true, length = 32)
     private String receiptCode;
 
-    @Column(name = "supplier_id", nullable = false)
-    private Long supplierId;
+    @Column(name = "customer_id", nullable = false)
+    private Long customerId;
 
-    @Column(name = "total_amount", precision = 15, scale = 2)
-    private BigDecimal totalAmount;
+    @Column(name = "original_export_receipt_id", nullable = false)
+    private Long originalExportReceiptId;
+
+    @Column(name = "reason", nullable = false, length = 20)
+    private String reason;
 
     @Column(name = "status", nullable = false, length = 20)
     @Builder.Default
-    private String status = "DRAFT";
+    private String status = "PENDING_APPROVAL";
 
     @Column(name = "note", columnDefinition = "TEXT")
     private String note;
-
-    @Column(name = "purchase_order_id")
-    private Long purchaseOrderId;
 
     @Column(name = "created_by", nullable = false)
     private Long createdBy;
 
     @Column(name = "approved_by")
     private Long approvedBy;
+
+    @Column(name = "approved_at")
+    private Instant approvedAt;
 }

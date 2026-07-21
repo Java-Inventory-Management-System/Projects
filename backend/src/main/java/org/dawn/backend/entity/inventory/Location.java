@@ -5,6 +5,8 @@ import lombok.*;
 import lombok.experimental.SuperBuilder;
 import org.dawn.backend.entity.base.AuditableEntity;
 
+import java.math.BigDecimal;
+
 @Entity
 @Table(name = "locations", uniqueConstraints = {
         @UniqueConstraint(columnNames = {"zone_code", "shelf_code", "bin_code"})
@@ -31,6 +33,12 @@ public class Location extends AuditableEntity {
 
     @Column(name = "description", columnDefinition = "TEXT")
     private String description;
+
+    @Column(name = "max_capacity", precision = 15, scale = 2)
+    private BigDecimal maxCapacity;
+
+    @Column(name = "warehouse_id")
+    private Long warehouseId;
 
     @Column(name = "is_active", nullable = false)
     @Builder.Default

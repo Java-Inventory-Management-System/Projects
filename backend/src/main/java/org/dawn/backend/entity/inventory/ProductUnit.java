@@ -58,4 +58,23 @@ public class ProductUnit extends AuditableEntity {
 
     @Column(name = "warranty_expires_at")
     private Instant warrantyExpiresAt;
+
+    @Column(name = "reserved_quantity", precision = 15, scale = 2)
+    @Builder.Default
+    private BigDecimal reservedQuantity = BigDecimal.ZERO;
+
+    @Column(name = "is_warranty_active")
+    @Builder.Default
+    private Boolean isWarrantyActive = true;
+
+    @Column(name = "warranty_seal_code", length = 50)
+    private String warrantySealCode;
+
+    @Column(name = "cost_price", precision = 15, scale = 2)
+    private BigDecimal costPrice;
+
+    @Version
+    @Column(name = "version")
+    @Builder.Default
+    private Long version = 0L;
 }

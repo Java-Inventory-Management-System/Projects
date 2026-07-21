@@ -34,6 +34,14 @@ public interface ProductUnitRepository extends JpaRepository<ProductUnit, Long> 
     @Query("SELECT p FROM ProductUnit p WHERE p.id = :id")
     Optional<ProductUnit> findByIdForUpdate(@Param("id") Long id);
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT p FROM ProductUnit p WHERE p.productId = :productId AND p.status = 'IN_STOCK' ORDER BY p.importedAt ASC")
+    List<ProductUnit> findAvailableForExportWithLock(@Param("productId") Long productId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT p FROM ProductUnit p WHERE p.productId = :productId AND p.status = 'IN_STOCK'")
+    List<ProductUnit> findByProductIdAndStatusWithLock(@Param("productId") Long productId);
+
     @Query("SELECT p.serialNumber FROM ProductUnit p WHERE p.serialNumber IN :serials")
     Set<String> findExistingSerialNumbers(@Param("serials") List<String> serials);
     List<ProductUnit> findByImportReceiptItemId(Long importReceiptItemId);
