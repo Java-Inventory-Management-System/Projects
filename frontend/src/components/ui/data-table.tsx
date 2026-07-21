@@ -67,24 +67,21 @@ export function DataTable<T>({
           <TableHeader>
             <TableRow>
               {columns.map((c, i) => (
-                <TableHead key={i} className={cn(c.className, c.sortKey && "cursor-pointer select-none")}>
-                  {c.sortKey && onSort ? (
-                    <button
-                      onClick={() => onSort(c.sortKey!)}
-                      className="inline-flex items-center gap-1 font-medium"
-                    >
-                      <span className={cn(sort?.key === c.sortKey && "text-blue-600")}>{c.header}</span>
-                      {sort?.key === c.sortKey ? (
-                        sort.dir === "asc"
-                          ? <ArrowUp className="size-3.5 text-blue-600" />
-                          : <ArrowDown className="size-3.5 text-blue-600" />
-                      ) : (
-                        <ArrowUp className="size-3.5 text-muted-foreground/50" />
-                      )}
-                    </button>
-                  ) : (
-                    c.header
-                  )}
+                <TableHead
+                  key={i}
+                  onClick={c.sortKey && onSort ? () => onSort(c.sortKey!) : undefined}
+                  className={cn(c.className, c.sortKey && "cursor-pointer select-none")}
+                >
+                  <div className="inline-flex items-center gap-1 font-medium">
+                    {c.header}
+                    {c.sortKey && onSort && (sort?.key === c.sortKey ? (
+                      sort.dir === "asc"
+                        ? <ArrowUp className="size-3.5 text-blue-600" />
+                        : <ArrowDown className="size-3.5 text-blue-600" />
+                    ) : (
+                      <ArrowUp className="size-3.5 text-muted-foreground/50" />
+                    ))}
+                  </div>
                 </TableHead>
               ))}
             </TableRow>
