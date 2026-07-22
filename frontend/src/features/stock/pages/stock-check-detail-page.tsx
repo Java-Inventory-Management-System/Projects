@@ -51,8 +51,8 @@ export const StockCheckDetailPage = () => {
   const recordMut = useMutation({
     mutationFn: (data: { items: Array<{ productUnitId: number; actualStatus?: string; countedQuantity?: number; note?: string }> }) =>
       recordStockCheckItems(Number(id!), data),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["stock-check", id] }); qc.invalidateQueries({ queryKey: ["stock-checks"] }); toast.success("Results recorded") },
-    onError: (err: Error) => toast.error(err.message || "Failed to record"),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["stock-check", id] }); qc.invalidateQueries({ queryKey: ["stock-checks"] }); toast.success("Đã ghi kết quả kiểm") },
+    onError: (err: Error) => toast.error(err.message || "Không thể ghi kết quả"),
   })
 
   const invalidateAll = () => {
@@ -64,8 +64,8 @@ export const StockCheckDetailPage = () => {
 
   const completeMut = useMutation({
     mutationFn: () => completeStockCheck(Number(id!)),
-    onSuccess: () => { invalidateAll(); toast.success("Check completed, pending approval"); navigate("/stock/checks") },
-    onError: (err: Error) => toast.error(err.message || "Failed to complete"),
+    onSuccess: () => { invalidateAll(); toast.success("Kiểm hoàn tất, chờ duyệt"); navigate("/stock/checks") },
+    onError: (err: Error) => toast.error(err.message || "Không thể hoàn tất kiểm"),
   })
 
   const handleSaveAndComplete = async () => {
