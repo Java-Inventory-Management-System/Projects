@@ -2,7 +2,7 @@ import axios, { type AxiosError, type InternalAxiosRequestConfig } from "axios"
 import { toast } from "./toast"
 
 const STORAGE_KEY_TOKEN = "accessToken"
-const BASE_URL = import.meta.env.VITE_BASE_API_URL as string ?? "http://localhost:8888/api/v1"
+const BASE_URL = (import.meta.env.VITE_BASE_API_URL as string) ?? "http://localhost:8888/api/v1"
 
 const http = axios.create({
   baseURL: BASE_URL,
@@ -55,7 +55,7 @@ http.interceptors.response.use(
       isRefreshing = true
 
       try {
-        const res = await http.post("/auth/refresh-token") as { accessToken: string }
+        const res = (await http.post("/auth/refresh-token")) as { accessToken: string }
         const newToken = res.accessToken
         if (newToken) {
           localStorage.setItem(STORAGE_KEY_TOKEN, newToken)
@@ -72,10 +72,7 @@ http.interceptors.response.use(
       }
     }
 
-    const message =
-      (error.response?.data as { message?: string })?.message ||
-      error.message ||
-      "Lỗi kết nối"
+    const message = (error.response?.data as { message?: string })?.message || error.message || "Lỗi kết nối"
     return Promise.reject(new Error(message))
   },
 )

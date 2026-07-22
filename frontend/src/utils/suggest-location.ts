@@ -1,8 +1,14 @@
 import type { LocationResponse } from "@/utils/types"
 
 const defaultZoneMap: Record<number, string> = {
-  1: "A", 2: "D", 3: "B", 4: "E",
-  5: "F", 6: "C", 7: "G", 8: "H",
+  1: "A",
+  2: "D",
+  3: "B",
+  4: "E",
+  5: "F",
+  6: "C",
+  7: "G",
+  8: "H",
 }
 
 export function suggestLocation(

@@ -1,20 +1,24 @@
-// ============ Common ============
+// ============ Pagination ============
 
 export interface ResponsePage<T> {
   content: T[]
-  pagination: Pagination
+  pagination: {
+    totalPages: number
+    totalElements: number
+    size: number
+    number: number
+  }
 }
 
 export interface Pagination {
-  pageNumber: number
-  pageSize: number
-  totalElements: number
-  totalPages: number
+  page: number
+  size: number
+  sort?: string
 }
 
-export type URole = "ADMIN" | "MANAGER" | "SALES" | "STOCK"
-
 // ============ Auth ============
+
+export type URole = "ADMIN" | "MANAGER" | "SALES" | "STOCK"
 
 export interface LoginRequest {
   username: string
@@ -23,19 +27,14 @@ export interface LoginRequest {
 
 export interface JwtResponse {
   accessToken: string
-  userId: number
-  username: string
-  fullName: string
-  isPasswordReset: boolean
+  refreshToken: string
+  tokenType: string
+  expiresIn: number
 }
 
 export interface RefreshTokenResponse {
   accessToken: string
-  userId: number
-  username: string
-  fullName: string
-  role: string
-  isPasswordReset: boolean
+  expiresIn: number
 }
 
 // ============ User ============
@@ -56,15 +55,14 @@ export interface UserResponse {
   updatedAt: string
 }
 
-// ============ Brand / Category (catalog) ============
+// ============ Catalog ============
 
 export interface CatalogResponse {
   id: number
   name: string
+  code: string
   description: string | null
   isActive: boolean
-  createdAt: string
-  updatedAt: string
 }
 
 export type BrandResponse = CatalogResponse
@@ -72,35 +70,24 @@ export type CategoryResponse = CatalogResponse
 
 export interface CreateCatalogRequest {
   name: string
-  description: string | null
-}
-
-// ============ Inventory Item (tồn kho tổng hợp) ============
-
-export interface InventoryItem {
-  id: number
-  productId: number
-  productName: string
-  productSku: string
-  quantity: number
-  minStock: number
-  location: string
-  updatedAt: string
+  code?: string
+  description?: string | null
+  active?: boolean
 }
 
 // ============ Product ============
 
 export interface CreateProductRequest {
   name: string
-  sku: string | null
-  barcode: string | null
-  brandId: number | null
+  sku: string
   categoryId: number | null
-  description: string | null
-  unit: string | null
-  trackingType: string | null
-  sellPrice: number | null
-  minStock: number | null
+  brandId: number | null
+  unit: string
+  retailPrice: number
+  costPrice?: number
+  minStock?: number
+  description?: string
+  image?: string
 }
 
 export interface ProductResponse {
@@ -108,16 +95,16 @@ export interface ProductResponse {
   name: string
   sku: string | null
   barcode: string | null
+  unit: string | null
+  sellPrice: number
   brandId: number | null
   brandName: string | null
   categoryId: number | null
   categoryName: string | null
-  description: string | null
-  unit: string | null
-  trackingType: string | null
-  sellPrice: number | null
-  minStock: number | null
+  trackingType: string
+  minStock: number
   isActive: boolean
+  description: string | null
   createdAt: string
   updatedAt: string
 }
@@ -154,25 +141,29 @@ export interface CustomerResponse {
   updatedAt: string
 }
 
-// ============ Location Map ============
+// ============ Location ============
 
-export interface LocationMapData {
-  zones: Array<{
-    zoneCode: string
-    shelves: Array<{
-      shelfCode: string
-      bins: Array<{
-        id: number
-        binCode: string
-        fullCode: string
-        productCount: number
-        maxCapacity: number | null
-      }>
-    }>
-  }>
+export interface LocationMapBin {
+  id: number
+  binCode: string
+  fullCode: string
+  productCount: number
+  maxCapacity: number | null
 }
 
-// ============ Location ============
+export interface LocationMapShelf {
+  shelfCode: string
+  bins: LocationMapBin[]
+}
+
+export interface LocationMapZone {
+  zoneCode: string
+  shelves: LocationMapShelf[]
+}
+
+export interface LocationMapData {
+  zones: LocationMapZone[]
+}
 
 export interface LocationResponse {
   id: number
@@ -187,7 +178,7 @@ export interface LocationResponse {
   updatedAt: string
 }
 
-// ============ Product Unit (Inventory) ============
+// ============ Product Unit (Actual Inventory) ============
 
 export interface ProductUnit {
   id: number
@@ -195,7 +186,7 @@ export interface ProductUnit {
   productId: number
   productName: string
   productSku: string
-  trackingType: "SERIALIZED" | "BULK"
+  trackingType: string
   initialQuantity: number | null
   remainingQuantity: number | null
   importReceiptItemId: number
@@ -213,15 +204,13 @@ export interface ProductUnit {
 export type ProductUnitStatus =
   | "IN_STOCK"
   | "SOLD"
-  | "DEFECTIVE"
-  | "DAMAGED_IN_STORAGE"
-  | "LOST"
-  | "UNDER_REPAIR"
-  | "SENT_TO_MANUFACTURER"
+  | "RESERVED"
+  | "QUARANTINED"
   | "RETURNED"
-  | "RETURNED_TO_SUPPLIER"
-  | "REMOVED"
   | "DISPOSED"
+  | "WARRANTY"
+  | "WARRANTY_DONE"
+  | "WARRANTY_REPLACED"
 
 // ============ Import Receipt ============
 
@@ -230,15 +219,15 @@ export interface ImportReceipt {
   receiptCode: string
   supplierId: number
   supplierName: string
+  note: string | null
   status: ImportReceiptStatus
+  totalAmount: number
   purchaseOrderId: number | null
   poCode: string | null
-  createdBy: number
-  createdByName: string
+  createdBy: number | null
+  createdByName: string | null
   approvedBy: number | null
   approvedByName: string | null
-  note: string | null
-  totalAmount: number
   createdAt: string
   updatedAt: string
   items: ImportReceiptItem[]
@@ -250,7 +239,7 @@ export interface ImportReceiptItem {
   id: number
   productId: number
   productName: string
-  productSku: string
+  productSku: string | null
   quantity: number
   unitPrice: number
   warrantyMonths: number
@@ -265,10 +254,17 @@ export interface PurchaseOrderItem {
   id: number
   productId: number
   productName: string
-  productSku: string
+  productSku: string | null
   quantity: number
   unitPrice: number
   receivedQuantity: number
+}
+
+export interface CreatePurchaseOrderRequest {
+  supplierId: number
+  expectedDate: string
+  note: string | null
+  items: Array<{ productId: number; quantity: number; unitPrice: number }>
 }
 
 export interface PurchaseOrder {
@@ -276,22 +272,15 @@ export interface PurchaseOrder {
   poCode: string
   supplierId: number
   supplierName: string
+  items: PurchaseOrderItem[]
+  totalAmount: number
   status: PurchaseOrderStatus
   expectedDate: string
   note: string | null
-  totalAmount: number
-  createdBy: number
+  createdBy: number | null
   createdByName: string
   createdAt: string
   updatedAt: string
-  items: PurchaseOrderItem[]
-}
-
-export interface CreatePurchaseOrderRequest {
-  supplierId: number
-  expectedDate: string
-  note: string | null
-  items: { productId: number; quantity: number; unitPrice: number }[]
 }
 
 // ============ Export Receipt ============
@@ -302,13 +291,13 @@ export interface ExportReceipt {
   reason: ExportReason
   customerId: number | null
   customerName: string | null
+  note: string | null
   status: ExportReceiptStatus
   totalAmount: number
-  createdBy: number
-  createdByName: string
+  createdBy: number | null
+  createdByName: string | null
   approvedBy: number | null
   approvedByName: string | null
-  note: string | null
   createdAt: string
   updatedAt: string
   items: ExportReceiptItem[]
@@ -321,7 +310,7 @@ export interface ExportReceiptItem {
   id: number
   productId: number
   productName: string
-  productSku: string
+  productSku: string | null
   quantity: number
   unitPrice: number
 }
@@ -329,7 +318,6 @@ export interface ExportReceiptItem {
 // ============ Stock Check ============
 
 export type StockCheckStatus = "PENDING" | "IN_PROGRESS" | "COMPLETED" | "APPROVED" | "REJECTED"
-
 export type DifferenceType = "MATCH" | "MISSING" | "UNEXPECTED" | "PARTIAL_SHORTAGE"
 
 export interface StockCheckItem {
@@ -338,8 +326,8 @@ export interface StockCheckItem {
   serialNumber: string
   productId: number
   productName: string
-  productSku: string
-  expectedStatus: string
+  productSku: string | null
+  expectedStatus: string | null
   actualStatus: string | null
   countedQuantity: number | null
   difference: DifferenceType | null
@@ -349,10 +337,10 @@ export interface StockCheckItem {
 export interface StockCheck {
   id: number
   checkCode: string
-  status: StockCheckStatus
   note: string | null
-  createdBy: number
-  createdByName: string
+  status: StockCheckStatus
+  createdBy: number | null
+  createdByName: string | null
   approvedBy: number | null
   approvedByName: string | null
   approvalNote: string | null
@@ -383,7 +371,7 @@ export interface StockAdjustment {
   reason: string
   imageUrl: string | null
   status: AdjustmentStatus
-  createdBy: number
+  createdBy: number | null
   createdByName: string | null
   approvedBy: number | null
   approvedByName: string | null
@@ -403,8 +391,8 @@ export interface PriceAdjustment {
   oldPrice: number
   newPrice: number
   reason: string
-  status: "PENDING" | "APPROVED" | "REJECTED"
-  createdBy: number
+  status: string
+  createdBy: number | null
   createdByName: string | null
   approvedBy: number | null
   approvedByName: string | null
@@ -413,7 +401,18 @@ export interface PriceAdjustment {
   updatedAt: string
 }
 
-// ============ Report ============
+// ============ Inventory ============
+
+export interface InventoryItem {
+  id: number
+  productId: number
+  productName: string
+  productSku: string
+  quantity: number
+  minStock: number
+  location: string
+  updatedAt: string
+}
 
 export interface InventorySummary {
   totalProducts: number
@@ -434,15 +433,15 @@ export interface CategoryStock {
 export interface LowStockItem {
   productId: number
   productName: string
-  productSku: string
+  productSku: string | null
   quantity: number
-  minStock: number
+  minStock: number | null
 }
 
 export interface StockValueItem {
   productId: number
   productName: string
-  productSku: string
+  productSku: string | null
   categoryName: string | null
   quantity: number
   unitPrice: number
@@ -450,7 +449,7 @@ export interface StockValueItem {
 }
 
 export interface ActivityItem {
-  type: "IMPORT" | "EXPORT"
+  type: string
   receiptCode: string
   date: string
   counterpartyName: string | null
@@ -461,12 +460,92 @@ export interface ActivityItem {
 export interface DeadStockItem {
   productId: number
   productName: string
-  productSku: string
+  productSku: string | null
   serialNumber: string | null
   importedAt: string
   daysInStock: number
   costPrice: number
 }
+
+// ============ Warranty ============
+
+export interface WarrantyRequest {
+  id: number
+  requestCode: string
+  productUnitId: number
+  serialNumber: string
+  productId: number
+  productName: string
+  productSku: string | null
+  customerId: number | null
+  customerName: string | null
+  issueDescription: string
+  resolutionType: string | null
+  replacementUnitId: number | null
+  replacementSerialNumber: string | null
+  rmaNumber: string | null
+  sentToPartnerAt: string | null
+  expectedReturnAt: string | null
+  partnerNote: string | null
+  status: WarrantyStatus
+  handledBy: number | null
+  handledByName: string | null
+  completedAt: string | null
+  note: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export type WarrantyStatus =
+  "PENDING" | "RECEIVED" | "UNDER_EVALUATION" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED" | "RESOLVED"
+
+export interface WarrantyLookup {
+  productUnitId: number
+  serialNumber: string
+  productId: number
+  productName: string
+  productSku: string | null
+  productUnitStatus: string
+  purchaseDate: string | null
+  warrantyExpiresAt: string | null
+  warrantyStatus: string
+  eligible: boolean
+  customerId: number | null
+  customerName: string | null
+  saleReceiptCode: string | null
+  history: WarrantyRequest[]
+}
+
+// ============ Return Receipt ============
+
+export interface ReturnReceiptItem {
+  id: number
+  productUnitId: number
+  productId: number
+  quantity: number
+  condition: string
+  resultingAction: string
+}
+
+export interface ReturnReceipt {
+  id: number
+  receiptCode: string
+  customerId: number | null
+  customerName: string | null
+  originalExportReceiptId: number | null
+  reason: string
+  status: ReturnReceiptStatus
+  note: string | null
+  createdBy: number | null
+  createdByName: string | null
+  approvedBy: number | null
+  approvedByName: string | null
+  approvedAt: string | null
+  items: ReturnReceiptItem[]
+  createdAt: string
+}
+
+export type ReturnReceiptStatus = "PENDING" | "PENDING_APPROVAL" | "APPROVED" | "REJECTED"
 
 // ============ Product Image ============
 
@@ -495,3 +574,185 @@ export interface AuditLog {
   errorMsg: string | null
   createdAt: string
 }
+
+// ============ Import Create Page ============
+
+export interface LineItem {
+  tempId: number
+  productId: number
+  productName: string
+  productSku: string
+  categoryId: number | null
+  quantity: number
+  unitPrice: number
+  warrantyMonths: number
+  serials: string[]
+  locationId: string
+}
+
+export interface QcRecord {
+  serial: string
+  productName: string
+  passed: boolean
+  failReason: string
+}
+
+// ============ Status Constants ============
+
+export const IMPORT_RECEIPT_STATUS = {
+  PENDING: "PENDING",
+  PENDING_APPROVAL: "PENDING_APPROVAL",
+  COMPLETED: "COMPLETED",
+  CANCELLED: "CANCELLED",
+} as const
+
+export const EXPORT_RECEIPT_STATUS = {
+  PENDING_APPROVAL: "PENDING_APPROVAL",
+  COMPLETED: "COMPLETED",
+  CANCELLED: "CANCELLED",
+} as const
+
+export const EXPORT_REASON = {
+  SALE: "SALE",
+  INTERNAL: "INTERNAL",
+  RETURN_SUPPLIER: "RETURN_SUPPLIER",
+  DISPOSE: "DISPOSE",
+} as const
+
+export const PURCHASE_ORDER_STATUS = {
+  DRAFT: "DRAFT",
+  PARTIAL: "PARTIAL",
+  COMPLETED: "COMPLETED",
+  CANCELLED: "CANCELLED",
+} as const
+
+export const STOCK_CHECK_STATUS = {
+  PENDING: "PENDING",
+  IN_PROGRESS: "IN_PROGRESS",
+  COMPLETED: "COMPLETED",
+  APPROVED: "APPROVED",
+  REJECTED: "REJECTED",
+} as const
+
+export const ADJUSTMENT_STATUS = {
+  PENDING: "PENDING",
+  APPROVED: "APPROVED",
+  REJECTED: "REJECTED",
+} as const
+
+export const RETURN_RECEIPT_STATUS = {
+  PENDING: "PENDING",
+  APPROVED: "APPROVED",
+  REJECTED: "REJECTED",
+} as const
+
+export const WARRANTY_STATUS = {
+  PENDING: "PENDING",
+  RECEIVED: "RECEIVED",
+  UNDER_EVALUATION: "UNDER_EVALUATION",
+  IN_PROGRESS: "IN_PROGRESS",
+  RESOLVED: "RESOLVED",
+  COMPLETED: "COMPLETED",
+  CANCELLED: "CANCELLED",
+} as const
+
+export const PRODUCT_UNIT_STATUS = {
+  IN_STOCK: "IN_STOCK",
+  SOLD: "SOLD",
+  RESERVED: "RESERVED",
+  QUARANTINED: "QUARANTINED",
+  RETURNED: "RETURNED",
+  DISPOSED: "DISPOSED",
+  WARRANTY: "WARRANTY",
+  WARRANTY_DONE: "WARRANTY_DONE",
+  WARRANTY_REPLACED: "WARRANTY_REPLACED",
+  DEFECTIVE: "DEFECTIVE",
+  DAMAGED_IN_STORAGE: "DAMAGED_IN_STORAGE",
+  LOST: "LOST",
+  UNDER_REPAIR: "UNDER_REPAIR",
+  SENT_TO_MANUFACTURER: "SENT_TO_MANUFACTURER",
+  RETURNED_TO_SUPPLIER: "RETURNED_TO_SUPPLIER",
+  REMOVED: "REMOVED",
+} as const
+
+export const USER_STATUS = {
+  NEW: "NEW",
+  ACTIVE: "ACTIVE",
+  INACTIVE: "INACTIVE",
+} as const
+
+export const AUDIT_STATUS = {
+  SUCCESS: "SUCCESS",
+  FAILED: "FAILED",
+} as const
+
+export const AUDIT_ACTION = {
+  LOGIN: "LOGIN",
+  LOGOUT: "LOGOUT",
+  CREATE: "CREATE",
+  UPDATE: "UPDATE",
+  DELETE: "DELETE",
+  APPROVE: "APPROVE",
+  REJECT: "REJECT",
+  CANCEL: "CANCEL",
+  RESET_PASSWORD: "RESET_PASSWORD",
+  IMPORT: "IMPORT",
+  EXPORT: "EXPORT",
+} as const
+
+export const PRODUCT_UNIT_TYPE = {
+  PIECE: "PIECE",
+  BOX: "BOX",
+  SET: "SET",
+  METER: "METER",
+  KG: "KG",
+} as const
+
+export const TRACKING_TYPE = {
+  SERIALIZED: "SERIALIZED",
+  BULK: "BULK",
+} as const
+
+export const STOCK_CHECK_DIFF = {
+  MATCH: "MATCH",
+  MISSING: "MISSING",
+  UNEXPECTED: "UNEXPECTED",
+  PARTIAL_SHORTAGE: "PARTIAL_SHORTAGE",
+} as const
+
+export const ADJUSTMENT_TYPE = {
+  DAMAGED: "DAMAGED",
+  LOST: "LOST",
+  FOUND: "FOUND",
+} as const
+
+export const WARRANTY_RESOLUTION_TYPE = {
+  REPAIR: "REPAIR",
+  REPLACE: "REPLACE",
+  REFUND: "REFUND",
+  REJECT: "REJECT",
+} as const
+
+export const WARRANTY_RESULT = {
+  REPAIRED: "REPAIRED",
+  REPLACED: "REPLACED",
+  REFUNDED: "REFUNDED",
+  REJECTED: "REJECTED",
+} as const
+
+export const RETURN_REASON = {
+  CHANGE_MIND: "CHANGE_MIND",
+  DEFECTIVE: "DEFECTIVE",
+  WRONG_ITEM: "WRONG_ITEM",
+} as const
+
+export const RETURN_ITEM_CONDITION = {
+  GOOD: "GOOD",
+  DEFECTIVE: "DEFECTIVE",
+} as const
+
+export const RETURN_RESULTING_ACTION = {
+  RESTOCK: "RESTOCK",
+  SCRAP: "SCRAP",
+  WARRANTY_TRANSFER: "WARRANTY_TRANSFER",
+} as const
