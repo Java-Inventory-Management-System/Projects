@@ -20,7 +20,6 @@ import {
 } from "@/components/ui/collapsible"
 import { DataTable, type Column } from "@/components/ui/data-table"
 import { ViewProductUnitModal } from "../components/view-product-unit-modal"
-import { useAuthStore } from "@/store/auth-store"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 
 const statusOptions: { value: string; label: string }[] = [
@@ -58,7 +57,6 @@ function fmt(d: string | null) {
 }
 
 export const ProductUnitListPage = () => {
-  const user = useAuthStore((s) => s.user)
   const [page, setPage] = useState(0)
   const [pageSize, setPageSize] = useState(10)
   const [data, setData] = useState<ResponsePage<ProductUnit> | null>(null)
@@ -72,7 +70,6 @@ export const ProductUnitListPage = () => {
   const [productFilter, setProductFilter] = useState("all")
   const [sortOrder, setSortOrder] = useState("desc")
   const [sort, setSort] = useState<{ key: string; dir: "asc" | "desc" } | undefined>(undefined)
-  const sortStr = sort ? `${sort.key},${sort.dir}` : undefined
 
   const handleSort = useCallback((key: string) => {
     setSort((prev) => {
