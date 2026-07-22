@@ -25,8 +25,8 @@ public class ImportReceiptController {
 
     @GetMapping("/import-receipt")
     @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_ADMIN_STOCK)
-    public ResponseObject<ResponsePage<ImportReceiptResponse>> getAll(Pageable pageable) {
-        return ResponseObject.success(importReceiptService.findAll(pageable));
+    public ResponseObject<ResponsePage<ImportReceiptResponse>> getAll(Pageable pageable, @RequestParam(required = false) String status) {
+        return ResponseObject.success(importReceiptService.findAll(pageable, status));
     }
 
     @GetMapping("/import-receipt/{id}")

@@ -6,6 +6,7 @@ import org.dawn.backend.config.anno.AuditLog;
 import org.dawn.backend.config.web.response.ResponsePage;
 import org.dawn.backend.constant.inventory.AdjustmentStatus;
 import org.dawn.backend.constant.inventory.AdjustmentType;
+import org.springframework.data.domain.Page;
 import org.dawn.backend.constant.inventory.ProductUnitStatus;
 import org.dawn.backend.constant.inventory.SourceType;
 import org.dawn.backend.constant.catalog.TrackingType;
@@ -49,7 +50,7 @@ public class StockAdjustmentService {
     @Transactional(readOnly = true)
     public ResponsePage<StockAdjustmentResponse> findAll(Pageable pageable, String type, String status) {
         String t = normalize(type);
-        String s = normalize(status);
+        AdjustmentStatus s = parseAdjustmentStatus(status);
         org.springframework.data.domain.Page<StockAdjustment> page;
         if (t != null && s != null) page = adjustmentRepository.findByTypeAndStatus(t, s, pageable);
         else if (t != null) page = adjustmentRepository.findByType(t, pageable);
@@ -69,7 +70,7 @@ public class StockAdjustmentService {
     public ResponsePage<StockAdjustmentResponse> findMyAdjustments(Pageable pageable, String type, String status) {
         Long userId = SecurityUtils.getCurrentUserId();
         String t = normalize(type);
-        String s = normalize(status);
+        AdjustmentStatus s = parseAdjustmentStatus(status);
         org.springframework.data.domain.Page<StockAdjustment> page;
         if (t != null && s != null) page = adjustmentRepository.findByCreatedByAndTypeAndStatus(userId, t, s, pageable);
         else if (t != null) page = adjustmentRepository.findByCreatedByAndType(userId, t, pageable);
@@ -80,6 +81,12 @@ public class StockAdjustmentService {
 
     private String normalize(String value) {
         return (value != null && !value.isBlank()) ? value.toUpperCase() : null;
+    }
+
+    private AdjustmentStatus parseAdjustmentStatus(String value) {
+        if (value == null || value.isBlank()) return null;
+        try { return AdjustmentStatus.valueOf(value.toUpperCase()); }
+        catch (IllegalArgumentException e) { return null; }
     }
 
     @Transactional

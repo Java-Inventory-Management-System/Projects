@@ -20,8 +20,8 @@ public class ExportReceiptController {
 
     @GetMapping("/export-receipt")
     @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_ADMIN_STOCK)
-    public ResponseObject<ResponsePage<ExportReceiptResponse>> getAll(Pageable pageable) {
-        return ResponseObject.success(exportReceiptService.findAll(pageable));
+    public ResponseObject<ResponsePage<ExportReceiptResponse>> getAll(Pageable pageable, @RequestParam(required = false) String status) {
+        return ResponseObject.success(exportReceiptService.findAll(pageable, status));
     }
 
     @GetMapping("/export-receipt/{id}")

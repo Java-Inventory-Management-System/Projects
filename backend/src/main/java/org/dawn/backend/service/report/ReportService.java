@@ -235,7 +235,7 @@ public class ReportService {
         List<Long> productIds = productPage.getContent().stream().map(Product::getId).toList();
 
         Map<Long, List<ProductUnit>> unitsByProduct = productUnitRepository
-                .findByProductIdInAndStatus(productIds, ProductUnitStatus.IN_STOCK.name())
+                .findByProductIdInAndStatus(productIds, ProductUnitStatus.IN_STOCK)
                 .stream()
                 .collect(Collectors.groupingBy(ProductUnit::getProductId));
 

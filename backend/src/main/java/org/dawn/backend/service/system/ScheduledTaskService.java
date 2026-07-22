@@ -29,7 +29,7 @@ public class ScheduledTaskService {
     @Scheduled(cron = "0 0 2 * * ?")
     @Transactional
     public void expireStaleStockChecks() {
-        List<String> activeStatuses = List.of(StockCheckStatus.PENDING.name(), StockCheckStatus.IN_PROGRESS.name());
+        List<StockCheckStatus> activeStatuses = List.of(StockCheckStatus.PENDING, StockCheckStatus.IN_PROGRESS);
         Instant cutoff = Instant.now().minus(Duration.ofDays(1));
         var stale = stockCheckRepository.findByStatusInAndCreatedAtBefore(activeStatuses, cutoff);
         for (var sc : stale) {
@@ -46,7 +46,7 @@ public class ScheduledTaskService {
     public void checkLowStock() {
         List<Product> activeProducts = productRepository.findByIsActiveTrue();
         for (var product : activeProducts) {
-            long inStock = productUnitRepository.countByProductIdAndStatus(product.getId(), ProductUnitStatus.IN_STOCK.name());
+            long inStock = productUnitRepository.countByProductIdAndStatus(product.getId(), ProductUnitStatus.IN_STOCK);
             if (product.getMinStock() != null && inStock <= product.getMinStock()) {
                 log.warn("Low stock alert: product {} (SKU: {}) — in stock: {}, min_stock: {}",
                         product.getName(), product.getSku(), inStock, product.getMinStock());

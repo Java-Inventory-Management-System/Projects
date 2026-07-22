@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.dawn.backend.config.anno.AuditLog;
 import org.dawn.backend.config.web.response.ResponsePage;
 import org.dawn.backend.constant.catalog.TrackingType;
+import org.springframework.data.domain.Page;
 import org.dawn.backend.constant.inventory.ImportReceiptStatus;
 import org.dawn.backend.constant.inventory.ProductUnitStatus;
 import org.dawn.backend.constant.inventory.SourceType;
@@ -75,8 +76,13 @@ public class ImportReceiptService {
             org.dawn.backend.constant.catalog.ProductUnit.BOX.name(),
             org.dawn.backend.constant.catalog.ProductUnit.SET.name());
 
-    public ResponsePage<ImportReceiptResponse> findAll(Pageable pageable) {
-        var page = importReceiptRepository.findAll(pageable);
+    public ResponsePage<ImportReceiptResponse> findAll(Pageable pageable, String status) {
+        ImportReceiptStatus s = safeParseImportStatus(status);
+        Page<ImportReceipt> page = s != null
+                ? importReceiptRepository.findByStatus(s, pageable)
+                : status != null && !status.isBlank()
+                    ? Page.empty(pageable)
+                    : importReceiptRepository.findAll(pageable);
         return ResponsePage.of(page.map(r -> {
             var items = importReceiptItemRepository.findByReceiptId(r.getId());
             var products = fetchProducts(items);
@@ -387,5 +393,11 @@ public class ImportReceiptService {
                     .map(PurchaseOrder::getPoCode).orElse(null)
                 : null;
         return new ReceiptEnrichment(supplierName, createdByName, approvedByName, poCode);
+    }
+
+    private ImportReceiptStatus safeParseImportStatus(String value) {
+        if (value == null || value.isBlank()) return null;
+        try { return ImportReceiptStatus.valueOf(value.toUpperCase()); }
+        catch (IllegalArgumentException e) { return null; }
     }
 }

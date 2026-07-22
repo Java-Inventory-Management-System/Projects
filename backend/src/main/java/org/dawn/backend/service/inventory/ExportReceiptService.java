@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.dawn.backend.config.anno.AuditLog;
 import org.dawn.backend.config.web.response.ResponsePage;
 import org.dawn.backend.constant.inventory.ExportReceiptStatus;
+import org.springframework.data.domain.Page;
 import org.dawn.backend.constant.inventory.ExportReason;
 import org.dawn.backend.constant.inventory.ProductUnitStatus;
 import org.dawn.backend.constant.catalog.TrackingType;
@@ -64,8 +65,13 @@ public class ExportReceiptService {
             org.dawn.backend.constant.catalog.ProductUnit.KG.name());
 
     @Transactional(readOnly = true)
-    public ResponsePage<ExportReceiptResponse> findAll(Pageable pageable) {
-        var page = exportReceiptRepository.findAll(pageable);
+    public ResponsePage<ExportReceiptResponse> findAll(Pageable pageable, String status) {
+        ExportReceiptStatus s = safeParseExportStatus(status);
+        Page<ExportReceipt> page = s != null
+                ? exportReceiptRepository.findByStatus(s, pageable)
+                : status != null && !status.isBlank()
+                    ? Page.empty(pageable)
+                    : exportReceiptRepository.findAll(pageable);
         var receipts = page.getContent();
         var customerIds = receipts.stream().map(ExportReceipt::getCustomerId).filter(java.util.Objects::nonNull).distinct().toList();
         var customers = customerRepository.findAllById(customerIds).stream()
@@ -350,5 +356,11 @@ public class ExportReceiptService {
 
     private String generateReceiptCode() {
         return ReceiptCodeGenerator.generate("EXP-", exportReceiptRepository::existsByReceiptCode);
+    }
+
+    private ExportReceiptStatus safeParseExportStatus(String value) {
+        if (value == null || value.isBlank()) return null;
+        try { return ExportReceiptStatus.valueOf(value.toUpperCase()); }
+        catch (IllegalArgumentException e) { return null; }
     }
 }

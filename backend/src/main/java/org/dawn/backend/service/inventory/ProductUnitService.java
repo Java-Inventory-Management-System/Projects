@@ -3,7 +3,9 @@ package org.dawn.backend.service.inventory;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dawn.backend.config.web.response.ResponsePage;
+import org.dawn.backend.constant.inventory.ProductUnitStatus;
 import org.dawn.backend.constant.shared.Message;
+import org.springframework.data.domain.Page;
 import org.dawn.backend.controller.inventory.response.ProductUnitResponse;
 import org.dawn.backend.entity.catalog.Product;
 import org.dawn.backend.entity.inventory.Location;
@@ -65,9 +67,13 @@ public class ProductUnitService {
                 .collect(Collectors.toMap(Product::getId, p -> p));
         var locations = locationRepository.findAll().stream()
                 .collect(Collectors.toMap(Location::getId, l -> l));
-        return ResponsePage.of(productUnitRepository
-                .findByStatus(status, pageable)
-                .map(unit -> {
+        ProductUnitStatus s = safeParseProductUnitStatus(status);
+        Page<ProductUnit> page = s != null
+                ? productUnitRepository.findByStatus(s, pageable)
+                : status != null && !status.isBlank()
+                    ? Page.empty(pageable)
+                    : productUnitRepository.findAll(pageable);
+        return ResponsePage.of(page.map(unit -> {
                     Product p = products.get(unit.getProductId());
                     Location loc = unit.getLocationId() != null ? locations.get(unit.getLocationId()) : null;
                     return ProductUnitMappingHelper.map(unit,
@@ -91,5 +97,11 @@ public class ProductUnitService {
                             p != null ? p.getSku() : null,
                             loc != null ? loc.getFullCode() : null);
                 }));
+    }
+
+    private ProductUnitStatus safeParseProductUnitStatus(String value) {
+        if (value == null || value.isBlank()) return null;
+        try { return ProductUnitStatus.valueOf(value.toUpperCase()); }
+        catch (IllegalArgumentException e) { return null; }
     }
 }

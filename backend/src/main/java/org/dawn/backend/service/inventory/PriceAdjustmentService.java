@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.dawn.backend.config.anno.AuditLog;
 import org.dawn.backend.config.web.response.ResponsePage;
 import org.dawn.backend.constant.inventory.AdjustmentStatus;
+import org.springframework.data.domain.Page;
 import org.dawn.backend.constant.shared.LogConstant;
 import org.dawn.backend.constant.shared.Message;
 import org.dawn.backend.controller.inventory.request.CreatePriceAdjustmentRequest;
@@ -43,9 +44,12 @@ public class PriceAdjustmentService {
 
     @Transactional(readOnly = true)
     public ResponsePage<PriceAdjustmentResponse> findAll(Pageable pageable, String status) {
-        var page = status != null && !status.isBlank()
-                ? priceAdjustmentRepository.findByStatus(status.toUpperCase(), pageable)
-                : priceAdjustmentRepository.findAll(pageable);
+        AdjustmentStatus s = safeParseAdjustmentStatus(status);
+        Page<PriceAdjustment> page = s != null
+                ? priceAdjustmentRepository.findByStatus(s, pageable)
+                : status != null && !status.isBlank()
+                    ? Page.empty(pageable)
+                    : priceAdjustmentRepository.findAll(pageable);
         var adjs = page.getContent();
         var itemProductMap = fetchItemProductMap(adjs);
         var userMap = fetchUserMap(adjs);
@@ -62,9 +66,12 @@ public class PriceAdjustmentService {
     @Transactional(readOnly = true)
     public ResponsePage<PriceAdjustmentResponse> findMyAdjustments(Pageable pageable, String status) {
         Long userId = SecurityUtils.getCurrentUserId();
-        var page = status != null && !status.isBlank()
-                ? priceAdjustmentRepository.findByCreatedByAndStatus(userId, status.toUpperCase(), pageable)
-                : priceAdjustmentRepository.findByCreatedBy(userId, pageable);
+        AdjustmentStatus s = safeParseAdjustmentStatus(status);
+        Page<PriceAdjustment> page = s != null
+                ? priceAdjustmentRepository.findByCreatedByAndStatus(userId, s, pageable)
+                : status != null && !status.isBlank()
+                    ? Page.empty(pageable)
+                    : priceAdjustmentRepository.findByCreatedBy(userId, pageable);
         var adjs = page.getContent();
         var itemProductMap = fetchItemProductMap(adjs);
         var userMap = fetchUserMap(adjs);
@@ -210,5 +217,11 @@ public class PriceAdjustmentService {
                 ? userRepository.findById(adj.getApprovedBy()).map(User::getFullName).orElse(null)
                 : null;
         return PriceAdjustmentMappingHelper.map(adj, productName, productSku, createdByName, approvedByName);
+    }
+
+    private AdjustmentStatus safeParseAdjustmentStatus(String value) {
+        if (value == null || value.isBlank()) return null;
+        try { return AdjustmentStatus.valueOf(value.toUpperCase()); }
+        catch (IllegalArgumentException e) { return null; }
     }
 }
