@@ -30,9 +30,19 @@ interface DataTableProps<T> {
 }
 
 export function DataTable<T>({
-  columns, data, isLoading, emptyMessage = "Chưa có dữ liệu", skeletonRows = 5,
-  sort, onSort,
-  totalElements, page, totalPages, pageSize, onPageChange, onPageSizeChange,
+  columns,
+  data,
+  isLoading,
+  emptyMessage = "Chưa có dữ liệu",
+  skeletonRows = 5,
+  sort,
+  onSort,
+  totalElements,
+  page,
+  totalPages,
+  pageSize,
+  onPageChange,
+  onPageSizeChange,
 }: DataTableProps<T>) {
   const hasPagination = page !== undefined && totalPages !== undefined && onPageChange !== undefined
 
@@ -45,11 +55,16 @@ export function DataTable<T>({
             <span>Hiển thị</span>
             <select
               value={String(pageSize)}
-              onChange={(e) => { onPageSizeChange(Number(e.target.value)); onPageChange?.(0) }}
+              onChange={(e) => {
+                onPageSizeChange(Number(e.target.value))
+                onPageChange?.(0)
+              }}
               className="h-7 rounded border bg-transparent px-1 text-xs outline-none"
             >
               {[10, 20, 50, 100].map((s) => (
-                <option key={s} value={s}>{s}</option>
+                <option key={s} value={s}>
+                  {s}
+                </option>
               ))}
             </select>
           </>
@@ -76,13 +91,17 @@ export function DataTable<T>({
                 >
                   <div className="inline-flex items-center gap-1 font-medium">
                     {c.header}
-                    {c.sortKey && onSort && (sort?.key === c.sortKey ? (
-                      sort.dir === "asc"
-                        ? <ArrowUp className="size-3.5 text-blue-600" />
-                        : <ArrowDown className="size-3.5 text-blue-600" />
-                    ) : (
-                      <ArrowUp className="size-3.5 text-muted-foreground/50" />
-                    ))}
+                    {c.sortKey &&
+                      onSort &&
+                      (sort?.key === c.sortKey ? (
+                        sort.dir === "asc" ? (
+                          <ArrowUp className="size-3.5 text-blue-600" />
+                        ) : (
+                          <ArrowDown className="size-3.5 text-blue-600" />
+                        )
+                      ) : (
+                        <ArrowUp className="size-3.5 text-muted-foreground/50" />
+                      ))}
                   </div>
                 </TableHead>
               ))}
@@ -102,14 +121,18 @@ export function DataTable<T>({
             ) : data.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={columns.length} className="text-center py-8">
-                  <Empty><EmptyTitle>{emptyMessage}</EmptyTitle></Empty>
+                  <Empty>
+                    <EmptyTitle>{emptyMessage}</EmptyTitle>
+                  </Empty>
                 </TableCell>
               </TableRow>
             ) : (
               data.map((item, i) => (
                 <TableRow key={i} style={{ contentVisibility: "auto" } as React.CSSProperties}>
                   {columns.map((c, j) => (
-                    <TableCell key={j} className={c.className}>{c.render(item)}</TableCell>
+                    <TableCell key={j} className={c.className}>
+                      {c.render(item)}
+                    </TableCell>
                   ))}
                 </TableRow>
               ))

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { searchAuditLogs } from "@/services/audit-service"
 import type { AuditLog, ResponsePage } from "@/utils/types"
+import { AUDIT_STATUS, AUDIT_ACTION } from "@/utils/types"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
@@ -8,23 +9,12 @@ import { Label } from "@/components/ui/label"
 import { Eye } from "lucide-react"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 import { DataTable, type Column } from "@/components/ui/data-table"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 const statusBadge: Record<string, { label: string; variant: "default" | "destructive" | "secondary" }> = {
-  SUCCESS: { label: "Thành công", variant: "default" },
-  FAILED: { label: "Thất bại", variant: "destructive" },
+  [AUDIT_STATUS.SUCCESS]: { label: "Thành công", variant: "default" },
+  [AUDIT_STATUS.FAILED]: { label: "Thất bại", variant: "destructive" },
 }
 
 function fmt(d: string) {
@@ -32,9 +22,17 @@ function fmt(d: string) {
 }
 
 const actionOptions = [
-  "LOGIN", "LOGOUT", "CREATE", "UPDATE", "DELETE",
-  "APPROVE", "REJECT", "CANCEL", "RESET_PASSWORD",
-  "IMPORT", "EXPORT",
+  AUDIT_ACTION.LOGIN,
+  AUDIT_ACTION.LOGOUT,
+  AUDIT_ACTION.CREATE,
+  AUDIT_ACTION.UPDATE,
+  AUDIT_ACTION.DELETE,
+  AUDIT_ACTION.APPROVE,
+  AUDIT_ACTION.REJECT,
+  AUDIT_ACTION.CANCEL,
+  AUDIT_ACTION.RESET_PASSWORD,
+  AUDIT_ACTION.IMPORT,
+  AUDIT_ACTION.EXPORT,
 ]
 
 export const AuditPage = () => {
@@ -77,8 +75,12 @@ export const AuditPage = () => {
     }
   }
 
-  useEffect(() => { setPage(0) }, [actionFilter, entityFilter, statusFilter])
-  useEffect(() => { fetch(page) }, [page, pageSize, sortStr, actionFilter, entityFilter, statusFilter])
+  useEffect(() => {
+    setPage(0)
+  }, [actionFilter, entityFilter, statusFilter])
+  useEffect(() => {
+    fetch(page)
+  }, [page, pageSize, sortStr, actionFilter, entityFilter, statusFilter])
 
   const s = data?.pagination
 
@@ -97,7 +99,11 @@ export const AuditPage = () => {
       header: "Trạng thái",
       render: (log) => {
         const st = statusBadge[log.status] ?? { label: log.status, variant: "secondary" as const }
-        return <Badge variant={st.variant} className="text-[10px]">{st.label}</Badge>
+        return (
+          <Badge variant={st.variant} className="text-[10px]">
+            {st.label}
+          </Badge>
+        )
       },
     },
     {
@@ -124,27 +130,38 @@ export const AuditPage = () => {
         <div className="space-y-1">
           <Label className="text-xs">Hành động</Label>
           <Select value={actionFilter} onValueChange={setActionFilter}>
-            <SelectTrigger className="w-40 h-8 text-xs"><SelectValue placeholder="Tất cả" /></SelectTrigger>
+            <SelectTrigger className="w-40 h-8 text-xs">
+              <SelectValue placeholder="Tất cả" />
+            </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Tất cả</SelectItem>
               {actionOptions.map((a) => (
-                <SelectItem key={a} value={a}>{a}</SelectItem>
+                <SelectItem key={a} value={a}>
+                  {a}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
         <div className="space-y-1">
           <Label className="text-xs">Đối tượng</Label>
-          <Input placeholder="Ví dụ: USER" className="w-36 h-8 text-xs" value={entityFilter} onChange={(e) => setEntityFilter(e.target.value)} />
+          <Input
+            placeholder="Ví dụ: USER"
+            className="w-36 h-8 text-xs"
+            value={entityFilter}
+            onChange={(e) => setEntityFilter(e.target.value)}
+          />
         </div>
         <div className="space-y-1">
           <Label className="text-xs">Trạng thái</Label>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-32 h-8 text-xs"><SelectValue placeholder="Tất cả" /></SelectTrigger>
+            <SelectTrigger className="w-32 h-8 text-xs">
+              <SelectValue placeholder="Tất cả" />
+            </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Tất cả</SelectItem>
-              <SelectItem value="SUCCESS">Thành công</SelectItem>
-              <SelectItem value="FAILED">Thất bại</SelectItem>
+              <SelectItem value={AUDIT_STATUS.SUCCESS}>Thành công</SelectItem>
+              <SelectItem value={AUDIT_STATUS.FAILED}>Thất bại</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -162,10 +179,18 @@ export const AuditPage = () => {
         totalPages={s?.totalPages}
         pageSize={pageSize}
         onPageChange={setPage}
-        onPageSizeChange={(s) => { setPageSize(s); setPage(0) }}
+        onPageSizeChange={(s) => {
+          setPageSize(s)
+          setPage(0)
+        }}
       />
 
-      <Dialog open={!!viewLog} onOpenChange={(v) => { if (!v) setViewLog(null) }}>
+      <Dialog
+        open={!!viewLog}
+        onOpenChange={(v) => {
+          if (!v) setViewLog(null)
+        }}
+      >
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle className="text-base">Chi tiết nhật ký</DialogTitle>
@@ -173,23 +198,47 @@ export const AuditPage = () => {
           {viewLog && (
             <div className="space-y-3 text-sm">
               <div className="grid grid-cols-2 gap-3">
-                <div><span className="text-muted-foreground">Thời gian:</span><p className="font-medium">{fmt(viewLog.createdAt)}</p></div>
-                <div><span className="text-muted-foreground">Người dùng:</span><p className="font-medium">{viewLog.username || "—"}</p></div>
-                <div><span className="text-muted-foreground">Hành động:</span><p className="font-medium">{viewLog.action}</p></div>
-                <div><span className="text-muted-foreground">Đối tượng:</span><p className="font-medium">{viewLog.entityName} #{viewLog.entityId || "?"}</p></div>
-                <div><span className="text-muted-foreground">IP:</span><p className="font-medium">{viewLog.ipAddress || "—"}</p></div>
-                <div><span className="text-muted-foreground">Request ID:</span><p className="font-mono text-xs">{viewLog.requestId || "—"}</p></div>
+                <div>
+                  <span className="text-muted-foreground">Thời gian:</span>
+                  <p className="font-medium">{fmt(viewLog.createdAt)}</p>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Người dùng:</span>
+                  <p className="font-medium">{viewLog.username || "—"}</p>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Hành động:</span>
+                  <p className="font-medium">{viewLog.action}</p>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Đối tượng:</span>
+                  <p className="font-medium">
+                    {viewLog.entityName} #{viewLog.entityId || "?"}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">IP:</span>
+                  <p className="font-medium">{viewLog.ipAddress || "—"}</p>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Request ID:</span>
+                  <p className="font-mono text-xs">{viewLog.requestId || "—"}</p>
+                </div>
               </div>
               {viewLog.oldValue && (
                 <div>
                   <span className="text-xs font-medium text-muted-foreground">GIÁ TRỊ CŨ</span>
-                  <pre className="mt-1 rounded-md bg-muted p-3 text-xs overflow-x-auto">{JSON.stringify(JSON.parse(viewLog.oldValue), null, 2)}</pre>
+                  <pre className="mt-1 rounded-md bg-muted p-3 text-xs overflow-x-auto">
+                    {JSON.stringify(JSON.parse(viewLog.oldValue), null, 2)}
+                  </pre>
                 </div>
               )}
               {viewLog.newValue && (
                 <div>
                   <span className="text-xs font-medium text-muted-foreground">GIÁ TRỊ MỚI</span>
-                  <pre className="mt-1 rounded-md bg-muted p-3 text-xs overflow-x-auto">{JSON.stringify(JSON.parse(viewLog.newValue), null, 2)}</pre>
+                  <pre className="mt-1 rounded-md bg-muted p-3 text-xs overflow-x-auto">
+                    {JSON.stringify(JSON.parse(viewLog.newValue), null, 2)}
+                  </pre>
                 </div>
               )}
               {viewLog.errorMsg && (

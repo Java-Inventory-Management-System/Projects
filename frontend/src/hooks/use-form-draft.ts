@@ -9,14 +9,18 @@ function getDraftKey(path: string) {
 export function saveDraft(path: string, data: unknown) {
   try {
     localStorage.setItem(getDraftKey(path), JSON.stringify(data))
-  } catch { /* quota exceeded, silent */ }
+  } catch {
+    /* quota exceeded, silent */
+  }
 }
 
 export function loadDraft<T>(path: string): T | null {
   try {
     const raw = localStorage.getItem(getDraftKey(path))
     return raw ? JSON.parse(raw) : null
-  } catch { return null }
+  } catch {
+    return null
+  }
 }
 
 export function clearDraft(path: string) {
@@ -47,7 +51,10 @@ export function useFormDraft<T extends Record<string, unknown>>(
 
   const restore = useCallback(() => {
     const draft = loadDraft<T>(path)
-    if (draft) { onRestore(draft); setDraftAvailable(false) }
+    if (draft) {
+      onRestore(draft)
+      setDraftAvailable(false)
+    }
   }, [path, onRestore])
 
   const dismiss = useCallback(() => {

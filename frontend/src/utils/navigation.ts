@@ -45,9 +45,7 @@ export const navSections: NavSection[] = [
     ],
   },
   {
-    items: [
-      { label: "Purchase Orders", icon: FileText, path: "/stock/purchase-orders", roles: ROLES.MANAGER },
-    ],
+    items: [{ label: "Purchase Orders", icon: FileText, path: "/stock/purchase-orders", roles: ROLES.MANAGER }],
   },
   {
     items: [

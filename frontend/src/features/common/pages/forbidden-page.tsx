@@ -11,9 +11,7 @@ export const ForbiddenPage = () => {
           403
         </div>
         <h1 className="text-xl font-semibold tracking-tight">Access Denied</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          You don't have permission to access this page.
-        </p>
+        <p className="mt-1 text-sm text-muted-foreground">You don't have permission to access this page.</p>
         <Button className="mt-6" onClick={() => navigate("/")}>
           Back to Dashboard
         </Button>

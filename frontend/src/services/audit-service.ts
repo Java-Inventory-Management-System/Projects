@@ -4,16 +4,33 @@ import { mapResponsePage } from "@/utils/mappers"
 
 function mapAuditLog(raw: unknown): AuditLog {
   const r = raw as {
-    id: number; userId?: number | null; username?: string | null; ipAddress?: string | null
-    requestId?: string | null; action: string; entityName: string; entityId?: string | null
-    oldValue?: string | null; newValue?: string | null; status: string; errorMsg?: string | null
+    id: number
+    userId?: number | null
+    username?: string | null
+    ipAddress?: string | null
+    requestId?: string | null
+    action: string
+    entityName: string
+    entityId?: string | null
+    oldValue?: string | null
+    newValue?: string | null
+    status: string
+    errorMsg?: string | null
     createdAt: string
   }
   return {
-    userId: r.userId ?? null, username: r.username ?? null, ipAddress: r.ipAddress ?? null,
-    requestId: r.requestId ?? null, action: r.action, entityName: r.entityName,
-    entityId: r.entityId ?? null, oldValue: r.oldValue ?? null, newValue: r.newValue ?? null,
-    status: r.status, errorMsg: r.errorMsg ?? null, createdAt: r.createdAt,
+    userId: r.userId ?? null,
+    username: r.username ?? null,
+    ipAddress: r.ipAddress ?? null,
+    requestId: r.requestId ?? null,
+    action: r.action,
+    entityName: r.entityName,
+    entityId: r.entityId ?? null,
+    oldValue: r.oldValue ?? null,
+    newValue: r.newValue ?? null,
+    status: r.status,
+    errorMsg: r.errorMsg ?? null,
+    createdAt: r.createdAt,
   }
 }
 

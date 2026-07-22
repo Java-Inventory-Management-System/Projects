@@ -1,13 +1,16 @@
 import type { ProductResponse } from "@/utils/types"
 import { Badge } from "@/components/ui/badge"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
-export const ViewProductModal = ({ product, open, onOpenChange }: { product: ProductResponse | null; open: boolean; onOpenChange: (v: boolean) => void }) => {
+export const ViewProductModal = ({
+  product,
+  open,
+  onOpenChange,
+}: {
+  product: ProductResponse | null
+  open: boolean
+  onOpenChange: (v: boolean) => void
+}) => {
   if (!product) return null
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -43,7 +46,9 @@ export const ViewProductModal = ({ product, open, onOpenChange }: { product: Pro
             </div>
             <div>
               <span className="text-muted-foreground">Giá bán:</span>
-              <p className="tabular-nums font-semibold">{product.sellPrice ? `${product.sellPrice.toLocaleString("vi-VN")}₫` : "—"}</p>
+              <p className="tabular-nums font-semibold">
+                {product.sellPrice ? `${product.sellPrice.toLocaleString("vi-VN")}₫` : "—"}
+              </p>
             </div>
             <div>
               <span className="text-muted-foreground">Tồn tối thiểu:</span>
@@ -65,7 +70,8 @@ export const ViewProductModal = ({ product, open, onOpenChange }: { product: Pro
             </div>
           )}
           <div className="text-xs text-muted-foreground">
-            Tạo: {new Date(product.createdAt).toLocaleString("vi-VN")} &middot; Cập nhật: {new Date(product.updatedAt).toLocaleString("vi-VN")}
+            Tạo: {new Date(product.createdAt).toLocaleString("vi-VN")} &middot; Cập nhật:{" "}
+            {new Date(product.updatedAt).toLocaleString("vi-VN")}
           </div>
         </div>
       </DialogContent>

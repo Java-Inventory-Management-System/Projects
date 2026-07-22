@@ -2,8 +2,12 @@ import { useState, lazy, Suspense } from "react"
 import { Skeleton } from "@/components/ui/skeleton"
 
 const StockOverviewTab = lazy(() => import("./stock-overview-tab").then((m) => ({ default: m.StockOverviewTab })))
-const ProductUnitListPage = lazy(() => import("./product-unit-list-page").then((m) => ({ default: m.ProductUnitListPage })))
-const InventoryPage = lazy(() => import("@/features/inventory/pages/inventory-page").then((m) => ({ default: m.InventoryPage })))
+const ProductUnitListPage = lazy(() =>
+  import("./product-unit-list-page").then((m) => ({ default: m.ProductUnitListPage })),
+)
+const InventoryPage = lazy(() =>
+  import("@/features/inventory/pages/inventory-page").then((m) => ({ default: m.InventoryPage })),
+)
 const LocationsMapPage = lazy(() => import("./locations-map-page").then((m) => ({ default: m.LocationsMapPage })))
 
 const TABS = [
@@ -24,16 +28,35 @@ export function StockUnitsPage() {
     <div className="space-y-4">
       <div className="flex gap-1 border-b pb-px">
         {TABS.map((t) => (
-          <button key={t.key} onClick={() => setTab(t.key)}
-            className={`px-3 py-1.5 text-sm font-medium transition-colors rounded-t-md ${tab === t.key ? "border-b-2 border-primary text-primary" : "text-muted-foreground hover:text-foreground"}`}>
+          <button
+            key={t.key}
+            onClick={() => setTab(t.key)}
+            className={`px-3 py-1.5 text-sm font-medium transition-colors rounded-t-md ${tab === t.key ? "border-b-2 border-primary text-primary" : "text-muted-foreground hover:text-foreground"}`}
+          >
             {t.label}
           </button>
         ))}
       </div>
-      {tab === "overview" && <Suspense fallback={TAB_FALLBACK}><StockOverviewTab /></Suspense>}
-      {tab === "list" && <Suspense fallback={TAB_FALLBACK}><ProductUnitListPage /></Suspense>}
-      {tab === "inventory" && <Suspense fallback={TAB_FALLBACK}><InventoryPage /></Suspense>}
-      {tab === "map" && <Suspense fallback={TAB_FALLBACK}><LocationsMapPage /></Suspense>}
+      {tab === "overview" && (
+        <Suspense fallback={TAB_FALLBACK}>
+          <StockOverviewTab />
+        </Suspense>
+      )}
+      {tab === "list" && (
+        <Suspense fallback={TAB_FALLBACK}>
+          <ProductUnitListPage />
+        </Suspense>
+      )}
+      {tab === "inventory" && (
+        <Suspense fallback={TAB_FALLBACK}>
+          <InventoryPage />
+        </Suspense>
+      )}
+      {tab === "map" && (
+        <Suspense fallback={TAB_FALLBACK}>
+          <LocationsMapPage />
+        </Suspense>
+      )}
     </div>
   )
 }

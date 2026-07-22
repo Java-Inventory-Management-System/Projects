@@ -2,7 +2,12 @@ import http from "@/utils/http-client"
 import type { ResponsePage, PurchaseOrder, CreatePurchaseOrderRequest } from "@/utils/types"
 import { mapResponsePage, mapPurchaseOrder } from "@/utils/mappers"
 
-export async function getPurchaseOrders(page = 0, size = 20, sort?: string, status?: string): Promise<ResponsePage<PurchaseOrder>> {
+export async function getPurchaseOrders(
+  page = 0,
+  size = 20,
+  sort?: string,
+  status?: string,
+): Promise<ResponsePage<PurchaseOrder>> {
   const params: Record<string, string | number> = { page, size, sort: sort ?? "createdAt,desc" }
   if (status) params.status = status
   const res = await http.get("/purchase-order", { params })

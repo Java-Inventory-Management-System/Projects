@@ -1,5 +1,12 @@
 import { useQuery } from "@tanstack/react-query"
-import { getInventorySummary, getInventoryByCategory, getLowStock, getStockValue, getActivity, getDeadStock } from "@/services/report-service"
+import {
+  getInventorySummary,
+  getInventoryByCategory,
+  getLowStock,
+  getStockValue,
+  getActivity,
+  getDeadStock,
+} from "@/services/report-service"
 
 export function useInventorySummary() {
   return useQuery({

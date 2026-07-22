@@ -4,9 +4,7 @@ import { useNavigate, useSearchParams } from "react-router-dom"
 import { Search, Plus, Eye, Pencil } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { DataTable, type Column } from "@/components/ui/data-table"
 import { useProducts } from "@/hooks/use-products"
@@ -43,42 +41,75 @@ export const ProductsPage = () => {
   const perm = usePermission()
   const debouncedSearch = useDebounce(searchInput, 300)
 
-  const { data, isLoading } = useProducts(page, pageSize, sortStr, debouncedSearch || undefined, brandFilter, categoryFilter)
+  const { data, isLoading } = useProducts(
+    page,
+    pageSize,
+    sortStr,
+    debouncedSearch || undefined,
+    brandFilter,
+    categoryFilter,
+  )
   const brands = useBrands().data ?? []
   const categories = useCategories().data ?? []
 
   const hasFilters = debouncedSearch || brandFilter || categoryFilter
 
   const columns: Column<ProductResponse>[] = [
-    { header: "SKU", sortKey: "sku", className: "w-[110px]", render: (p) => <span className="font-mono text-xs">{p.sku}</span> },
+    {
+      header: "SKU",
+      sortKey: "sku",
+      className: "w-[110px]",
+      render: (p) => <span className="font-mono text-xs">{p.sku}</span>,
+    },
     { header: "Tên", sortKey: "name", render: (p) => <span className="font-medium">{p.name}</span> },
-    { header: "Thương hiệu", className: "w-[120px]", render: (p) => <span className="text-muted-foreground">{p.brandName}</span> },
-    { header: "Danh mục", className: "w-[120px]", render: (p) => <span className="text-muted-foreground">{p.categoryName}</span> },
+    {
+      header: "Thương hiệu",
+      className: "w-[120px]",
+      render: (p) => <span className="text-muted-foreground">{p.brandName}</span>,
+    },
+    {
+      header: "Danh mục",
+      className: "w-[120px]",
+      render: (p) => <span className="text-muted-foreground">{p.categoryName}</span>,
+    },
     { header: "ĐVT", className: "w-[60px]", render: (p) => <span>{p.unit}</span> },
-    { header: "Giá", sortKey: "sellPrice", className: "w-[80px] text-right", render: (p) => <span className="tabular-nums">{p.sellPrice?.toLocaleString("vi-VN")}</span> },
-    { header: "Trạng thái", className: "w-[70px] text-center", render: (p) => <Badge variant={p.isActive ? "default" : "secondary"}>{p.isActive ? "Hoạt động" : "Ngừng"}</Badge> },
-    { header: "Thao tác", className: "w-[100px]", render: (p) => (
-      <div className="flex gap-1">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" onClick={() => setViewProduct(p)}>
-              <Eye className="size-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Xem chi tiết</TooltipContent>
-        </Tooltip>
-        {perm.hasRole(...ROLES.MANAGER) && (
+    {
+      header: "Giá",
+      sortKey: "sellPrice",
+      className: "w-[80px] text-right",
+      render: (p) => <span className="tabular-nums">{p.sellPrice?.toLocaleString("vi-VN")}</span>,
+    },
+    {
+      header: "Trạng thái",
+      className: "w-[70px] text-center",
+      render: (p) => <Badge variant={p.isActive ? "default" : "secondary"}>{p.isActive ? "Hoạt động" : "Ngừng"}</Badge>,
+    },
+    {
+      header: "Thao tác",
+      className: "w-[100px]",
+      render: (p) => (
+        <div className="flex gap-1">
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" onClick={() => navigate(`/products/${p.id}`)}>
-                <Pencil className="size-3.5" />
+              <Button variant="ghost" size="icon" onClick={() => setViewProduct(p)}>
+                <Eye className="size-4" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent>Chỉnh sửa</TooltipContent>
+            <TooltipContent>Xem chi tiết</TooltipContent>
           </Tooltip>
-        )}
-      </div>
-    )},
+          {perm.hasRole(...ROLES.MANAGER) && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" onClick={() => navigate(`/products/${p.id}`)}>
+                  <Pencil className="size-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Chỉnh sửa</TooltipContent>
+            </Tooltip>
+          )}
+        </div>
+      ),
+    },
   ]
 
   return (
@@ -97,7 +128,10 @@ export const ProductsPage = () => {
             placeholder="Tìm tên hoặc SKU..."
             className="pl-8"
             value={searchInput}
-            onChange={(e) => { setSearchInput(e.target.value); setPage(0) }}
+            onChange={(e) => {
+              setSearchInput(e.target.value)
+              setPage(0)
+            }}
           />
         </div>
         <Select
@@ -110,10 +144,16 @@ export const ProductsPage = () => {
             setPage(0)
           }}
         >
-          <SelectTrigger className="w-[140px]"><SelectValue placeholder="Thương hiệu" /></SelectTrigger>
+          <SelectTrigger className="w-[140px]">
+            <SelectValue placeholder="Thương hiệu" />
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Tất cả</SelectItem>
-            {brands.map((b) => <SelectItem key={b.id} value={String(b.id)}>{b.name}</SelectItem>)}
+            {brands.map((b) => (
+              <SelectItem key={b.id} value={String(b.id)}>
+                {b.name}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
         <Select
@@ -126,14 +166,28 @@ export const ProductsPage = () => {
             setPage(0)
           }}
         >
-          <SelectTrigger className="w-[160px]"><SelectValue placeholder="Danh mục" /></SelectTrigger>
+          <SelectTrigger className="w-[160px]">
+            <SelectValue placeholder="Danh mục" />
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Tất cả</SelectItem>
-            {categories.map((c) => <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>)}
+            {categories.map((c) => (
+              <SelectItem key={c.id} value={String(c.id)}>
+                {c.name}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
         {hasFilters && (
-          <Button variant="ghost" size="sm" onClick={() => { setSearchInput(""); setSearchParams(new URLSearchParams()); setPage(0) }}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              setSearchInput("")
+              setSearchParams(new URLSearchParams())
+              setPage(0)
+            }}
+          >
             Xoá
           </Button>
         )}
@@ -151,10 +205,19 @@ export const ProductsPage = () => {
         totalPages={data?.pagination.totalPages}
         pageSize={pageSize}
         onPageChange={setPage}
-        onPageSizeChange={(s) => { setPageSize(s); setPage(0) }}
+        onPageSizeChange={(s) => {
+          setPageSize(s)
+          setPage(0)
+        }}
       />
 
-      <ViewProductModal product={viewProduct} open={!!viewProduct} onOpenChange={(v) => { if (!v) setViewProduct(null) }} />
+      <ViewProductModal
+        product={viewProduct}
+        open={!!viewProduct}
+        onOpenChange={(v) => {
+          if (!v) setViewProduct(null)
+        }}
+      />
     </div>
   )
 }
