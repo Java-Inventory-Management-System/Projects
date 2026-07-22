@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dialog"
 import { Plus, Pencil, Power } from "lucide-react"
 import { usePermission } from "@/hooks/use-permission"
+import { ROLES } from "@/utils/permissions"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 import { DataTable } from "@/components/ui/data-table"
 import { toast } from "@/utils/toast"
@@ -69,7 +70,7 @@ export function CatalogPage({ title, emptyMessage, dialogTitle, queryKey, getIte
           { header: "Trạng thái", className: "w-24 text-center", render: (b: CatalogResponse) => <Badge variant={b.isActive ? "default" : "secondary"}>{b.isActive ? "Hoạt động" : "Ngừng"}</Badge> },
           { header: "Thao tác", className: "w-[90px]", render: (b: CatalogResponse) => (
             <div className="flex gap-1">
-              {perm.hasRole("ADMIN", "MANAGER") && (
+              {perm.hasRole(...ROLES.MANAGER) && (
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button variant="ghost" size="icon" onClick={() => openEdit(b)}><Pencil className="size-3.5" /></Button>
@@ -77,7 +78,7 @@ export function CatalogPage({ title, emptyMessage, dialogTitle, queryKey, getIte
                   <TooltipContent>Chỉnh sửa</TooltipContent>
                 </Tooltip>
               )}
-              {perm.hasRole("ADMIN", "MANAGER") && (
+              {perm.hasRole(...ROLES.MANAGER) && (
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button variant="ghost" size="icon" onClick={() => toggle.mutate(b.id)}><Power className="size-3.5" /></Button>

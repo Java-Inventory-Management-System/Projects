@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Plus, Eye } from "lucide-react"
 import { usePermission } from "@/hooks/use-permission"
+import { ROLES } from "@/utils/permissions"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 import type { PurchaseOrder } from "@/utils/types"
 import { Empty, EmptyTitle } from "@/components/ui/empty"
@@ -58,7 +59,7 @@ export function POListPage() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-semibold tracking-tight">Đơn đặt hàng</h1>
-        {perm.hasRole("ADMIN", "MANAGER") && (
+        {perm.hasRole(...ROLES.MANAGER) && (
           <Button onClick={() => navigate("/stock/purchase-orders/new")}>
             <Plus className="size-4 mr-1" /> Tạo đơn hàng
           </Button>

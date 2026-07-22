@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dialog"
 import { toast } from "@/utils/toast"
 import { usePermission } from "@/hooks/use-permission"
+import { ROLES } from "@/utils/permissions"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 
 export function CustomersPage() {
@@ -68,7 +69,7 @@ export function CustomersPage() {
     { header: "Trạng thái", className: "w-24 text-center", render: (c) => <Badge variant={c.isActive ? "default" : "secondary"}>{c.isActive ? "Hoạt động" : "Ngừng"}</Badge> },
     { header: "Thao tác", className: "w-[90px]", render: (c) => (
       <div className="flex gap-1">
-        {perm.hasRole("ADMIN", "MANAGER") && (
+        {perm.hasRole(...ROLES.MANAGER) && (
           <Tooltip>
             <TooltipTrigger asChild>
               <Button variant="ghost" size="icon" onClick={() => openEdit(c)}><Pencil className="size-3.5" /></Button>
@@ -76,7 +77,7 @@ export function CustomersPage() {
             <TooltipContent>Chỉnh sửa</TooltipContent>
           </Tooltip>
         )}
-        {perm.hasRole("ADMIN", "MANAGER") && (
+        {perm.hasRole(...ROLES.MANAGER) && (
           <Tooltip>
             <TooltipTrigger asChild>
               <Button variant="ghost" size="icon" onClick={() => toggle.mutate(c.id)}><Power className="size-3.5" /></Button>

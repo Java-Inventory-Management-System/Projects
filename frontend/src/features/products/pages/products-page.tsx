@@ -15,6 +15,7 @@ import { useCategories } from "@/hooks/use-categories"
 import type { ProductResponse } from "@/utils/types"
 import { ViewProductModal } from "../components/view-product-modal"
 import { usePermission } from "@/hooks/use-permission"
+import { ROLES } from "@/utils/permissions"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 
 export const ProductsPage = () => {
@@ -66,7 +67,7 @@ export const ProductsPage = () => {
           </TooltipTrigger>
           <TooltipContent>Xem chi tiết</TooltipContent>
         </Tooltip>
-        {perm.hasRole("ADMIN", "MANAGER") && (
+        {perm.hasRole(...ROLES.MANAGER) && (
           <Tooltip>
             <TooltipTrigger asChild>
               <Button variant="ghost" size="icon" onClick={() => navigate(`/products/${p.id}`)}>

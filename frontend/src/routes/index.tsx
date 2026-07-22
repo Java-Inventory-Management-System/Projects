@@ -42,6 +42,7 @@ import { ErrorBoundary } from "@/components/ui/error-boundary"
 import { PageSkeleton } from "@/components/ui/page-skeleton"
 import { useAuthStore } from "@/store/auth-store"
 import type { URole } from "@/utils/types"
+import { ROLES } from "@/utils/permissions"
 const ForbiddenPage = lazy(() => import("@/features/common/pages/forbidden-page").then((m) => ({ default: m.ForbiddenPage })))
 function PageGuard({ roles, children }: { roles: URole[]; children: ReactNode }) {
   const hasRole = useAuthStore((s) => s.hasRole)
@@ -53,9 +54,6 @@ function RootRedirect() {
   if (role === "STOCK") return <Navigate to="/stock/units" replace />
   return <DashboardPage />
 }
-const adminManagerStock = ["ADMIN", "MANAGER", "STOCK"] as URole[]
-const adminManager = ["ADMIN", "MANAGER"] as URole[]
-const managerOnly = ["MANAGER"] as URole[]
 
 function Lazy({ children }: { children: ReactNode }) {
   return <Suspense fallback={<PageSkeleton />}><ErrorBoundary>{children}</ErrorBoundary></Suspense>
@@ -73,41 +71,45 @@ export const router = createBrowserRouter([
         element: <AppShell />,
         children: [
           { index: true, element: <Lazy><RootRedirect /></Lazy> },
-          { path: "products", element: <Lazy><PageGuard roles={adminManagerStock}><ProductsPage /></PageGuard></Lazy> },
-          { path: "products/new", element: <Lazy><PageGuard roles={adminManager}><ProductCreatePage /></PageGuard></Lazy> },
-          { path: "products/:id", element: <Lazy><PageGuard roles={adminManager}><ProductEditPage /></PageGuard></Lazy> },
-          { path: "brands", element: <Lazy><PageGuard roles={adminManager}><BrandsPage /></PageGuard></Lazy> },
-          { path: "categories", element: <Lazy><PageGuard roles={adminManager}><CategoriesPage /></PageGuard></Lazy> },
-          { path: "suppliers", element: <Lazy><PageGuard roles={adminManager}><SuppliersPage /></PageGuard></Lazy> },
-          { path: "customers", element: <Lazy><PageGuard roles={adminManagerStock}><CustomersPage /></PageGuard></Lazy> },
+          { path: "products", element: <Lazy><PageGuard roles={ROLES.ALL_STOCK}><ProductsPage /></PageGuard></Lazy> },
+          { path: "products/new", element: <Lazy><PageGuard roles={ROLES.MANAGER}><ProductCreatePage /></PageGuard></Lazy> },
+          { path: "products/:id", element: <Lazy><PageGuard roles={ROLES.MANAGER}><ProductEditPage /></PageGuard></Lazy> },
+          { path: "brands", element: <Lazy><PageGuard roles={ROLES.ALL_STOCK}><BrandsPage /></PageGuard></Lazy> },
+          { path: "categories", element: <Lazy><PageGuard roles={ROLES.ALL_STOCK}><CategoriesPage /></PageGuard></Lazy> },
+          { path: "suppliers", element: <Lazy><PageGuard roles={ROLES.ALL_STOCK}><SuppliersPage /></PageGuard></Lazy> },
+          { path: "customers", element: <Lazy><PageGuard roles={ROLES.ALL_STOCK}><CustomersPage /></PageGuard></Lazy> },
           { path: "inventory", element: <Navigate to="/stock/units" replace /> },
-          { path: "stock/imports", element: <Lazy><PageGuard roles={adminManagerStock}><ImportListPage /></PageGuard></Lazy> },
-          { path: "stock/imports/new", element: <Lazy><PageGuard roles={adminManagerStock}><ImportCreatePage /></PageGuard></Lazy> },
-          { path: "stock/exports", element: <Lazy><PageGuard roles={adminManagerStock}><ExportListPage /></PageGuard></Lazy> },
-          { path: "stock/exports/new", element: <Lazy><PageGuard roles={adminManagerStock}><ExportCreatePage /></PageGuard></Lazy> },
-          { path: "stock/checks", element: <Lazy><PageGuard roles={adminManagerStock}><StockCheckListPage /></PageGuard></Lazy> },
-          { path: "stock/checks/new", element: <Lazy><PageGuard roles={adminManagerStock}><StockCheckCreatePage /></PageGuard></Lazy> },
-          { path: "stock/checks/:id", element: <Lazy><PageGuard roles={adminManagerStock}><StockCheckDetailPage /></PageGuard></Lazy> },
-          { path: "stock/adjustments", element: <Lazy><PageGuard roles={adminManagerStock}><StockAdjustmentListPage /></PageGuard></Lazy> },
-          { path: "stock/adjustments/new", element: <Lazy><PageGuard roles={adminManagerStock}><StockAdjustmentCreatePage /></PageGuard></Lazy> },
-          { path: "stock/adjustments/:id", element: <Lazy><PageGuard roles={adminManagerStock}><StockAdjustmentDetailPage /></PageGuard></Lazy> },
-          { path: "stock/imports/:id", element: <Lazy><PageGuard roles={adminManagerStock}><ImportDetailPage /></PageGuard></Lazy> },
-          { path: "stock/exports/:id", element: <Lazy><PageGuard roles={adminManagerStock}><ExportDetailPage /></PageGuard></Lazy> },
-          { path: "stock/price-adjustments", element: <Lazy><PageGuard roles={adminManagerStock}><PriceAdjustmentListPage /></PageGuard></Lazy> },
-          { path: "stock/price-adjustments/new", element: <Lazy><PageGuard roles={adminManagerStock}><PriceAdjustmentCreatePage /></PageGuard></Lazy> },
-          { path: "stock/price-adjustments/:id", element: <Lazy><PageGuard roles={adminManagerStock}><PriceAdjustmentDetailPage /></PageGuard></Lazy> },
-          { path: "stock/purchase-orders", element: <Lazy><PageGuard roles={managerOnly}><POListPage /></PageGuard></Lazy> },
-          { path: "stock/purchase-orders/new", element: <Lazy><PageGuard roles={managerOnly}><POCreatePage /></PageGuard></Lazy> },
-          { path: "stock/purchase-orders/:id", element: <Lazy><PageGuard roles={managerOnly}><PODetailPage /></PageGuard></Lazy> },
+          { path: "stock/imports", element: <Lazy><PageGuard roles={ROLES.ALL_STOCK}><ImportListPage /></PageGuard></Lazy> },
+          { path: "stock/imports/new", element: <Lazy><PageGuard roles={ROLES.ALL_STOCK}><ImportCreatePage /></PageGuard></Lazy> },
+          { path: "stock/exports", element: <Lazy><PageGuard roles={ROLES.ALL_STOCK}><ExportListPage /></PageGuard></Lazy> },
+          { path: "stock/exports/new", element: <Lazy><PageGuard roles={ROLES.MANAGER_STOCK}><ExportCreatePage /></PageGuard></Lazy> },
+          { path: "stock/checks", element: <Lazy><PageGuard roles={ROLES.ALL_STOCK}><StockCheckListPage /></PageGuard></Lazy> },
+          { path: "stock/checks/new", element: <Lazy><PageGuard roles={ROLES.MANAGER_STOCK}><StockCheckCreatePage /></PageGuard></Lazy> },
+          { path: "stock/checks/:id", element: <Lazy><PageGuard roles={ROLES.ALL_STOCK}><StockCheckDetailPage /></PageGuard></Lazy> },
+          { path: "stock/adjustments", element: <Lazy><PageGuard roles={ROLES.ALL_STOCK}><StockAdjustmentListPage /></PageGuard></Lazy> },
+          { path: "stock/adjustments/new", element: <Lazy><PageGuard roles={ROLES.MANAGER_STOCK}><StockAdjustmentCreatePage /></PageGuard></Lazy> },
+          { path: "stock/adjustments/:id", element: <Lazy><PageGuard roles={ROLES.ALL_STOCK}><StockAdjustmentDetailPage /></PageGuard></Lazy> },
+          { path: "stock/imports/:id", element: <Lazy><PageGuard roles={ROLES.ALL_STOCK}><ImportDetailPage /></PageGuard></Lazy> },
+          { path: "stock/exports/:id", element: <Lazy><PageGuard roles={ROLES.ALL_STOCK}><ExportDetailPage /></PageGuard></Lazy> },
+          { path: "stock/price-adjustments", element: <Lazy><PageGuard roles={ROLES.ALL_STOCK}><PriceAdjustmentListPage /></PageGuard></Lazy> },
+          { path: "stock/price-adjustments/new", element: <Lazy><PageGuard roles={ROLES.MANAGER_STOCK}><PriceAdjustmentCreatePage /></PageGuard></Lazy> },
+          { path: "stock/price-adjustments/:id", element: <Lazy><PageGuard roles={ROLES.ALL_STOCK}><PriceAdjustmentDetailPage /></PageGuard></Lazy> },
+          { path: "stock/purchase-orders", element: <Lazy><PageGuard roles={ROLES.MANAGER}><POListPage /></PageGuard></Lazy> },
+          { path: "stock/purchase-orders/new", element: <Lazy><PageGuard roles={ROLES.MANAGER}><POCreatePage /></PageGuard></Lazy> },
+          { path: "stock/purchase-orders/:id", element: <Lazy><PageGuard roles={ROLES.MANAGER}><PODetailPage /></PageGuard></Lazy> },
           { path: "reports", element: <Navigate to="/" replace /> },
-          { path: "stock/units", element: <Lazy><PageGuard roles={adminManagerStock}><StockUnitsPage /></PageGuard></Lazy> },
+          { path: "stock/units", element: <Lazy><PageGuard roles={ROLES.ALL_STOCK}><StockUnitsPage /></PageGuard></Lazy> },
           { path: "product-units", element: <Navigate to="/stock/units" replace /> },
           { path: "locations", element: <Navigate to="/stock/units" replace /> },
-          { path: "users", element: <Lazy><PageGuard roles={adminManager}><UsersPage /></PageGuard></Lazy> },
-          { path: "audit", element: <Lazy><PageGuard roles={adminManager}><AuditPage /></PageGuard></Lazy> },
+          { path: "users", element: <Lazy><PageGuard roles={ROLES.ADMIN}><UsersPage /></PageGuard></Lazy> },
+          { path: "audit", element: <Lazy><PageGuard roles={ROLES.MANAGER_ADMIN}><AuditPage /></PageGuard></Lazy> },
         ],
       },
     ],
+  },
+  {
+    path: "/403",
+    element: <Lazy><ForbiddenPage /></Lazy>,
   },
   {
     path: "*",

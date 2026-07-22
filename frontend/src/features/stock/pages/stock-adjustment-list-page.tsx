@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Plus, Eye, ChevronDown, ChevronUp } from "lucide-react"
 import { usePermission } from "@/hooks/use-permission"
+import { ROLES } from "@/utils/permissions"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -125,7 +126,7 @@ export const StockAdjustmentListPage = () => {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-semibold tracking-tight">Điều chỉnh tồn kho</h1>
-        {perm.hasRole("ADMIN", "MANAGER") && (
+        {perm.hasRole(...ROLES.MANAGER_STOCK) && (
           <Button onClick={() => navigate("/stock/adjustments/new")}>
             <Plus className="size-4 mr-1" /> Tạo phiếu điều chỉnh
           </Button>

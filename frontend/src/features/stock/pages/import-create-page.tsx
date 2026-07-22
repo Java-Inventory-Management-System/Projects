@@ -14,6 +14,7 @@ import type { ImportFormData } from "@/features/stock/schemas/import-schema"
 import { FieldError } from "@/components/ui/field"
 import { toast } from "@/utils/toast"
 import { usePermission } from "@/hooks/use-permission"
+import { ROLES } from "@/utils/permissions"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -139,7 +140,7 @@ export const ImportCreatePage = () => {
   const qc = useQueryClient()
   const [searchParams] = useSearchParams()
   const { hasRole } = usePermission()
-  const isManager = hasRole("MANAGER", "ADMIN")
+  const isManager = hasRole(...ROLES.MANAGER)
   const poIdParam = searchParams.get("poId")
 
   const [step, setStep] = useState(1)
