@@ -10,7 +10,6 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Badge } from "@/components/ui/badge"
 import { Empty, EmptyTitle } from "@/components/ui/empty"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
@@ -19,7 +18,7 @@ import {
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { Trash2, Upload, X } from "lucide-react"
+import { Upload, X } from "lucide-react"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Switch } from "@/components/ui/switch"
 import { AspectRatio } from "@/components/ui/aspect-ratio"
@@ -225,7 +224,7 @@ export function ProductEditPage() {
               {images.map((img) => (
                 <div key={img.id} className="relative group size-20">
                   <AspectRatio ratio={1}>
-                    <img src={img.url} alt="" className="size-full object-cover rounded-md border" onError={(e) => { (e.target as HTMLImageElement).src = ""; (e.target as HTMLImageElement).classList.add("hidden") }} />
+                    <img src={img.url} alt={img.isPrimary ? "Ảnh chính của sản phẩm" : "Ảnh sản phẩm"} className="size-full object-cover rounded-md border" onError={(e) => { (e.target as HTMLImageElement).src = ""; (e.target as HTMLImageElement).classList.add("hidden") }} />
                   </AspectRatio>
                   {img.isPrimary && <span className="absolute top-0.5 left-0.5 text-[10px] bg-primary text-primary-foreground px-1 rounded">Chính</span>}
                   <button onClick={() => setShowDeleteImgDialog(img.id)} className="absolute top-0.5 right-0.5 bg-background/80 rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
