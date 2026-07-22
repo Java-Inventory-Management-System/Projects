@@ -1,0 +1,357 @@
+import { useState } from "react"
+import { useNavigate } from "react-router-dom"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { createReturnReceipt } from "@/services/return-service"
+import { getCustomers } from "@/services/customer-service"
+import { getExportReceipts } from "@/services/export-service"
+// ponytail: getProducts unused, kept for future export detail lookup
+import http from "@/utils/http-client"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import { Badge } from "@/components/ui/badge"
+import { ArrowLeft, Plus, Search, X } from "lucide-react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { toast } from "@/utils/toast"
+import { mapResponsePage, mapProductUnit } from "@/utils/mappers"
+import {
+  EXPORT_RECEIPT_STATUS,
+  RETURN_REASON,
+  RETURN_ITEM_CONDITION,
+  RETURN_RESULTING_ACTION,
+  PRODUCT_UNIT_STATUS,
+} from "@/utils/types"
+
+interface ReturnItemInput {
+  productUnitId: number
+  productId: number
+  quantity: number
+  condition: string
+  resultingAction: string
+}
+
+export const ReturnCreatePage = () => {
+  const navigate = useNavigate()
+  const qc = useQueryClient()
+
+  const [customerQuery, setCustomerQuery] = useState("")
+  const [selectedCustomerId, setSelectedCustomerId] = useState<number | null>(null)
+  const [selectedCustomerName, setSelectedCustomerName] = useState<string | null>(null)
+  const [exportQuery, setExportQuery] = useState("")
+  const [selectedExportId, setSelectedExportId] = useState<number | null>(null)
+  const [selectedExportCode, setSelectedExportCode] = useState<string | null>(null)
+  const [reason, setReason] = useState<string>(RETURN_REASON.DEFECTIVE)
+  const [note, setNote] = useState("")
+  const [items, setItems] = useState<ReturnItemInput[]>([])
+  const [serialSearch, setSerialSearch] = useState("")
+  const [showSerialPicker, setShowSerialPicker] = useState(false)
+
+  const { data: customersData } = useQuery({
+    queryKey: ["customers", customerQuery],
+    queryFn: () => getCustomers(0, 50, customerQuery || undefined),
+    enabled: customerQuery.length > 0 && !selectedCustomerId,
+  })
+
+  const { data: exportsData } = useQuery({
+    queryKey: ["exports", exportQuery],
+    queryFn: () => getExportReceipts(0, 50, undefined, EXPORT_RECEIPT_STATUS.COMPLETED),
+    enabled: !selectedExportId,
+  })
+
+  const { data: unitsData } = useQuery({
+    queryKey: ["product-units", serialSearch],
+    queryFn: async () => {
+      const params: Record<string, unknown> = { page: 0, size: 50, sort: "importedAt,desc" }
+      if (serialSearch) params.search = serialSearch
+      const res = await http.get("/product-unit", { params })
+      return mapResponsePage(res, mapProductUnit)
+    },
+    enabled: showSerialPicker && serialSearch.length > 0,
+  })
+
+  const addItem = (unitId: number, productId: number) => {
+    if (items.some((i) => i.productUnitId === unitId)) return
+    setItems((prev) => [
+      ...prev,
+      {
+        productUnitId: unitId,
+        productId,
+        quantity: 1,
+        condition: RETURN_ITEM_CONDITION.GOOD,
+        resultingAction: RETURN_RESULTING_ACTION.RESTOCK,
+      },
+    ])
+    setShowSerialPicker(false)
+    setSerialSearch("")
+  }
+
+  const removeItem = (unitId: number) => setItems((prev) => prev.filter((i) => i.productUnitId !== unitId))
+
+  const updateItem = (unitId: number, field: string, value: string | number) => {
+    setItems((prev) => prev.map((i) => (i.productUnitId === unitId ? { ...i, [field]: value } : i)))
+  }
+
+  const createMut = useMutation({
+    mutationFn: createReturnReceipt,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["return-receipts"] })
+      toast.success("Tạo phiếu trả hàng thành công")
+      navigate("/returns")
+    },
+    onError: (err: Error) => toast.error(err.message || "Có lỗi xảy ra"),
+  })
+
+  const handleSubmit = () => {
+    if (!selectedCustomerId || !selectedExportId || items.length === 0) return
+    createMut.mutate({
+      customerId: selectedCustomerId,
+      originalExportReceiptId: selectedExportId,
+      reason,
+      note: note.trim() || undefined,
+      items: items.map((i) => ({
+        productUnitId: i.productUnitId,
+        productId: i.productId,
+        quantity: i.quantity,
+        condition: i.condition,
+        resultingAction: i.resultingAction,
+      })),
+    })
+  }
+
+  return (
+    <div className="mx-auto max-w-3xl space-y-6">
+      <div className="flex items-center gap-3">
+        <Button variant="ghost" size="sm" onClick={() => navigate("/returns")}>
+          <ArrowLeft className="size-4" />
+        </Button>
+        <h1 className="text-xl font-semibold tracking-tight">Tạo phiếu trả hàng</h1>
+      </div>
+
+      <div className="space-y-4 rounded-lg border p-6">
+        <div className="space-y-2">
+          <Label>
+            Khách hàng <span className="text-destructive">*</span>
+          </Label>
+          {selectedCustomerId ? (
+            <div className="flex items-center gap-2 rounded-lg border px-3 py-2">
+              <span className="flex-1 font-medium">{selectedCustomerName}</span>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-6"
+                onClick={() => {
+                  setSelectedCustomerId(null)
+                  setSelectedCustomerName(null)
+                }}
+              >
+                <X className="size-3" />
+              </Button>
+            </div>
+          ) : (
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+              <Input
+                value={customerQuery}
+                onChange={(e) => setCustomerQuery(e.target.value)}
+                placeholder="Tìm khách hàng..."
+                className="pl-9"
+              />
+            </div>
+          )}
+          {!selectedCustomerId && customersData && customersData.content.length > 0 && (
+            <div className="rounded-lg border max-h-32 overflow-y-auto divide-y text-sm">
+              {customersData.content.map((c) => (
+                <div
+                  key={c.id}
+                  className="flex cursor-pointer items-center justify-between px-3 py-1.5 hover:bg-muted/30"
+                  onClick={() => {
+                    setSelectedCustomerId(c.id)
+                    setSelectedCustomerName(c.name)
+                    setCustomerQuery("")
+                  }}
+                >
+                  <span className="font-medium">{c.name}</span>
+                  {c.phone && <span className="text-xs text-muted-foreground">{c.phone}</span>}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="space-y-2">
+          <Label>
+            Đơn xuất gốc <span className="text-destructive">*</span>
+          </Label>
+          {selectedExportId ? (
+            <div className="flex items-center gap-2 rounded-lg border px-3 py-2">
+              <span className="flex-1 font-mono text-xs font-medium">{selectedExportCode}</span>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-6"
+                onClick={() => {
+                  setSelectedExportId(null)
+                  setSelectedExportCode(null)
+                }}
+              >
+                <X className="size-3" />
+              </Button>
+            </div>
+          ) : (
+            <div className="rounded-lg border max-h-40 overflow-y-auto divide-y text-sm">
+              {exportsData?.content.map((e) => (
+                <div
+                  key={e.id}
+                  className="flex cursor-pointer items-center justify-between px-3 py-1.5 hover:bg-muted/30"
+                  onClick={() => {
+                    setSelectedExportId(e.id)
+                    setSelectedExportCode(e.receiptCode)
+                    setExportQuery("")
+                  }}
+                >
+                  <span className="font-mono text-xs font-medium">{e.receiptCode}</span>
+                  <span className="text-xs text-muted-foreground">{e.customerName ?? "—"}</span>
+                </div>
+              ))}
+              {exportsData && exportsData.content.length === 0 && (
+                <div className="px-3 py-2 text-xs text-muted-foreground">Không có đơn xuất nào</div>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="reason">
+            Lý do trả <span className="text-destructive">*</span>
+          </Label>
+          <Select value={reason} onValueChange={setReason}>
+            <SelectTrigger className="w-48">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={RETURN_REASON.CHANGE_MIND}>Đổi ý</SelectItem>
+              <SelectItem value={RETURN_REASON.DEFECTIVE}>Hàng lỗi</SelectItem>
+              <SelectItem value={RETURN_REASON.WRONG_ITEM}>Sai hàng</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      <div className="space-y-4 rounded-lg border p-6">
+        <div className="flex items-center justify-between">
+          <Label className="text-base">Sản phẩm trả</Label>
+          {selectedExportId && (
+            <Button variant="outline" size="sm" onClick={() => setShowSerialPicker(true)}>
+              <Plus className="size-3 mr-1" /> Thêm sản phẩm
+            </Button>
+          )}
+        </div>
+
+        {showSerialPicker && (
+          <div className="space-y-2 rounded-lg border p-3 bg-muted/10">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+              <Input
+                value={serialSearch}
+                onChange={(e) => setSerialSearch(e.target.value)}
+                placeholder="Tìm serial sản phẩm..."
+                className="pl-9"
+              />
+            </div>
+            {unitsData && unitsData.content.length > 0 && (
+              <div className="max-h-32 overflow-y-auto divide-y text-sm rounded-lg border">
+                {unitsData.content
+                  .filter((u) => u.status === PRODUCT_UNIT_STATUS.SOLD || u.status === PRODUCT_UNIT_STATUS.IN_STOCK)
+                  .map((u) => (
+                    <div
+                      key={u.id}
+                      className="flex cursor-pointer items-center justify-between px-3 py-1.5 hover:bg-muted/30"
+                      onClick={() => addItem(u.id, u.productId)}
+                    >
+                      <div>
+                        <span className="font-mono text-xs">{u.serialNumber}</span>
+                        <span className="ml-2 font-medium">{u.productName}</span>
+                      </div>
+                      <Badge variant="outline" className="text-[10px]">
+                        {u.status}
+                      </Badge>
+                    </div>
+                  ))}
+              </div>
+            )}
+            <div className="flex justify-end">
+              <Button variant="ghost" size="sm" onClick={() => setShowSerialPicker(false)}>
+                Đóng
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {items.length > 0 && (
+          <div className="rounded-lg border divide-y text-sm">
+            {items.map((item, i) => (
+              <div key={item.productUnitId} className="flex flex-wrap items-center gap-2 px-3 py-2">
+                <span className="font-mono text-xs text-muted-foreground w-8">#{i + 1}</span>
+                <div className="flex-1 min-w-0">
+                  <span className="font-medium">Unit #{item.productUnitId}</span>
+                  <span className="text-xs text-muted-foreground ml-1">(Product #{item.productId})</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Select value={item.condition} onValueChange={(v) => updateItem(item.productUnitId, "condition", v)}>
+                    <SelectTrigger className="h-7 w-24 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={RETURN_ITEM_CONDITION.GOOD}>Còn nguyên</SelectItem>
+                      <SelectItem value={RETURN_ITEM_CONDITION.DEFECTIVE}>Lỗi</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Select
+                    value={item.resultingAction}
+                    onValueChange={(v) => updateItem(item.productUnitId, "resultingAction", v)}
+                  >
+                    <SelectTrigger className="h-7 w-32 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={RETURN_RESULTING_ACTION.RESTOCK}>Nhập lại kho</SelectItem>
+                      <SelectItem value={RETURN_RESULTING_ACTION.SCRAP}>Hủy</SelectItem>
+                      <SelectItem value={RETURN_RESULTING_ACTION.WARRANTY_TRANSFER}>Chuyển BH</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button variant="ghost" size="icon" className="size-6" onClick={() => removeItem(item.productUnitId)}>
+                    <X className="size-3" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="note">Ghi chú</Label>
+        <Textarea
+          id="note"
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          placeholder="Ghi chú (không bắt buộc)..."
+          rows={2}
+        />
+      </div>
+
+      <div className="flex justify-end gap-3">
+        <Button variant="outline" onClick={() => navigate("/returns")}>
+          Hủy
+        </Button>
+        <Button
+          onClick={handleSubmit}
+          disabled={!selectedCustomerId || !selectedExportId || items.length === 0 || createMut.isPending}
+        >
+          {createMut.isPending ? "Đang tạo..." : "Tạo phiếu trả hàng"}
+        </Button>
+      </div>
+    </div>
+  )
+}
