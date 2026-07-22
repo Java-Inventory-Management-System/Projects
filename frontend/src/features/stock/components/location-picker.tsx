@@ -18,7 +18,9 @@ export function LocationPicker({ value, onSelect, suggestedLocationId }: Locatio
   const { data: fetched, isLoading } = useLocationMap()
   const { data: local, setData } = useLocationMapStore()
 
-  useEffect(() => { if (fetched && !local) setData(fetched) }, [fetched])
+  useEffect(() => {
+    if (fetched && !local) setData(fetched)
+  }, [fetched])
 
   const data = local ?? fetched
 
@@ -38,19 +40,13 @@ export function LocationPicker({ value, onSelect, suggestedLocationId }: Locatio
       <PopoverTrigger asChild>
         <Button
           variant="outline"
-          className={cn(
-            "h-9 text-xs w-full justify-start font-normal",
-            !value && "text-muted-foreground"
-          )}
+          className={cn("h-9 text-xs w-full justify-start font-normal", !value && "text-muted-foreground")}
         >
           <MapPin className="size-3 mr-1 shrink-0" />
           {selectedLocation ? selectedLocation.fullCode : "Chọn vị trí..."}
         </Button>
       </PopoverTrigger>
-      <PopoverContent
-        className="sm:w-[520px] w-[90vw] p-3 max-h-96 overflow-y-auto"
-        align="start"
-      >
+      <PopoverContent className="sm:w-[520px] w-[90vw] p-3 max-h-96 overflow-y-auto" align="start">
         {isLoading && !data ? (
           <div className="space-y-2">
             <Skeleton className="h-4 w-24" />
@@ -74,9 +70,7 @@ export function LocationPicker({ value, onSelect, suggestedLocationId }: Locatio
               if (allBins.length === 0) return null
               return (
                 <div key={zone.zoneCode} className="rounded-md border p-2">
-                  <p className="text-[11px] font-semibold text-muted-foreground mb-1.5">
-                    Khu {zone.zoneCode}
-                  </p>
+                  <p className="text-[11px] font-semibold text-muted-foreground mb-1.5">Khu {zone.zoneCode}</p>
                   <div className="space-y-1">
                     {zone.shelves.map((shelf) => (
                       <div key={shelf.shelfCode} className="flex items-center gap-1">

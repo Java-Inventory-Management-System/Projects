@@ -2,13 +2,7 @@ import { useState, useEffect, useMemo, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Spinner } from "@/components/ui/spinner"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { AlertTriangle, CheckCircle2, XCircle, Upload, FileText } from "lucide-react"
 import { toast } from "@/utils/toast"
 
@@ -37,7 +31,15 @@ function parseFileContent(content: string): string[] {
   return result
 }
 
-export const SerialModal = ({ open, onOpenChange, productName, productSku, required, serials, onSave }: SerialModalProps) => {
+export const SerialModal = ({
+  open,
+  onOpenChange,
+  productName,
+  productSku,
+  required,
+  serials,
+  onSave,
+}: SerialModalProps) => {
   const [text, setText] = useState(serials.join("\n"))
   const [fileImporting, setFileImporting] = useState(false)
   const [lastFileCount, setLastFileCount] = useState(0)
@@ -65,8 +67,6 @@ export const SerialModal = ({ open, onOpenChange, productName, productSku, requi
   const validSerials = lines.filter((l) => !l.isEmpty && !l.isDuplicate).map((l) => l.trimmed)
   const count = validSerials.length
   const duplicateCount = lines.filter((l) => l.isDuplicate).length
-  const isEmptyLine = lines.some((l) => l.isEmpty)
-
   const overCount = count > required
   const underCount = count < required
   const hasDuplicate = duplicateCount > 0
@@ -94,7 +94,12 @@ export const SerialModal = ({ open, onOpenChange, productName, productSku, requi
           setFileImporting(false)
           return
         }
-        const existing = new Set(text.split("\n").map((s) => s.trim()).filter(Boolean))
+        const existing = new Set(
+          text
+            .split("\n")
+            .map((s) => s.trim())
+            .filter(Boolean),
+        )
         const newSerials = imported.filter((s) => !existing.has(s))
         if (newSerials.length === 0) {
           toast.error("Tất cả serial trong file đã có trong danh sách")
@@ -131,11 +136,15 @@ export const SerialModal = ({ open, onOpenChange, productName, productSku, requi
 
         <div className="flex items-center gap-2 text-sm mb-1">
           <span className="text-muted-foreground">Đã nhập:</span>
-          <span className={
-            count === required ? "font-semibold text-green-600"
-            : overCount ? "font-semibold text-destructive"
-            : "font-semibold text-amber-600"
-          }>
+          <span
+            className={
+              count === required
+                ? "font-semibold text-green-600"
+                : overCount
+                  ? "font-semibold text-destructive"
+                  : "font-semibold text-amber-600"
+            }
+          >
             {count}/{required}
           </span>
           {count === required ? (
@@ -145,16 +154,21 @@ export const SerialModal = ({ open, onOpenChange, productName, productSku, requi
           ) : (
             <AlertTriangle className="size-4 text-amber-600" />
           )}
-          {required > 100 && <span className="text-xs text-muted-foreground ml-auto">Số lượng lớn, có thể dùng import file</span>}
+          {required > 100 && (
+            <span className="text-xs text-muted-foreground ml-auto">Số lượng lớn, có thể dùng import file</span>
+          )}
         </div>
 
         <div className="h-2 w-full rounded-full bg-muted overflow-hidden mb-3">
           <div
             className={`h-full transition-all duration-300 ${
-              count === required ? "bg-green-500"
-              : overCount ? "bg-destructive"
-              : count > required * 0.8 ? "bg-amber-500"
-              : "bg-amber-300"
+              count === required
+                ? "bg-green-500"
+                : overCount
+                  ? "bg-destructive"
+                  : count > required * 0.8
+                    ? "bg-amber-500"
+                    : "bg-amber-300"
             }`}
             style={{ width: `${Math.min(100, (count / required) * 100)}%` }}
           />
@@ -184,13 +198,7 @@ export const SerialModal = ({ open, onOpenChange, productName, productSku, requi
             />
           )}
           <div className="flex flex-col gap-2">
-            <input
-              ref={fileRef}
-              type="file"
-              accept=".txt,.csv"
-              className="hidden"
-              onChange={handleFile}
-            />
+            <input ref={fileRef} type="file" accept=".txt,.csv" className="hidden" onChange={handleFile} />
             <Button
               type="button"
               variant="outline"
@@ -200,7 +208,9 @@ export const SerialModal = ({ open, onOpenChange, productName, productSku, requi
               onClick={() => fileRef.current?.click()}
             >
               {fileImporting ? <Spinner className="size-3" /> : <Upload className="size-3" />}
-              Import<br />file
+              Import
+              <br />
+              file
             </Button>
           </div>
         </div>
@@ -224,10 +234,13 @@ export const SerialModal = ({ open, onOpenChange, productName, productSku, requi
             Hủy
           </Button>
           <Button onClick={handleSave} disabled={!canSave}>
-            {overCount ? "Giảm số serial"
-            : underCount ? `Còn thiếu ${required - count} serial`
-            : hasDuplicate ? "Xoá dòng trùng"
-            : `Xác nhận ${count} serial`}
+            {overCount
+              ? "Giảm số serial"
+              : underCount
+                ? `Còn thiếu ${required - count} serial`
+                : hasDuplicate
+                  ? "Xoá dòng trùng"
+                  : `Xác nhận ${count} serial`}
           </Button>
         </DialogFooter>
       </DialogContent>

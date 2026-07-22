@@ -10,7 +10,13 @@ export function ImportCreateSidebar() {
   const recentProducts = useMemo(() => {
     if (!recentReceiptsRes?.content) return []
     const seen = new Set<number>()
-    const items: { productId: number; productName: string; productSku: string; receiptCode: string; quantity: number }[] = []
+    const items: {
+      productId: number
+      productName: string
+      productSku: string
+      receiptCode: string
+      quantity: number
+    }[] = []
     for (const receipt of recentReceiptsRes.content) {
       for (const item of receipt.items) {
         if (seen.has(item.productId)) continue
@@ -18,7 +24,7 @@ export function ImportCreateSidebar() {
         items.push({
           productId: item.productId,
           productName: item.productName,
-          productSku: item.productSku,
+          productSku: item.productSku ?? "",
           receiptCode: receipt.receiptCode,
           quantity: item.quantity,
         })
@@ -31,9 +37,7 @@ export function ImportCreateSidebar() {
 
   const lowStockItems = useMemo(() => {
     if (!inventoryRes?.content) return []
-    return inventoryRes.content
-      .filter((item) => item.quantity <= item.minStock)
-      .slice(0, 5)
+    return inventoryRes.content.filter((item) => item.quantity <= item.minStock).slice(0, 5)
   }, [inventoryRes])
 
   return (

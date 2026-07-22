@@ -11,9 +11,8 @@ export function StockOverviewTab() {
   const { data: recentExportsRes } = useExportReceipts(0, 5)
   const { data: locationMap } = useLocationMap()
 
-  const totalBins = locationMap?.zones.reduce(
-    (s, z) => s + z.shelves.reduce((s2, sh) => s2 + sh.bins.length, 0), 0
-  ) ?? 0
+  const totalBins =
+    locationMap?.zones.reduce((s, z) => s + z.shelves.reduce((s2, sh) => s2 + sh.bins.length, 0), 0) ?? 0
   const lowStockItems = lowStockRes?.content ?? []
   const recentImports = recentImportsRes?.content ?? []
   const recentExports = recentExportsRes?.content ?? []
@@ -91,10 +90,15 @@ export function StockOverviewTab() {
                 <div key={receipt.id} className="text-[11px] py-0.5">
                   <div className="flex items-center justify-between">
                     <span className="font-mono text-[10px] text-muted-foreground">{receipt.receiptCode}</span>
-                    <span className="text-[10px] text-muted-foreground">{new Date(receipt.createdAt).toLocaleDateString("vi-VN")}</span>
+                    <span className="text-[10px] text-muted-foreground">
+                      {new Date(receipt.createdAt).toLocaleDateString("vi-VN")}
+                    </span>
                   </div>
                   <p className="truncate text-muted-foreground">{receipt.supplierName}</p>
-                  <p className="text-[10px] text-muted-foreground">{receipt.items.length} sản phẩm</p>
+                  <p className="text-[10px] text-muted-foreground">
+                    {receipt.items.length} SP &middot;{" "}
+                    {receipt.items.reduce((s, i) => s + i.quantity, 0).toLocaleString("vi-VN")} SL
+                  </p>
                 </div>
               ))}
             </div>
@@ -114,10 +118,24 @@ export function StockOverviewTab() {
                 <div key={receipt.id} className="text-[11px] py-0.5">
                   <div className="flex items-center justify-between">
                     <span className="font-mono text-[10px] text-muted-foreground">{receipt.receiptCode}</span>
-                    <span className="text-[10px] text-muted-foreground">{new Date(receipt.createdAt).toLocaleDateString("vi-VN")}</span>
+                    <span className="text-[10px] text-muted-foreground">
+                      {new Date(receipt.createdAt).toLocaleDateString("vi-VN")}
+                    </span>
                   </div>
-                  <p className="truncate text-muted-foreground">{receipt.customerName ?? ({ SALE: "Bán hàng", INTERNAL: "Nội bộ", RETURN_SUPPLIER: "Trả NCC", DISPOSE: "Hủy" } as Record<string, string>)[receipt.reason] ?? receipt.reason}</p>
-                  <p className="text-[10px] text-muted-foreground">{receipt.items.length} sản phẩm</p>
+                  <p className="truncate text-muted-foreground">
+                    {receipt.customerName ??
+                      (
+                        { SALE: "Bán hàng", INTERNAL: "Nội bộ", RETURN_SUPPLIER: "Trả NCC", DISPOSE: "Hủy" } as Record<
+                          string,
+                          string
+                        >
+                      )[receipt.reason] ??
+                      receipt.reason}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground">
+                    {receipt.items.length} SP &middot;{" "}
+                    {receipt.items.reduce((s, i) => s + i.quantity, 0).toLocaleString("vi-VN")} SL
+                  </p>
                 </div>
               ))}
             </div>

@@ -4,15 +4,19 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
-  Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator,
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from "@/components/ui/table"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { ButtonGroup } from "@/components/ui/button-group"
 import { ArrowDownToLine, X } from "lucide-react"
 import { toast } from "@/utils/toast"
+import { PURCHASE_ORDER_STATUS } from "@/utils/types"
 
 const statusConfig: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
   DRAFT: { label: "Nháp", variant: "secondary" },
@@ -27,7 +31,13 @@ export function PODetailPage() {
   const { data: po, isLoading } = usePurchaseOrderById(Number(id))
   const cancelMut = useCancelPurchaseOrder()
 
-  if (isLoading) return <div className="space-y-4"><Skeleton className="h-8 w-48" /><Skeleton className="h-64 w-full" /></div>
+  if (isLoading)
+    return (
+      <div className="space-y-4">
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-64 w-full" />
+      </div>
+    )
   if (!po) return <p className="text-sm text-muted-foreground">Không tìm thấy đơn hàng</p>
 
   const s = statusConfig[po.status] ?? { label: po.status, variant: "secondary" }
@@ -36,9 +46,13 @@ export function PODetailPage() {
     <div className="mx-auto max-w-4xl space-y-6">
       <Breadcrumb>
         <BreadcrumbList>
-          <BreadcrumbItem><BreadcrumbLink onClick={() => navigate("/stock/purchase-orders")}>Đơn đặt hàng</BreadcrumbLink></BreadcrumbItem>
+          <BreadcrumbItem>
+            <BreadcrumbLink onClick={() => navigate("/stock/purchase-orders")}>Đơn đặt hàng</BreadcrumbLink>
+          </BreadcrumbItem>
           <BreadcrumbSeparator />
-          <BreadcrumbItem><BreadcrumbPage>{po.poCode}</BreadcrumbPage></BreadcrumbItem>
+          <BreadcrumbItem>
+            <BreadcrumbPage>{po.poCode}</BreadcrumbPage>
+          </BreadcrumbItem>
         </BreadcrumbList>
       </Breadcrumb>
 
@@ -48,13 +62,18 @@ export function PODetailPage() {
           <Badge variant={s.variant}>{s.label}</Badge>
         </div>
         <ButtonGroup>
-          {po.status === "DRAFT" && (
-            <Button variant="outline" className="text-destructive" onClick={() => {
-              cancelMut.mutate(po.id, {
-                onSuccess: () => toast.success("Đã hủy đơn hàng"),
-                onError: (e) => toast.error(e.message),
-              })
-            }} disabled={cancelMut.isPending}>
+          {po.status === PURCHASE_ORDER_STATUS.DRAFT && (
+            <Button
+              variant="outline"
+              className="text-destructive"
+              onClick={() => {
+                cancelMut.mutate(po.id, {
+                  onSuccess: () => toast.success("Đã hủy đơn hàng"),
+                  onError: (e) => toast.error(e.message),
+                })
+              }}
+              disabled={cancelMut.isPending}
+            >
               <X className="size-4 mr-1" /> Hủy
             </Button>
           )}
@@ -67,10 +86,22 @@ export function PODetailPage() {
       <Card>
         <CardContent className="pt-6">
           <div className="grid grid-cols-2 gap-4 text-sm">
-            <div><span className="text-muted-foreground">NCC:</span><p className="font-medium">{po.supplierName}</p></div>
-            <div><span className="text-muted-foreground">Ngày giao dự kiến:</span><p className="font-medium">{new Date(po.expectedDate).toLocaleDateString("vi-VN")}</p></div>
-            <div><span className="text-muted-foreground">Người tạo:</span><p className="font-medium">{po.createdByName}</p></div>
-            <div><span className="text-muted-foreground">Ngày tạo:</span><p className="font-medium">{new Date(po.createdAt).toLocaleDateString("vi-VN")}</p></div>
+            <div>
+              <span className="text-muted-foreground">NCC:</span>
+              <p className="font-medium">{po.supplierName}</p>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Ngày giao dự kiến:</span>
+              <p className="font-medium">{new Date(po.expectedDate).toLocaleDateString("vi-VN")}</p>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Người tạo:</span>
+              <p className="font-medium">{po.createdByName}</p>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Ngày tạo:</span>
+              <p className="font-medium">{new Date(po.createdAt).toLocaleDateString("vi-VN")}</p>
+            </div>
           </div>
           {po.note && (
             <div className="mt-4 rounded-md border bg-muted/20 px-3 py-2.5 text-sm">
@@ -82,7 +113,9 @@ export function PODetailPage() {
       </Card>
 
       <Card>
-        <CardHeader><CardTitle className="text-base">Sản phẩm</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle className="text-base">Sản phẩm</CardTitle>
+        </CardHeader>
         <CardContent className="p-0">
           <Table>
             <TableHeader>
@@ -101,8 +134,12 @@ export function PODetailPage() {
                     <span className="text-xs text-muted-foreground ml-1">{item.productSku}</span>
                   </TableCell>
                   <TableCell className="text-right tabular-nums">{item.quantity}</TableCell>
-                  <TableCell className="text-right tabular-nums">{item.unitPrice.toLocaleString("vi-VN")}₫</TableCell>
-                  <TableCell className="text-right tabular-nums">{(item.quantity * item.unitPrice).toLocaleString("vi-VN")}₫</TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {(item.unitPrice ?? 0).toLocaleString("vi-VN")}₫
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {((item.quantity ?? 0) * (item.unitPrice ?? 0)).toLocaleString("vi-VN")}₫
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -111,7 +148,7 @@ export function PODetailPage() {
       </Card>
 
       <div className="flex justify-end">
-        <span className="text-lg font-semibold">Tổng: {po.totalAmount.toLocaleString("vi-VN")}₫</span>
+        <span className="text-lg font-semibold">Tổng: {(po.totalAmount ?? 0).toLocaleString("vi-VN")}₫</span>
       </div>
     </div>
   )

@@ -5,6 +5,7 @@ import { useAuthStore } from "@/store/auth-store"
 import { filterNavItems, navSections } from "@/utils/navigation"
 import { getImportReceipts } from "@/services/import-service"
 import { getExportReceipts } from "@/services/export-service"
+import { IMPORT_RECEIPT_STATUS, EXPORT_RECEIPT_STATUS } from "@/utils/types"
 
 interface SidebarProps {
   collapsed: boolean
@@ -23,7 +24,7 @@ export function Sidebar({ collapsed, onNavigate }: SidebarProps) {
   const { data: importPending } = useQuery({
     queryKey: ["import-pending-count"],
     queryFn: async () => {
-      const r = await getImportReceipts(0, 1, undefined, "PENDING_APPROVAL")
+      const r = await getImportReceipts(0, 1, undefined, IMPORT_RECEIPT_STATUS.PENDING_APPROVAL)
       return r.pagination.totalElements
     },
     staleTime: 60_000,
@@ -32,7 +33,7 @@ export function Sidebar({ collapsed, onNavigate }: SidebarProps) {
   const { data: exportPending } = useQuery({
     queryKey: ["export-pending-count"],
     queryFn: async () => {
-      const r = await getExportReceipts(0, 1, undefined, "PENDING_APPROVAL")
+      const r = await getExportReceipts(0, 1, undefined, EXPORT_RECEIPT_STATUS.PENDING_APPROVAL)
       return r.pagination.totalElements
     },
     staleTime: 60_000,
@@ -53,9 +54,7 @@ export function Sidebar({ collapsed, onNavigate }: SidebarProps) {
         <div className="flex size-7 items-center justify-center rounded bg-primary text-[10px] font-bold text-primary-foreground leading-none">
           W
         </div>
-        {!collapsed && (
-          <span className="text-sm font-semibold tracking-tight">Warehouse</span>
-        )}
+        {!collapsed && <span className="text-sm font-semibold tracking-tight">Warehouse</span>}
       </div>
 
       <nav aria-label="Main navigation" className="flex-1 space-y-2 overflow-y-auto p-2">

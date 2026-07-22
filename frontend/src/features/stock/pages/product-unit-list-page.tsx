@@ -2,53 +2,45 @@ import { useState, useEffect, useCallback } from "react"
 import { useDebounce } from "@/hooks/use-debounce"
 import { getProductUnits } from "@/services/product-unit-service"
 import { getProducts } from "@/services/product-service"
-import type { ProductUnit, ResponsePage, ProductResponse } from "@/utils/types"
+import { PRODUCT_UNIT_STATUS, type ProductUnit, type ResponsePage, type ProductResponse } from "@/utils/types"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Search, Eye, RefreshCw, ChevronDown, ChevronUp } from "lucide-react"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
-import {
-  Collapsible, CollapsibleContent, CollapsibleTrigger,
-} from "@/components/ui/collapsible"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { DataTable, type Column } from "@/components/ui/data-table"
 import { ViewProductUnitModal } from "../components/view-product-unit-modal"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 
 const statusOptions: { value: string; label: string }[] = [
   { value: "all", label: "Tất cả" },
-  { value: "IN_STOCK", label: "Trong kho" },
-  { value: "SOLD", label: "Đã bán" },
-  { value: "DEFECTIVE", label: "Lỗi" },
-  { value: "DAMAGED_IN_STORAGE", label: "Hư trong kho" },
-  { value: "LOST", label: "Mất" },
-  { value: "UNDER_REPAIR", label: "Đang sửa" },
-  { value: "SENT_TO_MANUFACTURER", label: "Gửi NSX" },
-  { value: "RETURNED", label: "Trả lại" },
-  { value: "RETURNED_TO_SUPPLIER", label: "Trả NCC" },
-  { value: "REMOVED", label: "Đã xóa" },
-  { value: "DISPOSED", label: "Hủy" },
+  { value: PRODUCT_UNIT_STATUS.IN_STOCK, label: "Trong kho" },
+  { value: PRODUCT_UNIT_STATUS.SOLD, label: "Đã bán" },
+  { value: PRODUCT_UNIT_STATUS.DEFECTIVE, label: "Lỗi" },
+  { value: PRODUCT_UNIT_STATUS.DAMAGED_IN_STORAGE, label: "Hư trong kho" },
+  { value: PRODUCT_UNIT_STATUS.LOST, label: "Mất" },
+  { value: PRODUCT_UNIT_STATUS.UNDER_REPAIR, label: "Đang sửa" },
+  { value: PRODUCT_UNIT_STATUS.SENT_TO_MANUFACTURER, label: "Gửi NSX" },
+  { value: PRODUCT_UNIT_STATUS.RETURNED, label: "Trả lại" },
+  { value: PRODUCT_UNIT_STATUS.RETURNED_TO_SUPPLIER, label: "Trả NCC" },
+  { value: PRODUCT_UNIT_STATUS.REMOVED, label: "Đã xóa" },
+  { value: PRODUCT_UNIT_STATUS.DISPOSED, label: "Hủy" },
 ]
 
 const statusBadge: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
-  IN_STOCK: { label: "Trong kho", variant: "default" },
-  SOLD: { label: "Đã bán", variant: "secondary" },
-  DEFECTIVE: { label: "Lỗi", variant: "destructive" },
-  DAMAGED_IN_STORAGE: { label: "Hư trong kho", variant: "destructive" },
-  LOST: { label: "Mất", variant: "destructive" },
-  UNDER_REPAIR: { label: "Đang sửa", variant: "outline" },
-  SENT_TO_MANUFACTURER: { label: "Gửi NSX", variant: "outline" },
-  RETURNED: { label: "Trả lại", variant: "secondary" },
-  RETURNED_TO_SUPPLIER: { label: "Trả NCC", variant: "secondary" },
-  REMOVED: { label: "Đã xóa", variant: "outline" },
-  DISPOSED: { label: "Hủy", variant: "destructive" },
+  [PRODUCT_UNIT_STATUS.IN_STOCK]: { label: "Trong kho", variant: "default" },
+  [PRODUCT_UNIT_STATUS.SOLD]: { label: "Đã bán", variant: "secondary" },
+  [PRODUCT_UNIT_STATUS.DEFECTIVE]: { label: "Lỗi", variant: "destructive" },
+  [PRODUCT_UNIT_STATUS.DAMAGED_IN_STORAGE]: { label: "Hư trong kho", variant: "destructive" },
+  [PRODUCT_UNIT_STATUS.LOST]: { label: "Mất", variant: "destructive" },
+  [PRODUCT_UNIT_STATUS.UNDER_REPAIR]: { label: "Đang sửa", variant: "outline" },
+  [PRODUCT_UNIT_STATUS.SENT_TO_MANUFACTURER]: { label: "Gửi NSX", variant: "outline" },
+  [PRODUCT_UNIT_STATUS.RETURNED]: { label: "Trả lại", variant: "secondary" },
+  [PRODUCT_UNIT_STATUS.RETURNED_TO_SUPPLIER]: { label: "Trả NCC", variant: "secondary" },
+  [PRODUCT_UNIT_STATUS.REMOVED]: { label: "Đã xóa", variant: "outline" },
+  [PRODUCT_UNIT_STATUS.DISPOSED]: { label: "Hủy", variant: "destructive" },
 }
 
 function fmt(d: string | null) {
@@ -85,7 +77,9 @@ export const ProductUnitListPage = () => {
   const [filterOpen, setFilterOpen] = useState(true)
 
   useEffect(() => {
-    getProducts(0, 500).then((res) => setProducts(res.content)).catch(() => {})
+    getProducts(0, 500)
+      .then((res) => setProducts(res.content))
+      .catch(() => {})
   }, [])
 
   const hasFilters = debouncedSearch || statusFilter !== "all" || productFilter !== "all"
@@ -96,12 +90,18 @@ export const ProductUnitListPage = () => {
     const sort = `importedAt,${sortOrder}`
     if (hasFilters) {
       getProductUnits(0, 10000, sort)
-        .then((res) => { setAllData(res.content); setData(null) })
+        .then((res) => {
+          setAllData(res.content)
+          setData(null)
+        })
         .catch((err) => setError((err as Error).message || "Không thể tải danh sách"))
         .finally(() => setLoading(false))
     } else {
       getProductUnits(page, pageSize, sort)
-        .then((res) => { setData(res); setAllData(null) })
+        .then((res) => {
+          setData(res)
+          setAllData(null)
+        })
         .catch((err) => setError((err as Error).message || "Không thể tải danh sách"))
         .finally(() => setLoading(false))
     }
@@ -115,7 +115,11 @@ export const ProductUnitListPage = () => {
   })
 
   const columns: Column<ProductUnit>[] = [
-    { header: "Serial", sortKey: "serialNumber", render: (u) => <span className="font-mono text-xs">{u.serialNumber}</span> },
+    {
+      header: "Serial",
+      sortKey: "serialNumber",
+      render: (u) => <span className="font-mono text-xs">{u.serialNumber}</span>,
+    },
     {
       header: "Sản phẩm",
       render: (u) => (
@@ -133,15 +137,29 @@ export const ProductUnitListPage = () => {
       },
     },
     { header: "Vị trí", render: (u) => <span className="text-muted-foreground">{u.locationCode ?? "—"}</span> },
-    { header: "Ngày nhập", sortKey: "importedAt", render: (u) => <span className="text-muted-foreground text-xs">{fmt(u.importedAt)}</span> },
-    { header: "BH đến", render: (u) => <span className="text-muted-foreground text-xs">{fmt(u.warrantyExpiresAt)}</span> },
+    {
+      header: "Ngày nhập",
+      sortKey: "importedAt",
+      render: (u) => <span className="text-muted-foreground text-xs">{fmt(u.importedAt)}</span>,
+    },
+    {
+      header: "BH đến",
+      render: (u) => <span className="text-muted-foreground text-xs">{fmt(u.warrantyExpiresAt)}</span>,
+    },
     {
       header: "Thao tác",
       className: "w-[80px]",
       render: (u) => (
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" onClick={() => { setViewUnit(u); setViewOpen(true) }}>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => {
+                setViewUnit(u)
+                setViewOpen(true)
+              }}
+            >
               <Eye className="size-4" />
             </Button>
           </TooltipTrigger>
@@ -163,7 +181,10 @@ export const ProductUnitListPage = () => {
               placeholder="Tìm theo serial..."
               className="pl-8"
               value={search}
-              onChange={(e) => { setSearch(e.target.value); setPage(0) }}
+              onChange={(e) => {
+                setSearch(e.target.value)
+                setPage(0)
+              }}
             />
           </div>
           <CollapsibleTrigger asChild>
@@ -175,7 +196,14 @@ export const ProductUnitListPage = () => {
         </div>
         <CollapsibleContent className="mt-2">
           <div className="flex flex-wrap gap-2">
-            <ToggleGroup type="single" value={statusFilter} onValueChange={(v) => { setStatusFilter(v || "all"); setPage(0) }}>
+            <ToggleGroup
+              type="single"
+              value={statusFilter}
+              onValueChange={(v) => {
+                setStatusFilter(v || "all")
+                setPage(0)
+              }}
+            >
               {statusOptions.slice(0, 5).map((o) => (
                 <ToggleGroupItem key={o.value} value={o.value} size="sm" className="text-xs">
                   {o.label}
@@ -184,7 +212,10 @@ export const ProductUnitListPage = () => {
             </ToggleGroup>
             <Select
               value={productFilter}
-              onValueChange={(v) => { setProductFilter(v); setPage(0) }}
+              onValueChange={(v) => {
+                setProductFilter(v)
+                setPage(0)
+              }}
             >
               <SelectTrigger className="w-64">
                 <SelectValue placeholder="Sản phẩm" />
@@ -200,7 +231,10 @@ export const ProductUnitListPage = () => {
             </Select>
             <Select
               value={sortOrder}
-              onValueChange={(v) => { setSortOrder(v); setPage(0) }}
+              onValueChange={(v) => {
+                setSortOrder(v)
+                setPage(0)
+              }}
             >
               <SelectTrigger className="w-32">
                 <SelectValue placeholder="Sắp xếp" />
@@ -217,7 +251,16 @@ export const ProductUnitListPage = () => {
       {error ? (
         <div className="rounded-lg border p-8 text-center">
           <p className="text-sm text-destructive mb-2">{error}</p>
-          <Button variant="outline" size="sm" onClick={() => { setPage(0); setSearch(""); setStatusFilter("all"); setProductFilter("all") }}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setPage(0)
+              setSearch("")
+              setStatusFilter("all")
+              setProductFilter("all")
+            }}
+          >
             <RefreshCw className="size-3 mr-1" /> Thử lại
           </Button>
         </div>
@@ -234,7 +277,10 @@ export const ProductUnitListPage = () => {
           totalPages={data?.pagination.totalPages}
           pageSize={pageSize}
           onPageChange={setPage}
-          onPageSizeChange={(s) => { setPageSize(s); setPage(0) }}
+          onPageSizeChange={(s) => {
+            setPageSize(s)
+            setPage(0)
+          }}
         />
       )}
 

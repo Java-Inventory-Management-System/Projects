@@ -1,6 +1,5 @@
 import { useState, useCallback } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
-import { useAuthStore } from "@/store/auth-store"
 import { useStockAdjustments, useMyStockAdjustments } from "@/hooks/use-stock-adjustments"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -8,25 +7,22 @@ import { Plus, Eye, ChevronDown, ChevronUp } from "lucide-react"
 import { usePermission } from "@/hooks/use-permission"
 import { ROLES } from "@/utils/permissions"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { DataTable, type Column } from "@/components/ui/data-table"
-import {
-  Collapsible, CollapsibleContent, CollapsibleTrigger,
-} from "@/components/ui/collapsible"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import type { StockAdjustment } from "@/utils/types"
+import { ADJUSTMENT_STATUS, ADJUSTMENT_TYPE } from "@/utils/types"
 
 const typeLabel: Record<string, string> = {
-  DAMAGED: "Hư hỏng",
-  LOST: "Mất",
-  FOUND: "Thừa",
+  [ADJUSTMENT_TYPE.DAMAGED]: "Hư hỏng",
+  [ADJUSTMENT_TYPE.LOST]: "Mất",
+  [ADJUSTMENT_TYPE.FOUND]: "Thừa",
 }
 
 const typeColor: Record<string, "destructive" | "outline" | "default"> = {
-  DAMAGED: "destructive",
-  LOST: "destructive",
-  FOUND: "default",
+  [ADJUSTMENT_TYPE.DAMAGED]: "destructive",
+  [ADJUSTMENT_TYPE.LOST]: "destructive",
+  [ADJUSTMENT_TYPE.FOUND]: "default",
 }
 
 const statusLabel: Record<string, { label: string; variant: "default" | "secondary" | "destructive" }> = {
@@ -38,7 +34,6 @@ const statusLabel: Record<string, { label: string; variant: "default" | "seconda
 export const StockAdjustmentListPage = () => {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
-  const user = useAuthStore((s) => s.user)
   const perm = usePermission()
 
   const page = Number(searchParams.get("page") ?? "0")
@@ -58,7 +53,8 @@ export const StockAdjustmentListPage = () => {
     })
   }, [])
 
-  const isStock = user?.role === "STOCK"
+  // STOCK → own adjustments only; MANAGER/ADMIN → all adjustments
+  const isStock = perm.hasRole("STOCK")
   const { data, isLoading } = isStock
     ? useMyStockAdjustments(page, pageSize, sortStr, typeFilter || undefined, statusFilter || undefined)
     : useStockAdjustments(page, pageSize, sortStr, typeFilter || undefined, statusFilter || undefined)
@@ -76,7 +72,11 @@ export const StockAdjustmentListPage = () => {
   )
 
   const columns: Column<StockAdjustment>[] = [
-    { header: "Mã phiếu", sortKey: "adjustCode", render: (r) => <span className="font-mono text-xs">{r.adjustCode}</span> },
+    {
+      header: "Mã phiếu",
+      sortKey: "adjustCode",
+      render: (r) => <span className="font-mono text-xs">{r.adjustCode}</span>,
+    },
     {
       header: "Loại",
       render: (r) => <Badge variant={typeColor[r.type] ?? "outline"}>{typeLabel[r.type] ?? r.type}</Badge>,
@@ -144,18 +144,15 @@ export const StockAdjustmentListPage = () => {
         </div>
         <CollapsibleContent className="mt-2">
           <div className="flex flex-wrap items-center gap-2">
-            <Select
-              value={typeFilter}
-              onValueChange={(v) => updateParams({ type: v || undefined, page: undefined })}
-            >
+            <Select value={typeFilter} onValueChange={(v) => updateParams({ type: v || undefined, page: undefined })}>
               <SelectTrigger className="w-36">
                 <SelectValue placeholder="Tất cả loại" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Tất cả loại</SelectItem>
-                <SelectItem value="DAMAGED">Hư hỏng</SelectItem>
-                <SelectItem value="LOST">Mất</SelectItem>
-                <SelectItem value="FOUND">Thừa</SelectItem>
+                <SelectItem value={ADJUSTMENT_TYPE.DAMAGED}>Hư hỏng</SelectItem>
+                <SelectItem value={ADJUSTMENT_TYPE.LOST}>Mất</SelectItem>
+                <SelectItem value={ADJUSTMENT_TYPE.FOUND}>Thừa</SelectItem>
               </SelectContent>
             </Select>
             <Select
@@ -167,13 +164,18 @@ export const StockAdjustmentListPage = () => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Tất cả trạng thái</SelectItem>
-                <SelectItem value="PENDING">Chờ duyệt</SelectItem>
-                <SelectItem value="APPROVED">Đã duyệt</SelectItem>
-                <SelectItem value="REJECTED">Từ chối</SelectItem>
+                <SelectItem value={ADJUSTMENT_STATUS.PENDING}>Chờ duyệt</SelectItem>
+                <SelectItem value={ADJUSTMENT_STATUS.APPROVED}>Đã duyệt</SelectItem>
+                <SelectItem value={ADJUSTMENT_STATUS.REJECTED}>Từ chối</SelectItem>
               </SelectContent>
             </Select>
             {(typeFilter || statusFilter) && (
-              <Button variant="ghost" size="sm" className="text-xs" onClick={() => setSearchParams(new URLSearchParams())}>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-xs"
+                onClick={() => setSearchParams(new URLSearchParams())}
+              >
                 Xoá bộ lọc
               </Button>
             )}
@@ -193,7 +195,10 @@ export const StockAdjustmentListPage = () => {
         totalPages={data?.pagination.totalPages}
         pageSize={pageSize}
         onPageChange={(p) => updateParams({ page: String(p) })}
-        onPageSizeChange={(s) => { setPageSize(s); updateParams({ page: undefined }) }}
+        onPageSizeChange={(s) => {
+          setPageSize(s)
+          updateParams({ page: undefined })
+        }}
       />
     </div>
   )

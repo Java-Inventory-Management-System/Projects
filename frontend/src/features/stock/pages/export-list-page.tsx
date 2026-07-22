@@ -20,14 +20,18 @@ const reasonLabel: Record<string, string> = {
 }
 
 const columns: Column<ExportReceipt>[] = [
-  { header: "Mã phiếu", sortKey: "receiptCode", render: (r) => <span className="font-mono text-xs">{r.receiptCode}</span> },
+  {
+    header: "Mã phiếu",
+    sortKey: "receiptCode",
+    render: (r) => <span className="font-mono text-xs">{r.receiptCode}</span>,
+  },
   { header: "Lý do", render: (r) => <span>{reasonLabel[r.reason] ?? r.reason}</span> },
   { header: "Khách hàng", render: (r) => <span className="text-muted-foreground">{r.customerName ?? "—"}</span> },
   {
     header: "Tổng tiền",
     sortKey: "totalAmount",
     className: "text-right",
-    render: (r) => <span className="tabular-nums">{r.totalAmount.toLocaleString("vi-VN")}₫</span>,
+    render: (r) => <span className="tabular-nums">{(r.totalAmount ?? 0).toLocaleString("vi-VN")}₫</span>,
   },
   {
     header: "Trạng thái",

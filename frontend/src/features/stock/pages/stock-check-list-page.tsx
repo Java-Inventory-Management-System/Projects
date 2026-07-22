@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react"
 import { useNavigate } from "react-router-dom"
-import { useAuthStore } from "@/store/auth-store"
+import { usePermission } from "@/hooks/use-permission"
 import { useStockChecks, useMyStockChecks } from "@/hooks/use-stock-checks"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -19,7 +19,7 @@ const statusLabel: Record<string, { label: string; variant: "default" | "seconda
 
 export const StockCheckListPage = () => {
   const navigate = useNavigate()
-  const user = useAuthStore((s) => s.user)
+  const perm = usePermission()
   const [page, setPage] = useState(0)
   const [pageSize, setPageSize] = useState(10)
   const [sort, setSort] = useState<{ key: string; dir: "asc" | "desc" } | undefined>(undefined)
@@ -33,11 +33,18 @@ export const StockCheckListPage = () => {
     })
   }, [])
 
-  const isStock = user?.role === "STOCK"
-  const { data, isLoading } = isStock ? useMyStockChecks(page, pageSize, sortStr) : useStockChecks(page, pageSize, sortStr)
+  // STOCK → own checks only; MANAGER/ADMIN → all checks
+  const isStock = perm.hasRole("STOCK")
+  const { data, isLoading } = isStock
+    ? useMyStockChecks(page, pageSize, sortStr)
+    : useStockChecks(page, pageSize, sortStr)
 
   const columns: Column<StockCheck>[] = [
-    { header: "Mã phiếu", sortKey: "checkCode", render: (r) => <span className="font-mono text-xs">{r.checkCode}</span> },
+    {
+      header: "Mã phiếu",
+      sortKey: "checkCode",
+      render: (r) => <span className="font-mono text-xs">{r.checkCode}</span>,
+    },
     {
       header: "Trạng thái",
       render: (r) => {
@@ -53,13 +60,15 @@ export const StockCheckListPage = () => {
         <span className="text-muted-foreground text-xs">{new Date(r.createdAt).toLocaleDateString("vi-VN")}</span>
       ),
     },
-    { header: "Số items", className: "text-right", render: (r) => <span className="tabular-nums">{r.totalItems}</span> },
+    {
+      header: "Số items",
+      className: "text-right",
+      render: (r) => <span className="tabular-nums">{r.totalItems}</span>,
+    },
     {
       header: "Số lỗi",
       className: "text-right",
-      render: (r) => (
-        <span className="tabular-nums text-destructive">{r.missingCount + r.unexpectedCount || "—"}</span>
-      ),
+      render: (r) => <span className="tabular-nums text-destructive">{r.missingCount + r.unexpectedCount || "—"}</span>,
     },
     {
       header: "Thao tác",
@@ -98,7 +107,10 @@ export const StockCheckListPage = () => {
         totalPages={data?.pagination.totalPages}
         pageSize={pageSize}
         onPageChange={setPage}
-        onPageSizeChange={(s) => { setPageSize(s); setPage(0) }}
+        onPageSizeChange={(s) => {
+          setPageSize(s)
+          setPage(0)
+        }}
       />
     </div>
   )

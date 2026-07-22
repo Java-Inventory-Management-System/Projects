@@ -6,11 +6,19 @@ import { useUrlState } from "@/hooks/use-url-state"
 import { Button } from "@/components/ui/button"
 import { DataTable, type Column } from "@/components/ui/data-table"
 import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Plus, Eye, Check, X } from "lucide-react"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 import { toast } from "@/utils/toast"
+import { IMPORT_RECEIPT_STATUS } from "@/utils/types"
 
 interface Receipt {
   id: number
@@ -23,7 +31,11 @@ interface Props<R extends Receipt> {
   newRoute: string
   emptyMessage: string
   queryKey: string
-  useHook: (page: number, size: number, sort?: string) => { data?: { content: R[]; pagination: { totalPages: number; totalElements: number } }; isLoading: boolean }
+  useHook: (
+    page: number,
+    size: number,
+    sort?: string,
+  ) => { data?: { content: R[]; pagination: { totalPages: number; totalElements: number } }; isLoading: boolean }
   cancelService: (id: number) => Promise<unknown>
   approveService: (id: number) => Promise<unknown>
   ViewModal: ComponentType<{ receipt: R | null; open: boolean; onOpenChange: (v: boolean) => void }>
@@ -31,8 +43,14 @@ interface Props<R extends Receipt> {
 }
 
 export function ReceiptListPage<R extends Receipt>({
-  title, newRoute, emptyMessage, queryKey, useHook,
-  cancelService, approveService, ViewModal,
+  title,
+  newRoute,
+  emptyMessage,
+  queryKey,
+  useHook,
+  cancelService,
+  approveService,
+  ViewModal,
   columns,
 }: Props<R>) {
   const navigate = useNavigate()
@@ -57,7 +75,10 @@ export function ReceiptListPage<R extends Receipt>({
 
   const cancelMut = useMutation({
     mutationFn: (id: number) => cancelService(id),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: [queryKey] }); setCancelTarget(null) },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: [queryKey] })
+      setCancelTarget(null)
+    },
   })
 
   const approveMut = useMutation({
@@ -73,12 +94,15 @@ export function ReceiptListPage<R extends Receipt>({
     })
   }
 
-  const handleApprove = useCallback((receipt: R) => {
-    approveMut.mutate(receipt.id, {
-      onSuccess: () => toast.success(`Đã duyệt phiếu ${receipt.receiptCode}`),
-      onError: (err) => toast.error(err instanceof Error ? err.message : "Không thể duyệt phiếu"),
-    })
-  }, [approveMut])
+  const handleApprove = useCallback(
+    (receipt: R) => {
+      approveMut.mutate(receipt.id, {
+        onSuccess: () => toast.success(`Đã duyệt phiếu ${receipt.receiptCode}`),
+        onError: (err) => toast.error(err instanceof Error ? err.message : "Không thể duyệt phiếu"),
+      })
+    },
+    [approveMut],
+  )
 
   const canApprove = useCallback((r: R) => hasApprovePerm(r.status), [hasApprovePerm])
 
@@ -105,7 +129,7 @@ export function ReceiptListPage<R extends Receipt>({
             <TooltipContent>Duyệt phiếu</TooltipContent>
           </Tooltip>
         )}
-        {hasCancelPerm() && r.status !== "CANCELLED" && (
+        {hasCancelPerm() && r.status !== IMPORT_RECEIPT_STATUS.CANCELLED && (
           <Tooltip>
             <TooltipTrigger asChild>
               <Button variant="ghost" size="icon" onClick={() => setCancelTarget(r)}>
@@ -141,12 +165,26 @@ export function ReceiptListPage<R extends Receipt>({
         totalPages={data?.pagination.totalPages}
         pageSize={pageSize}
         onPageChange={setPage}
-        onPageSizeChange={(s) => { setPageSize(s); setPage(0) }}
+        onPageSizeChange={(s) => {
+          setPageSize(s)
+          setPage(0)
+        }}
       />
 
-      <ViewModal receipt={viewReceipt} open={!!viewReceipt} onOpenChange={(v) => { if (!v) setViewReceipt(null) }} />
+      <ViewModal
+        receipt={viewReceipt}
+        open={!!viewReceipt}
+        onOpenChange={(v) => {
+          if (!v) setViewReceipt(null)
+        }}
+      />
 
-      <AlertDialog open={!!cancelTarget} onOpenChange={(v) => { if (!v) setCancelTarget(null) }}>
+      <AlertDialog
+        open={!!cancelTarget}
+        onOpenChange={(v) => {
+          if (!v) setCancelTarget(null)
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Xác nhận hủy phiếu</AlertDialogTitle>

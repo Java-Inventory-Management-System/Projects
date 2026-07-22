@@ -4,7 +4,7 @@ import { mapProductImage } from "@/utils/mappers"
 
 export async function getProductImages(productId: number): Promise<ProductImage[]> {
   const res = await http.get(`/product-image/product/${productId}`)
-  return (res as []).map(mapProductImage)
+  return (res as unknown as []).map(mapProductImage)
 }
 
 export async function createProductImage(data: {

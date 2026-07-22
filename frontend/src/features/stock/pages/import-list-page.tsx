@@ -14,13 +14,17 @@ const statusLabel: Record<string, { label: string; variant: "default" | "seconda
 }
 
 const columns: Column<ImportReceipt>[] = [
-  { header: "Mã phiếu", sortKey: "receiptCode", render: (r) => <span className="font-mono text-xs">{r.receiptCode}</span> },
+  {
+    header: "Mã phiếu",
+    sortKey: "receiptCode",
+    render: (r) => <span className="font-mono text-xs">{r.receiptCode}</span>,
+  },
   { header: "Nhà cung cấp", render: (r) => <span className="font-medium">{r.supplierName || "—"}</span> },
   {
     header: "Tổng tiền",
     sortKey: "totalAmount",
     className: "text-right",
-    render: (r) => <span className="tabular-nums">{r.totalAmount.toLocaleString("vi-VN")}₫</span>,
+    render: (r) => <span className="tabular-nums">{(r.totalAmount ?? 0).toLocaleString("vi-VN")}₫</span>,
   },
   {
     header: "Trạng thái",

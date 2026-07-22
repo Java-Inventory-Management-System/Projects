@@ -22,17 +22,34 @@ export interface CreateUserResponse extends UserResponse {
 
 function mapUser(raw: unknown): UserResponse {
   const r = raw as {
-    id: number; username: string; fullName: string; email: string
-    role: string; status: string; gender?: number | null; dob?: string | null
-    phoneNumber?: string | null; isPasswordReset?: boolean; isDeleted?: boolean
-    createdAt: string; updatedAt: string
+    id: number
+    username: string
+    fullName: string
+    email: string
+    role: string
+    status: string
+    gender?: number | null
+    dob?: string | null
+    phoneNumber?: string | null
+    isPasswordReset?: boolean
+    isDeleted?: boolean
+    createdAt: string
+    updatedAt: string
   }
   return {
-    id: r.id, username: r.username, fullName: r.fullName, email: r.email,
-    role: r.role as UserResponse["role"], status: r.status,
-    gender: r.gender ?? null, dob: r.dob ?? null, phoneNumber: r.phoneNumber ?? null,
-    isPasswordReset: r.isPasswordReset ?? false, isDeleted: r.isDeleted ?? false,
-    createdAt: r.createdAt, updatedAt: r.updatedAt,
+    id: r.id,
+    username: r.username,
+    fullName: r.fullName,
+    email: r.email,
+    role: r.role as UserResponse["role"],
+    status: r.status,
+    gender: r.gender ?? null,
+    dob: r.dob ?? null,
+    phoneNumber: r.phoneNumber ?? null,
+    isPasswordReset: r.isPasswordReset ?? false,
+    isDeleted: r.isDeleted ?? false,
+    createdAt: r.createdAt,
+    updatedAt: r.updatedAt,
   }
 }
 
@@ -48,7 +65,7 @@ export async function getUserById(id: number): Promise<UserResponse> {
 
 export async function createUser(data: CreateUserRequest): Promise<CreateUserResponse> {
   const res = await http.post("/user", data)
-  return { ...mapUser(res), tempPassword: (res as { tempPassword: string }).tempPassword }
+  return { ...mapUser(res), tempPassword: (res as unknown as { tempPassword: string }).tempPassword }
 }
 
 export async function updateUserInfo(id: number, data: UpdateInfoRequest): Promise<UserResponse> {
@@ -70,5 +87,5 @@ export async function updateUserRole(id: number, roleName: string): Promise<User
 
 export async function resetPassword(id: number): Promise<string> {
   const res = await http.put(`/auth/${id}/reset-password`)
-  return (res as { tempPassword: string }).tempPassword
+  return (res as unknown as { tempPassword: string }).tempPassword
 }

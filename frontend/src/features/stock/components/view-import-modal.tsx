@@ -1,19 +1,7 @@
 import type { ImportReceipt } from "@/utils/types"
 import { Badge } from "@/components/ui/badge"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
 const statusLabel: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
   PENDING: { label: "Chờ xử lý", variant: "secondary" },
@@ -22,17 +10,26 @@ const statusLabel: Record<string, { label: string; variant: "default" | "seconda
   CANCELLED: { label: "Đã hủy", variant: "destructive" },
 }
 
-export const ViewImportModal = ({ receipt, open, onOpenChange }: { receipt: ImportReceipt | null; open: boolean; onOpenChange: (v: boolean) => void }) => {
-  if (!receipt) return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Không có dữ liệu</DialogTitle>
-        </DialogHeader>
-        <p className="text-sm text-muted-foreground">Không tìm thấy thông tin phiếu nhập.</p>
-      </DialogContent>
-    </Dialog>
-  )
+export const ViewImportModal = ({
+  receipt,
+  open,
+  onOpenChange,
+}: {
+  receipt: ImportReceipt | null
+  open: boolean
+  onOpenChange: (v: boolean) => void
+}) => {
+  if (!receipt)
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Không có dữ liệu</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">Không tìm thấy thông tin phiếu nhập.</p>
+        </DialogContent>
+      </Dialog>
+    )
   const s = statusLabel[receipt.status] ?? { label: receipt.status, variant: "secondary" }
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -87,19 +84,26 @@ export const ViewImportModal = ({ receipt, open, onOpenChange }: { receipt: Impo
                       <span className="text-xs text-muted-foreground ml-2">{item.productSku}</span>
                     </TableCell>
                     <TableCell className="text-right tabular-nums">{item.quantity}</TableCell>
-                    <TableCell className="text-right tabular-nums">{item.unitPrice.toLocaleString("vi-VN")}₫</TableCell>
-                    <TableCell className="text-center text-xs tabular-nums text-muted-foreground">{item.warrantyMonths ? `${item.warrantyMonths}t` : "—"}</TableCell>
-                    <TableCell className="text-right tabular-nums">{(item.quantity * item.unitPrice).toLocaleString("vi-VN")}₫</TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {(item.unitPrice ?? 0).toLocaleString("vi-VN")}₫
+                    </TableCell>
+                    <TableCell className="text-center text-xs tabular-nums text-muted-foreground">
+                      {item.warrantyMonths ? `${item.warrantyMonths}t` : "—"}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {((item.quantity ?? 0) * (item.unitPrice ?? 0)).toLocaleString("vi-VN")}₫
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
           </div>
           <div className="flex justify-between items-center text-sm">
-            <span className="text-muted-foreground">Tổng số đơn vị sản phẩm đã tạo: {receipt.items.reduce((sum, i) => sum + i.createdUnits, 0)}</span>
-            <span className="text-lg font-semibold">Tổng: {receipt.totalAmount.toLocaleString("vi-VN")}₫</span>
+            <span className="text-muted-foreground">
+              Tổng số đơn vị sản phẩm đã tạo: {receipt.items.reduce((sum, i) => sum + i.createdUnits, 0)}
+            </span>
+            <span className="text-lg font-semibold">Tổng: {(receipt.totalAmount ?? 0).toLocaleString("vi-VN")}₫</span>
           </div>
-
         </div>
       </DialogContent>
     </Dialog>

@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createStockAdjustment } from "@/services/stock-adjustment-service"
 import { getProducts } from "@/services/product-service"
 import http from "@/utils/http-client"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -16,6 +17,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog"
 import { useFormDraft, clearDraft } from "@/hooks/use-form-draft"
@@ -23,11 +25,12 @@ import { ArrowLeft, Search } from "lucide-react"
 import { Empty, EmptyTitle } from "@/components/ui/empty"
 import { toast } from "@/utils/toast"
 import { mapResponsePage, mapProductUnit } from "@/utils/mappers"
+import { ADJUSTMENT_TYPE, STOCK_CHECK_DIFF } from "@/utils/types"
 
 const typeOptions = [
-  { value: "DAMAGED", label: "Hư hỏng", desc: "Sản phẩm bị hư hỏng trong kho" },
-  { value: "LOST", label: "Mất", desc: "Sản phẩm bị mất / thất lạc" },
-  { value: "FOUND", label: "Thừa", desc: "Phát hiện hàng thừa ngoài kiểm kê" },
+  { value: ADJUSTMENT_TYPE.DAMAGED, label: "Hư hỏng", desc: "Sản phẩm bị hư hỏng trong kho" },
+  { value: ADJUSTMENT_TYPE.LOST, label: "Mất", desc: "Sản phẩm bị mất / thất lạc" },
+  { value: ADJUSTMENT_TYPE.FOUND, label: "Thừa", desc: "Phát hiện hàng thừa ngoài kiểm kê" },
 ]
 
 interface FormErrors {
@@ -41,7 +44,17 @@ export const StockAdjustmentCreatePage = () => {
   const navigate = useNavigate()
   const qc = useQueryClient()
   const location = useLocation()
-  const locationState = location.state as { reason?: string; mismatches?: Array<{ productUnitId: number; productName: string; productSku: string; serialNumber: string; difference: string }>; batch?: boolean } | null
+  const locationState = location.state as {
+    reason?: string
+    mismatches?: Array<{
+      productUnitId: number
+      productName: string
+      productSku: string
+      serialNumber: string
+      difference: string
+    }>
+    batch?: boolean
+  } | null
   const initialReason = locationState?.reason ?? ""
 
   const [type, setType] = useState("")
@@ -68,7 +81,9 @@ export const StockAdjustmentCreatePage = () => {
       if (d.reason) setReason(d.reason)
     },
   )
-  useEffect(() => { if (draftAvailable) setShowDraftDialog(true) }, [draftAvailable])
+  useEffect(() => {
+    if (draftAvailable) setShowDraftDialog(true)
+  }, [draftAvailable])
 
   const { data: unitsData, isLoading: unitsLoading } = useQuery({
     queryKey: ["product-units", searchUnit],
@@ -78,13 +93,13 @@ export const StockAdjustmentCreatePage = () => {
       const res = await http.get("/product-unit", { params })
       return mapResponsePage(res, mapProductUnit)
     },
-    enabled: type === "DAMAGED" || type === "LOST",
+    enabled: type === ADJUSTMENT_TYPE.DAMAGED || type === ADJUSTMENT_TYPE.LOST,
   })
 
   const { data: productsData, isLoading: productsLoading } = useQuery({
     queryKey: ["products", searchProduct],
     queryFn: () => getProducts(0, 100, searchProduct || undefined),
-    enabled: type === "FOUND",
+    enabled: type === ADJUSTMENT_TYPE.FOUND,
   })
 
   const createMut = useMutation({
@@ -101,8 +116,12 @@ export const StockAdjustmentCreatePage = () => {
   const batchMut = useMutation({
     mutationFn: async (items: Array<{ productUnitId: number; difference: string }>) => {
       for (const item of items) {
-        const type = item.difference === "UNEXPECTED" ? "FOUND" : "LOST"
-        await createStockAdjustment({ type, productUnitId: item.productUnitId, reason: reason.trim() || `Batch from stock check` })
+        const type = item.difference === STOCK_CHECK_DIFF.UNEXPECTED ? ADJUSTMENT_TYPE.FOUND : ADJUSTMENT_TYPE.LOST
+        await createStockAdjustment({
+          type,
+          productUnitId: item.productUnitId,
+          reason: reason.trim() || `Batch from stock check`,
+        })
       }
     },
     onSuccess: () => {
@@ -117,10 +136,10 @@ export const StockAdjustmentCreatePage = () => {
     const errs: FormErrors = {}
     if (!type) errs.type = "Vui lòng chọn loại điều chỉnh"
     if (!reason.trim()) errs.reason = "Vui lòng nhập lý do"
-    if ((type === "DAMAGED" || type === "LOST") && !selectedUnitId) {
+    if ((type === ADJUSTMENT_TYPE.DAMAGED || type === ADJUSTMENT_TYPE.LOST) && !selectedUnitId) {
       errs.productUnit = "Vui lòng chọn sản phẩm"
     }
-    if (type === "FOUND" && !selectedUnitId && !selectedProductId) {
+    if (type === ADJUSTMENT_TYPE.FOUND && !selectedUnitId && !selectedProductId) {
       errs.product = "Vui lòng chọn sản phẩm"
     }
     setErrors(errs)
@@ -139,26 +158,35 @@ export const StockAdjustmentCreatePage = () => {
   const confirmSubmit = () => {
     setShowConfirm(false)
     if (locationState?.batch && locationState.mismatches) {
-      batchMut.mutate(locationState.mismatches.map((m) => ({
-        productUnitId: m.productUnitId,
-        difference: m.difference,
-      })))
+      batchMut.mutate(
+        locationState.mismatches.map((m) => ({
+          productUnitId: m.productUnitId,
+          difference: m.difference,
+        })),
+      )
       return
     }
-    const data: { type: string; productUnitId?: number; productId?: number; quantity?: number; reason: string; imageUrl?: string } = {
+    const data: {
+      type: string
+      productUnitId?: number
+      productId?: number
+      quantity?: number
+      reason: string
+      imageUrl?: string
+    } = {
       type,
       reason: reason.trim(),
     }
 
-    if (type === "DAMAGED" || type === "LOST") {
+    if (type === ADJUSTMENT_TYPE.DAMAGED || type === ADJUSTMENT_TYPE.LOST) {
       data.productUnitId = selectedUnitId!
     }
 
-    if (type === "FOUND" && !selectedUnitId) {
+    if (type === ADJUSTMENT_TYPE.FOUND && !selectedUnitId) {
       data.productId = selectedProductId!
       data.quantity = quantity
     }
-    if (type === "FOUND" && selectedUnitId) {
+    if (type === ADJUSTMENT_TYPE.FOUND && selectedUnitId) {
       data.productUnitId = selectedUnitId
     }
 
@@ -167,8 +195,8 @@ export const StockAdjustmentCreatePage = () => {
     createMut.mutate(data)
   }
 
-  const needsUnit = type === "DAMAGED" || type === "LOST"
-  const needsProduct = type === "FOUND"
+  const needsUnit = type === ADJUSTMENT_TYPE.DAMAGED || type === ADJUSTMENT_TYPE.LOST
+  const needsProduct = type === ADJUSTMENT_TYPE.FOUND
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -180,8 +208,18 @@ export const StockAdjustmentCreatePage = () => {
       </div>
 
       <div className="space-y-2">
-        <Label>Loại điều chỉnh <span className="text-destructive">*</span></Label>
-        <RadioGroup value={type} onValueChange={(v) => { setType(v); setSelectedUnitId(null); setSelectedProductId(null); setErrors({}) }}>
+        <Label>
+          Loại điều chỉnh <span className="text-destructive">*</span>
+        </Label>
+        <RadioGroup
+          value={type}
+          onValueChange={(v) => {
+            setType(v)
+            setSelectedUnitId(null)
+            setSelectedProductId(null)
+            setErrors({})
+          }}
+        >
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {typeOptions.map((opt) => (
               <Label
@@ -204,7 +242,10 @@ export const StockAdjustmentCreatePage = () => {
       {type && (
         <>
           <div className="space-y-2">
-            <Label>{needsUnit ? "Chọn sản phẩm (serial)" : needsProduct ? "Chọn sản phẩm" : ""} <span className="text-destructive">*</span></Label>
+            <Label>
+              {needsUnit ? "Chọn sản phẩm (serial)" : needsProduct ? "Chọn sản phẩm" : ""}{" "}
+              <span className="text-destructive">*</span>
+            </Label>
 
             {(needsUnit || (needsProduct && !selectedUnitId)) && (
               <div className="relative">
@@ -225,10 +266,14 @@ export const StockAdjustmentCreatePage = () => {
               {needsUnit ? (
                 unitsLoading ? (
                   <div className="p-3 space-y-2">
-                    {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-8 w-full" />)}
+                    {Array.from({ length: 3 }).map((_, i) => (
+                      <Skeleton key={i} className="h-8 w-full" />
+                    ))}
                   </div>
                 ) : !unitsData || unitsData.content.length === 0 ? (
-                  <Empty className="py-4"><EmptyTitle>Không tìm thấy sản phẩm.</EmptyTitle></Empty>
+                  <Empty className="py-4">
+                    <EmptyTitle>Không tìm thấy sản phẩm.</EmptyTitle>
+                  </Empty>
                 ) : (
                   <table className="w-full text-sm">
                     <thead>
@@ -246,7 +291,10 @@ export const StockAdjustmentCreatePage = () => {
                           className={`border-b last:border-0 cursor-pointer hover:bg-muted/30 ${
                             selectedUnitId === u.id ? "bg-primary/5" : ""
                           }`}
-                          onClick={() => { setSelectedUnitId(u.id); setErrors((p) => ({ ...p, productUnit: undefined })) }}
+                          onClick={() => {
+                            setSelectedUnitId(u.id)
+                            setErrors((p) => ({ ...p, productUnit: undefined }))
+                          }}
                         >
                           <td className="px-2 py-1">
                             <input type="radio" checked={selectedUnitId === u.id} readOnly className="accent-primary" />
@@ -264,13 +312,18 @@ export const StockAdjustmentCreatePage = () => {
                 )
               ) : null}
 
-              {needsProduct && !selectedUnitId && (
-                productsLoading ? (
+              {needsProduct &&
+                !selectedUnitId &&
+                (productsLoading ? (
                   <div className="p-3 space-y-2">
-                    {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-8 w-full" />)}
+                    {Array.from({ length: 3 }).map((_, i) => (
+                      <Skeleton key={i} className="h-8 w-full" />
+                    ))}
                   </div>
                 ) : !productsData || productsData.content.length === 0 ? (
-                  <Empty className="py-4"><EmptyTitle>Không tìm thấy sản phẩm.</EmptyTitle></Empty>
+                  <Empty className="py-4">
+                    <EmptyTitle>Không tìm thấy sản phẩm.</EmptyTitle>
+                  </Empty>
                 ) : (
                   <table className="w-full text-sm">
                     <thead>
@@ -287,10 +340,18 @@ export const StockAdjustmentCreatePage = () => {
                           className={`border-b last:border-0 cursor-pointer hover:bg-muted/30 ${
                             selectedProductId === p.id ? "bg-primary/5" : ""
                           }`}
-                          onClick={() => { setSelectedProductId(p.id); setErrors((p_) => ({ ...p_, product: undefined })) }}
+                          onClick={() => {
+                            setSelectedProductId(p.id)
+                            setErrors((p_) => ({ ...p_, product: undefined }))
+                          }}
                         >
                           <td className="px-2 py-1">
-                            <input type="radio" checked={selectedProductId === p.id} readOnly className="accent-primary" />
+                            <input
+                              type="radio"
+                              checked={selectedProductId === p.id}
+                              readOnly
+                              className="accent-primary"
+                            />
                           </td>
                           <td className="px-2 py-1 font-mono text-xs">{p.sku}</td>
                           <td className="px-2 py-1 font-medium">{p.name}</td>
@@ -298,8 +359,7 @@ export const StockAdjustmentCreatePage = () => {
                       ))}
                     </tbody>
                   </table>
-                )
-              )}
+                ))}
             </div>
             {errors.productUnit && <p className="text-xs text-destructive">{errors.productUnit}</p>}
             {errors.product && <p className="text-xs text-destructive">{errors.product}</p>}
@@ -307,7 +367,9 @@ export const StockAdjustmentCreatePage = () => {
 
           {needsProduct && !selectedUnitId && (
             <div className="space-y-2">
-              <Label htmlFor="quantity">Số lượng <span className="text-destructive">*</span></Label>
+              <Label htmlFor="quantity">
+                Số lượng <span className="text-destructive">*</span>
+              </Label>
               <Input
                 id="quantity"
                 type="number"
@@ -321,12 +383,17 @@ export const StockAdjustmentCreatePage = () => {
           )}
 
           <div className="space-y-2">
-            <Label htmlFor="reason">Lý do <span className="text-destructive">*</span></Label>
+            <Label htmlFor="reason">
+              Lý do <span className="text-destructive">*</span>
+            </Label>
             <Textarea
               id="reason"
               placeholder="Mô tả chi tiết lý do điều chỉnh..."
               value={reason}
-              onChange={(e) => { setReason(e.target.value); setErrors((p) => ({ ...p, reason: undefined })) }}
+              onChange={(e) => {
+                setReason(e.target.value)
+                setErrors((p) => ({ ...p, reason: undefined }))
+              }}
               rows={3}
               className={errors.reason ? "border-destructive" : ""}
             />
@@ -341,29 +408,68 @@ export const StockAdjustmentCreatePage = () => {
       )}
 
       <div className="flex justify-end gap-3">
-        <Button variant="outline" onClick={() => navigate("/stock/adjustments")}>Hủy</Button>
-        <Button onClick={handleSubmit} disabled={createMut.isPending || batchMut.isPending || (!locationState?.batch && !type)}>
-          {createMut.isPending || batchMut.isPending ? "Đang tạo..." : locationState?.batch ? `Tạo Adjustment (${locationState.mismatches?.length ?? 0})` : "Tạo phiếu điều chỉnh"}
+        <Button variant="outline" onClick={() => navigate("/stock/adjustments")}>
+          Hủy
+        </Button>
+        <Button
+          onClick={handleSubmit}
+          disabled={createMut.isPending || batchMut.isPending || (!locationState?.batch && !type)}
+        >
+          {createMut.isPending || batchMut.isPending
+            ? "Đang tạo..."
+            : locationState?.batch
+              ? `Tạo Adjustment (${locationState.mismatches?.length ?? 0})`
+              : "Tạo phiếu điều chỉnh"}
         </Button>
       </div>
 
-      <Dialog open={showDraftDialog} onOpenChange={(v) => { if (!v) { setShowDraftDialog(false); dismiss() } }}>
+      <Dialog
+        open={showDraftDialog}
+        onOpenChange={(v) => {
+          if (!v) {
+            setShowDraftDialog(false)
+            dismiss()
+          }
+        }}
+      >
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>Khôi phục dữ liệu</DialogTitle>
             <DialogDescription>Bạn có dữ liệu điều chỉnh chưa lưu từ lần trước. Muốn khôi phục?</DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => { setShowDraftDialog(false); dismiss() }}>Bỏ qua</Button>
-            <Button onClick={() => { setShowDraftDialog(false); restore() }}>Khôi phục</Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowDraftDialog(false)
+                dismiss()
+              }}
+            >
+              Bỏ qua
+            </Button>
+            <Button
+              onClick={() => {
+                setShowDraftDialog(false)
+                restore()
+              }}
+            >
+              Khôi phục
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      <Dialog open={showConfirm} onOpenChange={(v) => { if (!v) setShowConfirm(false) }}>
+      <Dialog
+        open={showConfirm}
+        onOpenChange={(v) => {
+          if (!v) setShowConfirm(false)
+        }}
+      >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{locationState?.batch ? "Xác nhận tạo hàng loạt" : "Xác nhận tạo phiếu điều chỉnh"}</DialogTitle>
+            <DialogTitle>
+              {locationState?.batch ? "Xác nhận tạo hàng loạt" : "Xác nhận tạo phiếu điều chỉnh"}
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-2 text-sm">
             {locationState?.batch && locationState.mismatches ? (
@@ -375,7 +481,12 @@ export const StockAdjustmentCreatePage = () => {
                 <div className="rounded-lg border max-h-32 overflow-y-auto divide-y text-xs">
                   {locationState.mismatches.map((m, i) => (
                     <div key={i} className="flex items-center gap-2 px-2 py-1.5">
-                      <Badge variant={m.difference === "UNEXPECTED" ? "default" : "destructive"} className="text-[10px]">{m.difference}</Badge>
+                      <Badge
+                        variant={m.difference === STOCK_CHECK_DIFF.UNEXPECTED ? "default" : "destructive"}
+                        className="text-[10px]"
+                      >
+                        {m.difference}
+                      </Badge>
                       <span className="font-mono">{m.serialNumber}</span>
                       <span className="text-muted-foreground truncate">{m.productName}</span>
                     </div>
@@ -383,7 +494,12 @@ export const StockAdjustmentCreatePage = () => {
                 </div>
                 <div>
                   <span className="text-muted-foreground">Lý do:</span>
-                  <Input className="mt-1 h-8 text-sm" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Lý do (dùng chung cho tất cả)" />
+                  <Input
+                    className="mt-1 h-8 text-sm"
+                    value={reason}
+                    onChange={(e) => setReason(e.target.value)}
+                    placeholder="Lý do (dùng chung cho tất cả)"
+                  />
                 </div>
               </>
             ) : (
@@ -418,7 +534,9 @@ export const StockAdjustmentCreatePage = () => {
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowConfirm(false)}>Quay lại</Button>
+            <Button variant="outline" onClick={() => setShowConfirm(false)}>
+              Quay lại
+            </Button>
             <Button onClick={confirmSubmit} disabled={createMut.isPending || batchMut.isPending}>
               {createMut.isPending || batchMut.isPending ? "Đang tạo..." : "Xác nhận"}
             </Button>

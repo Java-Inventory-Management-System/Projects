@@ -10,19 +10,30 @@ import { Empty, EmptyTitle } from "@/components/ui/empty"
 import { ButtonGroup } from "@/components/ui/button-group"
 import { Check, X } from "lucide-react"
 import {
-  Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator,
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
 import { Card, CardContent } from "@/components/ui/card"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from "@/components/ui/table"
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { toast } from "@/utils/toast"
 import { downloadCsv } from "@/utils/download-csv"
 import { PrintReceiptButton } from "../components/print-receipt"
 import { FileDown } from "lucide-react"
+import { EXPORT_RECEIPT_STATUS } from "@/utils/types"
 
 const statusLabel: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
   PENDING_APPROVAL: { label: "Chờ duyệt", variant: "outline" },
@@ -64,11 +75,25 @@ export function ExportDetailPage() {
       toast.success("Thao tác thành công")
       setConfirmAction(null)
     },
-    onError: (e: Error) => { toast.error(e.message); setConfirmAction(null) },
+    onError: (e: Error) => {
+      toast.error(e.message)
+      setConfirmAction(null)
+    },
   })
 
-  if (isLoading) return <div className="space-y-4"><Skeleton className="h-8 w-48" /><Skeleton className="h-64 w-full" /></div>
-  if (!receipt) return <Empty><EmptyTitle>Không tìm thấy phiếu xuất</EmptyTitle></Empty>
+  if (isLoading)
+    return (
+      <div className="space-y-4">
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-64 w-full" />
+      </div>
+    )
+  if (!receipt)
+    return (
+      <Empty>
+        <EmptyTitle>Không tìm thấy phiếu xuất</EmptyTitle>
+      </Empty>
+    )
 
   const s = statusLabel[receipt.status] ?? { label: receipt.status, variant: "secondary" }
 
@@ -78,10 +103,10 @@ export function ExportDetailPage() {
       ["Sản phẩm", "SKU", "Số lượng", "Đơn giá", "Thành tiền"],
       receipt.items.map((item) => [
         item.productName,
-        item.productSku,
+        item.productSku ?? "",
         String(item.quantity),
-        item.unitPrice.toLocaleString("vi-VN"),
-        (item.quantity * item.unitPrice).toLocaleString("vi-VN"),
+        (item.unitPrice ?? 0).toLocaleString("vi-VN"),
+        ((item.quantity ?? 0) * (item.unitPrice ?? 0)).toLocaleString("vi-VN"),
       ]),
     )
   }
@@ -90,9 +115,13 @@ export function ExportDetailPage() {
     <div className="space-y-6">
       <Breadcrumb>
         <BreadcrumbList>
-          <BreadcrumbItem><BreadcrumbLink onClick={() => navigate("/stock/exports")}>Xuất kho</BreadcrumbLink></BreadcrumbItem>
+          <BreadcrumbItem>
+            <BreadcrumbLink onClick={() => navigate("/stock/exports")}>Xuất kho</BreadcrumbLink>
+          </BreadcrumbItem>
           <BreadcrumbSeparator />
-          <BreadcrumbItem><BreadcrumbPage>{receipt.receiptCode}</BreadcrumbPage></BreadcrumbItem>
+          <BreadcrumbItem>
+            <BreadcrumbPage>{receipt.receiptCode}</BreadcrumbPage>
+          </BreadcrumbItem>
         </BreadcrumbList>
       </Breadcrumb>
 
@@ -102,7 +131,7 @@ export function ExportDetailPage() {
           <Badge variant={s.variant}>{s.label}</Badge>
         </div>
         <div className="flex items-center gap-2">
-          {receipt.status === "PENDING_APPROVAL" && (
+          {receipt.status === EXPORT_RECEIPT_STATUS.PENDING_APPROVAL && (
             <ButtonGroup>
               {perm.canCancel() && (
                 <Button variant="outline" className="text-destructive" onClick={() => setConfirmAction("cancel")}>
@@ -116,7 +145,7 @@ export function ExportDetailPage() {
               )}
             </ButtonGroup>
           )}
-          {perm.canCancel() && receipt.status === "COMPLETED" && (
+          {perm.canCancel() && receipt.status === EXPORT_RECEIPT_STATUS.COMPLETED && (
             <Button variant="outline" className="text-destructive" onClick={() => setConfirmAction("cancel")}>
               <X className="size-4 mr-1" /> Hủy phiếu
             </Button>
@@ -127,11 +156,11 @@ export function ExportDetailPage() {
               type: "export",
               status: receipt.status,
               createdAt: receipt.createdAt,
-              createdByName: receipt.createdByName,
+              createdByName: receipt.createdByName ?? "",
               approvedByName: receipt.approvedByName,
               note: receipt.note,
               totalAmount: receipt.totalAmount,
-              items: receipt.items,
+              items: receipt.items.map((item) => ({ ...item, productSku: item.productSku ?? "" })),
             }}
             type="export"
           />
@@ -145,11 +174,28 @@ export function ExportDetailPage() {
       <Card>
         <CardContent className="pt-6">
           <div className="grid grid-cols-2 gap-4 text-sm">
-            <div><span className="text-muted-foreground">Lý do xuất:</span><p className="font-medium">{reasonLabel[receipt.reason] ?? receipt.reason}</p></div>
-            <div><span className="text-muted-foreground">Ngày tạo:</span><p className="font-medium">{new Date(receipt.createdAt).toLocaleString("vi-VN")}</p></div>
-            {receipt.customerName && <div><span className="text-muted-foreground">Khách hàng:</span><p className="font-medium">{receipt.customerName}</p></div>}
-            <div><span className="text-muted-foreground">Người tạo:</span><p className="font-medium">{receipt.createdByName || "—"}</p></div>
-            <div><span className="text-muted-foreground">Người duyệt:</span><p className="font-medium">{receipt.approvedByName ?? "—"}</p></div>
+            <div>
+              <span className="text-muted-foreground">Lý do xuất:</span>
+              <p className="font-medium">{reasonLabel[receipt.reason] ?? receipt.reason}</p>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Ngày tạo:</span>
+              <p className="font-medium">{new Date(receipt.createdAt).toLocaleString("vi-VN")}</p>
+            </div>
+            {receipt.customerName && (
+              <div>
+                <span className="text-muted-foreground">Khách hàng:</span>
+                <p className="font-medium">{receipt.customerName}</p>
+              </div>
+            )}
+            <div>
+              <span className="text-muted-foreground">Người tạo:</span>
+              <p className="font-medium">{receipt.createdByName || "—"}</p>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Người duyệt:</span>
+              <p className="font-medium">{receipt.approvedByName ?? "—"}</p>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -180,8 +226,12 @@ export function ExportDetailPage() {
                     <span className="text-xs text-muted-foreground ml-2">{item.productSku}</span>
                   </TableCell>
                   <TableCell className="text-right tabular-nums">{item.quantity}</TableCell>
-                  <TableCell className="text-right tabular-nums">{item.unitPrice.toLocaleString("vi-VN")}₫</TableCell>
-                  <TableCell className="text-right tabular-nums">{(item.quantity * item.unitPrice).toLocaleString("vi-VN")}₫</TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {(item.unitPrice ?? 0).toLocaleString("vi-VN")}₫
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {((item.quantity ?? 0) * (item.unitPrice ?? 0)).toLocaleString("vi-VN")}₫
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -190,10 +240,15 @@ export function ExportDetailPage() {
       </Card>
 
       <div className="flex justify-end">
-        <span className="text-lg font-semibold">Tổng: {receipt.totalAmount.toLocaleString("vi-VN")}₫</span>
+        <span className="text-lg font-semibold">Tổng: {(receipt.totalAmount ?? 0).toLocaleString("vi-VN")}₫</span>
       </div>
 
-      <AlertDialog open={!!confirmAction} onOpenChange={(v) => { if (!v) setConfirmAction(null) }}>
+      <AlertDialog
+        open={!!confirmAction}
+        onOpenChange={(v) => {
+          if (!v) setConfirmAction(null)
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{confirmAction === "approve" ? "Duyệt phiếu xuất" : "Hủy phiếu xuất"}</AlertDialogTitle>
@@ -205,7 +260,10 @@ export function ExportDetailPage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Không</AlertDialogCancel>
-            <AlertDialogAction onClick={() => confirmAction && action.mutate(confirmAction)} disabled={action.isPending}>
+            <AlertDialogAction
+              onClick={() => confirmAction && action.mutate(confirmAction)}
+              disabled={action.isPending}
+            >
               {action.isPending ? "Đang xử lý..." : "Xác nhận"}
             </AlertDialogAction>
           </AlertDialogFooter>

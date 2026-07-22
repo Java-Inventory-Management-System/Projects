@@ -40,7 +40,10 @@ export function useLocationMapPage() {
               if (search && !bin.fullCode.toLowerCase().includes(search.toLowerCase())) return false
               if (filter === "empty") return bin.productCount === 0
               if (filter === "stocked") return bin.productCount > 0
-              if (filter === "full") return bin.maxCapacity != null && bin.maxCapacity > 0 ? bin.productCount >= bin.maxCapacity : bin.productCount >= 50
+              if (filter === "full")
+                return bin.maxCapacity != null && bin.maxCapacity > 0
+                  ? bin.productCount >= bin.maxCapacity
+                  : bin.productCount >= 50
               return true
             })
             return { ...shelf, bins }
@@ -51,7 +54,9 @@ export function useLocationMapPage() {
       .filter((zone) => zone.shelves.length > 0)
   }, [data, search, filter])
 
-  function isBinActive(bin: DetailBin) { return !deactivatedIds[bin.id] }
+  function isBinActive(bin: DetailBin) {
+    return !deactivatedIds[bin.id]
+  }
 
   function openDetail(bin: DetailBin) {
     setSelectedBin(bin)
@@ -77,16 +82,29 @@ export function useLocationMapPage() {
     const zoneCode = nextCode(existing)
     const shelfCode = "01"
     const binCode = "01"
-    const newBin = { id: -Date.now(), fullCode: `${zoneCode}-${shelfCode}-${binCode}`, binCode, productCount: 0, maxCapacity: null }
+    const newBin = {
+      id: -Date.now(),
+      fullCode: `${zoneCode}-${shelfCode}-${binCode}`,
+      binCode,
+      productCount: 0,
+      maxCapacity: null,
+    }
     patchZones((prev) => ({ ...prev, zones: [...prev.zones, { zoneCode, shelves: [{ shelfCode, bins: [newBin] }] }] }))
     createLocation({ zoneCode, shelfCode, binCode })
       .then((res) => {
         patchZones((prev) => ({
           ...prev,
           zones: prev.zones.map((z) =>
-            z.zoneCode !== zoneCode ? z : { ...z, shelves: z.shelves.map((s) =>
-              s.shelfCode !== shelfCode ? s : { ...s, bins: s.bins.map((b) => (b.id === newBin.id ? { ...b, id: res.id } : b)) }
-            ) }
+            z.zoneCode !== zoneCode
+              ? z
+              : {
+                  ...z,
+                  shelves: z.shelves.map((s) =>
+                    s.shelfCode !== shelfCode
+                      ? s
+                      : { ...s, bins: s.bins.map((b) => (b.id === newBin.id ? { ...b, id: res.id } : b)) },
+                  ),
+                },
           ),
         }))
       })
@@ -96,7 +114,9 @@ export function useLocationMapPage() {
       })
   }
 
-  function canDeleteBin(bin: DetailBin) { return bin.productCount === 0 && !isBinActive(bin) }
+  function canDeleteBin(bin: DetailBin) {
+    return bin.productCount === 0 && !isBinActive(bin)
+  }
 
   function handleBinDelete(target: DetailBin) {
     if (!canDeleteBin(target)) {
@@ -109,9 +129,16 @@ export function useLocationMapPage() {
     patchZones((prev) => ({
       ...prev,
       zones: prev.zones.map((z) =>
-        z.zoneCode !== target.zoneCode ? z : { ...z, shelves: z.shelves.map((s) =>
-          s.shelfCode !== target.fullCode.split("-")[1] ? s : { ...s, bins: s.bins.filter((b) => b.id !== target.id) }
-        ) }
+        z.zoneCode !== target.zoneCode
+          ? z
+          : {
+              ...z,
+              shelves: z.shelves.map((s) =>
+                s.shelfCode !== target.fullCode.split("-")[1]
+                  ? s
+                  : { ...s, bins: s.bins.filter((b) => b.id !== target.id) },
+              ),
+            },
       ),
     }))
     deleteLocation(target.id).catch(() => refetch())
@@ -131,13 +158,22 @@ export function useLocationMapPage() {
     const shelf = zone?.shelves.find((s) => s.shelfCode === shelfCode)
     const existing = (shelf?.bins ?? []).map((b) => b.binCode)
     const binCode = nextCode(existing)
-    const newBin = { id: -Date.now(), fullCode: `${zoneCode}-${shelfCode}-${binCode}`, binCode, productCount: 0, maxCapacity: null }
+    const newBin = {
+      id: -Date.now(),
+      fullCode: `${zoneCode}-${shelfCode}-${binCode}`,
+      binCode,
+      productCount: 0,
+      maxCapacity: null,
+    }
     patchZones((prev) => ({
       ...prev,
       zones: prev.zones.map((z) =>
-        z.zoneCode !== zoneCode ? z : { ...z, shelves: z.shelves.map((s) =>
-          s.shelfCode !== shelfCode ? s : { ...s, bins: [...s.bins, newBin] }
-        ) }
+        z.zoneCode !== zoneCode
+          ? z
+          : {
+              ...z,
+              shelves: z.shelves.map((s) => (s.shelfCode !== shelfCode ? s : { ...s, bins: [...s.bins, newBin] })),
+            },
       ),
     }))
     try {
@@ -145,18 +181,30 @@ export function useLocationMapPage() {
       patchZones((prev) => ({
         ...prev,
         zones: prev.zones.map((z) =>
-          z.zoneCode !== zoneCode ? z : { ...z, shelves: z.shelves.map((s) =>
-            s.shelfCode !== shelfCode ? s : { ...s, bins: s.bins.map((b) => (b.id === newBin.id ? { ...b, id: res.id } : b)) }
-          ) }
+          z.zoneCode !== zoneCode
+            ? z
+            : {
+                ...z,
+                shelves: z.shelves.map((s) =>
+                  s.shelfCode !== shelfCode
+                    ? s
+                    : { ...s, bins: s.bins.map((b) => (b.id === newBin.id ? { ...b, id: res.id } : b)) },
+                ),
+              },
         ),
       }))
     } catch (err) {
       patchZones((prev) => ({
         ...prev,
         zones: prev.zones.map((z) =>
-          z.zoneCode !== zoneCode ? z : { ...z, shelves: z.shelves.map((s) =>
-            s.shelfCode !== shelfCode ? s : { ...s, bins: s.bins.filter((b) => b.id !== newBin.id) }
-          ) }
+          z.zoneCode !== zoneCode
+            ? z
+            : {
+                ...z,
+                shelves: z.shelves.map((s) =>
+                  s.shelfCode !== shelfCode ? s : { ...s, bins: s.bins.filter((b) => b.id !== newBin.id) },
+                ),
+              },
         ),
       }))
       toast.error((err as Error).message || "Thêm thất bại")
@@ -168,11 +216,17 @@ export function useLocationMapPage() {
     const existingShelves = (zone?.shelves ?? []).map((s) => s.shelfCode)
     const shelfCode = nextCode(existingShelves)
     const binCode = "01"
-    const newBin = { id: -Date.now(), fullCode: `${zoneCode}-${shelfCode}-${binCode}`, binCode, productCount: 0, maxCapacity: null }
+    const newBin = {
+      id: -Date.now(),
+      fullCode: `${zoneCode}-${shelfCode}-${binCode}`,
+      binCode,
+      productCount: 0,
+      maxCapacity: null,
+    }
     patchZones((prev) => ({
       ...prev,
       zones: prev.zones.map((z) =>
-        z.zoneCode !== zoneCode ? z : { ...z, shelves: [...z.shelves, { shelfCode, bins: [newBin] }] }
+        z.zoneCode !== zoneCode ? z : { ...z, shelves: [...z.shelves, { shelfCode, bins: [newBin] }] },
       ),
     }))
     try {
@@ -180,16 +234,23 @@ export function useLocationMapPage() {
       patchZones((prev) => ({
         ...prev,
         zones: prev.zones.map((z) =>
-          z.zoneCode !== zoneCode ? z : { ...z, shelves: z.shelves.map((s) =>
-            s.shelfCode !== shelfCode ? s : { ...s, bins: s.bins.map((b) => (b.id === newBin.id ? { ...b, id: res.id } : b)) }
-          ) }
+          z.zoneCode !== zoneCode
+            ? z
+            : {
+                ...z,
+                shelves: z.shelves.map((s) =>
+                  s.shelfCode !== shelfCode
+                    ? s
+                    : { ...s, bins: s.bins.map((b) => (b.id === newBin.id ? { ...b, id: res.id } : b)) },
+                ),
+              },
         ),
       }))
     } catch (err) {
       patchZones((prev) => ({
         ...prev,
         zones: prev.zones.map((z) =>
-          z.zoneCode !== zoneCode ? z : { ...z, shelves: z.shelves.filter((s) => s.shelfCode !== shelfCode) }
+          z.zoneCode !== zoneCode ? z : { ...z, shelves: z.shelves.filter((s) => s.shelfCode !== shelfCode) },
         ),
       }))
       toast.error((err as Error).message || "Thêm thất bại")
@@ -197,14 +258,25 @@ export function useLocationMapPage() {
   }
 
   return {
-    data, loading: isLoading, refreshing: isFetching, error: error?.message ?? null, fetchMap: () => refetch(),
+    data,
+    loading: isLoading,
+    refreshing: isFetching,
+    error: error?.message ?? null,
+    fetchMap: () => refetch(),
     totalBins,
-    search, setSearch,
-    filter, setFilter,
-    selectedBin, sheetOpen, setSheetOpen,
-    managing, setManaging,
-    confirmBinId, setConfirmBinId,
-    confirmZoneCode, setConfirmZoneCode,
+    search,
+    setSearch,
+    filter,
+    setFilter,
+    selectedBin,
+    sheetOpen,
+    setSheetOpen,
+    managing,
+    setManaging,
+    confirmBinId,
+    setConfirmBinId,
+    confirmZoneCode,
+    setConfirmZoneCode,
     deactivatedIds,
     filteredZones,
     isBinActive,
