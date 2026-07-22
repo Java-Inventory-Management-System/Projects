@@ -1,5 +1,6 @@
 package org.dawn.backend.repository.inventory;
 
+import org.dawn.backend.constant.inventory.StockCheckStatus;
 import org.dawn.backend.entity.inventory.StockCheck;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -13,5 +14,5 @@ public interface StockCheckRepository extends JpaRepository<StockCheck, Long> {
 
     Page<StockCheck> findByCreatedBy(Long createdBy, Pageable pageable);
 
-    List<StockCheck> findByStatusInAndCreatedAtBefore(List<String> statuses, Instant createdAt);
+    List<StockCheck> findByStatusInAndCreatedAtBefore(List<StockCheckStatus> statuses, Instant createdAt);
 }

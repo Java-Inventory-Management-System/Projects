@@ -1,6 +1,7 @@
 package org.dawn.backend.repository.inventory;
 
 import jakarta.persistence.LockModeType;
+import org.dawn.backend.constant.inventory.ProductUnitStatus;
 import org.dawn.backend.entity.inventory.ProductUnit;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -46,13 +47,13 @@ public interface ProductUnitRepository extends JpaRepository<ProductUnit, Long> 
     Set<String> findExistingSerialNumbers(@Param("serials") List<String> serials);
     List<ProductUnit> findByImportReceiptItemId(Long importReceiptItemId);
     List<ProductUnit> findByImportReceiptItemIdIn(List<Long> importReceiptItemIds);
-    List<ProductUnit> findByProductIdAndStatus(Long productId, String status);
-    long countByProductIdAndStatus(Long productId, String status);
+    List<ProductUnit> findByProductIdAndStatus(Long productId, ProductUnitStatus status);
+    long countByProductIdAndStatus(Long productId, ProductUnitStatus status);
     long countByLocationId(Long locationId);
-    Page<ProductUnit> findByStatus(String status, Pageable pageable);
+    Page<ProductUnit> findByStatus(ProductUnitStatus status, Pageable pageable);
     Page<ProductUnit> findByProductId(Long productId, Pageable pageable);
 
-    List<ProductUnit> findByProductIdInAndStatus(List<Long> productIds, String status);
+    List<ProductUnit> findByProductIdInAndStatus(List<Long> productIds, ProductUnitStatus status);
 
     @Query(value = """
             SELECT pu.* FROM product_units pu

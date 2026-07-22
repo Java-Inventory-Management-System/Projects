@@ -1,5 +1,6 @@
 package org.dawn.backend.repository.inventory;
 
+import org.dawn.backend.constant.inventory.ExportReceiptStatus;
 import org.dawn.backend.entity.inventory.ExportReceipt;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -13,7 +14,7 @@ import java.util.Optional;
 @Repository
 public interface ExportReceiptRepository extends JpaRepository<ExportReceipt, Long> {
     Optional<ExportReceipt> findByReceiptCode(String receiptCode);
-    Page<ExportReceipt> findByStatus(String status, Pageable pageable);
+    Page<ExportReceipt> findByStatus(ExportReceiptStatus status, Pageable pageable);
     Page<ExportReceipt> findByCustomerId(Long customerId, Pageable pageable);
     boolean existsByReceiptCode(String receiptCode);
     Page<ExportReceipt> findByReceiptCodeStartingWith(String prefix, Pageable pageable);
