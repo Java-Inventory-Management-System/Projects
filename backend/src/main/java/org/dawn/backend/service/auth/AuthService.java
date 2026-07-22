@@ -60,7 +60,7 @@ public class AuthService {
             throw new PermissionDeniedException(Message.Auth.INVALID_PASSWORD);
         }
 
-        if (Boolean.TRUE.equals(user.getIsDeleted()) || !ActiveStatus.ACTIVE.name().equalsIgnoreCase(user.getStatus())) {
+        if (Boolean.TRUE.equals(user.getIsDeleted()) || ActiveStatus.ACTIVE != user.getStatus()) {
             throw new PermissionDeniedException(Message.User.USER_INACTIVE);
         }
 

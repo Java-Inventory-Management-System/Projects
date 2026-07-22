@@ -22,12 +22,14 @@ public class CustomerService {
 
     private final CustomerRepository customerRepository;
 
+    @Transactional(readOnly = true)
     public ResponsePage<CustomerResponse> findAll(Pageable pageable) {
         return ResponsePage.of(customerRepository
                 .findAll(pageable)
                 .map(CustomerMappingHelper::map));
     }
 
+    @Transactional(readOnly = true)
     public CustomerResponse findOne(Long id) {
         return customerRepository
                 .findById(id)
@@ -35,6 +37,7 @@ public class CustomerService {
                 .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.CUSTOMER_NOT_FOUND));
     }
 
+    @Transactional(readOnly = true)
     public ResponsePage<CustomerResponse> search(String keyword, Pageable pageable) {
         return ResponsePage.of(customerRepository
                 .findByNameContainingIgnoreCase(keyword, pageable)

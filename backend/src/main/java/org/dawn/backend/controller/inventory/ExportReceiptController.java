@@ -19,13 +19,13 @@ public class ExportReceiptController {
     private final ExportReceiptService exportReceiptService;
 
     @GetMapping("/export-receipt")
-    @PreAuthorize(AuthorizationExpressions.ROLE_STOCK_MANAGER_ADMIN)
+    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_ADMIN_STOCK)
     public ResponseObject<ResponsePage<ExportReceiptResponse>> getAll(Pageable pageable) {
         return ResponseObject.success(exportReceiptService.findAll(pageable));
     }
 
     @GetMapping("/export-receipt/{id}")
-    @PreAuthorize(AuthorizationExpressions.ROLE_STOCK_MANAGER_ADMIN)
+    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_ADMIN_STOCK)
     public ResponseObject<ExportReceiptResponse> getOne(@PathVariable Long id) {
         return ResponseObject.success(exportReceiptService.findOne(id));
     }

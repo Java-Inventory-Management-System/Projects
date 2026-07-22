@@ -134,7 +134,7 @@ class ReturnReceiptServiceTests {
         var pu = mock(ProductUnit.class);
         when(exportReceiptRepository.findById(exportReceiptId)).thenReturn(Optional.of(exportReceipt));
         when(productUnitRepository.findById(productUnitId)).thenReturn(Optional.of(pu));
-        when(pu.getStatus()).thenReturn(ProductUnitStatus.IN_STOCK.name());
+        when(pu.getStatus()).thenReturn(ProductUnitStatus.IN_STOCK);
 
         try (MockedStatic<SecurityUtils> security = mockStatic(SecurityUtils.class);
              MockedStatic<ReceiptCodeGenerator> gen = mockStatic(ReceiptCodeGenerator.class)) {
@@ -157,7 +157,7 @@ class ReturnReceiptServiceTests {
         var pu = mock(ProductUnit.class);
         when(exportReceiptRepository.findById(exportReceiptId)).thenReturn(Optional.of(exportReceipt));
         when(productUnitRepository.findById(productUnitId)).thenReturn(Optional.of(pu));
-        when(pu.getStatus()).thenReturn(ProductUnitStatus.SOLD.name());
+        when(pu.getStatus()).thenReturn(ProductUnitStatus.SOLD);
         // save returns a receipt with ID (simulates DB generation)
         when(returnReceiptRepository.save(any())).thenAnswer(invocation -> {
             ReturnReceipt r = invocation.getArgument(0);
@@ -207,8 +207,8 @@ class ReturnReceiptServiceTests {
 
             returnReceiptService.approve(receiptId);
 
-            assertEquals(ProductUnitStatus.RETURNED.name(), pu.getStatus());
-            assertEquals(ReturnReceiptStatus.COMPLETED.name(), receipt.getStatus());
+            assertEquals(ProductUnitStatus.RETURNED, pu.getStatus());
+            assertEquals(ReturnReceiptStatus.COMPLETED, receipt.getStatus());
             assertEquals(userId, receipt.getApprovedBy());
         }
     }
@@ -230,7 +230,7 @@ class ReturnReceiptServiceTests {
 
             returnReceiptService.approve(receiptId);
 
-            assertEquals(ProductUnitStatus.DISPOSED.name(), pu.getStatus());
+            assertEquals(ProductUnitStatus.DISPOSED, pu.getStatus());
         }
     }
 
@@ -251,7 +251,7 @@ class ReturnReceiptServiceTests {
 
             returnReceiptService.approve(receiptId);
 
-            assertEquals(ProductUnitStatus.DEFECTIVE.name(), pu.getStatus());
+            assertEquals(ProductUnitStatus.DEFECTIVE, pu.getStatus());
         }
     }
 
@@ -271,7 +271,7 @@ class ReturnReceiptServiceTests {
     @Test
     void approve_fail_notPending() {
         ReturnReceipt receipt = pendingReceipt(ReturnReason.DEFECTIVE.name());
-        receipt.setStatus(ReturnReceiptStatus.COMPLETED.name());
+        receipt.setStatus(ReturnReceiptStatus.COMPLETED);
 
         when(returnReceiptRepository.findById(receiptId)).thenReturn(Optional.of(receipt));
 
@@ -293,13 +293,13 @@ class ReturnReceiptServiceTests {
 
         returnReceiptService.cancel(receiptId);
 
-        assertEquals(ReturnReceiptStatus.CANCELLED.name(), receipt.getStatus());
+        assertEquals(ReturnReceiptStatus.CANCELLED, receipt.getStatus());
     }
 
     @Test
     void cancel_fail_alreadyCancelled() {
         ReturnReceipt receipt = pendingReceipt(ReturnReason.DEFECTIVE.name());
-        receipt.setStatus(ReturnReceiptStatus.CANCELLED.name());
+        receipt.setStatus(ReturnReceiptStatus.CANCELLED);
 
         when(returnReceiptRepository.findById(receiptId)).thenReturn(Optional.of(receipt));
 
@@ -309,7 +309,7 @@ class ReturnReceiptServiceTests {
     @Test
     void cancel_fail_alreadyCompleted() {
         ReturnReceipt receipt = pendingReceipt(ReturnReason.DEFECTIVE.name());
-        receipt.setStatus(ReturnReceiptStatus.COMPLETED.name());
+        receipt.setStatus(ReturnReceiptStatus.COMPLETED);
 
         when(returnReceiptRepository.findById(receiptId)).thenReturn(Optional.of(receipt));
 
@@ -325,7 +325,7 @@ class ReturnReceiptServiceTests {
                 .customerId(customerId)
                 .originalExportReceiptId(exportReceiptId)
                 .reason(reason)
-                .status(ReturnReceiptStatus.PENDING_APPROVAL.name())
+                .status(ReturnReceiptStatus.PENDING_APPROVAL)
                 .createdBy(99L)
                 .build();
     }
@@ -348,7 +348,7 @@ class ReturnReceiptServiceTests {
                 .serialNumber("SN-" + id)
                 .productId(20L)
                 .trackingType("SERIALIZED")
-                .status(status.name())
+                .status(status)
                 .remainingQuantity(remaining)
                 .importedAt(Instant.now())
                 .build();

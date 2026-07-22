@@ -7,6 +7,7 @@ import org.dawn.backend.entity.base.AuditableEntity;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import org.dawn.backend.constant.inventory.ReturnReceiptStatus;
 
 @Entity
 @Table(name = "return_receipts")
@@ -30,9 +31,10 @@ public class ReturnReceipt extends AuditableEntity {
     @Column(name = "reason", nullable = false, length = 20)
     private String reason;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)
     @Builder.Default
-    private String status = "PENDING_APPROVAL";
+    private ReturnReceiptStatus status = ReturnReceiptStatus.PENDING_APPROVAL;
 
     @Column(name = "note", columnDefinition = "TEXT")
     private String note;

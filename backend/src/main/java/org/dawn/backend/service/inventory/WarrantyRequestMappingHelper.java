@@ -32,7 +32,7 @@ public interface WarrantyRequestMappingHelper {
                 .sentToPartnerAt(request.getSentToPartnerAt())
                 .expectedReturnAt(request.getExpectedReturnAt())
                 .partnerNote(request.getPartnerNote())
-                .status(request.getStatus())
+                .status(request.getStatus().name())
                 .handledBy(request.getHandledBy())
                 .handledByName(handledByName)
                 .completedAt(request.getCompletedAt())

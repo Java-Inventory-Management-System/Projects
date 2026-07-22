@@ -21,7 +21,7 @@ public class InventoryController {
     private final InventoryService inventoryService;
 
     @GetMapping("")
-    @PreAuthorize(AuthorizationExpressions.ROLE_STOCK_MANAGER_ADMIN)
+    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_ADMIN_STOCK)
     public ResponseObject<ResponsePage<InventoryItemResponse>> getAll(
             Pageable pageable,
             @RequestParam(required = false) String search) {

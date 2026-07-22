@@ -18,7 +18,7 @@ public interface ReturnReceiptMappingHelper {
                 .customerName(customerName)
                 .originalExportReceiptId(receipt.getOriginalExportReceiptId())
                 .reason(receipt.getReason())
-                .status(receipt.getStatus())
+                .status(receipt.getStatus().name())
                 .note(receipt.getNote())
                 .createdBy(receipt.getCreatedBy())
                 .createdByName(createdByName)

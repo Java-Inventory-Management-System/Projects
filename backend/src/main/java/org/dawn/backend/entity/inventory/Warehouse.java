@@ -15,8 +15,14 @@ import org.dawn.backend.entity.base.AuditableEntity;
 @ToString(callSuper = true)
 public class Warehouse extends AuditableEntity {
 
-    @Column(name = "name", nullable = false, unique = true, length = 255)
+    @Column(name = "name", nullable = false, length = 200)
     private String name;
+
+    @Column(name = "code", nullable = false, unique = true, length = 32)
+    private String code;
+
+    @Column(name = "address", columnDefinition = "TEXT")
+    private String address;
 
     @Column(name = "is_active", nullable = false)
     @Builder.Default

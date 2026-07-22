@@ -6,6 +6,7 @@ import lombok.experimental.SuperBuilder;
 import org.dawn.backend.entity.base.AuditableEntity;
 
 import java.math.BigDecimal;
+import org.dawn.backend.constant.inventory.ExportReceiptStatus;
 
 @Entity
 @Table(name = "export_receipts")
@@ -29,9 +30,10 @@ public class ExportReceipt extends AuditableEntity {
     @Column(name = "total_amount", precision = 15, scale = 2)
     private BigDecimal totalAmount;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)
     @Builder.Default
-    private String status = "PENDING_APPROVAL";
+    private ExportReceiptStatus status = ExportReceiptStatus.PENDING_APPROVAL;
 
     @Column(name = "note", columnDefinition = "TEXT")
     private String note;

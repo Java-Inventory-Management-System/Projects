@@ -3,6 +3,8 @@ package org.dawn.backend.service.inventory;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dawn.backend.config.web.response.ResponsePage;
+import org.dawn.backend.constant.catalog.TrackingType;
+import org.dawn.backend.constant.inventory.ProductUnitStatus;
 import org.dawn.backend.controller.inventory.response.InventoryItemResponse;
 import org.dawn.backend.entity.catalog.Product;
 import org.dawn.backend.entity.inventory.Location;
@@ -39,7 +41,8 @@ public class InventoryService {
         List<Long> productIds = productPage.getContent().stream().map(Product::getId).toList();
 
         Map<Long, List<ProductUnit>> unitsByProduct = productUnitRepository
-                .findByProductIdInAndStatus(productIds, "IN_STOCK")
+                .findByProductIdInAndStatus(productIds, ProductUnitStatus.IN_STOCK.name())
+
                 .stream()
                 .collect(Collectors.groupingBy(ProductUnit::getProductId));
 
@@ -50,7 +53,8 @@ public class InventoryService {
             List<ProductUnit> units = unitsByProduct.getOrDefault(product.getId(), List.of());
 
             int quantity;
-            if ("BULK".equals(product.getTrackingType())) {
+            if (TrackingType.BULK.name().equals(product.getTrackingType())) {
+
                 quantity = units.stream()
                         .mapToInt(u -> u.getRemainingQuantity() != null ? u.getRemainingQuantity().intValue() : 0)
                         .sum();

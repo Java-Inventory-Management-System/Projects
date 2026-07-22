@@ -33,13 +33,11 @@ public class SecurityConfig {
             "/api/v1/api-docs/**",
             "/api/v1/api-docs"
     };
-
     private static final String[] PUBLIC_URL = {
             "/api/v1/auth/**",
             "/auth/**",
-            "/api/v1/uploads/**",
+            "/uploads/**",
     };
-
     private final AuthEntryPointJwt unauthorizedHandler;
 
     private final RoleAccessHandler roleAccessHandler;
@@ -75,39 +73,31 @@ public class SecurityConfig {
                 .sessionManagement(this::configSession)
                 .authorizeHttpRequests(this::configAuth);
 
-        http.addFilterBefore(authTokenFilter, UsernamePasswordAuthenticationFilter.class);
+		http.addFilterBefore(authTokenFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
-
 
     private void configExceptionHandling(ExceptionHandlingConfigurer<HttpSecurity> config) {
         config
                 .authenticationEntryPoint(unauthorizedHandler)
                 .accessDeniedHandler(roleAccessHandler);
     }
-
     private void configSession(SessionManagementConfigurer<HttpSecurity> config) {
         config
                 .sessionCreationPolicy(SessionCreationPolicy.STATELESS);
     }
 
-    private void configAuth(AuthorizeHttpRequestsConfigurer<HttpSecurity>.AuthorizationManagerRequestMatcherRegistry config) {
-        config
-                .requestMatchers(SWAGGER_URL)
-                .permitAll()
-                .requestMatchers(HttpMethod.POST, "/api/v1/auth/**")
-                .permitAll()
-                .requestMatchers("/auth/**")
-                .permitAll()
-                .requestMatchers(HttpMethod.POST, "/api/v1/auth/login")
-                .permitAll()
-                .requestMatchers("/api/v1/uploads/**")
-                .permitAll()
-                .requestMatchers(HttpMethod.POST, "/api/v1/upload")
-                .permitAll()
-                .anyRequest()
-                .authenticated();
-    }
+	private void configAuth(AuthorizeHttpRequestsConfigurer<HttpSecurity>.AuthorizationManagerRequestMatcherRegistry config) {
+	        config
+	                .requestMatchers(SWAGGER_URL)
+	                .permitAll()
+	                .requestMatchers(PUBLIC_URL)
+	                .permitAll()
+	                .requestMatchers(HttpMethod.POST, "/api/v1/upload")
+	                .permitAll()
+	                .anyRequest()
+	                .authenticated();
+	    }
 
 }

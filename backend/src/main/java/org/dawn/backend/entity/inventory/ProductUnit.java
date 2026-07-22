@@ -7,6 +7,7 @@ import org.dawn.backend.entity.base.AuditableEntity;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import org.dawn.backend.constant.inventory.ProductUnitStatus;
 
 @Entity
 @Table(name = "product_units", indexes = {
@@ -43,9 +44,10 @@ public class ProductUnit extends AuditableEntity {
     @Column(name = "location_id")
     private Long locationId;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)
     @Builder.Default
-    private String status = "IN_STOCK";
+    private ProductUnitStatus status = ProductUnitStatus.IN_STOCK;
 
     @Column(name = "imported_at", nullable = false)
     private Instant importedAt;
@@ -75,6 +77,5 @@ public class ProductUnit extends AuditableEntity {
 
     @Version
     @Column(name = "version")
-    @Builder.Default
-    private Long version = 0L;
+    private Long version;
 }

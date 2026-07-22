@@ -9,7 +9,6 @@ import org.dawn.backend.constant.shared.Message;
 import org.dawn.backend.controller.catalog.request.BrandRequest;
 import org.dawn.backend.controller.catalog.response.BrandResponse;
 import org.dawn.backend.entity.catalog.Brand;
-import org.dawn.backend.exception.wrapper.InvalidRequestException;
 import org.dawn.backend.exception.wrapper.ResourceAlreadyExistedException;
 import org.dawn.backend.exception.wrapper.ResourceNotFoundException;
 import org.dawn.backend.repository.catalog.BrandRepository;
@@ -24,12 +23,14 @@ public class BrandService {
 
     private final BrandRepository brandRepository;
 
+    @Transactional(readOnly = true)
     public ResponsePage<BrandResponse> findAll(Pageable pageable) {
         return ResponsePage.of(brandRepository
                 .findAll(pageable)
                 .map(BrandMappingHelper::map));
     }
 
+    @Transactional(readOnly = true)
     public BrandResponse findOne(Long id) {
         return brandRepository
                 .findById(id)
@@ -40,9 +41,6 @@ public class BrandService {
     @Transactional
     @AuditLog(action = LogConstant.Action.CREATE_BRAND, entity = LogConstant.Entity.BRAND)
     public BrandResponse create(BrandRequest request) {
-        if (request.name() == null || request.name().isBlank()) {
-            throw new InvalidRequestException(Message.Catalog.BRAND_NAME_REQUIRED);
-        }
         if (brandRepository.existsByNameIgnoreCase(request.name().trim())) {
             throw new ResourceAlreadyExistedException(Message.Catalog.BRAND_NAME_EXISTS);
         }

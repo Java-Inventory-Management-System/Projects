@@ -91,10 +91,10 @@ class ExportReceiptServiceTests {
 
             exportReceiptService.approve(receiptId);
 
-            assertEquals(ProductUnitStatus.SOLD.name(), pu.getStatus());
+            assertEquals(ProductUnitStatus.SOLD, pu.getStatus());
             assertNotNull(pu.getWarrantyStartDate());
             assertNotNull(pu.getWarrantyExpiresAt());
-            assertEquals(ExportReceiptStatus.COMPLETED.name(), receipt.getStatus());
+            assertEquals(ExportReceiptStatus.COMPLETED, receipt.getStatus());
             assertEquals(userId, receipt.getApprovedBy());
             verify(statusLogRepository).save(any());
         }
@@ -117,7 +117,7 @@ class ExportReceiptServiceTests {
         try (MockedStatic<SecurityUtils> security = mockStatic(SecurityUtils.class)) {
             security.when(SecurityUtils::getCurrentUserId).thenReturn(userId);
             exportReceiptService.approve(receiptId);
-            assertEquals(ProductUnitStatus.RETURNED_TO_SUPPLIER.name(), pu.getStatus());
+            assertEquals(ProductUnitStatus.RETURNED_TO_SUPPLIER, pu.getStatus());
             assertNull(pu.getWarrantyStartDate());
         }
     }
@@ -139,7 +139,7 @@ class ExportReceiptServiceTests {
         try (MockedStatic<SecurityUtils> security = mockStatic(SecurityUtils.class)) {
             security.when(SecurityUtils::getCurrentUserId).thenReturn(userId);
             exportReceiptService.approve(receiptId);
-            assertEquals(ProductUnitStatus.DISPOSED.name(), pu.getStatus());
+            assertEquals(ProductUnitStatus.DISPOSED, pu.getStatus());
         }
     }
 
@@ -198,7 +198,7 @@ class ExportReceiptServiceTests {
     @Test
     void approve_fail_notPendingApproval() {
         ExportReceipt receipt = pendingReceipt(ExportReason.SALE.name(), 99L);
-        receipt.setStatus(ExportReceiptStatus.COMPLETED.name());
+        receipt.setStatus(ExportReceiptStatus.COMPLETED);
 
         when(exportReceiptRepository.findById(receiptId)).thenReturn(Optional.of(receipt));
 
@@ -220,13 +220,13 @@ class ExportReceiptServiceTests {
 
         exportReceiptService.cancel(receiptId);
 
-        assertEquals(ExportReceiptStatus.CANCELLED.name(), receipt.getStatus());
+        assertEquals(ExportReceiptStatus.CANCELLED, receipt.getStatus());
     }
 
     @Test
     void cancel_fail_alreadyCancelled() {
         ExportReceipt receipt = pendingReceipt(ExportReason.SALE.name(), 99L);
-        receipt.setStatus(ExportReceiptStatus.CANCELLED.name());
+        receipt.setStatus(ExportReceiptStatus.CANCELLED);
 
         when(exportReceiptRepository.findById(receiptId)).thenReturn(Optional.of(receipt));
 
@@ -236,7 +236,7 @@ class ExportReceiptServiceTests {
     @Test
     void cancel_fail_notPendingApproval() {
         ExportReceipt receipt = pendingReceipt(ExportReason.SALE.name(), 99L);
-        receipt.setStatus(ExportReceiptStatus.COMPLETED.name());
+        receipt.setStatus(ExportReceiptStatus.COMPLETED);
 
         when(exportReceiptRepository.findById(receiptId)).thenReturn(Optional.of(receipt));
 
@@ -250,7 +250,7 @@ class ExportReceiptServiceTests {
                 .id(receiptId)
                 .receiptCode("EXP-TEST")
                 .reason(reason)
-                .status(ExportReceiptStatus.PENDING_APPROVAL.name())
+                .status(ExportReceiptStatus.PENDING_APPROVAL)
                 .createdBy(createdBy)
                 .build();
     }
@@ -282,7 +282,7 @@ class ExportReceiptServiceTests {
                 .serialNumber("SN-" + id)
                 .productId(10L)
                 .trackingType("SERIALIZED")
-                .status(status.name())
+                .status(status)
                 .remainingQuantity(remaining)
                 .importedAt(Instant.now())
                 .warrantyMonths(12)

@@ -6,6 +6,7 @@ import lombok.experimental.SuperBuilder;
 import org.dawn.backend.entity.base.AuditableEntity;
 
 import java.math.BigDecimal;
+import org.dawn.backend.constant.inventory.ImportReceiptStatus;
 
 @Entity
 @Table(name = "import_receipts")
@@ -26,9 +27,10 @@ public class ImportReceipt extends AuditableEntity {
     @Column(name = "total_amount", precision = 15, scale = 2)
     private BigDecimal totalAmount;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)
     @Builder.Default
-    private String status = "DRAFT";
+    private ImportReceiptStatus status = ImportReceiptStatus.DRAFT;
 
     @Column(name = "note", columnDefinition = "TEXT")
     private String note;

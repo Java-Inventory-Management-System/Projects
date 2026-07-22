@@ -26,7 +26,7 @@ public interface ImportReceiptMappingHelper {
                 .purchaseOrderId(receipt.getPurchaseOrderId())
                 .poCode(poCode)
                 .totalAmount(receipt.getTotalAmount())
-                .status(receipt.getStatus())
+                .status(receipt.getStatus().name())
                 .note(receipt.getNote())
                 .createdBy(receipt.getCreatedBy())
                 .createdByName(createdByName)

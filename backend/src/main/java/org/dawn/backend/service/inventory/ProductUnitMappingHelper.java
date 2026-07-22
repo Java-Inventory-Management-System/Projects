@@ -18,7 +18,7 @@ public interface ProductUnitMappingHelper {
                 .importReceiptItemId(unit.getImportReceiptItemId())
                 .locationId(unit.getLocationId())
                 .locationCode(locationCode)
-                .status(unit.getStatus())
+                .status(unit.getStatus().name())
                 .importedAt(unit.getImportedAt())
                 .warrantyMonths(unit.getWarrantyMonths())
                 .warrantyStartDate(unit.getWarrantyStartDate())

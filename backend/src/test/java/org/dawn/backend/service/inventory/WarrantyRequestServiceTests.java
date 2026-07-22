@@ -77,7 +77,7 @@ class WarrantyRequestServiceTests {
             assertEquals(WarrantyRequestStatus.PENDING.name(), response.status());
             assertEquals(1L, response.productUnitId());
             verify(warrantyRequestRepository).existsByProductUnitIdAndStatus(
-                    1L, WarrantyRequestStatus.PENDING.name());
+                    1L, WarrantyRequestStatus.PENDING);
         }
     }
 
@@ -91,14 +91,14 @@ class WarrantyRequestServiceTests {
                 .serialNumber("NEW-001")
                 .productId(10L)
                 .trackingType("SERIALIZED")
-                .status(ProductUnitStatus.IN_STOCK.name())
+                .status(ProductUnitStatus.IN_STOCK)
                 .importedAt(Instant.now())
                 .build();
         WarrantyRequest warranty = WarrantyRequest.builder()
                 .id(100L)
                 .requestCode("WR-TEST")
                 .productUnitId(1L)
-                .status(WarrantyRequestStatus.PENDING.name())
+                .status(WarrantyRequestStatus.PENDING)
                 .issueDescription("Defective")
                 .handledBy(8L)
                 .build();
@@ -126,8 +126,8 @@ class WarrantyRequestServiceTests {
             var response = warrantyRequestService.resolve(100L,
                     new ResolveWarrantyRequest("replace", 2L, null, null, null, "Replaced"));
 
-            assertEquals(ProductUnitStatus.DEFECTIVE.name(), original.getStatus());
-            assertEquals(ProductUnitStatus.SOLD.name(), replacement.getStatus());
+            assertEquals(ProductUnitStatus.DEFECTIVE, original.getStatus());
+            assertEquals(ProductUnitStatus.SOLD, replacement.getStatus());
             assertEquals(originalExpiry, replacement.getWarrantyExpiresAt());
             assertNotNull(replacement.getWarrantyStartDate());
             assertEquals(WarrantyRequestStatus.COMPLETED.name(), response.status());
@@ -141,13 +141,13 @@ class WarrantyRequestServiceTests {
     @Test
     void completeRepairReturnsUnitToSold() {
         ProductUnit unit = soldUnit(1L, "SN-001", 10L);
-        unit.setStatus(ProductUnitStatus.UNDER_REPAIR.name());
+        unit.setStatus(ProductUnitStatus.UNDER_REPAIR);
         WarrantyRequest warranty = WarrantyRequest.builder()
                 .id(100L)
                 .requestCode("WR-TEST")
                 .productUnitId(1L)
                 .resolutionType("REPAIR")
-                .status(WarrantyRequestStatus.PENDING.name())
+                .status(WarrantyRequestStatus.PENDING)
                 .issueDescription("No display")
                 .build();
 
@@ -162,7 +162,7 @@ class WarrantyRequestServiceTests {
             var response = warrantyRequestService.complete(
                     100L, new CompleteWarrantyRequest("repaired", "Returned to customer"));
 
-            assertEquals(ProductUnitStatus.SOLD.name(), unit.getStatus());
+            assertEquals(ProductUnitStatus.SOLD, unit.getStatus());
             assertEquals(WarrantyRequestStatus.COMPLETED.name(), response.status());
             assertNotNull(response.completedAt());
             assertTrue(response.note().contains("Returned to customer"));
@@ -176,7 +176,7 @@ class WarrantyRequestServiceTests {
                 .serialNumber(serial)
                 .productId(productId)
                 .trackingType("SERIALIZED")
-                .status(ProductUnitStatus.SOLD.name())
+                .status(ProductUnitStatus.SOLD)
                 .importedAt(Instant.now().minusSeconds(60L * 24 * 60 * 60))
                 .warrantyStartDate(Instant.now().minusSeconds(10L * 24 * 60 * 60))
                 .warrantyExpiresAt(Instant.now().plusSeconds(300L * 24 * 60 * 60))

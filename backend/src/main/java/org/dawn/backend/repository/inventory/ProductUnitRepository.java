@@ -45,6 +45,7 @@ public interface ProductUnitRepository extends JpaRepository<ProductUnit, Long> 
     @Query("SELECT p.serialNumber FROM ProductUnit p WHERE p.serialNumber IN :serials")
     Set<String> findExistingSerialNumbers(@Param("serials") List<String> serials);
     List<ProductUnit> findByImportReceiptItemId(Long importReceiptItemId);
+    List<ProductUnit> findByImportReceiptItemIdIn(List<Long> importReceiptItemIds);
     List<ProductUnit> findByProductIdAndStatus(Long productId, String status);
     long countByProductIdAndStatus(Long productId, String status);
     long countByLocationId(Long locationId);
@@ -67,6 +68,63 @@ public interface ProductUnitRepository extends JpaRepository<ProductUnit, Long> 
 
     @Query("SELECT pu FROM ProductUnit pu WHERE pu.status = 'IN_STOCK' AND pu.importedAt < :cutoffDate ORDER BY pu.importedAt ASC")
     List<ProductUnit> findDeadStockUnits(@Param("cutoffDate") Instant cutoffDate);
+
+    @Query(value = """
+            SELECT pu.* FROM product_units pu
+            LEFT JOIN products p ON pu.product_id = p.id
+            WHERE pu.status = 'IN_STOCK'
+            AND (:cutoffDate IS NULL OR pu.imported_at < :cutoffDate)
+            AND (:keyword IS NULL OR LOWER(p.name) LIKE LOWER(CONCAT('%', :keyword, '%')) OR LOWER(p.sku) LIKE LOWER(CONCAT('%', :keyword, '%')))
+            AND (:categoryId IS NULL OR p.category_id = :categoryId)
+            AND (:fromDate IS NULL OR pu.imported_at >= :fromDate)
+            AND (:toDate IS NULL OR pu.imported_at <= :toDate)
+            """,
+            countQuery = """
+            SELECT COUNT(*) FROM product_units pu
+            LEFT JOIN products p ON pu.product_id = p.id
+            WHERE pu.status = 'IN_STOCK'
+            AND (:cutoffDate IS NULL OR pu.imported_at < :cutoffDate)
+            AND (:keyword IS NULL OR LOWER(p.name) LIKE LOWER(CONCAT('%', :keyword, '%')) OR LOWER(p.sku) LIKE LOWER(CONCAT('%', :keyword, '%')))
+            AND (:categoryId IS NULL OR p.category_id = :categoryId)
+            AND (:fromDate IS NULL OR pu.imported_at >= :fromDate)
+            AND (:toDate IS NULL OR pu.imported_at <= :toDate)
+            """,
+            nativeQuery = true)
+    Page<ProductUnit> findDeadStockFiltered(
+            @Param("cutoffDate") Instant cutoffDate,
+            @Param("keyword") String keyword,
+            @Param("categoryId") Long categoryId,
+            @Param("fromDate") Instant fromDate,
+            @Param("toDate") Instant toDate,
+            Pageable pageable);
+
+    @Query("SELECT p.importReceiptItemId, COUNT(p) FROM ProductUnit p WHERE p.importReceiptItemId IN :itemIds GROUP BY p.importReceiptItemId")
+    List<Object[]> countByImportReceiptItemIdIn(@Param("itemIds") List<Long> itemIds);
+
+    @Query(value = """
+            SELECT pu.product_id,
+              CASE WHEN p.tracking_type = 'BULK' THEN SUM(pu.remaining_quantity) ELSE COUNT(*) END as qty,
+              p.min_stock,
+              p.sell_price
+            FROM product_units pu
+            JOIN products p ON p.id = pu.product_id
+            WHERE pu.status = 'IN_STOCK' AND p.is_active = true
+            GROUP BY pu.product_id, p.tracking_type, p.min_stock, p.sell_price
+            """, nativeQuery = true)
+    List<Object[]> aggregateInStockByProduct();
+
+    @Query(value = """
+            SELECT pu.product_id,
+              CASE WHEN p.tracking_type = 'BULK' THEN SUM(pu.remaining_quantity) ELSE COUNT(*) END as qty,
+              p.min_stock,
+              p.sell_price,
+              p.category_id
+            FROM product_units pu
+            JOIN products p ON p.id = pu.product_id
+            WHERE pu.status = 'IN_STOCK' AND p.is_active = true AND pu.product_id IN :productIds
+            GROUP BY pu.product_id, p.tracking_type, p.min_stock, p.sell_price, p.category_id
+            """, nativeQuery = true)
+    List<Object[]> aggregateInStockByProductIdIn(@Param("productIds") List<Long> productIds);
 
     default Map<Long, Long> countByLocation() {
         return countByLocationRaw().stream()

@@ -10,3 +10,6 @@ docs/*.xlsx
 dawn-api.postman_collection.json
 demo-serials.csv
 *.csv
+
+# Docker build artifacts
+docker/nginx/html/

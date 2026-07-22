@@ -20,7 +20,7 @@ public class StockAdjustmentController {
     private final StockAdjustmentService adjustmentService;
 
     @GetMapping("/my")
-    @PreAuthorize(AuthorizationExpressions.ROLE_STOCK_MANAGER_ADMIN)
+    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_ADMIN_STOCK)
     public ResponseObject<ResponsePage<StockAdjustmentResponse>> getMyAdjustments(
             Pageable pageable,
             @RequestParam(required = false) String type,
@@ -38,7 +38,7 @@ public class StockAdjustmentController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize(AuthorizationExpressions.ROLE_STOCK_MANAGER_ADMIN)
+    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_ADMIN_STOCK)
     public ResponseObject<StockAdjustmentResponse> getOne(@PathVariable Long id) {
         return ResponseObject.success(adjustmentService.findOne(id));
     }

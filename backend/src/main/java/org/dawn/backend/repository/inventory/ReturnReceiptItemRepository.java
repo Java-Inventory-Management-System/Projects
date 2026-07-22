@@ -9,4 +9,5 @@ import java.util.List;
 @Repository
 public interface ReturnReceiptItemRepository extends JpaRepository<ReturnReceiptItem, Long> {
     List<ReturnReceiptItem> findByReturnReceiptId(Long returnReceiptId);
+    List<ReturnReceiptItem> findByReturnReceiptIdIn(List<Long> returnReceiptIds);
 }

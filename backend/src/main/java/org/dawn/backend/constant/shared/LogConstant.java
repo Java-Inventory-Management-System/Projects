@@ -2,6 +2,9 @@ package org.dawn.backend.constant.shared;
 
 public class LogConstant {
     public static class Action {
+        public static final String CREATE_PRICE_ADJUSTMENT = "CREATE_PRICE_ADJUSTMENT";
+        public static final String APPROVE_PRICE_ADJUSTMENT = "APPROVE_PRICE_ADJUSTMENT";
+        public static final String REJECT_PRICE_ADJUSTMENT = "REJECT_PRICE_ADJUSTMENT";
         public static final String CREATE_USER = "CREATE_USER";
         public static final String UPDATE_INFO = "UPDATE_USER_INFO";
         public static final String UPDATE_STATUS = "UPDATE_USER_STATUS";
@@ -73,6 +76,7 @@ public class LogConstant {
         public static final String PURCHASE_ORDER = "PURCHASE_ORDER";
         public static final String PRODUCT_IMAGE = "PRODUCT_IMAGE";
         public static final String RETURN_RECEIPT = "RETURN_RECEIPT";
+        public static final String PRICE_ADJUSTMENT = "PRICE_ADJUSTMENT";
     }
 
     public static class Status {

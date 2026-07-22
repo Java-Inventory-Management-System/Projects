@@ -1,4 +1,6 @@
 package org.dawn.backend.controller.auth.request;
 
-public record RegisterRequest(String fullName, String email, String roleName, String status) {
+import jakarta.validation.constraints.NotBlank;
+
+public record RegisterRequest(@NotBlank String fullName, String email, @NotBlank String roleName, String status) {
 }

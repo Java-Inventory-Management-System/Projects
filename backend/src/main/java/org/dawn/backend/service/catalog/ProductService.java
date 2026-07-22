@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dawn.backend.config.anno.AuditLog;
 import org.dawn.backend.config.web.response.ResponsePage;
+import org.dawn.backend.constant.catalog.ProductUnit;
 import org.dawn.backend.constant.catalog.TrackingType;
 import org.dawn.backend.constant.shared.LogConstant;
 import org.dawn.backend.constant.shared.Message;
@@ -34,15 +35,17 @@ public class ProductService {
     private final BrandRepository brandRepository;
     private final CategoryRepository categoryRepository;
 
-    private static final List<String> BULK_UNITS = List.of("METER", "KG");
-    private static final List<String> SERIALIZED_UNITS = List.of("PIECE", "BOX", "SET");
+    private static final List<String> BULK_UNITS = List.of(ProductUnit.METER.name(), ProductUnit.KG.name());
+    private static final List<String> SERIALIZED_UNITS = List.of(ProductUnit.PIECE.name(), ProductUnit.BOX.name(), ProductUnit.SET.name());
 
+    @Transactional(readOnly = true)
     public ResponsePage<ProductResponse> findAll(Pageable pageable) {
         return ResponsePage.of(productRepository
                 .findAll(pageable)
                 .map(ProductMappingHelper::map));
     }
 
+    @Transactional(readOnly = true)
     public ProductResponse findOne(Long id) {
         return productRepository
                 .findById(id)
@@ -63,8 +66,8 @@ public class ProductService {
             throw new ResourceAlreadyExistedException(Message.Catalog.SKU_ALREADY_EXISTS);
         }
 
-        String unit = request.unit() != null ? request.unit() : "PIECE";
-        String trackingType = request.trackingType() != null ? request.trackingType() : "SERIALIZED";
+        String unit = request.unit() != null ? request.unit() : ProductUnit.PIECE.name();
+        String trackingType = request.trackingType() != null ? request.trackingType() : TrackingType.SERIALIZED.name();
         validateUnitTracking(unit, trackingType);
 
         Brand brand = null;

@@ -1,5 +1,6 @@
 package org.dawn.backend.controller.catalog;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.dawn.backend.config.web.response.ResponseObject;
 import org.dawn.backend.config.web.response.ResponsePage;
@@ -19,20 +20,20 @@ public class CategoryController {
     private final CategoryService categoryService;
 
     @GetMapping("")
-    @PreAuthorize(AuthorizationExpressions.ROLE_STOCK_MANAGER_ADMIN)
+    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_ADMIN_STOCK)
     public ResponseObject<ResponsePage<CategoryResponse>> getAll(Pageable pageable) {
         return ResponseObject.success(categoryService.findAll(pageable));
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize(AuthorizationExpressions.ROLE_STOCK_MANAGER_ADMIN)
+    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_ADMIN_STOCK)
     public ResponseObject<CategoryResponse> getOne(@PathVariable Long id) {
         return ResponseObject.success(categoryService.findOne(id));
     }
 
     @PostMapping("")
     @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER)
-    public ResponseObject<CategoryResponse> create(@RequestBody CategoryRequest request) {
+    public ResponseObject<CategoryResponse> create(@Valid @RequestBody CategoryRequest request) {
         return ResponseObject.created(categoryService.create(request));
     }
 

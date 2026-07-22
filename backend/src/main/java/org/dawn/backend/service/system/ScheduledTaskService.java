@@ -33,7 +33,7 @@ public class ScheduledTaskService {
         Instant cutoff = Instant.now().minus(Duration.ofDays(1));
         var stale = stockCheckRepository.findByStatusInAndCreatedAtBefore(activeStatuses, cutoff);
         for (var sc : stale) {
-            sc.setStatus(StockCheckStatus.EXPIRED.name());
+            sc.setStatus(StockCheckStatus.EXPIRED);
             stockCheckRepository.save(sc);
             log.warn("Stock check {} auto-expired (created at {}, older than 1 day)", sc.getCheckCode(), sc.getCreatedAt());
         }

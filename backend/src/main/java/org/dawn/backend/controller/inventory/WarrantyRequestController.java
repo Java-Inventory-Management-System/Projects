@@ -30,13 +30,13 @@ public class WarrantyRequestController {
     private final WarrantyRequestService warrantyRequestService;
 
     @GetMapping("/lookup")
-    @PreAuthorize(AuthorizationExpressions.ROLE_STOCK_MANAGER_ADMIN)
+    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_ADMIN_STOCK)
     public ResponseObject<WarrantyLookupResponse> lookup(@RequestParam String serialNumber) {
         return ResponseObject.success(warrantyRequestService.lookup(serialNumber));
     }
 
     @GetMapping
-    @PreAuthorize(AuthorizationExpressions.ROLE_STOCK_MANAGER_ADMIN)
+    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_ADMIN_STOCK)
     public ResponseObject<ResponsePage<WarrantyRequestResponse>> findAll(
             Pageable pageable,
             @RequestParam(required = false) String status,
@@ -51,7 +51,7 @@ public class WarrantyRequestController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize(AuthorizationExpressions.ROLE_STOCK_MANAGER_ADMIN)
+    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_ADMIN_STOCK)
     public ResponseObject<WarrantyRequestResponse> findOne(@PathVariable Long id) {
         return ResponseObject.success(warrantyRequestService.findOne(id));
     }

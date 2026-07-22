@@ -1,4 +1,6 @@
 package org.dawn.backend.controller.catalog.request;
 
-public record BrandRequest(String name, String description) {
+import jakarta.validation.constraints.NotBlank;
+
+public record BrandRequest(@NotBlank String name, String description) {
 }

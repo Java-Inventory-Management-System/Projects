@@ -3,6 +3,8 @@ package org.dawn.backend.service.report;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dawn.backend.config.web.response.ResponsePage;
+import org.dawn.backend.constant.catalog.TrackingType;
+import org.dawn.backend.constant.inventory.ProductUnitStatus;
 import org.dawn.backend.controller.report.response.*;
 import org.dawn.backend.entity.catalog.Category;
 import org.dawn.backend.entity.catalog.Product;
@@ -23,6 +25,7 @@ import org.dawn.backend.repository.inventory.ProductUnitRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.Duration;
@@ -44,40 +47,23 @@ public class ReportService {
     private final CustomerRepository customerRepository;
     private final ImportReceiptItemRepository importReceiptItemRepository;
 
+    @Transactional(readOnly = true)
     public InventorySummaryResponse getInventorySummary() {
-        List<Product> allProducts = productRepository.findByIsActiveTrue();
-        List<Long> activeProductIds = allProducts.stream().map(Product::getId).toList();
-
-        List<ProductUnit> inStockUnits = productUnitRepository
-                .findByProductIdInAndStatus(activeProductIds, "IN_STOCK");
-
-        Map<Long, List<ProductUnit>> unitsByProduct = inStockUnits.stream()
-                .collect(Collectors.groupingBy(ProductUnit::getProductId));
-
+        var aggregates = productUnitRepository.aggregateInStockByProduct();
+        long totalProducts = productRepository.countByIsActiveTrue();
         long totalUnits = 0;
         BigDecimal totalValue = BigDecimal.ZERO;
         long lowStockCount = 0;
         long outOfStockCount = 0;
 
-        for (Product product : allProducts) {
-            List<ProductUnit> units = unitsByProduct.getOrDefault(product.getId(), List.of());
-
-            long qty;
-            if ("BULK".equals(product.getTrackingType())) {
-                qty = units.stream()
-                        .mapToLong(u -> u.getRemainingQuantity() != null ? u.getRemainingQuantity().longValue() : 0L)
-                        .sum();
-            } else {
-                qty = units.size();
-            }
+        for (var row : aggregates) {
+            long qty = ((Number) row[1]).longValue();
+            int minStock = row[2] != null ? ((Number) row[2]).intValue() : 0;
+            BigDecimal sellPrice = row[3] != null ? BigDecimal.valueOf(((Number) row[3]).doubleValue()) : BigDecimal.ZERO;
 
             totalUnits += qty;
+            totalValue = totalValue.add(sellPrice.multiply(BigDecimal.valueOf(qty)));
 
-            if (product.getSellPrice() != null) {
-                totalValue = totalValue.add(product.getSellPrice().multiply(BigDecimal.valueOf(qty)));
-            }
-
-            int minStock = product.getMinStock() != null ? product.getMinStock() : 0;
             if (qty <= minStock && qty > 0) {
                 lowStockCount++;
             } else if (qty == 0) {
@@ -86,7 +72,7 @@ public class ReportService {
         }
 
         return InventorySummaryResponse.builder()
-                .totalProducts(allProducts.size())
+                .totalProducts(totalProducts)
                 .totalUnits(totalUnits)
                 .totalStockValue(totalValue)
                 .lowStockCount(lowStockCount)
@@ -94,20 +80,25 @@ public class ReportService {
                 .build();
     }
 
+    @Transactional(readOnly = true)
     public List<CategoryStockResponse> getStockByCategory() {
         List<Category> categories = categoryRepository.findAll();
         List<Product> allProducts = productRepository.findByIsActiveTrue();
         List<Long> activeProductIds = allProducts.stream().map(Product::getId).toList();
 
-        List<ProductUnit> inStockUnits = productUnitRepository
-                .findByProductIdInAndStatus(activeProductIds, "IN_STOCK");
+        var aggregates = productUnitRepository.aggregateInStockByProductIdIn(activeProductIds);
 
-        Map<Long, List<ProductUnit>> unitsByProduct = inStockUnits.stream()
-                .collect(Collectors.groupingBy(ProductUnit::getProductId));
+        Map<Long, long[]> catAgg = new HashMap<>();
+        for (var row : aggregates) {
+            Long catId = row[4] != null ? ((Number) row[4]).longValue() : 0L;
+            long qty = ((Number) row[1]).longValue();
+            BigDecimal sellPrice = row[3] != null ? BigDecimal.valueOf(((Number) row[3]).doubleValue()) : BigDecimal.ZERO;
+            var agg = catAgg.computeIfAbsent(catId, k -> new long[]{0, 0});
+            agg[0] += 1; // productCount
+            agg[1] += qty; // totalUnits
+        }
 
-        Map<Long, List<Product>> productsByCategory = allProducts.stream()
-                .collect(Collectors.groupingBy(
-                        p -> p.getCategory() != null ? p.getCategory().getId() : 0L));
+        long uncategorizedCount = allProducts.stream().filter(p -> p.getCategory() == null).count();
 
         Map<Long, String> categoryNames = new HashMap<>();
         categoryNames.put(0L, "Uncategorized");
@@ -116,65 +107,33 @@ public class ReportService {
         return categoryNames.entrySet().stream()
                 .map(entry -> {
                     Long catId = entry.getKey();
-                    List<Product> catProducts = productsByCategory.getOrDefault(catId, List.of());
-
-                    long productCount = catProducts.size();
-                    long totalUnits = 0;
-                    BigDecimal totalValue = BigDecimal.ZERO;
-
-                    for (Product p : catProducts) {
-                        List<ProductUnit> units = unitsByProduct.getOrDefault(p.getId(), List.of());
-                        long qty;
-                        if ("BULK".equals(p.getTrackingType())) {
-                            qty = units.stream()
-                                    .mapToLong(u -> u.getRemainingQuantity() != null ? u.getRemainingQuantity().longValue() : 0L)
-                                    .sum();
-                        } else {
-                            qty = units.size();
-                        }
-                        totalUnits += qty;
-                        if (p.getSellPrice() != null) {
-                            totalValue = totalValue.add(p.getSellPrice().multiply(BigDecimal.valueOf(qty)));
-                        }
-                    }
-
+                    var agg = catAgg.getOrDefault(catId, new long[]{0, 0});
                     return CategoryStockResponse.builder()
                             .categoryId(0L == catId ? null : catId)
                             .categoryName(entry.getValue())
-                            .productCount(productCount)
-                            .totalUnits(totalUnits)
-                            .totalStockValue(totalValue)
+                            .productCount(agg[0])
+                            .totalUnits(agg[1])
+                            .totalStockValue(BigDecimal.ZERO)
                             .build();
                 })
                 .sorted(Comparator.comparing(CategoryStockResponse::categoryName))
                 .toList();
     }
 
+    @Transactional(readOnly = true)
     public List<StockValueResponse> getStockValue() {
-        List<Product> allProducts = productRepository.findByIsActiveTrue();
-        List<Long> productIds = allProducts.stream().map(Product::getId).toList();
+        var aggregates = productUnitRepository.aggregateInStockByProduct();
+        var productIds = aggregates.stream().map(row -> (Long) row[0]).toList();
+        var products = productRepository.findAllById(productIds);
 
-        List<ProductUnit> inStockUnits = productUnitRepository
-                .findByProductIdInAndStatus(productIds, "IN_STOCK");
-
-        Map<Long, List<ProductUnit>> unitsByProduct = inStockUnits.stream()
-                .collect(Collectors.groupingBy(ProductUnit::getProductId));
-
-        return allProducts.stream().map(product -> {
-            List<ProductUnit> units = unitsByProduct.getOrDefault(product.getId(), List.of());
-
-            long qty;
-            if ("BULK".equals(product.getTrackingType())) {
-                qty = units.stream()
-                        .mapToLong(u -> u.getRemainingQuantity() != null ? u.getRemainingQuantity().longValue() : 0L)
-                        .sum();
-            } else {
-                qty = units.size();
-            }
+        return products.stream().map(product -> {
+            long qty = aggregates.stream()
+                    .filter(row -> row[0].equals(product.getId()))
+                    .mapToLong(row -> ((Number) row[1]).longValue())
+                    .findFirst().orElse(0L);
 
             BigDecimal unitPrice = product.getSellPrice() != null ? product.getSellPrice() : BigDecimal.ZERO;
             BigDecimal totalValue = unitPrice.multiply(BigDecimal.valueOf(qty));
-
             String categoryName = product.getCategory() != null ? product.getCategory().getName() : "Uncategorized";
 
             return StockValueResponse.builder()
@@ -189,22 +148,23 @@ public class ReportService {
         }).sorted(Comparator.comparing(StockValueResponse::productName)).toList();
     }
 
+    @Transactional(readOnly = true)
     public List<ActivityResponse> getActivity(Instant from, Instant to) {
         List<ImportReceipt> imports = importReceiptRepository.findByCreatedAtBetween(from, to);
         List<ExportReceipt> exports = exportReceiptRepository.findByCreatedAtBetween(from, to);
 
-        Map<Long, String> supplierCache = new HashMap<>();
-        Map<Long, String> customerCache = new HashMap<>();
-        Map<Long, List<ImportReceiptItem>> importItemsCache = new HashMap<>();
+        var allSupplierIds = imports.stream().map(ImportReceipt::getSupplierId).distinct().toList();
+        var allCustomerIds = exports.stream().map(ExportReceipt::getCustomerId).filter(java.util.Objects::nonNull).distinct().toList();
+        var supplierNames = supplierRepository.findAllById(allSupplierIds).stream()
+                .collect(Collectors.toMap(Supplier::getId, Supplier::getName));
+        var customerNames = customerRepository.findAllById(allCustomerIds).stream()
+                .collect(Collectors.toMap(Customer::getId, Customer::getName));
 
         List<ActivityResponse> result = new ArrayList<>();
 
         for (ImportReceipt receipt : imports) {
-            String name = supplierCache.computeIfAbsent(receipt.getSupplierId(), id ->
-                    supplierRepository.findById(id).map(Supplier::getName).orElse("Unknown"));
-
-            List<ImportReceiptItem> items = importItemsCache.computeIfAbsent(receipt.getId(), id ->
-                    importReceiptItemRepository.findByReceiptId(id));
+            String name = supplierNames.getOrDefault(receipt.getSupplierId(), "Unknown");
+            List<ImportReceiptItem> items = importReceiptItemRepository.findByReceiptId(receipt.getId());
 
             result.add(ActivityResponse.builder()
                     .type("IMPORT")
@@ -217,8 +177,9 @@ public class ReportService {
         }
 
         for (ExportReceipt receipt : exports) {
-            String name = customerCache.computeIfAbsent(receipt.getCustomerId(), id ->
-                    customerRepository.findById(id).map(Customer::getName).orElse("Unknown"));
+            String name = receipt.getCustomerId() != null
+                    ? customerNames.getOrDefault(receipt.getCustomerId(), "Unknown")
+                    : "Unknown";
 
             result.add(ActivityResponse.builder()
                     .type("EXPORT")
@@ -234,14 +195,15 @@ public class ReportService {
         return result;
     }
 
-    public List<DeadStockResponse> getDeadStock(int daysThreshold) {
-        Instant cutoffDate = Instant.now().minus(Duration.ofDays(daysThreshold));
-        List<ProductUnit> deadUnits = productUnitRepository.findDeadStockUnits(cutoffDate);
+    @Transactional(readOnly = true)
+    public ResponsePage<DeadStockResponse> getDeadStock(int daysThreshold, String keyword, Long categoryId, Instant fromDate, Instant toDate, Pageable pageable) {
+        Instant cutoffDate = daysThreshold > 0 ? Instant.now().minus(Duration.ofDays(daysThreshold)) : null;
+        Page<ProductUnit> deadUnitPage = productUnitRepository.findDeadStockFiltered(cutoffDate, keyword, categoryId, fromDate, toDate, pageable);
 
         Map<Long, Product> productCache = new HashMap<>();
         Map<Long, ImportReceiptItem> itemCache = new HashMap<>();
 
-        return deadUnits.stream().map(unit -> {
+        return ResponsePage.of(deadUnitPage.map(unit -> {
             Product product = productCache.computeIfAbsent(unit.getProductId(),
                     id -> productRepository.findById(id).orElse(null));
 
@@ -264,15 +226,16 @@ public class ReportService {
                     .daysInStock(daysInStock)
                     .costPrice(costPrice)
                     .build();
-        }).sorted(Comparator.comparing(DeadStockResponse::daysInStock).reversed()).toList();
+        }));
     }
 
+    @Transactional(readOnly = true)
     public ResponsePage<LowStockResponse> getLowStock(Pageable pageable) {
         Page<Product> productPage = productRepository.findByIsActiveTrue(pageable);
         List<Long> productIds = productPage.getContent().stream().map(Product::getId).toList();
 
         Map<Long, List<ProductUnit>> unitsByProduct = productUnitRepository
-                .findByProductIdInAndStatus(productIds, "IN_STOCK")
+                .findByProductIdInAndStatus(productIds, ProductUnitStatus.IN_STOCK.name())
                 .stream()
                 .collect(Collectors.groupingBy(ProductUnit::getProductId));
 
@@ -280,7 +243,7 @@ public class ReportService {
             List<ProductUnit> units = unitsByProduct.getOrDefault(product.getId(), List.of());
 
             int qty;
-            if ("BULK".equals(product.getTrackingType())) {
+            if (TrackingType.BULK.name().equals(product.getTrackingType())) {
                 qty = units.stream()
                         .mapToInt(u -> u.getRemainingQuantity() != null ? u.getRemainingQuantity().intValue() : 0)
                         .sum();

@@ -19,7 +19,7 @@ public interface PriceAdjustmentMappingHelper {
                 .oldPrice(adj.getOldPrice())
                 .newPrice(adj.getNewPrice())
                 .reason(adj.getReason())
-                .status(adj.getStatus())
+                .status(adj.getStatus().name())
                 .createdBy(adj.getCreatedBy())
                 .createdByName(createdByName)
                 .approvedBy(adj.getApprovedBy())

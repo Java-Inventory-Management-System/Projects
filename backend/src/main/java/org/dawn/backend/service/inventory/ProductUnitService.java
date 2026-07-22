@@ -14,6 +14,7 @@ import org.dawn.backend.repository.inventory.LocationRepository;
 import org.dawn.backend.repository.inventory.ProductUnitRepository;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -27,6 +28,7 @@ public class ProductUnitService {
     private final ProductRepository productRepository;
     private final LocationRepository locationRepository;
 
+    @Transactional(readOnly = true)
     public ResponsePage<ProductUnitResponse> findAll(Pageable pageable) {
         var products = productRepository.findAll().stream()
                 .collect(Collectors.toMap(Product::getId, p -> p));
@@ -45,6 +47,7 @@ public class ProductUnitService {
                 }));
     }
 
+    @Transactional(readOnly = true)
     public ProductUnitResponse findOne(Long id) {
         var unit = productUnitRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.PRODUCT_UNIT_NOT_FOUND));
@@ -56,6 +59,7 @@ public class ProductUnitService {
                 loc != null ? loc.getFullCode() : null);
     }
 
+    @Transactional(readOnly = true)
     public ResponsePage<ProductUnitResponse> findByStatus(String status, Pageable pageable) {
         var products = productRepository.findAll().stream()
                 .collect(Collectors.toMap(Product::getId, p -> p));
@@ -73,6 +77,7 @@ public class ProductUnitService {
                 }));
     }
 
+    @Transactional(readOnly = true)
     public ResponsePage<ProductUnitResponse> findByProduct(Long productId, Pageable pageable) {
         var p = productRepository.findById(productId).orElse(null);
         var locations = locationRepository.findAll().stream()

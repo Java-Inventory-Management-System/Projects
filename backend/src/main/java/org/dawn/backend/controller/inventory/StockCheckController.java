@@ -21,7 +21,7 @@ public class StockCheckController {
     private final StockCheckService stockCheckService;
 
     @GetMapping("/stock-check/my")
-    @PreAuthorize(AuthorizationExpressions.ROLE_STOCK_MANAGER_ADMIN)
+    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_ADMIN_STOCK)
     public ResponseObject<ResponsePage<StockCheckResponse>> getMyStockChecks(Pageable pageable) {
         return ResponseObject.success(stockCheckService.findMyChecks(pageable));
     }

@@ -32,7 +32,7 @@ public interface PurchaseOrderMappingHelper {
                 .supplierId(po.getSupplierId())
                 .supplierName(supplierName)
                 .totalAmount(po.getTotalAmount())
-                .status(po.getStatus())
+                .status(po.getStatus().name())
                 .expectedDate(po.getExpectedDate())
                 .note(po.getNote())
                 .createdBy(po.getCreatedBy())

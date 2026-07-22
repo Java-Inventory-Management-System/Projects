@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dawn.backend.config.anno.AuditLog;
 import org.dawn.backend.config.web.response.ResponsePage;
+import org.dawn.backend.constant.catalog.TrackingType;
 import org.dawn.backend.constant.inventory.ExportReason;
 import org.dawn.backend.constant.inventory.ExportReceiptStatus;
 import org.dawn.backend.constant.inventory.ProductUnitStatus;
@@ -63,8 +64,9 @@ public class WarrantyRequestService {
     private final ExportReceiptItemRepository exportReceiptItemRepository;
     private final ExportReceiptItemUnitRepository exportReceiptItemUnitRepository;
 
+    @Transactional(readOnly = true)
     public ResponsePage<WarrantyRequestResponse> findAll(Pageable pageable, String status, String resolutionType) {
-        String normalizedStatus = normalize(status);
+        WarrantyRequestStatus normalizedStatus = toWarrantyStatus(normalize(status));
         String normalizedResolution = normalize(resolutionType);
         var page = normalizedStatus != null && normalizedResolution != null
                 ? warrantyRequestRepository.findByStatusAndResolutionType(normalizedStatus, normalizedResolution, pageable)
@@ -76,15 +78,18 @@ public class WarrantyRequestService {
         return ResponsePage.of(page.map(this::enrich));
     }
 
+    @Transactional(readOnly = true)
     public ResponsePage<WarrantyRequestResponse> findMyHandled(Pageable pageable) {
         Long userId = requireCurrentUserId();
         return ResponsePage.of(warrantyRequestRepository.findByHandledBy(userId, pageable).map(this::enrich));
     }
 
+    @Transactional(readOnly = true)
     public WarrantyRequestResponse findOne(Long id) {
         return enrich(findRequest(id));
     }
 
+    @Transactional(readOnly = true)
     public WarrantyLookupResponse lookup(String serialNumber) {
         ProductUnit unit = findUnitBySerial(serialNumber);
         Product product = productRepository.findById(unit.getProductId()).orElse(null);
@@ -105,7 +110,7 @@ public class WarrantyRequestService {
             eligible = false;
         } else {
             warrantyStatus = "VALID";
-            eligible = ProductUnitStatus.SOLD.name().equals(unit.getStatus());
+            eligible = ProductUnitStatus.SOLD == unit.getStatus();
         }
 
         return WarrantyLookupResponse.builder()
@@ -114,7 +119,7 @@ public class WarrantyRequestService {
                 .productId(unit.getProductId())
                 .productName(product != null ? product.getName() : null)
                 .productSku(product != null ? product.getSku() : null)
-                .productUnitStatus(unit.getStatus())
+                .productUnitStatus(unit.getStatus().name())
                 .purchaseDate(unit.getWarrantyStartDate())
                 .warrantyExpiresAt(unit.getWarrantyExpiresAt())
                 .warrantyStatus(warrantyStatus)
@@ -135,10 +140,10 @@ public class WarrantyRequestService {
         }
 
         ProductUnit unit = findUnitBySerial(request.serialNumber());
-        if (!"SERIALIZED".equals(unit.getTrackingType())) {
+        if (!TrackingType.SERIALIZED.name().equals(unit.getTrackingType())) {
             throw new InvalidRequestException(Message.Inventory.WARRANTY_SERIALIZED_ONLY);
         }
-        if (!ProductUnitStatus.SOLD.name().equals(unit.getStatus())) {
+        if (ProductUnitStatus.SOLD != unit.getStatus()) {
             throw new InvalidRequestException(Message.Inventory.WARRANTY_UNIT_NOT_SOLD);
         }
         if (unit.getWarrantyStartDate() == null || unit.getWarrantyExpiresAt() == null) {
@@ -149,7 +154,7 @@ public class WarrantyRequestService {
             throw new InvalidRequestException(Message.Inventory.WARRANTY_EXPIRED);
         }
         if (warrantyRequestRepository.existsByProductUnitIdAndStatus(
-                unit.getId(), WarrantyRequestStatus.PENDING.name())) {
+                unit.getId(), WarrantyRequestStatus.PENDING)) {
             throw new InvalidRequestException(Message.Inventory.WARRANTY_ALREADY_PENDING);
         }
 
@@ -166,7 +171,7 @@ public class WarrantyRequestService {
                 .productUnitId(unit.getId())
                 .customerId(customer != null ? customer.getId() : null)
                 .issueDescription(request.issueDescription().trim())
-                .status(WarrantyRequestStatus.PENDING.name())
+                .status(WarrantyRequestStatus.PENDING)
                 .note(request.note())
                 .build();
         return enrich(warrantyRequestRepository.save(warranty));
@@ -232,7 +237,7 @@ public class WarrantyRequestService {
         };
         transition(unit, expected, target, warranty.getId(), userId);
 
-        warranty.setStatus(WarrantyRequestStatus.COMPLETED.name());
+        warranty.setStatus(WarrantyRequestStatus.COMPLETED);
         warranty.setHandledBy(userId);
         warranty.setCompletedAt(Instant.now());
         warranty.setNote(appendNote(warranty.getNote(), request != null ? request.note() : null));
@@ -252,13 +257,13 @@ public class WarrantyRequestService {
 
         ProductUnit unit = productUnitRepository.findByIdForUpdate(warranty.getProductUnitId())
                 .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.PRODUCT_UNIT_NOT_FOUND));
-        if (ProductUnitStatus.UNDER_REPAIR.name().equals(unit.getStatus())) {
+        if (ProductUnitStatus.UNDER_REPAIR == unit.getStatus()) {
             transition(unit, ProductUnitStatus.UNDER_REPAIR, ProductUnitStatus.SOLD, warranty.getId(), userId);
-        } else if (ProductUnitStatus.SENT_TO_MANUFACTURER.name().equals(unit.getStatus())) {
+        } else if (ProductUnitStatus.SENT_TO_MANUFACTURER == unit.getStatus()) {
             transition(unit, ProductUnitStatus.SENT_TO_MANUFACTURER, ProductUnitStatus.SOLD, warranty.getId(), userId);
         }
 
-        warranty.setStatus(WarrantyRequestStatus.CANCELLED.name());
+        warranty.setStatus(WarrantyRequestStatus.CANCELLED);
         warranty.setHandledBy(userId);
         warranty.setCompletedAt(Instant.now());
         warranty.setNote(appendNote(warranty.getNote(), request.note()));
@@ -278,8 +283,8 @@ public class WarrantyRequestService {
         if (!original.getProductId().equals(replacement.getProductId())) {
             throw new InvalidRequestException(Message.Inventory.WARRANTY_REPLACEMENT_PRODUCT_MISMATCH);
         }
-        if (!ProductUnitStatus.IN_STOCK.name().equals(replacement.getStatus())
-                || !"SERIALIZED".equals(replacement.getTrackingType())) {
+        if (ProductUnitStatus.IN_STOCK != replacement.getStatus()
+                || !TrackingType.SERIALIZED.name().equals(replacement.getTrackingType())) {
             throw new InvalidRequestException(Message.Inventory.WARRANTY_REPLACEMENT_NOT_AVAILABLE);
         }
 
@@ -311,7 +316,7 @@ public class WarrantyRequestService {
         if (request == null || request.note() == null || request.note().isBlank()) {
             throw new InvalidRequestException(Message.Inventory.WARRANTY_REJECT_REASON_REQUIRED);
         }
-        warranty.setStatus(WarrantyRequestStatus.CANCELLED.name());
+        warranty.setStatus(WarrantyRequestStatus.CANCELLED);
         warranty.setCompletedAt(Instant.now());
     }
 
@@ -330,7 +335,7 @@ public class WarrantyRequestService {
                 .reason(reason.name())
                 .customerId(warranty.getCustomerId())
                 .totalAmount(BigDecimal.ZERO)
-                .status(ExportReceiptStatus.COMPLETED.name())
+                .status(ExportReceiptStatus.COMPLETED)
                 .note("Warranty " + reason.name().toLowerCase() + " for " + warranty.getRequestCode())
                 .createdBy(userId)
                 .approvedBy(userId)
@@ -355,11 +360,11 @@ public class WarrantyRequestService {
 
     private void transition(ProductUnit unit, ProductUnitStatus expected, ProductUnitStatus target,
                             Long warrantyId, Long userId) {
-        if (!expected.name().equals(unit.getStatus())) {
+        if (expected != unit.getStatus()) {
             throw new InvalidRequestException(
                     Message.format(Message.Inventory.WARRANTY_INVALID_UNIT_STATE, unit.getStatus()));
         }
-        unit.setStatus(target.name());
+        unit.setStatus(target);
         productUnitRepository.save(unit);
         statusLogRepository.save(ProductUnitStatusLog.builder()
                 .productUnitId(unit.getId())
@@ -413,7 +418,7 @@ public class WarrantyRequestService {
             if (item == null) continue;
             var receipt = exportReceiptRepository.findById(item.getReceiptId()).orElse(null);
             if (receipt == null || !ExportReason.SALE.name().equals(receipt.getReason())
-                    || !ExportReceiptStatus.COMPLETED.name().equals(receipt.getStatus())) continue;
+                    || ExportReceiptStatus.COMPLETED != receipt.getStatus()) continue;
             Customer customer = receipt.getCustomerId() != null
                     ? customerRepository.findById(receipt.getCustomerId()).orElse(null)
                     : null;
@@ -433,7 +438,7 @@ public class WarrantyRequestService {
     }
 
     private void requirePending(WarrantyRequest warranty) {
-        if (!WarrantyRequestStatus.PENDING.name().equals(warranty.getStatus())) {
+        if (WarrantyRequestStatus.PENDING != warranty.getStatus()) {
             throw new InvalidRequestException(Message.Inventory.WARRANTY_ONLY_PENDING);
         }
     }
@@ -470,7 +475,7 @@ public class WarrantyRequestService {
     }
 
     private void markCompleted(WarrantyRequest warranty, Long userId) {
-        warranty.setStatus(WarrantyRequestStatus.COMPLETED.name());
+        warranty.setStatus(WarrantyRequestStatus.COMPLETED);
         warranty.setHandledBy(userId);
         warranty.setCompletedAt(Instant.now());
     }
@@ -483,6 +488,10 @@ public class WarrantyRequestService {
 
     private String generateRequestCode() {
         return ReceiptCodeGenerator.generate("WR-", warrantyRequestRepository::existsByRequestCode);
+    }
+
+    private WarrantyRequestStatus toWarrantyStatus(String value) {
+        return value != null ? WarrantyRequestStatus.valueOf(value) : null;
     }
 
     private String normalize(String value) {

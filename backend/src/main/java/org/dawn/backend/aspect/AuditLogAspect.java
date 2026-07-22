@@ -20,6 +20,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
+import java.util.Optional;
 import java.util.UUID;
 
 @Aspect
@@ -133,24 +134,28 @@ public class AuditLogAspect {
     }
 
     private String resolveResultId(Object result) {
-        if (result == null) {
-            Long currentUserId = SecurityUtils.getCurrentUserId();
-            return currentUserId != null ? currentUserId.toString() : "";
-        }
-        for (var m : result.getClass().getMethods()) {
-            if (m.getParameterCount() == 0
-                    && (m.getName().equals("getId") || m.getName().equals("id"))
-                    && !m.getReturnType().equals(Void.TYPE)) {
-                try {
-                    Object id = m.invoke(result);
-                    if (id != null) return id.toString();
-                } catch (Exception e) {
-                    log.warn("Failed to extract entity ID via reflection: {}", e.getMessage());
-                }
+        if (result == null) return currentUserIdString();
+        Long id = tryExtractId(result, "getId")
+                .or(() -> tryExtractId(result, "id"))
+                .orElse(null);
+        if (id != null) return id.toString();
+        return currentUserIdString();
+    }
+
+    private Optional<Long> tryExtractId(Object obj, String methodName) {
+        try {
+            var m = obj.getClass().getMethod(methodName);
+            if (m.getReturnType() != Void.TYPE && m.getParameterCount() == 0) {
+                Object val = m.invoke(obj);
+                if (val instanceof Number n) return Optional.of(n.longValue());
             }
-        }
-        Long currentUserId = SecurityUtils.getCurrentUserId();
-        return currentUserId != null ? currentUserId.toString() : "";
+        } catch (Exception ignored) {}
+        return Optional.empty();
+    }
+
+    private String currentUserIdString() {
+        Long userId = SecurityUtils.getCurrentUserId();
+        return userId != null ? userId.toString() : "";
     }
 
     private String getClientIp() {

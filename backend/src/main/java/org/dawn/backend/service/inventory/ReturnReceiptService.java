@@ -22,6 +22,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -37,11 +39,24 @@ public class ReturnReceiptService {
     private final UserRepository userRepository;
     private final ProductUnitStatusLogRepository statusLogRepository;
 
+    @Transactional(readOnly = true)
     public ResponsePage<ReturnReceiptResponse> findAll(Pageable pageable) {
         var page = returnReceiptRepository.findAll(pageable);
-        return ResponsePage.of(page.map(this::enrich));
+        var receipts = page.getContent();
+        var customerMap = fetchCustomerMap(receipts);
+        var userMap = fetchUserMap(receipts);
+        var itemsByReceiptId = fetchItems(receipts);
+        return ResponsePage.of(page.map(r -> {
+            var items = itemsByReceiptId.getOrDefault(r.getId(), List.of());
+            return ReturnReceiptMappingHelper.map(r,
+                    r.getCustomerId() != null ? customerMap.get(r.getCustomerId()) : null,
+                    userMap.get(r.getCreatedBy()),
+                    r.getApprovedBy() != null ? userMap.get(r.getApprovedBy()) : null,
+                    items);
+        }));
     }
 
+    @Transactional(readOnly = true)
     public ReturnReceiptResponse findOne(Long id) {
         var receipt = returnReceiptRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.RETURN_RECEIPT_NOT_FOUND));
@@ -84,7 +99,7 @@ public class ReturnReceiptService {
                 .customerId(request.customerId())
                 .originalExportReceiptId(request.originalExportReceiptId())
                 .reason(reason)
-                .status(ReturnReceiptStatus.PENDING_APPROVAL.name())
+                .status(ReturnReceiptStatus.PENDING_APPROVAL)
                 .note(request.note())
                 .createdBy(userId)
                 .build();
@@ -109,7 +124,7 @@ public class ReturnReceiptService {
             if (itemReq.productUnitId() != null) {
                 var pu = productUnitRepository.findById(itemReq.productUnitId())
                         .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.PRODUCT_UNIT_NOT_FOUND));
-                if (!ProductUnitStatus.SOLD.name().equals(pu.getStatus())) {
+                if (ProductUnitStatus.SOLD != pu.getStatus()) {
                     throw new InvalidRequestException(Message.Inventory.RETURN_UNIT_NOT_SOLD);
                 }
             }
@@ -137,7 +152,7 @@ public class ReturnReceiptService {
         if (receipt.getCreatedBy().equals(userId)) {
             throw new InvalidRequestException(Message.Inventory.CREATOR_CANNOT_APPROVE);
         }
-        if (!ReturnReceiptStatus.PENDING_APPROVAL.name().equals(receipt.getStatus())) {
+        if (ReturnReceiptStatus.PENDING_APPROVAL != receipt.getStatus()) {
             throw new InvalidRequestException(Message.Inventory.RETURN_ONLY_PENDING);
         }
 
@@ -148,23 +163,23 @@ public class ReturnReceiptService {
                     .orElse(null);
             if (pu == null) continue;
 
-            String oldStatus = pu.getStatus();
+            ProductUnitStatus oldStatus = pu.getStatus();
             String action = item.getResultingAction();
 
             if (ResultingAction.RESTOCK.name().equals(action)) {
-                pu.setStatus(ProductUnitStatus.RETURNED.name());
+                pu.setStatus(ProductUnitStatus.RETURNED);
             } else if (ResultingAction.SCRAP.name().equals(action)) {
-                pu.setStatus(ProductUnitStatus.DISPOSED.name());
+                pu.setStatus(ProductUnitStatus.DISPOSED);
             } else if (ResultingAction.WARRANTY_TRANSFER.name().equals(action)) {
-                pu.setStatus(ProductUnitStatus.DEFECTIVE.name());
+                pu.setStatus(ProductUnitStatus.DEFECTIVE);
             }
 
-            if (!ProductUnitStatus.SOLD.name().equals(oldStatus)) {
+            if (ProductUnitStatus.SOLD != oldStatus) {
                 productUnitRepository.save(pu);
                 statusLogRepository.save(ProductUnitStatusLog.builder()
                         .productUnitId(pu.getId())
-                        .fromStatus(oldStatus)
-                        .toStatus(pu.getStatus())
+                        .fromStatus(oldStatus.name())
+                        .toStatus(pu.getStatus().name())
                         .sourceType(SourceType.RETURN_RECEIPT.name())
                         .sourceId(receipt.getId())
                         .changedBy(userId)
@@ -172,7 +187,7 @@ public class ReturnReceiptService {
             }
         }
 
-        receipt.setStatus(ReturnReceiptStatus.COMPLETED.name());
+        receipt.setStatus(ReturnReceiptStatus.COMPLETED);
         receipt.setApprovedBy(userId);
         receipt.setApprovedAt(java.time.Instant.now());
         receipt = returnReceiptRepository.save(receipt);
@@ -186,15 +201,40 @@ public class ReturnReceiptService {
         var receipt = returnReceiptRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.RETURN_RECEIPT_NOT_FOUND));
 
-        if (ReturnReceiptStatus.CANCELLED.name().equals(receipt.getStatus())) {
+        if (ReturnReceiptStatus.CANCELLED == receipt.getStatus()) {
             throw new InvalidRequestException(Message.Inventory.RETURN_ALREADY_CANCELLED);
         }
-        if (ReturnReceiptStatus.COMPLETED.name().equals(receipt.getStatus())) {
+        if (ReturnReceiptStatus.COMPLETED == receipt.getStatus()) {
             throw new InvalidRequestException(Message.Inventory.RETURN_ALREADY_COMPLETED);
         }
 
-        receipt.setStatus(ReturnReceiptStatus.CANCELLED.name());
+        receipt.setStatus(ReturnReceiptStatus.CANCELLED);
         return enrich(returnReceiptRepository.save(receipt));
+    }
+
+    private Map<Long, String> fetchCustomerMap(List<ReturnReceipt> receipts) {
+        var ids = receipts.stream().map(ReturnReceipt::getCustomerId).filter(java.util.Objects::nonNull).distinct().toList();
+        return customerRepository.findAllById(ids).stream()
+                .collect(Collectors.toMap(Customer::getId, Customer::getName));
+    }
+
+    private Map<Long, String> fetchUserMap(List<ReturnReceipt> receipts) {
+        var ids = receipts.stream()
+                .flatMap(r -> {
+                    var list = new java.util.ArrayList<Long>();
+                    list.add(r.getCreatedBy());
+                    if (r.getApprovedBy() != null) list.add(r.getApprovedBy());
+                    return list.stream();
+                })
+                .distinct().toList();
+        return userRepository.findAllById(ids).stream()
+                .collect(Collectors.toMap(User::getId, User::getFullName));
+    }
+
+    private Map<Long, List<ReturnReceiptItem>> fetchItems(List<ReturnReceipt> receipts) {
+        var ids = receipts.stream().map(ReturnReceipt::getId).toList();
+        return returnReceiptItemRepository.findByReturnReceiptIdIn(ids).stream()
+                .collect(Collectors.groupingBy(ReturnReceiptItem::getReturnReceiptId));
     }
 
     private ReturnReceiptResponse enrich(ReturnReceipt receipt) {

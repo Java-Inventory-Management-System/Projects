@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
 import org.dawn.backend.entity.base.AuditableEntity;
+import org.dawn.backend.constant.inventory.StockCheckStatus;
 
 @Entity
 @Table(name = "stock_checks")
@@ -18,9 +19,10 @@ public class StockCheck extends AuditableEntity {
     @Column(name = "check_code", nullable = false, unique = true, length = 32)
     private String checkCode;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)
     @Builder.Default
-    private String status = "PENDING";
+    private StockCheckStatus status = StockCheckStatus.PENDING;
 
     @Column(name = "note", columnDefinition = "TEXT")
     private String note;
