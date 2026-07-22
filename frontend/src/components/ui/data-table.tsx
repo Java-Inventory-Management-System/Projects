@@ -107,7 +107,7 @@ export function DataTable<T>({
               </TableRow>
             ) : (
               data.map((item, i) => (
-                <TableRow key={i}>
+                <TableRow key={i} style={{ contentVisibility: "auto" } as React.CSSProperties}>
                   {columns.map((c, j) => (
                     <TableCell key={j} className={c.className}>{c.render(item)}</TableCell>
                   ))}

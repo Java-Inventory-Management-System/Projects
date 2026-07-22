@@ -35,7 +35,7 @@ export interface NavSection {
 export const navSections: NavSection[] = [
   {
     items: [
-      { label: "Dashboard", icon: LayoutDashboard, path: "/", roles: ROLES.MANAGER_ADMIN },
+      { label: "Dashboard", icon: LayoutDashboard, path: "/", roles: [...ROLES.MANAGER_ADMIN, ...ROLES.SALES] },
       { label: "Products", icon: Package, path: "/products", roles: ROLES.ALL_STOCK },
       { label: "Brands", icon: Building2, path: "/brands", roles: ROLES.ALL_STOCK },
       { label: "Categories", icon: Tags, path: "/categories", roles: ROLES.ALL_STOCK },

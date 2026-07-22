@@ -26,7 +26,7 @@ export function Sidebar({ collapsed, onNavigate }: SidebarProps) {
       const r = await getImportReceipts(0, 1, undefined, "PENDING_APPROVAL")
       return r.pagination.totalElements
     },
-    refetchInterval: 60_000,
+    staleTime: 60_000,
   })
 
   const { data: exportPending } = useQuery({
@@ -35,7 +35,7 @@ export function Sidebar({ collapsed, onNavigate }: SidebarProps) {
       const r = await getExportReceipts(0, 1, undefined, "PENDING_APPROVAL")
       return r.pagination.totalElements
     },
-    refetchInterval: 60_000,
+    staleTime: 60_000,
   })
 
   const badgeCount: Record<string, number> = {}

@@ -5,6 +5,6 @@ export function useLocationMap() {
   return useQuery({
     queryKey: ["location-map"],
     queryFn: getLocationMap,
-    staleTime: 30_000,
+    staleTime: 5 * 60 * 1000,
   })
 }

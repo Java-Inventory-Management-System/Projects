@@ -1,7 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import { lazy, Suspense } from "react"
 import { Navigate, createBrowserRouter } from "react-router-dom"
-import type { ReactNode } from "react"
+import type { ComponentType, ReactNode } from "react"
 import { AppShell } from "@/layouts/app-shell"
 import { ProtectedRoute } from "@/layouts/protected-route"
 import { ErrorBoundary } from "@/components/ui/error-boundary"
@@ -10,38 +10,42 @@ import { useAuthStore } from "@/store/auth-store"
 import type { URole } from "@/utils/types"
 import { ROLES } from "@/utils/permissions"
 
-const LoginPage = lazy(() => import("@/features/auth/pages/login-page").then((m) => ({ default: m.LoginPage })))
-const DashboardPage = lazy(() => import("@/features/dashboard/pages/dashboard-page").then((m) => ({ default: m.DashboardPage })))
-const ProductsPage = lazy(() => import("@/features/products/pages/products-page").then((m) => ({ default: m.ProductsPage })))
-const ProductCreatePage = lazy(() => import("@/features/products/pages/product-create-page").then((m) => ({ default: m.ProductCreatePage })))
-const ProductEditPage = lazy(() => import("@/features/products/pages/product-edit-page").then((m) => ({ default: m.ProductEditPage })))
-const BrandsPage = lazy(() => import("@/features/products/pages/brands-page").then((m) => ({ default: m.BrandsPage })))
-const CategoriesPage = lazy(() => import("@/features/products/pages/categories-page").then((m) => ({ default: m.CategoriesPage })))
-const SuppliersPage = lazy(() => import("@/features/products/pages/suppliers-page").then((m) => ({ default: m.SuppliersPage })))
-const CustomersPage = lazy(() => import("@/features/products/pages/customers-page").then((m) => ({ default: m.CustomersPage })))
-const NotFoundPage = lazy(() => import("@/features/common/pages/not-found-page").then((m) => ({ default: m.NotFoundPage })))
-const ForbiddenPage = lazy(() => import("@/features/common/pages/forbidden-page").then((m) => ({ default: m.ForbiddenPage })))
-const ImportListPage = lazy(() => import("@/features/stock/pages/import-list-page").then((m) => ({ default: m.ImportListPage })))
-const ImportCreatePage = lazy(() => import("@/features/stock/pages/import-create-page").then((m) => ({ default: m.ImportCreatePage })))
-const ExportListPage = lazy(() => import("@/features/stock/pages/export-list-page").then((m) => ({ default: m.ExportListPage })))
-const ExportCreatePage = lazy(() => import("@/features/stock/pages/export-create-page").then((m) => ({ default: m.ExportCreatePage })))
-const StockCheckListPage = lazy(() => import("@/features/stock/pages/stock-check-list-page").then((m) => ({ default: m.StockCheckListPage })))
-const StockCheckCreatePage = lazy(() => import("@/features/stock/pages/stock-check-create-page").then((m) => ({ default: m.StockCheckCreatePage })))
-const StockCheckDetailPage = lazy(() => import("@/features/stock/pages/stock-check-detail-page").then((m) => ({ default: m.StockCheckDetailPage })))
-const StockAdjustmentListPage = lazy(() => import("@/features/stock/pages/stock-adjustment-list-page").then((m) => ({ default: m.StockAdjustmentListPage })))
-const StockAdjustmentCreatePage = lazy(() => import("@/features/stock/pages/stock-adjustment-create-page").then((m) => ({ default: m.StockAdjustmentCreatePage })))
-const StockAdjustmentDetailPage = lazy(() => import("@/features/stock/pages/stock-adjustment-detail-page").then((m) => ({ default: m.StockAdjustmentDetailPage })))
-const ImportDetailPage = lazy(() => import("@/features/stock/pages/import-detail-page").then((m) => ({ default: m.ImportDetailPage })))
-const ExportDetailPage = lazy(() => import("@/features/stock/pages/export-detail-page").then((m) => ({ default: m.ExportDetailPage })))
-const PriceAdjustmentListPage = lazy(() => import("@/features/stock/pages/price-adjustment-list-page").then((m) => ({ default: m.PriceAdjustmentListPage })))
-const PriceAdjustmentCreatePage = lazy(() => import("@/features/stock/pages/price-adjustment-create-page").then((m) => ({ default: m.PriceAdjustmentCreatePage })))
-const PriceAdjustmentDetailPage = lazy(() => import("@/features/stock/pages/price-adjustment-detail-page").then((m) => ({ default: m.PriceAdjustmentDetailPage })))
-const POListPage = lazy(() => import("@/features/stock/pages/po-list-page").then((m) => ({ default: m.POListPage })))
-const POCreatePage = lazy(() => import("@/features/stock/pages/po-create-page").then((m) => ({ default: m.POCreatePage })))
-const PODetailPage = lazy(() => import("@/features/stock/pages/po-detail-page").then((m) => ({ default: m.PODetailPage })))
-const StockUnitsPage = lazy(() => import("@/features/stock/pages/stock-units-page").then((m) => ({ default: m.StockUnitsPage })))
-const UsersPage = lazy(() => import("@/features/admin/pages/users-page").then((m) => ({ default: m.UsersPage })))
-const AuditPage = lazy(() => import("@/features/admin/pages/audit-page").then((m) => ({ default: m.AuditPage })))
+function lazyPage<T extends ComponentType>(importFn: () => Promise<Record<string, T>>, name: string) {
+  return lazy(() => importFn().then((m) => ({ default: m[name] })))
+}
+
+const LoginPage = lazyPage(() => import("@/features/auth/pages/login-page"), "LoginPage")
+const DashboardPage = lazyPage(() => import("@/features/dashboard/pages/dashboard-page"), "DashboardPage")
+const ProductsPage = lazyPage(() => import("@/features/products/pages/products-page"), "ProductsPage")
+const ProductCreatePage = lazyPage(() => import("@/features/products/pages/product-create-page"), "ProductCreatePage")
+const ProductEditPage = lazyPage(() => import("@/features/products/pages/product-edit-page"), "ProductEditPage")
+const BrandsPage = lazyPage(() => import("@/features/products/pages/brands-page"), "BrandsPage")
+const CategoriesPage = lazyPage(() => import("@/features/products/pages/categories-page"), "CategoriesPage")
+const SuppliersPage = lazyPage(() => import("@/features/products/pages/suppliers-page"), "SuppliersPage")
+const CustomersPage = lazyPage(() => import("@/features/products/pages/customers-page"), "CustomersPage")
+const NotFoundPage = lazyPage(() => import("@/features/common/pages/not-found-page"), "NotFoundPage")
+const ForbiddenPage = lazyPage(() => import("@/features/common/pages/forbidden-page"), "ForbiddenPage")
+const ImportListPage = lazyPage(() => import("@/features/stock/pages/import-list-page"), "ImportListPage")
+const ImportCreatePage = lazyPage(() => import("@/features/stock/pages/import-create-page"), "ImportCreatePage")
+const ExportListPage = lazyPage(() => import("@/features/stock/pages/export-list-page"), "ExportListPage")
+const ExportCreatePage = lazyPage(() => import("@/features/stock/pages/export-create-page"), "ExportCreatePage")
+const StockCheckListPage = lazyPage(() => import("@/features/stock/pages/stock-check-list-page"), "StockCheckListPage")
+const StockCheckCreatePage = lazyPage(() => import("@/features/stock/pages/stock-check-create-page"), "StockCheckCreatePage")
+const StockCheckDetailPage = lazyPage(() => import("@/features/stock/pages/stock-check-detail-page"), "StockCheckDetailPage")
+const StockAdjustmentListPage = lazyPage(() => import("@/features/stock/pages/stock-adjustment-list-page"), "StockAdjustmentListPage")
+const StockAdjustmentCreatePage = lazyPage(() => import("@/features/stock/pages/stock-adjustment-create-page"), "StockAdjustmentCreatePage")
+const StockAdjustmentDetailPage = lazyPage(() => import("@/features/stock/pages/stock-adjustment-detail-page"), "StockAdjustmentDetailPage")
+const ImportDetailPage = lazyPage(() => import("@/features/stock/pages/import-detail-page"), "ImportDetailPage")
+const ExportDetailPage = lazyPage(() => import("@/features/stock/pages/export-detail-page"), "ExportDetailPage")
+const PriceAdjustmentListPage = lazyPage(() => import("@/features/stock/pages/price-adjustment-list-page"), "PriceAdjustmentListPage")
+const PriceAdjustmentCreatePage = lazyPage(() => import("@/features/stock/pages/price-adjustment-create-page"), "PriceAdjustmentCreatePage")
+const PriceAdjustmentDetailPage = lazyPage(() => import("@/features/stock/pages/price-adjustment-detail-page"), "PriceAdjustmentDetailPage")
+const POListPage = lazyPage(() => import("@/features/stock/pages/po-list-page"), "POListPage")
+const POCreatePage = lazyPage(() => import("@/features/stock/pages/po-create-page"), "POCreatePage")
+const PODetailPage = lazyPage(() => import("@/features/stock/pages/po-detail-page"), "PODetailPage")
+const StockUnitsPage = lazyPage(() => import("@/features/stock/pages/stock-units-page"), "StockUnitsPage")
+const UsersPage = lazyPage(() => import("@/features/admin/pages/users-page"), "UsersPage")
+const AuditPage = lazyPage(() => import("@/features/admin/pages/audit-page"), "AuditPage")
 function PageGuard({ roles, children }: { roles: URole[]; children: ReactNode }) {
   const hasRole = useAuthStore((s) => s.hasRole)
   if (!hasRole(roles)) return <Navigate to="/403" replace />

@@ -122,18 +122,7 @@ export interface ProductResponse {
   updatedAt: string
 }
 
-export interface UpdateProductRequest {
-  name: string
-  sku: string | null
-  barcode: string | null
-  brandId: number | null
-  categoryId: number | null
-  description: string | null
-  unit: string | null
-  trackingType: string | null
-  sellPrice: number | null
-  minStock: number | null
-}
+export type UpdateProductRequest = CreateProductRequest
 
 // ============ Supplier ============
 
