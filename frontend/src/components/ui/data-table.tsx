@@ -39,7 +39,7 @@ export function DataTable<T>({
   const toolbar = hasPagination && (
     <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        {totalElements !== undefined && <span>{totalElements.toLocaleString("vi-VN")} kết quả</span>}
+        {totalElements != null && <span>{totalElements.toLocaleString("vi-VN")} kết quả</span>}
         {pageSize !== undefined && onPageSizeChange && (
           <>
             <span>Hiển thị</span>

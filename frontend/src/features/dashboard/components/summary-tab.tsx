@@ -55,7 +55,7 @@ export function SummaryTab() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <StatCard label="Sản phẩm" value={String(summary?.totalProducts ?? "—")} isLoading={isLoading} />
         <StatCard label="Tổng tồn" value={String(summary?.totalUnits ?? "—")} isLoading={isLoading} />
-        <StatCard label="Giá trị tồn" value={summary ? `${summary.totalStockValue.toLocaleString("vi-VN")}₫` : "—"} isLoading={isLoading} />
+        <StatCard label="Giá trị tồn" value={summary?.totalStockValue != null ? `${summary.totalStockValue.toLocaleString("vi-VN")}₫` : "—"} isLoading={isLoading} />
         <StatCard label="Sắp hết" value={String(summary?.lowStockCount ?? "—")} isLoading={isLoading} highlight={!!summary?.lowStockCount} />
         <StatCard label="Hết hàng" value={String(summary?.outOfStockCount ?? "—")} isLoading={isLoading} highlight={!!summary?.outOfStockCount} />
       </div>

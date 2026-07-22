@@ -95,7 +95,7 @@ function CategoryTab() {
                 <TableCell>{c.categoryName ?? "Chưa phân loại"}</TableCell>
                 <TableCell className="text-right tabular-nums">{c.productCount}</TableCell>
                 <TableCell className="text-right tabular-nums">{c.totalUnits}</TableCell>
-                <TableCell className="text-right tabular-nums">{c.totalStockValue.toLocaleString("vi-VN")}₫</TableCell>
+                <TableCell className="text-right tabular-nums">{c.totalStockValue?.toLocaleString("vi-VN") ?? "0"}₫</TableCell>
               </TableRow>
             ))}
           </TableBody>
@@ -172,8 +172,8 @@ function StockValueTab() {
               <TableCell className="text-sm">{i.productName}</TableCell>
               <TableCell className="text-sm">{i.categoryName ?? "—"}</TableCell>
               <TableCell className="text-right tabular-nums">{i.quantity}</TableCell>
-              <TableCell className="text-right tabular-nums">{i.unitPrice.toLocaleString("vi-VN")}₫</TableCell>
-              <TableCell className="text-right tabular-nums">{i.totalValue.toLocaleString("vi-VN")}₫</TableCell>
+              <TableCell className="text-right tabular-nums">{i.unitPrice?.toLocaleString("vi-VN") ?? "0"}₫</TableCell>
+              <TableCell className="text-right tabular-nums">{i.totalValue?.toLocaleString("vi-VN") ?? "0"}₫</TableCell>
             </TableRow>
           ))}
         </TableBody>
@@ -212,7 +212,7 @@ function ActivityTab() {
                 <TableCell className="text-sm">{new Date(a.date).toLocaleDateString("vi-VN")}</TableCell>
                 <TableCell className="text-sm">{a.counterpartyName ?? "—"}</TableCell>
                 <TableCell className="text-right tabular-nums">{a.lineItems}</TableCell>
-                <TableCell className="text-right tabular-nums">{a.totalAmount.toLocaleString("vi-VN")}₫</TableCell>
+                <TableCell className="text-right tabular-nums">{a.totalAmount?.toLocaleString("vi-VN") ?? "0"}₫</TableCell>
               </TableRow>
             ))}
           </TableBody>
@@ -249,7 +249,7 @@ function DeadStockTab() {
                 <TableCell className="font-mono text-xs">{i.serialNumber ?? "—"}</TableCell>
                 <TableCell className="text-sm">{new Date(i.importedAt).toLocaleDateString("vi-VN")}</TableCell>
                 <TableCell className="text-right tabular-nums">{i.daysInStock}</TableCell>
-                <TableCell className="text-right tabular-nums">{i.costPrice.toLocaleString("vi-VN")}₫</TableCell>
+                <TableCell className="text-right tabular-nums">{i.costPrice?.toLocaleString("vi-VN") ?? "0"}₫</TableCell>
               </TableRow>
             ))}
           </TableBody>
