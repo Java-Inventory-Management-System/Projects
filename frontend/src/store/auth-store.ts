@@ -5,7 +5,7 @@ import { clearToken } from "@/utils/http-client"
 import { jwtDecode } from "@/utils/jwt"
 
 interface User {
-  id: string
+  id: number
   username: string
   role: URole
   displayName: string
@@ -28,7 +28,7 @@ interface AuthState {
 }
 
 function mapUser(raw: { id: number; username: string; fullName: string; role: string }): User {
-  return { id: String(raw.id), username: raw.username, role: raw.role as URole, displayName: raw.fullName || raw.username }
+  return { id: raw.id, username: raw.username, role: raw.role as URole, displayName: raw.fullName || raw.username }
 }
 
 function restoreUser(): User | null {

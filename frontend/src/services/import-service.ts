@@ -2,8 +2,8 @@ import http from "@/utils/http-client"
 import type { ResponsePage, ImportReceipt } from "@/utils/types"
 import { mapResponsePage, mapImportReceipt } from "@/utils/mappers"
 
-export async function getImportReceipts(page = 0, size = 20, sort?: string): Promise<ResponsePage<ImportReceipt>> {
-  const res = await http.get("/import-receipt", { params: { page, size, sort: sort ?? "createdAt,desc" } })
+export async function getImportReceipts(page = 0, size = 20, sort?: string, status?: string): Promise<ResponsePage<ImportReceipt>> {
+  const res = await http.get("/import-receipt", { params: { page, size, sort: sort ?? "createdAt,desc", ...(status && { status }) } })
   return mapResponsePage(res, mapImportReceipt)
 }
 

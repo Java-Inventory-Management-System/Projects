@@ -4,6 +4,11 @@ import { Navigate, createBrowserRouter } from "react-router-dom"
 import type { ReactNode } from "react"
 import { AppShell } from "@/layouts/app-shell"
 import { ProtectedRoute } from "@/layouts/protected-route"
+import { ErrorBoundary } from "@/components/ui/error-boundary"
+import { PageSkeleton } from "@/components/ui/page-skeleton"
+import { useAuthStore } from "@/store/auth-store"
+import type { URole } from "@/utils/types"
+import { ROLES } from "@/utils/permissions"
 
 const LoginPage = lazy(() => import("@/features/auth/pages/login-page").then((m) => ({ default: m.LoginPage })))
 const DashboardPage = lazy(() => import("@/features/dashboard/pages/dashboard-page").then((m) => ({ default: m.DashboardPage })))
@@ -15,6 +20,7 @@ const CategoriesPage = lazy(() => import("@/features/products/pages/categories-p
 const SuppliersPage = lazy(() => import("@/features/products/pages/suppliers-page").then((m) => ({ default: m.SuppliersPage })))
 const CustomersPage = lazy(() => import("@/features/products/pages/customers-page").then((m) => ({ default: m.CustomersPage })))
 const NotFoundPage = lazy(() => import("@/features/common/pages/not-found-page").then((m) => ({ default: m.NotFoundPage })))
+const ForbiddenPage = lazy(() => import("@/features/common/pages/forbidden-page").then((m) => ({ default: m.ForbiddenPage })))
 const ImportListPage = lazy(() => import("@/features/stock/pages/import-list-page").then((m) => ({ default: m.ImportListPage })))
 const ImportCreatePage = lazy(() => import("@/features/stock/pages/import-create-page").then((m) => ({ default: m.ImportCreatePage })))
 const ExportListPage = lazy(() => import("@/features/stock/pages/export-list-page").then((m) => ({ default: m.ExportListPage })))
@@ -33,17 +39,9 @@ const PriceAdjustmentDetailPage = lazy(() => import("@/features/stock/pages/pric
 const POListPage = lazy(() => import("@/features/stock/pages/po-list-page").then((m) => ({ default: m.POListPage })))
 const POCreatePage = lazy(() => import("@/features/stock/pages/po-create-page").then((m) => ({ default: m.POCreatePage })))
 const PODetailPage = lazy(() => import("@/features/stock/pages/po-detail-page").then((m) => ({ default: m.PODetailPage })))
-
 const StockUnitsPage = lazy(() => import("@/features/stock/pages/stock-units-page").then((m) => ({ default: m.StockUnitsPage })))
 const UsersPage = lazy(() => import("@/features/admin/pages/users-page").then((m) => ({ default: m.UsersPage })))
 const AuditPage = lazy(() => import("@/features/admin/pages/audit-page").then((m) => ({ default: m.AuditPage })))
-
-import { ErrorBoundary } from "@/components/ui/error-boundary"
-import { PageSkeleton } from "@/components/ui/page-skeleton"
-import { useAuthStore } from "@/store/auth-store"
-import type { URole } from "@/utils/types"
-import { ROLES } from "@/utils/permissions"
-const ForbiddenPage = lazy(() => import("@/features/common/pages/forbidden-page").then((m) => ({ default: m.ForbiddenPage })))
 function PageGuard({ roles, children }: { roles: URole[]; children: ReactNode }) {
   const hasRole = useAuthStore((s) => s.hasRole)
   if (!hasRole(roles)) return <Navigate to="/403" replace />

@@ -8,15 +8,13 @@ export function mapResponsePage<T>(raw: unknown, mapItem: (item: unknown) => T):
   }
 }
 
-export function mapBrand(raw: unknown) {
+function mapCatalog(raw: unknown) {
   const r = raw as { id: number; name: string; code: string; description?: string; isActive?: boolean }
   return { id: r.id, name: r.name, code: r.code, description: r.description ?? null, isActive: r.isActive ?? true }
 }
 
-export function mapCategory(raw: unknown) {
-  const r = raw as { id: number; name: string; code: string; description?: string; isActive?: boolean }
-  return { id: r.id, name: r.name, code: r.code, description: r.description ?? null, isActive: r.isActive ?? true }
-}
+export const mapBrand = mapCatalog
+export const mapCategory = mapCatalog
 
 export function mapSupplier(raw: unknown) {
   const r = raw as { id: number; name: string; contactPerson?: string; phone?: string; email?: string; address?: string; taxCode?: string; note?: string; isActive?: boolean; createdAt?: string; updatedAt?: string }
@@ -193,6 +191,14 @@ export function mapPriceAdjustment(raw: unknown) {
   }
 }
 
+export function mapInventorySummary(raw: unknown) {
+  const r = raw as { totalProducts: number; totalUnits: number; totalStockValue: number; lowStockCount: number; outOfStockCount: number }
+  return { totalProducts: r.totalProducts, totalUnits: r.totalUnits, totalStockValue: r.totalStockValue, lowStockCount: r.lowStockCount, outOfStockCount: r.outOfStockCount }
+}
+export function mapLowStockItem(raw: unknown) {
+  const r = raw as { productId: number; productName: string; productSku: string; quantity: number; minStock: number }
+  return { productId: r.productId, productName: r.productName, productSku: r.productSku, quantity: r.quantity, minStock: r.minStock }
+}
 export function mapCategoryStock(raw: unknown) {
   const r = raw as { categoryId?: number | null; categoryName?: string | null; productCount: number; totalUnits: number; totalStockValue: number }
   return { categoryId: r.categoryId ?? null, categoryName: r.categoryName ?? null, productCount: r.productCount, totalUnits: r.totalUnits, totalStockValue: r.totalStockValue }

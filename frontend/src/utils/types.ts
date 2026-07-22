@@ -234,15 +234,6 @@ export type ProductUnitStatus =
   | "REMOVED"
   | "DISPOSED"
 
-// ============ Dashboard ============
-
-export interface DashboardStats {
-  totalProducts: number
-  totalItems: number
-  lowStockCount: number
-  activeProducts: number
-}
-
 // ============ Import Receipt ============
 
 export interface ImportReceipt {
