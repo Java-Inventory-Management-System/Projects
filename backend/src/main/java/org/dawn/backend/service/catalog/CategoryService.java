@@ -9,7 +9,6 @@ import org.dawn.backend.constant.shared.Message;
 import org.dawn.backend.controller.catalog.request.CategoryRequest;
 import org.dawn.backend.controller.catalog.response.CategoryResponse;
 import org.dawn.backend.entity.catalog.Category;
-import org.dawn.backend.exception.wrapper.InvalidRequestException;
 import org.dawn.backend.exception.wrapper.ResourceNotFoundException;
 import org.dawn.backend.repository.catalog.CategoryRepository;
 import org.springframework.data.domain.Pageable;
@@ -23,12 +22,14 @@ public class CategoryService {
 
     private final CategoryRepository categoryRepository;
 
+    @Transactional(readOnly = true)
     public ResponsePage<CategoryResponse> findAll(Pageable pageable) {
         return ResponsePage.of(categoryRepository
                 .findAll(pageable)
                 .map(CategoryMappingHelper::map));
     }
 
+    @Transactional(readOnly = true)
     public CategoryResponse findOne(Long id) {
         return categoryRepository
                 .findById(id)
@@ -39,9 +40,6 @@ public class CategoryService {
     @Transactional
     @AuditLog(action = LogConstant.Action.CREATE_CATEGORY, entity = LogConstant.Entity.CATEGORY)
     public CategoryResponse create(CategoryRequest request) {
-        if (request.name() == null || request.name().isBlank()) {
-            throw new InvalidRequestException(Message.Catalog.CATEGORY_NAME_REQUIRED);
-        }
         Category category = Category.builder()
                 .name(request.name().trim())
                 .description(request.description())

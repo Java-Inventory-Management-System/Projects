@@ -2,9 +2,7 @@ import { useState } from "react"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
-} from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { toast } from "@/utils/toast"
 
 interface ApproveAction {
@@ -40,7 +38,15 @@ export function ApprovalDialog({ open, onOpenChange, id, title, actions, invalid
   })
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (!v) { onOpenChange(false); setNote("") } }}>
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        if (!v) {
+          onOpenChange(false)
+          setNote("")
+        }
+      }}
+    >
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
@@ -50,12 +56,17 @@ export function ApprovalDialog({ open, onOpenChange, id, title, actions, invalid
           <Textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="Enter note..." rows={3} />
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
           {actions.map((a, i) => (
             <Button
               key={i}
               variant={a.variant ?? "default"}
-              onClick={() => { setActiveIdx(i); mutation.mutate({ idx: i }) }}
+              onClick={() => {
+                setActiveIdx(i)
+                mutation.mutate({ idx: i })
+              }}
               disabled={mutation.isPending}
             >
               {mutation.isPending && activeIdx === i ? "Processing..." : a.confirmLabel}

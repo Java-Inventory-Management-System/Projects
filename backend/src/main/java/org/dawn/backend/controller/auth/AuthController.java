@@ -1,5 +1,6 @@
 package org.dawn.backend.controller.auth;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dawn.backend.config.web.response.ResponseObject;
@@ -27,7 +28,7 @@ public class AuthController {
     private final JWTUtils jwtUtils;
 
     @PostMapping("/login")
-    public ResponseObject<JwtResponse> login(@RequestBody LoginRequest loginReq) {
+    public ResponseObject<JwtResponse> login(@Valid @RequestBody LoginRequest loginReq) {
         AuthService.LoginResult result = authService.login(loginReq);
         return ResponseObject.success(result.response(),
                 jwtUtils.generateJwtRefreshCookie(result.refreshToken()));

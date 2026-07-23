@@ -2,6 +2,9 @@ package org.dawn.backend.constant.shared;
 
 public class LogConstant {
     public static class Action {
+        public static final String CREATE_PRICE_ADJUSTMENT = "CREATE_PRICE_ADJUSTMENT";
+        public static final String APPROVE_PRICE_ADJUSTMENT = "APPROVE_PRICE_ADJUSTMENT";
+        public static final String REJECT_PRICE_ADJUSTMENT = "REJECT_PRICE_ADJUSTMENT";
         public static final String CREATE_USER = "CREATE_USER";
         public static final String UPDATE_INFO = "UPDATE_USER_INFO";
         public static final String UPDATE_STATUS = "UPDATE_USER_STATUS";
@@ -20,6 +23,7 @@ public class LogConstant {
         public static final String CREATE_PRODUCT = "CREATE_PRODUCT";
         public static final String UPDATE_PRODUCT = "UPDATE_PRODUCT";
         public static final String TOGGLE_PRODUCT = "TOGGLE_PRODUCT";
+        public static final String CREATE_IMPORT = "CREATE_IMPORT";
         public static final String CONFIRM_IMPORT = "CONFIRM_IMPORT";
         public static final String APPROVE_IMPORT = "APPROVE_IMPORT";
         public static final String CANCEL_IMPORT = "CANCEL_IMPORT";
@@ -50,6 +54,9 @@ public class LogConstant {
         public static final String RECORD_STOCK_CHECK = "RECORD_STOCK_CHECK";
         public static final String CREATE_PRODUCT_IMAGE = "CREATE_PRODUCT_IMAGE";
         public static final String DELETE_PRODUCT_IMAGE = "DELETE_PRODUCT_IMAGE";
+        public static final String CREATE_RETURN = "CREATE_RETURN";
+        public static final String APPROVE_RETURN = "APPROVE_RETURN";
+        public static final String CANCEL_RETURN = "CANCEL_RETURN";
     }
 
     public static class Entity {
@@ -69,6 +76,8 @@ public class LogConstant {
         public static final String WARRANTY_REQUEST = "WARRANTY_REQUEST";
         public static final String PURCHASE_ORDER = "PURCHASE_ORDER";
         public static final String PRODUCT_IMAGE = "PRODUCT_IMAGE";
+        public static final String RETURN_RECEIPT = "RETURN_RECEIPT";
+        public static final String PRICE_ADJUSTMENT = "PRICE_ADJUSTMENT";
     }
 
     public static class Status {

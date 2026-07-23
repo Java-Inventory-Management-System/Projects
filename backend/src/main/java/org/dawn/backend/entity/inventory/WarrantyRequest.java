@@ -2,6 +2,8 @@ package org.dawn.backend.entity.inventory;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -13,6 +15,7 @@ import lombok.experimental.SuperBuilder;
 import org.dawn.backend.entity.base.AuditableEntity;
 
 import java.time.Instant;
+import org.dawn.backend.constant.inventory.WarrantyRequestStatus;
 
 @Entity
 @Table(name = "warranty_requests")
@@ -54,9 +57,10 @@ public class WarrantyRequest extends AuditableEntity {
     @Column(name = "partner_note", columnDefinition = "TEXT")
     private String partnerNote;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)
     @Builder.Default
-    private String status = "PENDING";
+    private WarrantyRequestStatus status = WarrantyRequestStatus.PENDING;
 
     @Column(name = "handled_by")
     private Long handledBy;

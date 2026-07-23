@@ -5,20 +5,13 @@ import { createStockCheck } from "@/services/stock-check-service"
 import { getImportReceipts } from "@/services/import-service"
 import { mapResponsePage, mapProductUnit } from "@/utils/mappers"
 import http from "@/utils/http-client"
-import type { ImportReceipt, ProductUnit } from "@/utils/types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Skeleton } from "@/components/ui/skeleton"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ArrowLeft, Search, Package } from "lucide-react"
 import { Empty, EmptyTitle } from "@/components/ui/empty"
 import { toast } from "@/utils/toast"
@@ -49,7 +42,7 @@ export const StockCheckCreatePage = () => {
     queryFn: async () => {
       if (!receiptFilter) return [] as number[]
       const res = await http.get(`/import-receipt/${receiptFilter}/units`)
-      return (res as Array<{ id: number }>).map((u) => u.id)
+      return (res as unknown as Array<{ id: number }>).map((u) => u.id)
     },
     enabled: receiptFilter !== "all",
   })
@@ -149,15 +142,16 @@ export const StockCheckCreatePage = () => {
         </div>
       </div>
 
-      {receiptFilter !== "all" && (() => {
-        const r = receipts?.content?.find((x) => String(x.id) === receiptFilter)
-        return r ? (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
-            <span className="font-medium">Lô:</span>
-            <span className="font-mono text-xs bg-muted px-2 py-0.5 rounded">{r.receiptCode}</span>
-          </div>
-        ) : null
-      })()}
+      {receiptFilter !== "all" &&
+        (() => {
+          const r = receipts?.content?.find((x) => String(x.id) === receiptFilter)
+          return r ? (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+              <span className="font-medium">Lô:</span>
+              <span className="font-mono text-xs bg-muted px-2 py-0.5 rounded">{r.receiptCode}</span>
+            </div>
+          ) : null
+        })()}
 
       <div className="rounded-lg border overflow-x-auto max-h-[50vh]">
         {isLoading ? (
@@ -168,7 +162,11 @@ export const StockCheckCreatePage = () => {
           </div>
         ) : filtered.length === 0 ? (
           <div className="py-4">
-            <Empty><EmptyTitle>{search ? "Không tìm thấy sản phẩm phù hợp." : "Không có sản phẩm nào trong kho."}</EmptyTitle></Empty>
+            <Empty>
+              <EmptyTitle>
+                {search ? "Không tìm thấy sản phẩm phù hợp." : "Không có sản phẩm nào trong kho."}
+              </EmptyTitle>
+            </Empty>
           </div>
         ) : (
           <table className="w-full text-sm">
@@ -177,9 +175,7 @@ export const StockCheckCreatePage = () => {
                 <th className="w-10 px-3 py-2">
                   <Checkbox
                     checked={filtered.length > 0 && selectedIds.length === filtered.length}
-                    onCheckedChange={(v) =>
-                      setSelectedIds(v ? filtered.map((u) => u.id) : [])
-                    }
+                    onCheckedChange={(v) => setSelectedIds(v ? filtered.map((u) => u.id) : [])}
                   />
                 </th>
                 <th className="px-3 py-2 font-medium">Serial</th>

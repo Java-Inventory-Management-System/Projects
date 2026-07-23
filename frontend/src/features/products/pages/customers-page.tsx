@@ -10,11 +10,10 @@ import { Badge } from "@/components/ui/badge"
 import { Plus, Pencil, Power, Search } from "lucide-react"
 import { DataTable, type Column } from "@/components/ui/data-table"
 import { PaginationBar } from "@/components/ui/pagination-bar"
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
-} from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { toast } from "@/utils/toast"
 import { usePermission } from "@/hooks/use-permission"
+import { ROLES } from "@/utils/permissions"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 
 export function CustomersPage() {
@@ -34,19 +33,40 @@ export function CustomersPage() {
   const [address, setAddress] = useState("")
   const [note, setNote] = useState("")
 
-  const openCreate = () => { setName(""); setPhone(""); setEmail(""); setAddress(""); setNote(""); setDialog({ open: true }) }
+  const openCreate = () => {
+    setName("")
+    setPhone("")
+    setEmail("")
+    setAddress("")
+    setNote("")
+    setDialog({ open: true })
+  }
   const openEdit = (c: CustomerResponse) => {
-    setName(c.name); setPhone(c.phone ?? ""); setEmail(c.email ?? ""); setAddress(c.address ?? ""); setNote(c.note ?? "")
+    setName(c.name)
+    setPhone(c.phone ?? "")
+    setEmail(c.email ?? "")
+    setAddress(c.address ?? "")
+    setNote(c.note ?? "")
     setDialog({ open: true, edit: c })
   }
 
   const save = useMutation({
     mutationFn: async () => {
-      const data = { name: name.trim(), phone: phone || null, email: email || null, address: address || null, note: note || null }
+      const data = {
+        name: name.trim(),
+        phone: phone || null,
+        email: email || null,
+        address: address || null,
+        note: note || null,
+      }
       if (dialog.edit) return updateCustomer(dialog.edit.id, data)
       return createCustomer(data)
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["customers"] }); setDialog({ open: false }); toast.success(dialog.edit ? "Cập nhật thành công" : "Tạo thành công") },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["customers"] })
+      setDialog({ open: false })
+      toast.success(dialog.edit ? "Cập nhật thành công" : "Tạo thành công")
+    },
     onError: (e: Error) => toast.error(e.message),
   })
 
@@ -65,68 +85,108 @@ export function CustomersPage() {
     { header: "Email", render: (c) => <span className="text-sm">{c.email ?? "—"}</span> },
     { header: "Địa chỉ", render: (c) => <span className="text-sm">{c.address ?? "—"}</span> },
     { header: "Ghi chú", render: (c) => <span className="text-sm text-muted-foreground">{c.note ?? "—"}</span> },
-    { header: "Trạng thái", className: "w-24 text-center", render: (c) => <Badge variant={c.isActive ? "default" : "secondary"}>{c.isActive ? "Hoạt động" : "Ngừng"}</Badge> },
-    { header: "Thao tác", className: "w-[90px]", render: (c) => (
-      <div className="flex gap-1">
-        {perm.hasRole("ADMIN", "MANAGER") && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" onClick={() => openEdit(c)}><Pencil className="size-3.5" /></Button>
-            </TooltipTrigger>
-            <TooltipContent>Chỉnh sửa</TooltipContent>
-          </Tooltip>
-        )}
-        {perm.hasRole("ADMIN", "MANAGER") && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" onClick={() => toggle.mutate(c.id)}><Power className="size-3.5" /></Button>
-            </TooltipTrigger>
-            <TooltipContent>{c.isActive ? "Vô hiệu hoá" : "Kích hoạt"}</TooltipContent>
-          </Tooltip>
-        )}
-      </div>
-    )},
+    {
+      header: "Trạng thái",
+      className: "w-24 text-center",
+      render: (c) => <Badge variant={c.isActive ? "default" : "secondary"}>{c.isActive ? "Hoạt động" : "Ngừng"}</Badge>,
+    },
+    {
+      header: "Thao tác",
+      className: "w-[90px]",
+      render: (c) => (
+        <div className="flex gap-1">
+          {perm.hasRole(...ROLES.MANAGER) && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" onClick={() => openEdit(c)}>
+                  <Pencil className="size-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Chỉnh sửa</TooltipContent>
+            </Tooltip>
+          )}
+          {perm.hasRole(...ROLES.MANAGER) && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" onClick={() => toggle.mutate(c.id)}>
+                  <Power className="size-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{c.isActive ? "Vô hiệu hoá" : "Kích hoạt"}</TooltipContent>
+            </Tooltip>
+          )}
+        </div>
+      ),
+    },
   ]
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-semibold tracking-tight">Khách hàng</h1>
-        <Button onClick={openCreate}><Plus className="size-4 mr-1" /> Thêm</Button>
+        <Button onClick={openCreate}>
+          <Plus className="size-4 mr-1" /> Thêm
+        </Button>
       </div>
 
       <div className="relative max-w-sm">
         <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-        <Input className="pl-8" placeholder="Tìm tên hoặc SĐT..." value={search} onChange={(e) => { setSearch(e.target.value); setPage(0) }} />
+        <Input
+          className="pl-8"
+          placeholder="Tìm tên hoặc SĐT..."
+          value={search}
+          onChange={(e) => {
+            setSearch(e.target.value)
+            setPage(0)
+          }}
+        />
       </div>
 
-      <DataTable
-        columns={columns}
-        data={customers}
-        isLoading={isLoading}
-        emptyMessage="Chưa có khách hàng nào"
-      />
+      <DataTable columns={columns} data={customers} isLoading={isLoading} emptyMessage="Chưa có khách hàng nào" />
 
-      {totalPages > 1 && (
-        <PaginationBar page={page} totalPages={totalPages} onChange={(p) => setPage(p)} />
-      )}
+      {totalPages > 1 && <PaginationBar page={page} totalPages={totalPages} onChange={(p) => setPage(p)} />}
 
-      <Dialog open={dialog.open} onOpenChange={(v) => { if (!v) setDialog({ open: false }) }}>
+      <Dialog
+        open={dialog.open}
+        onOpenChange={(v) => {
+          if (!v) setDialog({ open: false })
+        }}
+      >
         <DialogContent className="max-w-lg">
-          <DialogHeader><DialogTitle>{dialog.edit ? "Sửa khách hàng" : "Thêm khách hàng"}</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>{dialog.edit ? "Sửa khách hàng" : "Thêm khách hàng"}</DialogTitle>
+          </DialogHeader>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2 sm:col-span-2">
-              <Label htmlFor="name">Tên <span className="text-destructive">*</span></Label>
+              <Label htmlFor="name">
+                Tên <span className="text-destructive">*</span>
+              </Label>
               <Input id="name" required value={name} onChange={(e) => setName(e.target.value)} />
             </div>
-            <div className="space-y-2"><Label>SĐT</Label><Input value={phone} onChange={(e) => setPhone(e.target.value)} /></div>
-            <div className="space-y-2"><Label>Email</Label><Input value={email} onChange={(e) => setEmail(e.target.value)} /></div>
-            <div className="space-y-2 sm:col-span-2"><Label>Địa chỉ</Label><Input value={address} onChange={(e) => setAddress(e.target.value)} /></div>
-            <div className="space-y-2 sm:col-span-2"><Label>Ghi chú</Label><Input value={note} onChange={(e) => setNote(e.target.value)} /></div>
+            <div className="space-y-2">
+              <Label>SĐT</Label>
+              <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>Email</Label>
+              <Input value={email} onChange={(e) => setEmail(e.target.value)} />
+            </div>
+            <div className="space-y-2 sm:col-span-2">
+              <Label>Địa chỉ</Label>
+              <Input value={address} onChange={(e) => setAddress(e.target.value)} />
+            </div>
+            <div className="space-y-2 sm:col-span-2">
+              <Label>Ghi chú</Label>
+              <Input value={note} onChange={(e) => setNote(e.target.value)} />
+            </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialog({ open: false })}>Hủy</Button>
-            <Button onClick={() => save.mutate()} disabled={!name.trim() || save.isPending}>{save.isPending ? "Đang lưu..." : "Lưu"}</Button>
+            <Button variant="outline" onClick={() => setDialog({ open: false })}>
+              Hủy
+            </Button>
+            <Button onClick={() => save.mutate()} disabled={!name.trim() || save.isPending}>
+              {save.isPending ? "Đang lưu..." : "Lưu"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

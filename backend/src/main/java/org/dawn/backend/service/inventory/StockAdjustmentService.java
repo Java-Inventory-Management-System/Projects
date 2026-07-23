@@ -6,8 +6,10 @@ import org.dawn.backend.config.anno.AuditLog;
 import org.dawn.backend.config.web.response.ResponsePage;
 import org.dawn.backend.constant.inventory.AdjustmentStatus;
 import org.dawn.backend.constant.inventory.AdjustmentType;
+import org.springframework.data.domain.Page;
 import org.dawn.backend.constant.inventory.ProductUnitStatus;
 import org.dawn.backend.constant.inventory.SourceType;
+import org.dawn.backend.constant.catalog.TrackingType;
 import org.dawn.backend.constant.shared.LogConstant;
 import org.dawn.backend.constant.shared.Message;
 import org.dawn.backend.controller.inventory.request.ApproveAdjustmentRequest;
@@ -45,9 +47,10 @@ public class StockAdjustmentService {
     private final ProductRepository productRepository;
     private final UserRepository userRepository;
 
+    @Transactional(readOnly = true)
     public ResponsePage<StockAdjustmentResponse> findAll(Pageable pageable, String type, String status) {
         String t = normalize(type);
-        String s = normalize(status);
+        AdjustmentStatus s = parseAdjustmentStatus(status);
         org.springframework.data.domain.Page<StockAdjustment> page;
         if (t != null && s != null) page = adjustmentRepository.findByTypeAndStatus(t, s, pageable);
         else if (t != null) page = adjustmentRepository.findByType(t, pageable);
@@ -56,16 +59,18 @@ public class StockAdjustmentService {
         return ResponsePage.of(page.map(this::enrich));
     }
 
+    @Transactional(readOnly = true)
     public StockAdjustmentResponse findOne(Long id) {
         var adj = adjustmentRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.ADJUSTMENT_NOT_FOUND));
         return enrich(adj);
     }
 
+    @Transactional(readOnly = true)
     public ResponsePage<StockAdjustmentResponse> findMyAdjustments(Pageable pageable, String type, String status) {
         Long userId = SecurityUtils.getCurrentUserId();
         String t = normalize(type);
-        String s = normalize(status);
+        AdjustmentStatus s = parseAdjustmentStatus(status);
         org.springframework.data.domain.Page<StockAdjustment> page;
         if (t != null && s != null) page = adjustmentRepository.findByCreatedByAndTypeAndStatus(userId, t, s, pageable);
         else if (t != null) page = adjustmentRepository.findByCreatedByAndType(userId, t, pageable);
@@ -76,6 +81,12 @@ public class StockAdjustmentService {
 
     private String normalize(String value) {
         return (value != null && !value.isBlank()) ? value.toUpperCase() : null;
+    }
+
+    private AdjustmentStatus parseAdjustmentStatus(String value) {
+        if (value == null || value.isBlank()) return null;
+        try { return AdjustmentStatus.valueOf(value.toUpperCase()); }
+        catch (IllegalArgumentException e) { return null; }
     }
 
     @Transactional
@@ -121,7 +132,7 @@ public class StockAdjustmentService {
                 .quantity(request.quantity() != null ? request.quantity() : 1)
                 .reason(request.reason())
                 .imageUrl(request.imageUrl())
-                .status(AdjustmentStatus.PENDING.name())
+                .status(AdjustmentStatus.PENDING)
                 .createdBy(userId)
                 .build();
         adj = adjustmentRepository.save(adj);
@@ -137,14 +148,12 @@ public class StockAdjustmentService {
         var adj = adjustmentRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.ADJUSTMENT_NOT_FOUND));
 
-        if (!AdjustmentStatus.PENDING.name().equals(adj.getStatus())) {
+        if (AdjustmentStatus.PENDING != adj.getStatus()) {
             throw new InvalidRequestException(Message.Inventory.ONLY_PENDING_CAN_APPROVE);
         }
-        /* tạm thời bỏ 4-eyes
         if (adj.getCreatedBy().equals(userId)) {
             throw new InvalidRequestException(Message.Inventory.CREATOR_CANNOT_APPROVE);
         }
-        */
 
         String type = adj.getType();
         if (AdjustmentType.DAMAGED.name().equals(type)) {
@@ -155,7 +164,7 @@ public class StockAdjustmentService {
             applyFound(adj, userId);
         }
 
-        adj.setStatus(AdjustmentStatus.APPROVED.name());
+        adj.setStatus(AdjustmentStatus.APPROVED);
         adj.setApprovedBy(userId);
         adj.setApprovalNote(request != null ? request.approvalNote() : null);
         adj = adjustmentRepository.save(adj);
@@ -171,11 +180,11 @@ public class StockAdjustmentService {
         var adj = adjustmentRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.ADJUSTMENT_NOT_FOUND));
 
-        if (!AdjustmentStatus.PENDING.name().equals(adj.getStatus())) {
+        if (AdjustmentStatus.PENDING != adj.getStatus()) {
             throw new InvalidRequestException(Message.Inventory.ONLY_PENDING_CAN_REJECT);
         }
 
-        adj.setStatus(AdjustmentStatus.REJECTED.name());
+        adj.setStatus(AdjustmentStatus.REJECTED);
         adj.setApprovedBy(userId);
         adj.setApprovalNote(request != null ? request.approvalNote() : null);
         adj = adjustmentRepository.save(adj);
@@ -185,12 +194,12 @@ public class StockAdjustmentService {
     private void applyDamaged(StockAdjustment adj, Long userId) {
         var unit = productUnitRepository.findById(adj.getProductUnitId())
                 .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.PRODUCT_UNIT_NOT_FOUND));
-        String oldStatus = unit.getStatus();
-        unit.setStatus(ProductUnitStatus.DAMAGED_IN_STORAGE.name());
+        ProductUnitStatus oldStatus = unit.getStatus();
+        unit.setStatus(ProductUnitStatus.DAMAGED_IN_STORAGE);
         productUnitRepository.save(unit);
         statusLogRepository.save(ProductUnitStatusLog.builder()
                 .productUnitId(unit.getId())
-                .fromStatus(oldStatus)
+                .fromStatus(oldStatus.name())
                 .toStatus(ProductUnitStatus.DAMAGED_IN_STORAGE.name())
                 .sourceType(SourceType.STOCK_ADJUSTMENT.name())
                 .sourceId(adj.getId())
@@ -201,12 +210,12 @@ public class StockAdjustmentService {
     private void applyLost(StockAdjustment adj, Long userId) {
         var unit = productUnitRepository.findById(adj.getProductUnitId())
                 .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.PRODUCT_UNIT_NOT_FOUND));
-        String oldStatus = unit.getStatus();
-        unit.setStatus(ProductUnitStatus.LOST.name());
+        ProductUnitStatus oldStatus = unit.getStatus();
+        unit.setStatus(ProductUnitStatus.LOST);
         productUnitRepository.save(unit);
         statusLogRepository.save(ProductUnitStatusLog.builder()
                 .productUnitId(unit.getId())
-                .fromStatus(oldStatus)
+                .fromStatus(oldStatus.name())
                 .toStatus(ProductUnitStatus.LOST.name())
                 .sourceType(SourceType.STOCK_ADJUSTMENT.name())
                 .sourceId(adj.getId())
@@ -218,22 +227,22 @@ public class StockAdjustmentService {
         if (adj.getProductUnitId() != null) {
             var unit = productUnitRepository.findById(adj.getProductUnitId())
                     .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.PRODUCT_UNIT_NOT_FOUND));
-            String currentStatus = unit.getStatus();
+            ProductUnitStatus currentStatus = unit.getStatus();
 
-            if ("IN_STOCK".equals(currentStatus)) {
+            if (ProductUnitStatus.IN_STOCK == currentStatus) {
                 return;
             }
 
-            if (!Set.of("LOST", "REMOVED", "DAMAGED_IN_STORAGE").contains(currentStatus)) {
+            if (!Set.of(ProductUnitStatus.LOST, ProductUnitStatus.REMOVED, ProductUnitStatus.DAMAGED_IN_STORAGE).contains(currentStatus)) {
                 throw new InvalidRequestException(
-                        Message.format(Message.Inventory.ADJUSTMENT_UNIT_NOT_RESTORABLE, currentStatus));
+                        Message.format(Message.Inventory.ADJUSTMENT_UNIT_NOT_RESTORABLE, currentStatus.name()));
             }
 
-            unit.setStatus(ProductUnitStatus.IN_STOCK.name());
+            unit.setStatus(ProductUnitStatus.IN_STOCK);
             productUnitRepository.save(unit);
             statusLogRepository.save(ProductUnitStatusLog.builder()
                     .productUnitId(unit.getId())
-                    .fromStatus(currentStatus)
+                    .fromStatus(currentStatus.name())
                     .toStatus(ProductUnitStatus.IN_STOCK.name())
                     .sourceType(SourceType.STOCK_ADJUSTMENT.name())
                     .sourceId(adj.getId())
@@ -245,7 +254,7 @@ public class StockAdjustmentService {
             String trackingType = product.getTrackingType();
 
             String serialNumber = null;
-            if ("SERIALIZED".equals(trackingType)) {
+            if (TrackingType.SERIALIZED.name().equals(trackingType)) {
                 serialNumber = "FOUND-" + adj.getAdjustCode();
             }
 
@@ -254,9 +263,9 @@ public class StockAdjustmentService {
                             .productId(product.getId())
                             .trackingType(trackingType)
                             .initialQuantity(adj.getQuantity() != null ? java.math.BigDecimal.valueOf(adj.getQuantity()) : java.math.BigDecimal.ONE)
-                            .remainingQuantity("BULK".equals(trackingType) && adj.getQuantity() != null
+                            .remainingQuantity(TrackingType.BULK.name().equals(trackingType) && adj.getQuantity() != null
                                     ? java.math.BigDecimal.valueOf(adj.getQuantity()) : java.math.BigDecimal.ZERO)
-                            .status(ProductUnitStatus.IN_STOCK.name())
+                            .status(ProductUnitStatus.IN_STOCK)
                             .importedAt(Instant.now())
                             .warrantyMonths(0)
                             .build();
@@ -272,7 +281,7 @@ public class StockAdjustmentService {
                     .build());
 
             adj.setProductUnitId(newUnit.getId());
-            adj.setQuantity("BULK".equals(trackingType) ? adj.getQuantity() : null);
+            adj.setQuantity(TrackingType.BULK.name().equals(trackingType) ? adj.getQuantity() : null);
         }
     }
 

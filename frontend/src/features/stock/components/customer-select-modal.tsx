@@ -1,14 +1,9 @@
 import { useEffect, useState, useRef } from "react"
-import { Search, Plus, CheckCircle, UserPlus, ArrowLeft, Phone, Mail, MapPin } from "lucide-react"
+import { Search, Plus, CheckCircle, UserPlus, ArrowLeft, Phone, Mail, MapPin, Loader2 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import {
   Pagination,
   PaginationContent,
@@ -36,7 +31,7 @@ export const CustomerSelectModal = ({ open, onOpenChange, onSelect, selectedCust
   const [debouncedSearch, setDebouncedSearch] = useState("")
   const [page, setPage] = useState(0)
   const [selectedId, setSelectedId] = useState<number | null>(selectedCustomerId ?? null)
-  const searchTimer = useRef<ReturnType<typeof setTimeout>>()
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
   const [newName, setNewName] = useState("")
   const [newPhone, setNewPhone] = useState("")
@@ -63,7 +58,9 @@ export const CustomerSelectModal = ({ open, onOpenChange, onSelect, selectedCust
   useEffect(() => {
     if (searchTimer.current) clearTimeout(searchTimer.current)
     searchTimer.current = setTimeout(() => setDebouncedSearch(search), 300)
-    return () => { if (searchTimer.current) clearTimeout(searchTimer.current) }
+    return () => {
+      if (searchTimer.current) clearTimeout(searchTimer.current)
+    }
   }, [search])
 
   const handleSelect = () => {
@@ -76,7 +73,10 @@ export const CustomerSelectModal = ({ open, onOpenChange, onSelect, selectedCust
   }
 
   const handleCreateCustomer = async () => {
-    if (!newName.trim()) { toast.error("Vui lòng nhập tên khách hàng"); return }
+    if (!newName.trim()) {
+      toast.error("Vui lòng nhập tên khách hàng")
+      return
+    }
     setCreating(true)
     try {
       const created = await createCustomer({
@@ -130,7 +130,10 @@ export const CustomerSelectModal = ({ open, onOpenChange, onSelect, selectedCust
                   placeholder="Tìm tên, SĐT, email..."
                   className="pl-8"
                   value={search}
-                  onChange={(e) => { setSearch(e.target.value); setPage(0) }}
+                  onChange={(e) => {
+                    setSearch(e.target.value)
+                    setPage(0)
+                  }}
                   autoFocus
                 />
               </div>
@@ -143,7 +146,7 @@ export const CustomerSelectModal = ({ open, onOpenChange, onSelect, selectedCust
             <div className="rounded-lg border divide-y max-h-[50vh] overflow-y-auto">
               {loading ? (
                 <div className="divide-y">
-                  {[1,2,3].map((i) => (
+                  {[1, 2, 3].map((i) => (
                     <div key={i} className="flex items-start gap-3 px-4 py-3">
                       <Skeleton className="size-5 rounded-full shrink-0" />
                       <div className="flex-1 space-y-1.5">
@@ -168,18 +171,38 @@ export const CustomerSelectModal = ({ open, onOpenChange, onSelect, selectedCust
                         isSelected ? "bg-accent" : ""
                       }`}
                       onClick={() => setSelectedId(c.id)}
-                      onDoubleClick={() => { setSelectedId(c.id); handleSelect() }}
+                      onDoubleClick={() => {
+                        setSelectedId(c.id)
+                        handleSelect()
+                      }}
                     >
-                      <div className="mt-0.5 size-5 shrink-0 rounded-full border-2 flex items-center justify-center transition-colors"
-                        style={isSelected ? { borderColor: "hsl(var(--primary))" } : undefined}>
+                      <div
+                        className="mt-0.5 size-5 shrink-0 rounded-full border-2 flex items-center justify-center transition-colors"
+                        style={isSelected ? { borderColor: "hsl(var(--primary))" } : undefined}
+                      >
                         {isSelected && <CheckCircle className="size-4 text-primary" />}
                       </div>
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium truncate">{c.name}</p>
                         <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-muted-foreground">
-                          {c.phone && <span className="inline-flex items-center gap-1"><Phone className="size-3" />{c.phone}</span>}
-                          {c.email && <span className="inline-flex items-center gap-1"><Mail className="size-3" />{c.email}</span>}
-                          {c.address && <span className="inline-flex items-center gap-1"><MapPin className="size-3" />{c.address}</span>}
+                          {c.phone && (
+                            <span className="inline-flex items-center gap-1">
+                              <Phone className="size-3" />
+                              {c.phone}
+                            </span>
+                          )}
+                          {c.email && (
+                            <span className="inline-flex items-center gap-1">
+                              <Mail className="size-3" />
+                              {c.email}
+                            </span>
+                          )}
+                          {c.address && (
+                            <span className="inline-flex items-center gap-1">
+                              <MapPin className="size-3" />
+                              {c.address}
+                            </span>
+                          )}
                         </div>
                       </div>
                     </button>
@@ -198,10 +221,12 @@ export const CustomerSelectModal = ({ open, onOpenChange, onSelect, selectedCust
                     />
                   </PaginationItem>
                   {(() => {
-                    const t = data.pagination.totalPages, c = page
+                    const t = data.pagination.totalPages,
+                      c = page
                     const items: (number | "ellipsis")[] = []
-                    if (t <= 7) { for (let i = 0; i < t; i++) items.push(i) }
-                    else {
+                    if (t <= 7) {
+                      for (let i = 0; i < t; i++) items.push(i)
+                    } else {
                       items.push(0)
                       if (c > 3) items.push("ellipsis")
                       for (let i = Math.max(1, c - 2); i <= Math.min(t - 2, c + 2); i++) items.push(i)
@@ -219,13 +244,15 @@ export const CustomerSelectModal = ({ open, onOpenChange, onSelect, selectedCust
                             {p + 1}
                           </PaginationLink>
                         </PaginationItem>
-                      )
+                      ),
                     )
                   })()}
                   <PaginationItem>
                     <PaginationNext
                       onClick={() => setPage(Math.min(data.pagination.totalPages - 1, page + 1))}
-                      className={page >= data.pagination.totalPages - 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                      className={
+                        page >= data.pagination.totalPages - 1 ? "pointer-events-none opacity-50" : "cursor-pointer"
+                      }
                     />
                   </PaginationItem>
                 </PaginationContent>
@@ -233,14 +260,20 @@ export const CustomerSelectModal = ({ open, onOpenChange, onSelect, selectedCust
             )}
 
             <div className="flex justify-end gap-2 pt-2 border-t">
-              <Button variant="outline" onClick={() => onOpenChange(false)}>Hủy</Button>
-              <Button onClick={handleSelect} disabled={!selectedId}>Chọn</Button>
+              <Button variant="outline" onClick={() => onOpenChange(false)}>
+                Hủy
+              </Button>
+              <Button onClick={handleSelect} disabled={!selectedId}>
+                Chọn
+              </Button>
             </div>
           </div>
         ) : (
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="new-name">Tên khách hàng <span className="text-destructive">*</span></Label>
+              <Label htmlFor="new-name">
+                Tên khách hàng <span className="text-destructive">*</span>
+              </Label>
               <Input
                 id="new-name"
                 required
@@ -280,9 +313,19 @@ export const CustomerSelectModal = ({ open, onOpenChange, onSelect, selectedCust
               />
             </div>
             <div className="flex justify-end gap-2 pt-2 border-t">
-              <Button variant="outline" onClick={() => setView("select")}>Quay lại</Button>
+              <Button variant="outline" onClick={() => setView("select")}>
+                Quay lại
+              </Button>
               <Button onClick={handleCreateCustomer} disabled={creating}>
-                {creating ? <><Loader2 className="size-4 mr-1 animate-spin" /> Đang tạo...</> : <><Plus className="size-4 mr-1" /> Thêm khách hàng</>}
+                {creating ? (
+                  <>
+                    <Loader2 className="size-4 mr-1 animate-spin" /> Đang tạo...
+                  </>
+                ) : (
+                  <>
+                    <Plus className="size-4 mr-1" /> Thêm khách hàng
+                  </>
+                )}
               </Button>
             </div>
           </div>

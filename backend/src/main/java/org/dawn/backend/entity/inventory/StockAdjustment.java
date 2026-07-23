@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
 import org.dawn.backend.entity.base.AuditableEntity;
+import org.dawn.backend.constant.inventory.AdjustmentStatus;
 
 @Entity
 @Table(name = "stock_adjustments")
@@ -36,9 +37,10 @@ public class StockAdjustment extends AuditableEntity {
     @Column(name = "image_url", length = 500)
     private String imageUrl;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)
     @Builder.Default
-    private String status = "PENDING";
+    private AdjustmentStatus status = AdjustmentStatus.PENDING;
 
     @Column(name = "created_by", nullable = false)
     private Long createdBy;

@@ -7,6 +7,7 @@ import org.dawn.backend.entity.base.AuditableEntity;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import org.dawn.backend.constant.inventory.PurchaseOrderStatus;
 
 @Entity
 @Table(name = "purchase_orders")
@@ -27,9 +28,10 @@ public class PurchaseOrder extends AuditableEntity {
     @Column(name = "total_amount", precision = 15, scale = 2)
     private BigDecimal totalAmount;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)
     @Builder.Default
-    private String status = "DRAFT";
+    private PurchaseOrderStatus status = PurchaseOrderStatus.DRAFT;
 
     @Column(name = "expected_date")
     private LocalDate expectedDate;

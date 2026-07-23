@@ -6,6 +6,7 @@ import lombok.experimental.SuperBuilder;
 import org.dawn.backend.entity.base.AuditableEntity;
 
 import java.math.BigDecimal;
+import org.dawn.backend.constant.inventory.AdjustmentStatus;
 
 @Entity
 @Table(name = "price_adjustments")
@@ -32,9 +33,10 @@ public class PriceAdjustment extends AuditableEntity {
     @Column(name = "reason", nullable = false, columnDefinition = "TEXT")
     private String reason;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)
     @Builder.Default
-    private String status = "PENDING";
+    private AdjustmentStatus status = AdjustmentStatus.PENDING;
 
     @Column(name = "created_by", nullable = false)
     private Long createdBy;

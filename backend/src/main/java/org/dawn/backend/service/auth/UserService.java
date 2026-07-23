@@ -37,12 +37,14 @@ public class UserService {
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
 
+    @Transactional(readOnly = true)
     public ResponsePage<UserResponse> findAll(Pageable pageable) {
         return ResponsePage.of(userRepository
                 .findAll(pageable)
                 .map(UserMappingHelper::map));
     }
 
+    @Transactional(readOnly = true)
     public UserResponse findOne(Long id) {
         return userRepository
                 .findById(id)
@@ -50,6 +52,7 @@ public class UserService {
                 .orElseThrow(() -> new ResourceNotFoundException(Message.User.USER_NOT_FOUND));
     }
 
+    @Transactional(readOnly = true)
     public UserResponse findByUsername(String username) {
         return userRepository
                 .findByUsername(username)
@@ -102,7 +105,7 @@ public class UserService {
                 .fullName(request.fullName())
                 .email(email)
                 .password(passwordEncoder.encode(tempPass))
-                .status(request.status() != null ? request.status() : ActiveStatus.NEW.name())
+                .status(request.status() != null ? ActiveStatus.valueOf(request.status()) : ActiveStatus.NEW)
                 .roleId(role.getId())
                 .role(role)
                 .isPasswordReset(true)
@@ -189,6 +192,7 @@ public class UserService {
         return UserMappingHelper.map(savedUser);
     }
 
+    @Transactional(readOnly = true)
     public boolean existsByRoleName(String roleName) {
         Role role = roleRepository
                 .findByName(URole.valueOf(roleName))

@@ -1,5 +1,6 @@
 package org.dawn.backend.controller.inventory;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.dawn.backend.config.web.response.ResponseObject;
 import org.dawn.backend.config.web.response.ResponsePage;
@@ -39,7 +40,7 @@ public class LocationController {
 
     @PostMapping("")
     @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER)
-    public ResponseObject<LocationResponse> create(@RequestBody LocationRequest request) {
+    public ResponseObject<LocationResponse> create(@Valid @RequestBody LocationRequest request) {
         return ResponseObject.created(locationService.create(request));
     }
 

@@ -1,19 +1,7 @@
 import type { ExportReceipt } from "@/utils/types"
 import { Badge } from "@/components/ui/badge"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
 const statusLabel: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
   PENDING_APPROVAL: { label: "Chờ duyệt", variant: "outline" },
@@ -28,7 +16,15 @@ const reasonLabel: Record<string, string> = {
   DISPOSE: "Hủy",
 }
 
-export const ViewExportModal = ({ receipt, open, onOpenChange }: { receipt: ExportReceipt | null; open: boolean; onOpenChange: (v: boolean) => void }) => {
+export const ViewExportModal = ({
+  receipt,
+  open,
+  onOpenChange,
+}: {
+  receipt: ExportReceipt | null
+  open: boolean
+  onOpenChange: (v: boolean) => void
+}) => {
   if (!receipt) return null
   const s = statusLabel[receipt.status] ?? { label: receipt.status, variant: "secondary" }
   return (
@@ -87,15 +83,19 @@ export const ViewExportModal = ({ receipt, open, onOpenChange }: { receipt: Expo
                       <span className="text-xs text-muted-foreground ml-2">{item.productSku}</span>
                     </TableCell>
                     <TableCell className="text-right tabular-nums">{item.quantity}</TableCell>
-                    <TableCell className="text-right tabular-nums">{item.unitPrice.toLocaleString("vi-VN")}₫</TableCell>
-                    <TableCell className="text-right tabular-nums">{(item.quantity * item.unitPrice).toLocaleString("vi-VN")}₫</TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {(item.unitPrice ?? 0).toLocaleString("vi-VN")}₫
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {((item.quantity ?? 0) * (item.unitPrice ?? 0)).toLocaleString("vi-VN")}₫
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
           </div>
           <div className="flex justify-end">
-            <span className="text-lg font-semibold">Tổng: {receipt.totalAmount.toLocaleString("vi-VN")}₫</span>
+            <span className="text-lg font-semibold">Tổng: {(receipt.totalAmount ?? 0).toLocaleString("vi-VN")}₫</span>
           </div>
         </div>
       </DialogContent>

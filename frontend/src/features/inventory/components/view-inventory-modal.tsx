@@ -1,14 +1,17 @@
 import type { InventoryItem } from "@/utils/types"
 import { Badge } from "@/components/ui/badge"
 import { AlertTriangle, MapPin } from "lucide-react"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
-export const ViewInventoryModal = ({ item, open, onOpenChange }: { item: InventoryItem | null; open: boolean; onOpenChange: (v: boolean) => void }) => {
+export const ViewInventoryModal = ({
+  item,
+  open,
+  onOpenChange,
+}: {
+  item: InventoryItem | null
+  open: boolean
+  onOpenChange: (v: boolean) => void
+}) => {
   if (!item) return null
   const low = item.quantity <= item.minStock
   return (
@@ -30,13 +33,13 @@ export const ViewInventoryModal = ({ item, open, onOpenChange }: { item: Invento
             <div>
               <span className="text-muted-foreground">Số lượng:</span>
               <p className={`font-semibold tabular-nums ${low ? "text-red-600" : ""}`}>
-                {item.quantity.toLocaleString("vi-VN")}
+                {(item.quantity ?? 0).toLocaleString("vi-VN")}
                 {low && <AlertTriangle className="inline size-4 ml-1 text-red-500" />}
               </p>
             </div>
             <div>
               <span className="text-muted-foreground">Tồn tối thiểu:</span>
-              <p className="tabular-nums">{item.minStock.toLocaleString("vi-VN")}</p>
+              <p className="tabular-nums">{(item.minStock ?? 0).toLocaleString("vi-VN")}</p>
             </div>
             <div className="col-span-2">
               <span className="text-muted-foreground">Vị trí:</span>
@@ -49,9 +52,14 @@ export const ViewInventoryModal = ({ item, open, onOpenChange }: { item: Invento
               <span className="text-muted-foreground">Trạng thái:</span>
               <div className="mt-1">
                 {low ? (
-                  <Badge variant="destructive" className="gap-1"><AlertTriangle className="size-3" />Low Stock</Badge>
+                  <Badge variant="destructive" className="gap-1">
+                    <AlertTriangle className="size-3" />
+                    Low Stock
+                  </Badge>
                 ) : (
-                  <Badge variant="outline" className="text-green-600 border-green-300">In Stock</Badge>
+                  <Badge variant="outline" className="text-green-600 border-green-300">
+                    In Stock
+                  </Badge>
                 )}
               </div>
             </div>

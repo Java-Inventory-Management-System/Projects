@@ -9,6 +9,7 @@ import lombok.experimental.SuperBuilder;
 import org.dawn.backend.entity.base.AuditableEntity;
 
 import java.time.Instant;
+import org.dawn.backend.constant.shared.ActiveStatus;
 
 @Entity
 @Table(name = "users")
@@ -41,8 +42,9 @@ public class User extends AuditableEntity {
     @Column(name = "role_id", nullable = false)
     private Long roleId;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "status", length = 20)
-    private String status;
+    private ActiveStatus status;
 
     @Column(name = "gender")
     private Integer gender;

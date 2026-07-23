@@ -8,4 +8,4 @@ RUN ./mvnw dependency:go-offline -B
 COPY src ./src
 
 EXPOSE 8888
-CMD ["./mvnw", "spring-boot:run"]
+CMD ["./mvnw", "spring-boot:run", "-Dmaven.test.skip=true"]

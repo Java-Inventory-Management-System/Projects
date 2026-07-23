@@ -2,6 +2,7 @@ package org.dawn.backend.service.inventory;
 
 import org.dawn.backend.controller.inventory.response.StockCheckResponse;
 import org.dawn.backend.controller.inventory.response.StockCheckResponse.StockCheckItemResponse;
+import org.dawn.backend.constant.inventory.DifferenceType;
 import org.dawn.backend.entity.catalog.Product;
 import org.dawn.backend.entity.inventory.ProductUnit;
 import org.dawn.backend.entity.inventory.StockCheck;
@@ -24,9 +25,9 @@ public interface StockCheckMappingHelper {
             ProductUnit pu = unitMap.get(item.getProductUnitId());
             Product p = pu != null ? productMap.get(pu.getProductId()) : null;
             String diff = item.getDifference();
-            if ("MATCH".equals(diff)) matchCount++;
-            else if ("MISSING".equals(diff)) missingCount++;
-            else if ("UNEXPECTED".equals(diff)) unexpectedCount++;
+            if (DifferenceType.MATCH.name().equals(diff)) matchCount++;
+            else if (DifferenceType.MISSING.name().equals(diff)) missingCount++;
+            else if (DifferenceType.UNEXPECTED.name().equals(diff)) unexpectedCount++;
             itemResponses.add(StockCheckItemResponse.builder()
                     .id(item.getId())
                     .productUnitId(item.getProductUnitId())
@@ -45,7 +46,7 @@ public interface StockCheckMappingHelper {
         return StockCheckResponse.builder()
                 .id(sc.getId())
                 .checkCode(sc.getCheckCode())
-                .status(sc.getStatus())
+                .status(sc.getStatus().name())
                 .note(sc.getNote())
                 .createdBy(sc.getCreatedBy())
                 .createdByName(createdByName)

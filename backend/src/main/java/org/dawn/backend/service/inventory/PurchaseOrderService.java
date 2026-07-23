@@ -5,6 +5,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.dawn.backend.config.anno.AuditLog;
 import org.dawn.backend.config.web.response.ResponsePage;
 import org.dawn.backend.constant.inventory.PurchaseOrderStatus;
+import org.springframework.data.domain.Page;
+import org.dawn.backend.constant.inventory.ImportReceiptStatus;
 import org.dawn.backend.constant.shared.LogConstant;
 import org.dawn.backend.constant.shared.Message;
 import org.dawn.backend.controller.inventory.request.CreatePurchaseOrderRequest;
@@ -46,13 +48,18 @@ public class PurchaseOrderService {
     private final ProductRepository productRepository;
     private final UserRepository userRepository;
 
+    @Transactional(readOnly = true)
     public ResponsePage<PurchaseOrderResponse> findAll(Pageable pageable, String status) {
-        var page = status != null
-                ? purchaseOrderRepository.findByStatus(status.toUpperCase(), pageable)
-                : purchaseOrderRepository.findAll(pageable);
+        PurchaseOrderStatus s = safeParsePOStatus(status);
+        Page<PurchaseOrder> page = s != null
+                ? purchaseOrderRepository.findByStatus(s, pageable)
+                : status != null && !status.isBlank()
+                    ? Page.empty(pageable)
+                    : purchaseOrderRepository.findAll(pageable);
         return ResponsePage.of(page.map(this::enrich));
     }
 
+    @Transactional(readOnly = true)
     public PurchaseOrderResponse findOne(Long id) {
         var po = purchaseOrderRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.PO_NOT_FOUND));
@@ -76,7 +83,7 @@ public class PurchaseOrderService {
         PurchaseOrder po = PurchaseOrder.builder()
                 .poCode(poCode)
                 .supplierId(request.supplierId())
-                .status(PurchaseOrderStatus.DRAFT.name())
+                .status(PurchaseOrderStatus.DRAFT)
                 .expectedDate(request.expectedDate())
                 .note(request.note())
                 .createdBy(userId)
@@ -110,17 +117,17 @@ public class PurchaseOrderService {
         var po = purchaseOrderRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.PO_NOT_FOUND));
 
-        if (PurchaseOrderStatus.CANCELLED.name().equals(po.getStatus())) {
+        if (PurchaseOrderStatus.CANCELLED == po.getStatus()) {
             throw new InvalidRequestException(Message.Inventory.PO_ALREADY_CANCELLED);
         }
 
-        boolean hasCompletedReceipts = importReceiptRepository.existsByPurchaseOrderIdAndStatus(id, "COMPLETED");
+        boolean hasCompletedReceipts = importReceiptRepository.existsByPurchaseOrderIdAndStatus(id, ImportReceiptStatus.COMPLETED);
 
         if (hasCompletedReceipts) {
             throw new InvalidRequestException(Message.Inventory.PO_HAS_COMPLETED_RECEIPTS);
         }
 
-        po.setStatus(PurchaseOrderStatus.CANCELLED.name());
+        po.setStatus(PurchaseOrderStatus.CANCELLED);
         po = purchaseOrderRepository.save(po);
         return enrich(po);
     }
@@ -140,5 +147,11 @@ public class PurchaseOrderService {
 
     private String generatePoCode() {
         return ReceiptCodeGenerator.generate("PO-", purchaseOrderRepository::existsByPoCode);
+    }
+
+    private PurchaseOrderStatus safeParsePOStatus(String value) {
+        if (value == null || value.isBlank()) return null;
+        try { return PurchaseOrderStatus.valueOf(value.toUpperCase()); }
+        catch (IllegalArgumentException e) { return null; }
     }
 }

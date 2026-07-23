@@ -1,25 +1,10 @@
 import { Skeleton } from "@/components/ui/skeleton"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import {
-  RefreshCw,
-  Search,
-  Plus,
-  X,
-  Settings2,
-  Undo2,
-} from "lucide-react"
+import { RefreshCw, Search, Plus, X, Settings2, Undo2 } from "lucide-react"
 import { Empty, EmptyTitle } from "@/components/ui/empty"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import {
   Sheet,
   SheetContent,
@@ -79,11 +64,7 @@ export function LocationsMapPage() {
           )}
         </div>
         <div className="flex gap-2">
-          <Button
-            size="sm"
-            variant={managing ? "default" : "outline"}
-            onClick={() => setManaging((m: boolean) => !m)}
-          >
+          <Button size="sm" variant={managing ? "default" : "outline"} onClick={() => setManaging((m: boolean) => !m)}>
             <Settings2 className="size-3.5 mr-1" />
             {managing ? "Xong" : "Quản lý vị trí"}
           </Button>
@@ -154,14 +135,20 @@ export function LocationsMapPage() {
         </div>
       ) : filteredZones.length === 0 ? (
         <div className="py-8">
-          <Empty><EmptyTitle>{search || filter !== "all" ? "Không tìm thấy bin nào phù hợp" : "Chưa có vị trí nào trong kho"}</EmptyTitle></Empty>
+          <Empty>
+            <EmptyTitle>
+              {search || filter !== "all" ? "Không tìm thấy bin nào phù hợp" : "Chưa có vị trí nào trong kho"}
+            </EmptyTitle>
+          </Empty>
         </div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {filteredZones.map((zone) => {
             const allBins = zone.shelves.flatMap((s) => s.bins)
             const occupied = allBins.filter((b) => b.productCount > 0).length
-            const full = allBins.filter((b) => b.maxCapacity != null && b.maxCapacity > 0 ? b.productCount >= b.maxCapacity : b.productCount >= 50).length
+            const full = allBins.filter((b) =>
+              b.maxCapacity != null && b.maxCapacity > 0 ? b.productCount >= b.maxCapacity : b.productCount >= 50,
+            ).length
             const hasProducts = allBins.some((b) => b.productCount > 0)
             return (
               <div key={zone.zoneCode} className="rounded-lg border bg-card p-3 space-y-2">
@@ -179,7 +166,9 @@ export function LocationsMapPage() {
                               <Plus className="size-3" />
                             </button>
                           </TooltipTrigger>
-                          <TooltipContent side="top" className="text-[11px]">Thêm kệ</TooltipContent>
+                          <TooltipContent side="top" className="text-[11px]">
+                            Thêm kệ
+                          </TooltipContent>
                         </Tooltip>
                         {hasProducts ? (
                           <button
@@ -189,7 +178,10 @@ export function LocationsMapPage() {
                             <X className="size-3" />
                           </button>
                         ) : (
-                          <Popover open={confirmZoneCode === zone.zoneCode} onOpenChange={(o) => setConfirmZoneCode(o ? zone.zoneCode : null)}>
+                          <Popover
+                            open={confirmZoneCode === zone.zoneCode}
+                            onOpenChange={(o) => setConfirmZoneCode(o ? zone.zoneCode : null)}
+                          >
                             <PopoverTrigger asChild>
                               <button className="inline-flex items-center justify-center size-4 rounded hover:bg-accent transition-colors">
                                 <X className="size-3" />
@@ -198,8 +190,18 @@ export function LocationsMapPage() {
                             <PopoverContent side="top" className="w-auto min-w-[130px] p-2">
                               <p className="text-xs mb-1.5 font-medium">Xóa khu {zone.zoneCode}?</p>
                               <div className="flex gap-1 justify-end">
-                                <button onClick={() => setConfirmZoneCode(null)} className="text-[11px] px-2 py-0.5 rounded hover:bg-accent">Hủy</button>
-                                <button onClick={() => handleZoneDelete(zone.zoneCode)} className="text-[11px] px-2 py-0.5 rounded bg-destructive text-destructive-foreground hover:bg-destructive/90">Xóa</button>
+                                <button
+                                  onClick={() => setConfirmZoneCode(null)}
+                                  className="text-[11px] px-2 py-0.5 rounded hover:bg-accent"
+                                >
+                                  Hủy
+                                </button>
+                                <button
+                                  onClick={() => handleZoneDelete(zone.zoneCode)}
+                                  className="text-[11px] px-2 py-0.5 rounded bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                >
+                                  Xóa
+                                </button>
                               </div>
                             </PopoverContent>
                           </Popover>
@@ -221,7 +223,14 @@ export function LocationsMapPage() {
                       </p>
                       <div className="flex flex-wrap items-center gap-1.5">
                         {shelf.bins.map((bin) => {
-                          const detail = { id: bin.id, zoneCode: zone.zoneCode, fullCode: bin.fullCode, binCode: bin.binCode, productCount: bin.productCount, maxCapacity: bin.maxCapacity }
+                          const detail = {
+                            id: bin.id,
+                            zoneCode: zone.zoneCode,
+                            fullCode: bin.fullCode,
+                            binCode: bin.binCode,
+                            productCount: bin.productCount,
+                            maxCapacity: bin.maxCapacity,
+                          }
                           const active = isBinActive(detail)
                           const color = binColor(bin.productCount, bin.maxCapacity)
                           return (
@@ -236,8 +245,12 @@ export function LocationsMapPage() {
                                         className={`flex flex-col items-center justify-center rounded border px-1.5 py-1 cursor-pointer transition-all hover:shadow-sm ${color.bg} ${color.border} hover:ring-1 hover:ring-ring ${!active ? "opacity-40 saturate-0 ring-1 ring-destructive/40 border-destructive/60" : ""}`}
                                         style={{ minWidth: "3.5rem", minHeight: "2.25rem" }}
                                       >
-                                        <span className="text-[9px] font-mono font-semibold leading-tight">{bin.binCode}</span>
-                                        <span className={`text-[9px] leading-tight ${color.text}`}>{bin.productCount}</span>
+                                        <span className="text-[9px] font-mono font-semibold leading-tight">
+                                          {bin.binCode}
+                                        </span>
+                                        <span className={`text-[9px] leading-tight ${color.text}`}>
+                                          {bin.productCount}
+                                        </span>
                                       </button>
                                     </TooltipTrigger>
                                     <TooltipContent side="top" className="text-[11px]">
@@ -250,13 +263,18 @@ export function LocationsMapPage() {
                                     <Tooltip>
                                       <TooltipTrigger asChild>
                                         <button
-                                          onClick={(e) => { e.stopPropagation(); handleReactivateBin(detail) }}
+                                          onClick={(e) => {
+                                            e.stopPropagation()
+                                            handleReactivateBin(detail)
+                                          }}
                                           className="absolute -top-1.5 -left-1.5 inline-flex items-center justify-center size-4 rounded-full bg-background border shadow-sm hover:bg-accent transition-colors"
                                         >
                                           <Undo2 className="size-2.5" />
                                         </button>
                                       </TooltipTrigger>
-                                      <TooltipContent side="top" className="text-[11px]">Kích hoạt lại</TooltipContent>
+                                      <TooltipContent side="top" className="text-[11px]">
+                                        Kích hoạt lại
+                                      </TooltipContent>
                                     </Tooltip>
                                   )}
                                   {detail.productCount > 0 ? (
@@ -270,10 +288,15 @@ export function LocationsMapPage() {
                                           <X className="size-2.5" />
                                         </button>
                                       </TooltipTrigger>
-                                      <TooltipContent side="top" className="text-[11px]">Có sản phẩm</TooltipContent>
+                                      <TooltipContent side="top" className="text-[11px]">
+                                        Có sản phẩm
+                                      </TooltipContent>
                                     </Tooltip>
                                   ) : (
-                                    <Popover open={confirmBinId === bin.id} onOpenChange={(o) => setConfirmBinId(o ? bin.id : null)}>
+                                    <Popover
+                                      open={confirmBinId === bin.id}
+                                      onOpenChange={(o) => setConfirmBinId(o ? bin.id : null)}
+                                    >
                                       <Tooltip>
                                         <TooltipTrigger asChild>
                                           <PopoverTrigger asChild>
@@ -285,29 +308,56 @@ export function LocationsMapPage() {
                                             </button>
                                           </PopoverTrigger>
                                         </TooltipTrigger>
-                                        <TooltipContent side="top" className="text-[11px]">{isBinActive(detail) ? "Vô hiệu hóa" : "Xóa"}</TooltipContent>
+                                        <TooltipContent side="top" className="text-[11px]">
+                                          {isBinActive(detail) ? "Vô hiệu hóa" : "Xóa"}
+                                        </TooltipContent>
                                       </Tooltip>
                                       <PopoverContent side="top" className="w-auto min-w-[130px] p-2">
                                         {isBinActive(detail) ? (
                                           <>
-                                            <p className="text-xs mb-1.5 font-medium">Vô hiệu hóa <span className="font-mono">{bin.binCode}</span>?</p>
+                                            <p className="text-xs mb-1.5 font-medium">
+                                              Vô hiệu hóa <span className="font-mono">{bin.binCode}</span>?
+                                            </p>
                                             <div className="flex gap-1 justify-end">
-                                              <button onClick={() => setConfirmBinId(null)} className="text-[11px] px-2 py-0.5 rounded hover:bg-accent">Hủy</button>
                                               <button
-                                                onClick={(e) => { e.stopPropagation(); setConfirmBinId(null); handleDeactivateBin(detail) }}
+                                                onClick={() => setConfirmBinId(null)}
+                                                className="text-[11px] px-2 py-0.5 rounded hover:bg-accent"
+                                              >
+                                                Hủy
+                                              </button>
+                                              <button
+                                                onClick={(e) => {
+                                                  e.stopPropagation()
+                                                  setConfirmBinId(null)
+                                                  handleDeactivateBin(detail)
+                                                }}
                                                 className="text-[11px] px-2 py-0.5 rounded bg-primary text-primary-foreground hover:bg-primary/90"
-                                              >Vô hiệu hóa</button>
+                                              >
+                                                Vô hiệu hóa
+                                              </button>
                                             </div>
                                           </>
                                         ) : (
                                           <>
-                                            <p className="text-xs mb-1.5 font-medium">Xóa <span className="font-mono">{bin.binCode}</span>?</p>
+                                            <p className="text-xs mb-1.5 font-medium">
+                                              Xóa <span className="font-mono">{bin.binCode}</span>?
+                                            </p>
                                             <div className="flex gap-1 justify-end">
-                                              <button onClick={() => setConfirmBinId(null)} className="text-[11px] px-2 py-0.5 rounded hover:bg-accent">Hủy</button>
                                               <button
-                                                onClick={(e) => { e.stopPropagation(); handleBinDelete(detail) }}
+                                                onClick={() => setConfirmBinId(null)}
+                                                className="text-[11px] px-2 py-0.5 rounded hover:bg-accent"
+                                              >
+                                                Hủy
+                                              </button>
+                                              <button
+                                                onClick={(e) => {
+                                                  e.stopPropagation()
+                                                  handleBinDelete(detail)
+                                                }}
                                                 className="text-[11px] px-2 py-0.5 rounded bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                              >Xóa</button>
+                                              >
+                                                Xóa
+                                              </button>
                                             </div>
                                           </>
                                         )}
@@ -324,8 +374,12 @@ export function LocationsMapPage() {
                                       className={`flex flex-col items-center justify-center rounded border px-1.5 py-1 cursor-pointer transition-shadow hover:shadow-sm ${color.bg} ${color.border} hover:ring-1 hover:ring-ring`}
                                       style={{ minWidth: "3.5rem", minHeight: "2.25rem" }}
                                     >
-                                      <span className="text-[9px] font-mono font-semibold leading-tight">{bin.binCode}</span>
-                                      <span className={`text-[9px] leading-tight ${color.text}`}>{bin.productCount}</span>
+                                      <span className="text-[9px] font-mono font-semibold leading-tight">
+                                        {bin.binCode}
+                                      </span>
+                                      <span className={`text-[9px] leading-tight ${color.text}`}>
+                                        {bin.productCount}
+                                      </span>
                                     </button>
                                   </TooltipTrigger>
                                   <TooltipContent side="top" className="text-[11px]">
@@ -350,7 +404,9 @@ export function LocationsMapPage() {
                                 <Plus className="size-3.5 text-blue-400" />
                               </button>
                             </TooltipTrigger>
-                            <TooltipContent side="top" className="text-[11px]">Thêm ngăn</TooltipContent>
+                            <TooltipContent side="top" className="text-[11px]">
+                              Thêm ngăn
+                            </TooltipContent>
                           </Tooltip>
                         )}
                       </div>
@@ -368,7 +424,9 @@ export function LocationsMapPage() {
                             <Plus className="size-3" /> Thêm kệ
                           </button>
                         </TooltipTrigger>
-                        <TooltipContent side="top" className="text-[11px]">Thêm kệ mới</TooltipContent>
+                        <TooltipContent side="top" className="text-[11px]">
+                          Thêm kệ mới
+                        </TooltipContent>
                       </Tooltip>
                     </div>
                   )}
@@ -432,7 +490,9 @@ export function LocationsMapPage() {
 
           <SheetFooter>
             <SheetClose asChild>
-              <Button variant="outline" className="w-full">Đóng</Button>
+              <Button variant="outline" className="w-full">
+                Đóng
+              </Button>
             </SheetClose>
           </SheetFooter>
         </SheetContent>

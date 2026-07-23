@@ -55,8 +55,8 @@
 |------|-------|-------------|
 | `ADMIN` | 1 | Full access |
 | `MANAGER` | 2 | Management access |
-| `SALES` | 3 | Sales operations |
 | `STOCK` | 3 | Inventory operations |
+| `SALES` | 4 | Sales operations (no API access) |
 
 ---
 
@@ -165,6 +165,8 @@ Admin: force-reset user's password (returns temp password).
 
 List users (paginated).
 
+> **Auth**: ADMIN
+
 **Query params**: `page`, `size`, `sort`
 
 **Response** `200`: `ResponsePage<UserResponse>`
@@ -173,18 +175,22 @@ List users (paginated).
 
 Get user detail.
 
+> **Auth**: ADMIN
+
 **Response** `200`: `UserResponse`
 
 ### POST `/api/v1/user`
 
 Create a new user. Backend auto-generates `username` (from `fullName`) and a temporary password.
 
+> **Auth**: ADMIN
+
 **Request body:**
 | Field | Type | Required | Notes |
 |-------|------|----------|-------|
 | `fullName` | string | ✅ | Used to generate username |
 | `email` | string | ✅ | |
-| `roleName` | string | ✅ | One of: `ADMIN`, `MANAGER`, `SALES`, `STOCK` |
+| `roleName` | string | ✅ | One of: `ADMIN`, `MANAGER`, `STOCK` |
 | `status` | string | ✅ | Initial status |
 
 **Response** `201`: `CreateUserResponse` (includes auto-generated `username` and `tempPassword`)
@@ -192,6 +198,8 @@ Create a new user. Backend auto-generates `username` (from `fullName`) and a tem
 ### PUT `/api/v1/user/{id}/info`
 
 Update user's personal info.
+
+> **Auth**: ADMIN
 
 **Request body:**
 | Field | Type | Required | Notes |
@@ -207,6 +215,8 @@ Update user's personal info.
 
 Activate/deactivate a user.
 
+> **Auth**: ADMIN
+
 **Request body:**
 | Field | Type | Required | Notes |
 |-------|------|----------|-------|
@@ -217,6 +227,8 @@ Activate/deactivate a user.
 ### PUT `/api/v1/user/{id}/role`
 
 Update user's role.
+
+> **Auth**: ADMIN
 
 **Request body**: Raw string (e.g. `"MANAGER"`)
 
@@ -230,7 +242,7 @@ Update user's role.
 | `username` | string | Auto-generated |
 | `fullName` | string | |
 | `email` | string | |
-| `role` | string | ADMIN / MANAGER / SALES / STOCK |
+| `role` | string | ADMIN / MANAGER / STOCK |
 | `status` | string | |
 | `gender` | number | `null` if not set |
 | `dob` | string | ISO 8601 datetime, `null` if not set |
@@ -245,13 +257,13 @@ Update user's role.
 
 ## Brand Endpoints (`/api/v1/brand`)
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/api/v1/brand` | List brands (paginated) |
-| GET | `/api/v1/brand/{id}` | Get brand detail |
-| POST | `/api/v1/brand` | Create brand |
-| PUT | `/api/v1/brand/{id}` | Update brand |
-| PUT | `/api/v1/brand/{id}/toggle-active` | Toggle active status |
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| GET | `/api/v1/brand` | List brands (paginated) | STOCK, MANAGER, ADMIN |
+| GET | `/api/v1/brand/{id}` | Get brand detail | STOCK, MANAGER, ADMIN |
+| POST | `/api/v1/brand` | Create brand | MANAGER |
+| PUT | `/api/v1/brand/{id}` | Update brand | MANAGER |
+| PUT | `/api/v1/brand/{id}/toggle-active` | Toggle active status | MANAGER |
 
 **Request** (create/update): `BrandRequest`
 | Field | Type | Required |
@@ -273,13 +285,13 @@ Update user's role.
 
 ## Category Endpoints (`/api/v1/category`)
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/api/v1/category` | List categories (paginated) |
-| GET | `/api/v1/category/{id}` | Get category detail |
-| POST | `/api/v1/category` | Create category |
-| PUT | `/api/v1/category/{id}` | Update category |
-| PUT | `/api/v1/category/{id}/toggle-active` | Toggle active status |
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| GET | `/api/v1/category` | List categories (paginated) | STOCK, MANAGER, ADMIN |
+| GET | `/api/v1/category/{id}` | Get category detail | STOCK, MANAGER, ADMIN |
+| POST | `/api/v1/category` | Create category | MANAGER |
+| PUT | `/api/v1/category/{id}` | Update category | MANAGER |
+| PUT | `/api/v1/category/{id}/toggle-active` | Toggle active status | MANAGER |
 
 **Request** (create/update): `CategoryRequest`
 | Field | Type | Required |
@@ -293,13 +305,13 @@ Update user's role.
 
 ## Product Endpoints (`/api/v1/product`)
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/api/v1/product` | List products (paginated) |
-| GET | `/api/v1/product/{id}` | Get product detail |
-| POST | `/api/v1/product` | Create product |
-| PUT | `/api/v1/product/{id}` | Update product |
-| PUT | `/api/v1/product/{id}/toggle-active` | Toggle active status |
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| GET | `/api/v1/product` | List products (paginated) | STOCK, MANAGER, ADMIN |
+| GET | `/api/v1/product/{id}` | Get product detail | STOCK, MANAGER, ADMIN |
+| POST | `/api/v1/product` | Create product | MANAGER |
+| PUT | `/api/v1/product/{id}` | Update product | MANAGER |
+| PUT | `/api/v1/product/{id}/toggle-active` | Toggle active status | MANAGER |
 
 **Request** (create/update): `ProductRequest`
 | Field | Type | Required | Notes |
@@ -339,13 +351,13 @@ Update user's role.
 
 ## Supplier Endpoints (`/api/v1/supplier`)
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/api/v1/supplier` | List suppliers (paginated) |
-| GET | `/api/v1/supplier/{id}` | Get supplier detail |
-| POST | `/api/v1/supplier` | Create supplier |
-| PUT | `/api/v1/supplier/{id}` | Update supplier |
-| PUT | `/api/v1/supplier/{id}/toggle-active` | Toggle active status |
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| GET | `/api/v1/supplier` | List suppliers (paginated) | STOCK, MANAGER, ADMIN |
+| GET | `/api/v1/supplier/{id}` | Get supplier detail | STOCK, MANAGER, ADMIN |
+| POST | `/api/v1/supplier` | Create supplier | MANAGER |
+| PUT | `/api/v1/supplier/{id}` | Update supplier | MANAGER |
+| PUT | `/api/v1/supplier/{id}/toggle-active` | Toggle active status | MANAGER |
 
 **Request** (create/update): `SupplierRequest`
 | Field | Type | Required | Notes |
@@ -377,12 +389,12 @@ Update user's role.
 
 ## Product Image Endpoints (`/api/v1/product-image`)
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/api/v1/product-image/product/{productId}` | List images for a product |
-| POST | `/api/v1/product-image` | Add image to product |
-| DELETE | `/api/v1/product-image/{id}` | Delete single image |
-| DELETE | `/api/v1/product-image/product/{productId}` | Delete all images for a product |
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| GET | `/api/v1/product-image/product/{productId}` | List images for a product | MANAGER, ADMIN |
+| POST | `/api/v1/product-image` | Add image to product | MANAGER |
+| DELETE | `/api/v1/product-image/{id}` | Delete single image | MANAGER |
+| DELETE | `/api/v1/product-image/product/{productId}` | Delete all images for a product | MANAGER |
 
 **Request** (create): `ProductImageRequest`
 | Field | Type | Required | Notes |
@@ -408,7 +420,7 @@ Update user's role.
 
 ### GET `/api/v1/audit-logs`
 
-Search audit logs (paginated). **Requires**: `ADMIN`, `MANAGER`, or `SALES`.
+Search audit logs (paginated). **Requires**: `ADMIN`, `MANAGER`.
 
 **Query params:**
 | Param | Type | Required | Notes |
@@ -471,7 +483,7 @@ interface ExceptionMessage {
   message: string;
 }
 
-type URole = 'ADMIN' | 'MANAGER' | 'SALES' | 'STOCK';
+type URole = 'ADMIN' | 'MANAGER' | 'STOCK';
 
 // ============ Auth ============
 
@@ -666,12 +678,12 @@ interface AuditLog {
 
 | Method | Path | Description | Auth |
 |--------|------|-------------|------|
-| GET | `/api/v1/import-receipt` | List import receipts (paginated) | Authenticated |
-| GET | `/api/v1/import-receipt/{id}` | Get receipt detail | Authenticated |
-| POST | `/api/v1/import-receipt` | Create + confirm import | MANAGER, STOCK |
+| GET | `/api/v1/import-receipt` | List import receipts (paginated) | STOCK, MANAGER, ADMIN |
+| GET | `/api/v1/import-receipt/{id}` | Get receipt detail | STOCK, MANAGER, ADMIN |
+| POST | `/api/v1/import-receipt` | Create + confirm import | MANAGER, ADMIN, STOCK |
 | PUT | `/api/v1/import-receipt/{id}/approve` | Approve receipt | MANAGER, ADMIN |
 | PUT | `/api/v1/import-receipt/{id}/cancel` | Cancel receipt | MANAGER, ADMIN |
-| GET | `/api/v1/import-receipt/{id}/units` | Get product units in receipt | Authenticated |
+| GET | `/api/v1/import-receipt/{id}/units` | Get product units in receipt | STOCK, MANAGER, ADMIN |
 
 **Request** (create): `ImportReceiptRequest`
 | Field | Type | Required | Notes |
@@ -727,8 +739,8 @@ interface AuditLog {
 
 | Method | Path | Description | Auth |
 |--------|------|-------------|------|
-| GET | `/api/v1/export-receipt` | List export receipts (paginated) | Authenticated |
-| GET | `/api/v1/export-receipt/{id}` | Get receipt detail | Authenticated |
+| GET | `/api/v1/export-receipt` | List export receipts (paginated) | STOCK, MANAGER, ADMIN |
+| GET | `/api/v1/export-receipt/{id}` | Get receipt detail | STOCK, MANAGER, ADMIN |
 | POST | `/api/v1/export-receipt` | Create export | MANAGER, STOCK |
 | PUT | `/api/v1/export-receipt/{id}/approve` | Approve export | MANAGER, ADMIN |
 | PUT | `/api/v1/export-receipt/{id}/cancel` | Cancel export | MANAGER, ADMIN |
@@ -773,10 +785,10 @@ interface AuditLog {
 
 | Method | Path | Description | Auth |
 |--------|------|-------------|------|
-| GET | `/api/v1/product-unit` | List product units (paginated) | Authenticated |
-| GET | `/api/v1/product-unit/{id}` | Get unit detail | Authenticated |
-| GET | `/api/v1/product-unit/status/{status}` | List units by status | Authenticated |
-| GET | `/api/v1/product-unit/product/{productId}` | List units by product | Authenticated |
+| GET | `/api/v1/product-unit` | List product units (paginated) | STOCK, MANAGER, ADMIN |
+| GET | `/api/v1/product-unit/{id}` | Get unit detail | STOCK, MANAGER, ADMIN |
+| GET | `/api/v1/product-unit/status/{status}` | List units by status | STOCK, MANAGER, ADMIN |
+| GET | `/api/v1/product-unit/product/{productId}` | List units by product | STOCK, MANAGER, ADMIN |
 
 **ProductUnitStatus enum**: `IN_STOCK`, `SOLD`, `DEFECTIVE`, `DAMAGED_IN_STORAGE`, `LOST`, `REMOVED`, `DISPOSED`, `UNDER_REPAIR`, `SENT_TO_MANUFACTURER`, `RETURNED`, `RETURNED_TO_SUPPLIER`
 
@@ -808,6 +820,7 @@ interface AuditLog {
 
 | Method | Path | Description | Auth |
 |--------|------|-------------|------|
+| GET | `/api/v1/stock-check/my` | My stock checks (paginated) | STOCK, MANAGER, ADMIN |
 | GET | `/api/v1/stock-check` | List stock checks (paginated) | MANAGER, ADMIN |
 | GET | `/api/v1/stock-check/{id}` | Get detail | MANAGER, ADMIN, STOCK |
 | POST | `/api/v1/stock-check` | Create (select units to check) | MANAGER, STOCK |
@@ -872,12 +885,12 @@ interface AuditLog {
 
 | Method | Path | Description | Auth |
 |--------|------|-------------|------|
-| GET | `/api/v1/customer` | List customers (paginated) | Authenticated |
-| GET | `/api/v1/customer/search` | Search by keyword | Authenticated |
-| GET | `/api/v1/customer/{id}` | Get detail | Authenticated |
-| POST | `/api/v1/customer` | Create | Authenticated |
-| PUT | `/api/v1/customer/{id}` | Update | Authenticated |
-| PUT | `/api/v1/customer/{id}/toggle-active` | Toggle active | Authenticated |
+| GET | `/api/v1/customer` | List customers (paginated) | STOCK, MANAGER, ADMIN |
+| GET | `/api/v1/customer/search` | Search by keyword | STOCK, MANAGER, ADMIN |
+| GET | `/api/v1/customer/{id}` | Get detail | STOCK, MANAGER, ADMIN |
+| POST | `/api/v1/customer` | Create | STOCK, MANAGER, ADMIN |
+| PUT | `/api/v1/customer/{id}` | Update | MANAGER |
+| PUT | `/api/v1/customer/{id}/toggle-active` | Toggle active | MANAGER |
 
 **Request** (create/update): `CustomerRequest`
 | Field | Type | Required | Notes |
@@ -907,9 +920,10 @@ interface AuditLog {
 
 | Method | Path | Description | Auth |
 |--------|------|-------------|------|
-| GET | `/api/v1/location` | List locations (paginated) | Authenticated |
-| GET | `/api/v1/location/search` | Search by keyword | Authenticated |
-| GET | `/api/v1/location/{id}` | Get detail | Authenticated |
+| GET | `/api/v1/location` | List locations (paginated) | STOCK, MANAGER, ADMIN |
+| GET | `/api/v1/location/search` | Search by keyword | STOCK, MANAGER, ADMIN |
+| GET | `/api/v1/location/{id}` | Get detail | STOCK, MANAGER, ADMIN |
+| GET | `/api/v1/location/map` | Get zone→shelf→bin tree with counts | STOCK, MANAGER, ADMIN |
 | POST | `/api/v1/location` | Create | MANAGER |
 | PUT | `/api/v1/location/{id}` | Update | MANAGER |
 | PUT | `/api/v1/location/{id}/toggle-active` | Toggle active | MANAGER |
@@ -930,7 +944,7 @@ interface AuditLog {
 
 | Method | Path | Description | Auth |
 |--------|------|-------------|------|
-| GET | `/api/v1/dashboard/stats` | Get dashboard statistics | Authenticated |
+| GET | `/api/v1/dashboard/stats` | Get dashboard statistics | MANAGER, ADMIN |
 
 **Response**: `DashboardResponse`
 | Field | Type | Notes |
@@ -946,9 +960,9 @@ interface AuditLog {
 
 | Method | Path | Description | Auth |
 |--------|------|-------------|------|
-| GET | `/api/v1/category-zone` | List all category zones | Authenticated |
-| GET | `/api/v1/category-zone/{categoryId}` | Get zone by category ID | Authenticated |
-| GET | `/api/v1/category-zone/map` | Get zone lookup map (categoryId → zoneCode) | Authenticated |
+| GET | `/api/v1/category-zone` | List all category zones | STOCK, MANAGER, ADMIN |
+| GET | `/api/v1/category-zone/{categoryId}` | Get zone by category ID | STOCK, MANAGER, ADMIN |
+| GET | `/api/v1/category-zone/map` | Get zone lookup map (categoryId → zoneCode) | STOCK, MANAGER, ADMIN |
 
 **Response**: `CategoryZoneResponse`
 | Field | Type |
@@ -971,6 +985,130 @@ interface AuditLog {
 | `isActive` | boolean |
 | `createdAt` | string (ISO 8601) |
 | `updatedAt` | string (ISO 8601) |
+
+---
+
+## Stock Adjustment Endpoints (`/api/v1/stock-adjustment`)
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| GET | `/api/v1/stock-adjustment/my` | My adjustments | STOCK / MANAGER / ADMIN |
+| GET | `/api/v1/stock-adjustment` | All adjustments | MANAGER / ADMIN |
+| GET | `/api/v1/stock-adjustment/{id}` | Detail | STOCK / MANAGER / ADMIN |
+| POST | `/api/v1/stock-adjustment` | Create | MANAGER / STOCK |
+| PUT | `/api/v1/stock-adjustment/{id}/approve` | Approve | MANAGER / ADMIN |
+| PUT | `/api/v1/stock-adjustment/{id}/reject` | Reject | MANAGER / ADMIN |
+
+**Query params**: `type` (ADD / REMOVE / FOUND / MISSING), `status` (PENDING / APPROVED / REJECTED)
+
+**Adjustment types**: `ADD` — increase stock, `REMOVE` — decrease, `FOUND` — discovered unit, `MISSING` — lost unit
+
+---
+
+## Price Adjustment Endpoints (`/api/v1/price-adjustment`)
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| GET | `/api/v1/price-adjustment/my` | My adjustments | MANAGER / STOCK |
+| GET | `/api/v1/price-adjustment` | All adjustments | MANAGER / ADMIN / STOCK |
+| GET | `/api/v1/price-adjustment/{id}` | Detail | MANAGER / ADMIN / STOCK |
+| POST | `/api/v1/price-adjustment` | Create | MANAGER / STOCK |
+| PUT | `/api/v1/price-adjustment/{id}/approve` | Approve | MANAGER / ADMIN / STOCK |
+| PUT | `/api/v1/price-adjustment/{id}/reject` | Reject | MANAGER / ADMIN / STOCK |
+
+**Query params**: `status` (PENDING / APPROVED / REJECTED)
+
+---
+
+## Purchase Order Endpoints (`/api/v1/purchase-order`)
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| GET | `/api/v1/purchase-order` | List (paginated) | MANAGER |
+| GET | `/api/v1/purchase-order/{id}` | Detail | MANAGER |
+| POST | `/api/v1/purchase-order` | Create | MANAGER |
+| PUT | `/api/v1/purchase-order/{id}/cancel` | Cancel | MANAGER |
+
+**Query params**: `status` (PENDING / APPROVED / CANCELLED / PARTIAL / COMPLETED)
+
+---
+
+## Return Receipt Endpoints (`/api/v1/return-receipts`)
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| GET | `/api/v1/return-receipts` | List (paginated) | MANAGER / ADMIN / STOCK |
+| GET | `/api/v1/return-receipts/{id}` | Detail | MANAGER / ADMIN / STOCK |
+| POST | `/api/v1/return-receipts` | Create | MANAGER / ADMIN / STOCK |
+| PUT | `/api/v1/return-receipts/{id}/approve` | Approve | MANAGER / ADMIN |
+| PUT | `/api/v1/return-receipts/{id}/cancel` | Cancel | MANAGER / ADMIN / STOCK |
+
+**Return receipt flow**: Customer returns goods → create return receipt (ref links original export) → approve → stock restored
+
+---
+
+## Warranty Request Endpoints (`/api/v1/warranty-request`)
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| GET | `/api/v1/warranty-request/lookup` | Lookup by serial | STOCK / MANAGER / ADMIN |
+| GET | `/api/v1/warranty-request` | List (paginated) | STOCK / MANAGER / ADMIN |
+| GET | `/api/v1/warranty-request/my-handled` | My handled requests | MANAGER |
+| GET | `/api/v1/warranty-request/{id}` | Detail | STOCK / MANAGER / ADMIN |
+| POST | `/api/v1/warranty-request` | Create | MANAGER / STOCK |
+| PUT | `/api/v1/warranty-request/{id}/resolve` | Resolve (repair/RMA/replace) | MANAGER |
+| PUT | `/api/v1/warranty-request/{id}/complete` | Complete (after repair/RMA) | MANAGER |
+| PUT | `/api/v1/warranty-request/{id}/cancel` | Cancel with reason | MANAGER |
+
+**Query params**: `status`, `resolutionType`
+
+**Resolution types**: `REPAIR`, `RMA`, `REPLACEMENT`, `REJECT`
+
+---
+
+## Report Endpoints (`/api/v1/report`)
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| GET | `/api/v1/report/inventory-summary` | Summary stats | MANAGER / ADMIN |
+| GET | `/api/v1/report/inventory-by-category` | Stock by category | MANAGER / ADMIN |
+| GET | `/api/v1/report/low-stock` | Low stock items | MANAGER / ADMIN / STOCK |
+| GET | `/api/v1/report/stock-value` | Stock valuation | MANAGER / ADMIN |
+| GET | `/api/v1/report/activity` | Activity log (date range) | MANAGER / ADMIN |
+| GET | `/api/v1/report/dead-stock` | Dead stock (default 90 days) | MANAGER / ADMIN |
+
+---
+
+## Inventory Endpoint (`/api/v1/inventory`)
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| GET | `/api/v1/inventory` | List inventory items (paginated, searchable) | STOCK, MANAGER, ADMIN |
+
+**Query params**: `search`
+
+---
+
+## Upload Endpoint (`/api/v1/upload`)
+
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| POST | `/api/v1/upload` | Upload file (multipart) | MANAGER / ADMIN / STOCK |
+
+**Request**: `multipart/form-data` with `file` field  
+**Response**: `{ "url": "https://cloudinary.com/..." }`
+
+---
+
+## Role Hierarchy
+
+```
+ADMIN > MANAGER > STOCK
+```
+
+- **ADMIN**: full access, user management, approve/cancel all transactions
+- **MANAGER**: CRUD master data, approve transactions, reports
+- **STOCK**: read-only on most, create transactions (import/export/stock-check/adjustment)
 
 ---
 
@@ -1187,6 +1325,18 @@ interface LocationResponse {
   description: string | null;
   isActive: boolean;
   createdAt: string;
+  updatedAt: string;
+}
+
+// ============ Inventory ============
+
+interface InventoryItemResponse {
+  productId: number;
+  productName: string;
+  productSku: string;
+  quantity: number;
+  minStock: number;
+  location: string;
   updatedAt: string;
 }
 

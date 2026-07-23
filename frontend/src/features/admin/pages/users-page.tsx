@@ -1,7 +1,15 @@
 import { useState, useEffect, useCallback } from "react"
 import { useDebounce } from "@/hooks/use-debounce"
-import { getUsers, createUser, updateUserInfo, updateUserRole, updateUserStatus, resetPassword } from "@/services/user-service"
+import {
+  getUsers,
+  createUser,
+  updateUserInfo,
+  updateUserRole,
+  updateUserStatus,
+  resetPassword,
+} from "@/services/user-service"
 import type { UserResponse, ResponsePage, URole } from "@/utils/types"
+import { USER_STATUS } from "@/utils/types"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
@@ -16,13 +24,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "@/utils/toast"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 
@@ -34,9 +36,9 @@ const roleOptions: { value: URole; label: string }[] = [
 ]
 
 const statusLabel: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
-  NEW: { label: "Mới", variant: "outline" },
-  ACTIVE: { label: "Hoạt động", variant: "default" },
-  INACTIVE: { label: "Ngưng", variant: "secondary" },
+  [USER_STATUS.NEW]: { label: "Mới", variant: "outline" },
+  [USER_STATUS.ACTIVE]: { label: "Hoạt động", variant: "default" },
+  [USER_STATUS.INACTIVE]: { label: "Ngưng", variant: "secondary" },
 }
 
 function fmt(d: string) {
@@ -65,7 +67,12 @@ export const UsersPage = () => {
   const debouncedSearch = useDebounce(search, 300)
 
   const [createOpen, setCreateOpen] = useState(false)
-  const [createForm, setCreateForm] = useState({ fullName: "", email: "", roleName: "STOCK", status: "ACTIVE" })
+  const [createForm, setCreateForm] = useState({
+    fullName: "",
+    email: "",
+    roleName: "STOCK",
+    status: USER_STATUS.ACTIVE,
+  })
   const [creating, setCreating] = useState(false)
   const [tempPassword, setTempPassword] = useState<string | null>(null)
 
@@ -83,23 +90,35 @@ export const UsersPage = () => {
     setError(null)
     if (debouncedSearch) {
       getUsers(0, 10000, sortStr)
-        .then((res) => { setAllData(res.content); setData(null) })
+        .then((res) => {
+          setAllData(res.content)
+          setData(null)
+        })
         .catch((err) => setError((err as Error).message || "Không thể tải danh sách"))
         .finally(() => setLoading(false))
     } else {
       getUsers(page, pageSize, sortStr)
-        .then((res) => { setData(res); setAllData(null) })
+        .then((res) => {
+          setData(res)
+          setAllData(null)
+        })
         .catch((err) => setError((err as Error).message || "Không thể tải danh sách"))
         .finally(() => setLoading(false))
     }
   }, [page, pageSize, sortStr, debouncedSearch])
 
-  useEffect(() => { fetch() }, [fetch])
+  useEffect(() => {
+    fetch()
+  }, [fetch])
 
   const filtered = (allData ?? data?.content ?? []).filter((u) => {
     if (!debouncedSearch) return true
     const kw = debouncedSearch.toLowerCase()
-    return u.fullName.toLowerCase().includes(kw) || u.username.toLowerCase().includes(kw) || u.email.toLowerCase().includes(kw)
+    return (
+      u.fullName.toLowerCase().includes(kw) ||
+      u.username.toLowerCase().includes(kw) ||
+      u.email.toLowerCase().includes(kw)
+    )
   })
 
   const handleCreate = async () => {
@@ -112,7 +131,7 @@ export const UsersPage = () => {
       const res = await createUser(createForm)
       setTempPassword(res.tempPassword)
       toast.success("Tạo người dùng thành công")
-      setCreateForm({ fullName: "", email: "", roleName: "STOCK", status: "ACTIVE" })
+      setCreateForm({ fullName: "", email: "", roleName: "STOCK", status: USER_STATUS.ACTIVE })
       fetch()
     } catch (err) {
       toast.error((err as Error).message || "Có lỗi xảy ra")
@@ -123,7 +142,11 @@ export const UsersPage = () => {
 
   const openEdit = (u: UserResponse) => {
     setEditUser(u)
-    setEditForm({ fullName: u.fullName, phoneNumber: u.phoneNumber ?? "", gender: u.gender != null ? String(u.gender) : "" })
+    setEditForm({
+      fullName: u.fullName,
+      phoneNumber: u.phoneNumber ?? "",
+      gender: u.gender != null ? String(u.gender) : "",
+    })
     setEditOpen(true)
   }
 
@@ -183,7 +206,14 @@ export const UsersPage = () => {
     { header: "Username", sortKey: "username", render: (u) => <span className="font-mono text-xs">{u.username}</span> },
     { header: "Họ tên", sortKey: "fullName", render: (u) => <span className="font-medium">{u.fullName}</span> },
     { header: "Email", sortKey: "email", render: (u) => <span className="text-muted-foreground">{u.email}</span> },
-    { header: "Vai trò", render: (u) => <Badge variant="outline" className="text-xs">{u.role}</Badge> },
+    {
+      header: "Vai trò",
+      render: (u) => (
+        <Badge variant="outline" className="text-xs">
+          {u.role}
+        </Badge>
+      ),
+    },
     {
       header: "Trạng thái",
       render: (u) => {
@@ -191,7 +221,11 @@ export const UsersPage = () => {
         return <Badge variant={st.variant}>{st.label}</Badge>
       },
     },
-    { header: "Ngày tạo", sortKey: "createdAt", render: (u) => <span className="text-xs text-muted-foreground">{fmt(u.createdAt)}</span> },
+    {
+      header: "Ngày tạo",
+      sortKey: "createdAt",
+      render: (u) => <span className="text-xs text-muted-foreground">{fmt(u.createdAt)}</span>,
+    },
     {
       header: "Thao tác",
       className: "w-[140px]",
@@ -199,26 +233,44 @@ export const UsersPage = () => {
         <div className="flex gap-1">
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" onClick={() => openEdit(u)}><UserCog className="size-4" /></Button>
+              <Button variant="ghost" size="icon" onClick={() => openEdit(u)}>
+                <UserCog className="size-4" />
+              </Button>
             </TooltipTrigger>
             <TooltipContent>Sửa thông tin</TooltipContent>
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" onClick={() => { setRoleUserId(u.id); setRoleVal(u.role); setRoleOpen(true) }}><Shield className="size-4" /></Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => {
+                  setRoleUserId(u.id)
+                  setRoleVal(u.role)
+                  setRoleOpen(true)
+                }}
+              >
+                <Shield className="size-4" />
+              </Button>
             </TooltipTrigger>
             <TooltipContent>Đổi vai trò</TooltipContent>
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" onClick={() => handleResetPassword(u.id)}><KeyRound className="size-4" /></Button>
+              <Button variant="ghost" size="icon" onClick={() => handleResetPassword(u.id)}>
+                <KeyRound className="size-4" />
+              </Button>
             </TooltipTrigger>
             <TooltipContent>Reset mật khẩu</TooltipContent>
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
               <Button variant="ghost" size="icon" onClick={() => handleToggleStatus(u)}>
-                {u.isDeleted ? <CheckCircle className="size-4 text-green-600" /> : <Ban className="size-4 text-destructive" />}
+                {u.isDeleted ? (
+                  <CheckCircle className="size-4 text-green-600" />
+                ) : (
+                  <Ban className="size-4 text-destructive" />
+                )}
               </Button>
             </TooltipTrigger>
             <TooltipContent>{u.isDeleted ? "Kích hoạt" : "Vô hiệu hoá"}</TooltipContent>
@@ -232,7 +284,12 @@ export const UsersPage = () => {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-semibold tracking-tight">Quản lý người dùng</h1>
-        <Button onClick={() => { setCreateOpen(true); setTempPassword(null) }}>
+        <Button
+          onClick={() => {
+            setCreateOpen(true)
+            setTempPassword(null)
+          }}
+        >
           <Plus className="size-4 mr-1" /> Thêm người dùng
         </Button>
       </div>
@@ -244,7 +301,10 @@ export const UsersPage = () => {
             placeholder="Tìm theo tên, username, email..."
             className="pl-8"
             value={search}
-            onChange={(e) => { setSearch(e.target.value); setPage(0) }}
+            onChange={(e) => {
+              setSearch(e.target.value)
+              setPage(0)
+            }}
           />
         </div>
       </div>
@@ -269,11 +329,24 @@ export const UsersPage = () => {
           totalPages={!debouncedSearch ? s?.totalPages : undefined}
           pageSize={!debouncedSearch ? pageSize : undefined}
           onPageChange={!debouncedSearch ? setPage : undefined}
-          onPageSizeChange={!debouncedSearch ? (s) => { setPageSize(s); setPage(0) } : undefined}
+          onPageSizeChange={
+            !debouncedSearch
+              ? (s) => {
+                  setPageSize(s)
+                  setPage(0)
+                }
+              : undefined
+          }
         />
       )}
 
-      <Dialog open={createOpen} onOpenChange={(v) => { setCreateOpen(v); if (!v) setTempPassword(null) }}>
+      <Dialog
+        open={createOpen}
+        onOpenChange={(v) => {
+          setCreateOpen(v)
+          if (!v) setTempPassword(null)
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Thêm người dùng mới</DialogTitle>
@@ -285,10 +358,19 @@ export const UsersPage = () => {
                 <p className="font-medium">Tạo người dùng thành công!</p>
                 <p className="mt-2 text-xs">Chuyển mật khẩu này cho người dùng:</p>
                 <p className="mt-1 font-mono text-lg font-bold tracking-wider select-all">{tempPassword}</p>
-                <p className="mt-2 text-xs text-muted-foreground">Người dùng sẽ được yêu cầu đổi mật khẩu khi đăng nhập lần đầu.</p>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Người dùng sẽ được yêu cầu đổi mật khẩu khi đăng nhập lần đầu.
+                </p>
               </div>
               <DialogFooter>
-                <Button onClick={() => { setCreateOpen(false); setTempPassword(null) }}>Đóng</Button>
+                <Button
+                  onClick={() => {
+                    setCreateOpen(false)
+                    setTempPassword(null)
+                  }}
+                >
+                  Đóng
+                </Button>
               </DialogFooter>
             </div>
           ) : (
@@ -296,27 +378,49 @@ export const UsersPage = () => {
               <div className="grid gap-4 py-2">
                 <div className="space-y-2">
                   <Label htmlFor="fullName">Họ tên</Label>
-                  <Input id="fullName" placeholder="Nguyễn Văn A" value={createForm.fullName} onChange={(e) => setCreateForm((f) => ({ ...f, fullName: e.target.value }))} />
+                  <Input
+                    id="fullName"
+                    placeholder="Nguyễn Văn A"
+                    value={createForm.fullName}
+                    onChange={(e) => setCreateForm((f) => ({ ...f, fullName: e.target.value }))}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
-                  <Input id="email" type="email" placeholder="a@example.com" value={createForm.email} onChange={(e) => setCreateForm((f) => ({ ...f, email: e.target.value }))} />
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="a@example.com"
+                    value={createForm.email}
+                    onChange={(e) => setCreateForm((f) => ({ ...f, email: e.target.value }))}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="role">Vai trò</Label>
-                  <Select value={createForm.roleName} onValueChange={(v) => setCreateForm((f) => ({ ...f, roleName: v }))}>
-                    <SelectTrigger id="role"><SelectValue /></SelectTrigger>
+                  <Select
+                    value={createForm.roleName}
+                    onValueChange={(v) => setCreateForm((f) => ({ ...f, roleName: v }))}
+                  >
+                    <SelectTrigger id="role">
+                      <SelectValue />
+                    </SelectTrigger>
                     <SelectContent>
                       {roleOptions.map((o) => (
-                        <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                        <SelectItem key={o.value} value={o.value}>
+                          {o.label}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setCreateOpen(false)}>Hủy</Button>
-                <Button onClick={handleCreate} disabled={creating}>{creating ? "Đang tạo..." : "Tạo"}</Button>
+                <Button variant="outline" onClick={() => setCreateOpen(false)}>
+                  Hủy
+                </Button>
+                <Button onClick={handleCreate} disabled={creating}>
+                  {creating ? "Đang tạo..." : "Tạo"}
+                </Button>
               </DialogFooter>
             </>
           )}
@@ -327,21 +431,34 @@ export const UsersPage = () => {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Sửa thông tin người dùng</DialogTitle>
-            <DialogDescription>{editUser?.username} — {editUser?.email}</DialogDescription>
+            <DialogDescription>
+              {editUser?.username} — {editUser?.email}
+            </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-2">
             <div className="space-y-2">
               <Label htmlFor="editName">Họ tên</Label>
-              <Input id="editName" value={editForm.fullName} onChange={(e) => setEditForm((f) => ({ ...f, fullName: e.target.value }))} />
+              <Input
+                id="editName"
+                value={editForm.fullName}
+                onChange={(e) => setEditForm((f) => ({ ...f, fullName: e.target.value }))}
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="editPhone">Số điện thoại</Label>
-              <Input id="editPhone" placeholder="Không bắt buộc" value={editForm.phoneNumber} onChange={(e) => setEditForm((f) => ({ ...f, phoneNumber: e.target.value }))} />
+              <Input
+                id="editPhone"
+                placeholder="Không bắt buộc"
+                value={editForm.phoneNumber}
+                onChange={(e) => setEditForm((f) => ({ ...f, phoneNumber: e.target.value }))}
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="editGender">Giới tính</Label>
               <Select value={editForm.gender} onValueChange={(v) => setEditForm((f) => ({ ...f, gender: v }))}>
-                <SelectTrigger id="editGender"><SelectValue placeholder="Chọn..." /></SelectTrigger>
+                <SelectTrigger id="editGender">
+                  <SelectValue placeholder="Chọn..." />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="0">Nam</SelectItem>
                   <SelectItem value="1">Nữ</SelectItem>
@@ -351,8 +468,12 @@ export const UsersPage = () => {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditOpen(false)}>Hủy</Button>
-            <Button onClick={handleEdit} disabled={editing}>{editing ? "Đang lưu..." : "Lưu"}</Button>
+            <Button variant="outline" onClick={() => setEditOpen(false)}>
+              Hủy
+            </Button>
+            <Button onClick={handleEdit} disabled={editing}>
+              {editing ? "Đang lưu..." : "Lưu"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -365,16 +486,22 @@ export const UsersPage = () => {
           </DialogHeader>
           <div className="py-4">
             <Select value={roleVal} onValueChange={setRoleVal}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
                 {roleOptions.map((o) => (
-                  <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                  <SelectItem key={o.value} value={o.value}>
+                    {o.label}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setRoleOpen(false)}>Hủy</Button>
+            <Button variant="outline" onClick={() => setRoleOpen(false)}>
+              Hủy
+            </Button>
             <Button onClick={handleRoleChange}>Lưu</Button>
           </DialogFooter>
         </DialogContent>

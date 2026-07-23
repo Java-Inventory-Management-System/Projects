@@ -2,7 +2,13 @@ import http from "@/utils/http-client"
 import type { ResponsePage, StockAdjustment } from "@/utils/types"
 import { mapResponsePage, mapStockAdjustment } from "@/utils/mappers"
 
-export async function getStockAdjustments(page = 0, size = 20, sort?: string, type?: string, status?: string): Promise<ResponsePage<StockAdjustment>> {
+export async function getStockAdjustments(
+  page = 0,
+  size = 20,
+  sort?: string,
+  type?: string,
+  status?: string,
+): Promise<ResponsePage<StockAdjustment>> {
   const params: Record<string, string | number> = { page, size, sort: sort ?? "createdAt,desc" }
   if (type) params.type = type
   if (status) params.status = status
@@ -10,7 +16,13 @@ export async function getStockAdjustments(page = 0, size = 20, sort?: string, ty
   return mapResponsePage(res, mapStockAdjustment)
 }
 
-export async function getMyStockAdjustments(page = 0, size = 20, sort?: string, type?: string, status?: string): Promise<ResponsePage<StockAdjustment>> {
+export async function getMyStockAdjustments(
+  page = 0,
+  size = 20,
+  sort?: string,
+  type?: string,
+  status?: string,
+): Promise<ResponsePage<StockAdjustment>> {
   const params: Record<string, string | number> = { page, size, sort: sort ?? "createdAt,desc" }
   if (type) params.type = type
   if (status) params.status = status

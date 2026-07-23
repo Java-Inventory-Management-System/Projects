@@ -40,13 +40,7 @@ export function Topbar({ collapsed, onToggle, onMobileOpen }: TopbarProps) {
   return (
     <header className="flex h-14 items-center justify-between border-b bg-background px-4">
       <div className="flex items-center gap-2">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={onMobileOpen}
-          className="md:hidden"
-          aria-label="Open menu"
-        >
+        <Button variant="ghost" size="icon" onClick={onMobileOpen} className="md:hidden" aria-label="Open menu">
           <Menu className="size-4" />
         </Button>
         <Button

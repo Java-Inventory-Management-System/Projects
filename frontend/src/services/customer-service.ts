@@ -25,13 +25,16 @@ export async function createCustomer(data: {
   return mapCustomer(res)
 }
 
-export async function updateCustomer(id: number, data: {
-  name: string
-  phone?: string | null
-  email?: string | null
-  address?: string | null
-  note?: string | null
-}): Promise<CustomerResponse> {
+export async function updateCustomer(
+  id: number,
+  data: {
+    name: string
+    phone?: string | null
+    email?: string | null
+    address?: string | null
+    note?: string | null
+  },
+): Promise<CustomerResponse> {
   const res = await http.put(`/customer/${id}`, data)
   return mapCustomer(res)
 }

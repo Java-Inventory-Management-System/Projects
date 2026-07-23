@@ -1,4 +1,11 @@
-import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination"
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 interface PaginationBarProps {
@@ -35,7 +42,9 @@ export function PaginationBar({ page, totalPages, onChange, pageSize, onPageSize
               </SelectTrigger>
               <SelectContent>
                 {PAGE_SIZES.map((s) => (
-                  <SelectItem key={s} value={String(s)} className="text-xs">{s}</SelectItem>
+                  <SelectItem key={s} value={String(s)} className="text-xs">
+                    {s}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>

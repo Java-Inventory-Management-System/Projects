@@ -6,7 +6,10 @@ import lombok.experimental.SuperBuilder;
 import org.dawn.backend.entity.base.AuditableEntity;
 
 @Entity
-@Table(name = "customers")
+@Table(name = "customers", uniqueConstraints = {
+        @UniqueConstraint(columnNames = {"phone"}),
+        @UniqueConstraint(columnNames = {"email"})
+})
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

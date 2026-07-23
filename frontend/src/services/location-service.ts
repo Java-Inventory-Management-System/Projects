@@ -17,12 +17,21 @@ export async function searchLocations(keyword: string): Promise<LocationResponse
   return mapResponsePage(res, mapLocation).content
 }
 
-export async function createLocation(data: { zoneCode: string; shelfCode: string; binCode: string; description?: string; maxCapacity?: number | null }): Promise<LocationResponse> {
+export async function createLocation(data: {
+  zoneCode: string
+  shelfCode: string
+  binCode: string
+  description?: string
+  maxCapacity?: number | null
+}): Promise<LocationResponse> {
   const res = await http.post("/location", data)
   return mapLocation(res)
 }
 
-export async function updateLocation(id: number, data: { zoneCode: string; shelfCode: string; binCode: string; description?: string; maxCapacity?: number | null }): Promise<LocationResponse> {
+export async function updateLocation(
+  id: number,
+  data: { zoneCode: string; shelfCode: string; binCode: string; description?: string; maxCapacity?: number | null },
+): Promise<LocationResponse> {
   const res = await http.put(`/location/${id}`, data)
   return mapLocation(res)
 }

@@ -1,26 +1,20 @@
-import type { ProductUnit } from "@/utils/types"
+import { PRODUCT_UNIT_STATUS, TRACKING_TYPE, type ProductUnit } from "@/utils/types"
 import { Badge } from "@/components/ui/badge"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 
 const statusLabel: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
-  IN_STOCK: { label: "Trong kho", variant: "default" },
-  SOLD: { label: "Đã bán", variant: "secondary" },
-  DEFECTIVE: { label: "Lỗi", variant: "destructive" },
-  DAMAGED_IN_STORAGE: { label: "Hư trong kho", variant: "destructive" },
-  LOST: { label: "Mất", variant: "destructive" },
-  UNDER_REPAIR: { label: "Đang sửa", variant: "outline" },
-  SENT_TO_MANUFACTURER: { label: "Gửi NSX", variant: "outline" },
-  RETURNED: { label: "Trả lại", variant: "secondary" },
-  RETURNED_TO_SUPPLIER: { label: "Trả NCC", variant: "secondary" },
-  REMOVED: { label: "Đã xóa", variant: "outline" },
-  DISPOSED: { label: "Hủy", variant: "destructive" },
+  [PRODUCT_UNIT_STATUS.IN_STOCK]: { label: "Trong kho", variant: "default" },
+  [PRODUCT_UNIT_STATUS.SOLD]: { label: "Đã bán", variant: "secondary" },
+  [PRODUCT_UNIT_STATUS.DEFECTIVE]: { label: "Lỗi", variant: "destructive" },
+  [PRODUCT_UNIT_STATUS.DAMAGED_IN_STORAGE]: { label: "Hư trong kho", variant: "destructive" },
+  [PRODUCT_UNIT_STATUS.LOST]: { label: "Mất", variant: "destructive" },
+  [PRODUCT_UNIT_STATUS.UNDER_REPAIR]: { label: "Đang sửa", variant: "outline" },
+  [PRODUCT_UNIT_STATUS.SENT_TO_MANUFACTURER]: { label: "Gửi NSX", variant: "outline" },
+  [PRODUCT_UNIT_STATUS.RETURNED]: { label: "Trả lại", variant: "secondary" },
+  [PRODUCT_UNIT_STATUS.RETURNED_TO_SUPPLIER]: { label: "Trả NCC", variant: "secondary" },
+  [PRODUCT_UNIT_STATUS.REMOVED]: { label: "Đã xóa", variant: "outline" },
+  [PRODUCT_UNIT_STATUS.DISPOSED]: { label: "Hủy", variant: "destructive" },
 }
 
 function fmt(d: string | null) {
@@ -60,7 +54,9 @@ export const ViewProductUnitModal = ({
           </div>
           <div>
             <span className="text-muted-foreground">Tracking</span>
-            <p className="font-medium">{unit.trackingType === "SERIALIZED" ? "SERIALIZED" : "BULK"}</p>
+            <p className="font-medium">
+              {unit.trackingType === TRACKING_TYPE.SERIALIZED ? TRACKING_TYPE.SERIALIZED : TRACKING_TYPE.BULK}
+            </p>
           </div>
           <div>
             <span className="text-muted-foreground">Vị trí</span>

@@ -1,5 +1,6 @@
 package org.dawn.backend.controller.catalog;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.dawn.backend.config.web.response.ResponseObject;
 import org.dawn.backend.config.web.response.ResponsePage;
@@ -19,20 +20,20 @@ public class BrandController {
     private final BrandService brandService;
 
     @GetMapping("")
-    @PreAuthorize(AuthorizationExpressions.ROLE_STOCK_MANAGER_ADMIN)
+    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_ADMIN_STOCK)
     public ResponseObject<ResponsePage<BrandResponse>> getAll(Pageable pageable) {
         return ResponseObject.success(brandService.findAll(pageable));
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize(AuthorizationExpressions.ROLE_STOCK_MANAGER_ADMIN)
+    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_ADMIN_STOCK)
     public ResponseObject<BrandResponse> getOne(@PathVariable Long id) {
         return ResponseObject.success(brandService.findOne(id));
     }
 
     @PostMapping("")
     @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER)
-    public ResponseObject<BrandResponse> create(@RequestBody BrandRequest request) {
+    public ResponseObject<BrandResponse> create(@Valid @RequestBody BrandRequest request) {
         return ResponseObject.created(brandService.create(request));
     }
 

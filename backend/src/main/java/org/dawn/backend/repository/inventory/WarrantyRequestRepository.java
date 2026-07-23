@@ -1,6 +1,7 @@
 package org.dawn.backend.repository.inventory;
 
 import jakarta.persistence.LockModeType;
+import org.dawn.backend.constant.inventory.WarrantyRequestStatus;
 import org.dawn.backend.entity.inventory.WarrantyRequest;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -15,13 +16,13 @@ import java.util.Optional;
 public interface WarrantyRequestRepository extends JpaRepository<WarrantyRequest, Long> {
     boolean existsByRequestCode(String requestCode);
 
-    boolean existsByProductUnitIdAndStatus(Long productUnitId, String status);
+    boolean existsByProductUnitIdAndStatus(Long productUnitId, WarrantyRequestStatus status);
 
-    Page<WarrantyRequest> findByStatus(String status, Pageable pageable);
+    Page<WarrantyRequest> findByStatus(WarrantyRequestStatus status, Pageable pageable);
 
     Page<WarrantyRequest> findByResolutionType(String resolutionType, Pageable pageable);
 
-    Page<WarrantyRequest> findByStatusAndResolutionType(String status, String resolutionType, Pageable pageable);
+    Page<WarrantyRequest> findByStatusAndResolutionType(WarrantyRequestStatus status, String resolutionType, Pageable pageable);
 
     Page<WarrantyRequest> findByHandledBy(Long handledBy, Pageable pageable);
 

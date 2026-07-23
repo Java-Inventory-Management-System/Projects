@@ -3,7 +3,9 @@ import { useQuery } from "@tanstack/react-query"
 import { cn } from "@/utils/cn"
 import { useAuthStore } from "@/store/auth-store"
 import { filterNavItems, navSections } from "@/utils/navigation"
-import http from "@/utils/http-client"
+import { getImportReceipts } from "@/services/import-service"
+import { getExportReceipts } from "@/services/export-service"
+import { IMPORT_RECEIPT_STATUS, EXPORT_RECEIPT_STATUS } from "@/utils/types"
 
 interface SidebarProps {
   collapsed: boolean
@@ -21,14 +23,20 @@ export function Sidebar({ collapsed, onNavigate }: SidebarProps) {
 
   const { data: importPending } = useQuery({
     queryKey: ["import-pending-count"],
-    queryFn: async () => { const r = await http.get("/import-receipt", { params: { page: 0, size: 1, status: "PENDING_APPROVAL" } }); return (r as { totalElements?: number }).totalElements ?? 0 },
-    refetchInterval: 60_000,
+    queryFn: async () => {
+      const r = await getImportReceipts(0, 1, undefined, IMPORT_RECEIPT_STATUS.PENDING_APPROVAL)
+      return r.pagination.totalElements
+    },
+    staleTime: 60_000,
   })
 
   const { data: exportPending } = useQuery({
     queryKey: ["export-pending-count"],
-    queryFn: async () => { const r = await http.get("/export-receipt", { params: { page: 0, size: 1, status: "PENDING_APPROVAL" } }); return (r as { totalElements?: number }).totalElements ?? 0 },
-    refetchInterval: 60_000,
+    queryFn: async () => {
+      const r = await getExportReceipts(0, 1, undefined, EXPORT_RECEIPT_STATUS.PENDING_APPROVAL)
+      return r.pagination.totalElements
+    },
+    staleTime: 60_000,
   })
 
   const badgeCount: Record<string, number> = {}
@@ -46,9 +54,7 @@ export function Sidebar({ collapsed, onNavigate }: SidebarProps) {
         <div className="flex size-7 items-center justify-center rounded bg-primary text-[10px] font-bold text-primary-foreground leading-none">
           W
         </div>
-        {!collapsed && (
-          <span className="text-sm font-semibold tracking-tight">Warehouse</span>
-        )}
+        {!collapsed && <span className="text-sm font-semibold tracking-tight">Warehouse</span>}
       </div>
 
       <nav aria-label="Main navigation" className="flex-1 space-y-2 overflow-y-auto p-2">

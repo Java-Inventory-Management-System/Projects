@@ -17,10 +17,7 @@ export async function getStockCheckById(id: number): Promise<StockCheck> {
   return mapStockCheck(res)
 }
 
-export async function createStockCheck(data: {
-  note?: string
-  productUnitIds: number[]
-}): Promise<StockCheck> {
+export async function createStockCheck(data: { note?: string; productUnitIds: number[] }): Promise<StockCheck> {
   const res = await http.post("/stock-check", data)
   return mapStockCheck(res)
 }

@@ -12,27 +12,20 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Trash2, Plus, Search } from "lucide-react"
 import { useFormDraft, clearDraft } from "@/hooks/use-form-draft"
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
 } from "@/components/ui/dialog"
 import { toast } from "@/utils/toast"
+import { EXPORT_REASON } from "@/utils/types"
 
 interface LineItem {
   tempId: number
@@ -44,10 +37,10 @@ interface LineItem {
 }
 
 const reasons: { value: ExportReason; label: string }[] = [
-  { value: "SALE", label: "Bán hàng" },
-  { value: "INTERNAL", label: "Xuất nội bộ" },
-  { value: "RETURN_SUPPLIER", label: "Trả nhà cung cấp" },
-  { value: "DISPOSE", label: "Hủy hàng" },
+  { value: EXPORT_REASON.SALE, label: "Bán hàng" },
+  { value: EXPORT_REASON.INTERNAL, label: "Xuất nội bộ" },
+  { value: EXPORT_REASON.RETURN_SUPPLIER, label: "Trả nhà cung cấp" },
+  { value: EXPORT_REASON.DISPOSE, label: "Hủy hàng" },
 ]
 
 export const ExportCreatePage = () => {
@@ -67,7 +60,10 @@ export const ExportCreatePage = () => {
   const [showDraftDialog, setShowDraftDialog] = useState(false)
   const [serials, setSerials] = useState<Record<number, ProductUnit[]>>({})
 
-  const draftState = useMemo(() => ({ reason, customerId, customerName, note, items }), [reason, customerId, customerName, note, items])
+  const draftState = useMemo(
+    () => ({ reason, customerId, customerName, note, items }),
+    [reason, customerId, customerName, note, items],
+  )
   const isDirty = items.length > 0
   const { draftAvailable, restore, dismiss } = useFormDraft(
     "/stock/exports/new",
@@ -75,24 +71,40 @@ export const ExportCreatePage = () => {
     isDirty,
     (data) => {
       const d = data as typeof draftState
-      setReason(d.reason ?? ""); setCustomerId(d.customerId ?? ""); setCustomerName(d.customerName ?? ""); setNote(d.note ?? ""); setItems(d.items ?? [])
+      setReason(d.reason ?? "")
+      setCustomerId(d.customerId ?? "")
+      setCustomerName(d.customerName ?? "")
+      setNote(d.note ?? "")
+      setItems(d.items ?? [])
     },
   )
-  useEffect(() => { if (draftAvailable) setShowDraftDialog(true) }, [draftAvailable])
+  useEffect(() => {
+    if (draftAvailable) setShowDraftDialog(true)
+  }, [draftAvailable])
 
   useEffect(() => {
-    if (items.length === 0) { setSerials({}); return }
+    if (items.length === 0) {
+      setSerials({})
+      return
+    }
     const tempIds = items.map((i) => i.tempId)
     Promise.all(items.map((i) => getSerialsForExport(i.productId, i.quantity))).then((results) => {
       const map: Record<number, ProductUnit[]> = {}
-      results.forEach((serials, idx) => { map[tempIds[idx]] = serials })
+      results.forEach((serials, idx) => {
+        map[tempIds[idx]] = serials
+      })
       setSerials(map)
     })
   }, [items])
 
   const createMut = useMutation({
     mutationFn: createExportReceipt,
-    onSuccess: () => { clearDraft("/stock/exports/new"); qc.invalidateQueries({ queryKey: ["export-receipts"] }); toast.success("Tạo phiếu xuất thành công"); navigate("/stock/exports") },
+    onSuccess: () => {
+      clearDraft("/stock/exports/new")
+      qc.invalidateQueries({ queryKey: ["export-receipts"] })
+      toast.success("Tạo phiếu xuất thành công")
+      navigate("/stock/exports")
+    },
     onError: (err: Error) => toast.error(err.message || "Có lỗi xảy ra"),
   })
 
@@ -126,11 +138,14 @@ export const ExportCreatePage = () => {
     const raw: ExportFormData = { reason, customerId, note, items }
     const parsed = exportFormSchema.safeParse(raw)
     if (!parsed.success) {
-      const first = parsed.error.errors[0]
+      const first = parsed.error.issues[0]
       toast.error(first.message)
       return
     }
-    if (reason === "SALE" && !customerId) { toast.error("Vui lòng chọn khách hàng"); return }
+    if (reason === EXPORT_REASON.SALE && !customerId) {
+      toast.error("Vui lòng chọn khách hàng")
+      return
+    }
     createMut.mutate({
       reason: reason as ExportReason,
       customerId: customerId ? Number(customerId) : null,
@@ -163,12 +178,14 @@ export const ExportCreatePage = () => {
             </SelectTrigger>
             <SelectContent>
               {reasons.map((r) => (
-                <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
+                <SelectItem key={r.value} value={r.value}>
+                  {r.label}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
-        {reason === "SALE" && (
+        {reason === EXPORT_REASON.SALE && (
           <div className="space-y-2">
             <Label htmlFor="customer">Khách hàng</Label>
             <div className="flex gap-2">
@@ -187,7 +204,14 @@ export const ExportCreatePage = () => {
                 )}
               </Button>
               {customerId && (
-                <Button variant="ghost" size="icon" onClick={() => { setCustomerId(""); setCustomerName("") }}>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => {
+                    setCustomerId("")
+                    setCustomerName("")
+                  }}
+                >
                   <Trash2 className="size-4 text-destructive" />
                 </Button>
               )}
@@ -288,7 +312,9 @@ export const ExportCreatePage = () => {
                       <TableCell className="text-xs text-muted-foreground">{item.productName}</TableCell>
                       <TableCell className="font-mono text-xs">{s.serialNumber}</TableCell>
                       <TableCell className="font-mono text-xs text-muted-foreground">{s.locationCode ?? "—"}</TableCell>
-                      <TableCell className="text-xs text-muted-foreground">{new Date(s.importedAt).toLocaleDateString("vi-VN")}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {new Date(s.importedAt).toLocaleDateString("vi-VN")}
+                      </TableCell>
                     </TableRow>
                   ))
                 })}
@@ -306,29 +332,60 @@ export const ExportCreatePage = () => {
 
       <div className="space-y-2">
         <Label htmlFor="note">Ghi chú</Label>
-        <Textarea id="note" placeholder="Ghi chú (không bắt buộc)" value={note} onChange={(e) => setNote(e.target.value)} />
+        <Textarea
+          id="note"
+          placeholder="Ghi chú (không bắt buộc)"
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+        />
       </div>
 
       <div className="flex gap-2 justify-end">
-        <Button variant="outline" onClick={() => navigate("/stock/exports")}>Hủy</Button>
+        <Button variant="outline" onClick={() => navigate("/stock/exports")}>
+          Hủy
+        </Button>
         <Button
           onClick={handleSubmit}
-          disabled={!reason || items.length === 0 || createMut.isPending || (reason === "SALE" && !customerId)}
+          disabled={
+            !reason || items.length === 0 || createMut.isPending || (reason === EXPORT_REASON.SALE && !customerId)
+          }
         >
           {createMut.isPending ? "Đang tạo..." : "Tạo phiếu xuất"}
         </Button>
-
       </div>
 
-      <Dialog open={showDraftDialog} onOpenChange={(v) => { if (!v) { setShowDraftDialog(false); dismiss() } }}>
+      <Dialog
+        open={showDraftDialog}
+        onOpenChange={(v) => {
+          if (!v) {
+            setShowDraftDialog(false)
+            dismiss()
+          }
+        }}
+      >
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>Khôi phục dữ liệu</DialogTitle>
             <DialogDescription>Bạn có dữ liệu xuất kho chưa lưu từ lần trước. Muốn khôi phục?</DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => { setShowDraftDialog(false); dismiss() }}>Bỏ qua</Button>
-            <Button onClick={() => { setShowDraftDialog(false); restore() }}>Khôi phục</Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowDraftDialog(false)
+                dismiss()
+              }}
+            >
+              Bỏ qua
+            </Button>
+            <Button
+              onClick={() => {
+                setShowDraftDialog(false)
+                restore()
+              }}
+            >
+              Khôi phục
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -337,7 +394,10 @@ export const ExportCreatePage = () => {
         open={selectModalOpen}
         onOpenChange={setSelectModalOpen}
         selectedCustomerId={customerId ? Number(customerId) : null}
-        onSelect={(id, name) => { setCustomerId(String(id)); setCustomerName(name) }}
+        onSelect={(id, name) => {
+          setCustomerId(String(id))
+          setCustomerName(name)
+        }}
       />
     </div>
   )

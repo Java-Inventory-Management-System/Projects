@@ -1,8 +1,0 @@
-CREATE TABLE category_zones (
-    id          BIGINT AUTO_INCREMENT PRIMARY KEY,
-    category_id BIGINT       NOT NULL UNIQUE,
-    zone_code   VARCHAR(10)  NOT NULL,
-    created_at  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    CONSTRAINT fk_cz_category FOREIGN KEY (category_id) REFERENCES categories(id)
-);

@@ -1,5 +1,6 @@
 package org.dawn.backend.controller.auth;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.dawn.backend.config.web.response.ResponseObject;
 import org.dawn.backend.config.web.response.ResponsePage;
@@ -36,7 +37,7 @@ public class UserController {
 
     @PostMapping("")
     @PreAuthorize(AuthorizationExpressions.ROLE_ADMIN)
-    public ResponseObject<CreateUserResponse> create(@RequestBody RegisterRequest dto) {
+    public ResponseObject<CreateUserResponse> create(@Valid @RequestBody RegisterRequest dto) {
         return ResponseObject.created(userService.createUser(dto));
     }
 

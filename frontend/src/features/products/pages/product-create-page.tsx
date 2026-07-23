@@ -9,17 +9,18 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { FieldError } from "@/components/ui/field"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "@/utils/toast"
+import { PRODUCT_UNIT_TYPE, TRACKING_TYPE } from "@/utils/types"
 
-const UNITS = ["PIECE", "BOX", "SET", "METER", "KG"]
-const TRACKING_TYPES = ["SERIALIZED", "BULK"]
+const UNITS = [
+  PRODUCT_UNIT_TYPE.PIECE,
+  PRODUCT_UNIT_TYPE.BOX,
+  PRODUCT_UNIT_TYPE.SET,
+  PRODUCT_UNIT_TYPE.METER,
+  PRODUCT_UNIT_TYPE.KG,
+]
+const TRACKING_TYPES = [TRACKING_TYPE.SERIALIZED, TRACKING_TYPE.BULK]
 
 export function ProductCreatePage() {
   const navigate = useNavigate()
@@ -39,7 +40,12 @@ export function ProductCreatePage() {
   const [description, setDescription] = useState("")
   const [errors, setErrors] = useState<Record<string, string>>({})
 
-  const clearError = (field: string) => setErrors((prev) => { const n = { ...prev }; delete n[field]; return n })
+  const clearError = (field: string) =>
+    setErrors((prev) => {
+      const n = { ...prev }
+      delete n[field]
+      return n
+    })
 
   const handleSubmit = async () => {
     const e: Record<string, string> = {}
@@ -49,18 +55,19 @@ export function ProductCreatePage() {
     if (Object.keys(e).length > 0) return
 
     try {
-      await createProduct.mutateAsync({
+      const payload = {
         name: name.trim(),
-        sku: sku || null,
-        barcode: barcode || null,
+        sku: sku || "",
+        unit: unit || "",
+        retailPrice: sellPrice ? Number(sellPrice) : 0,
         brandId: brandId ? Number(brandId) : null,
         categoryId: categoryId ? Number(categoryId) : null,
-        unit: unit || null,
+        barcode: barcode || null,
         trackingType: trackingType || null,
-        sellPrice: sellPrice ? Number(sellPrice) : null,
-        minStock: minStock ? Number(minStock) : null,
-        description: description || null,
-      })
+        minStock: minStock ? Number(minStock) : undefined,
+        description: description || undefined,
+      }
+      await createProduct.mutateAsync(payload)
       toast.success("Tạo sản phẩm thành công")
       navigate("/products")
     } catch (err) {
@@ -79,13 +86,32 @@ export function ProductCreatePage() {
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2 sm:col-span-2">
-          <Label htmlFor="name">Tên sản phẩm <span className="text-destructive">*</span></Label>
-          <Input id="name" required value={name} onChange={(e) => { setName(e.target.value); clearError("name") }} placeholder="VD: RAM Kingston 16GB DDR4" />
+          <Label htmlFor="name">
+            Tên sản phẩm <span className="text-destructive">*</span>
+          </Label>
+          <Input
+            id="name"
+            required
+            value={name}
+            onChange={(e) => {
+              setName(e.target.value)
+              clearError("name")
+            }}
+            placeholder="VD: RAM Kingston 16GB DDR4"
+          />
           <FieldError errors={errors.name ? [{ message: errors.name }] : undefined} />
         </div>
         <div className="space-y-2">
           <Label htmlFor="sku">SKU</Label>
-          <Input id="sku" value={sku} onChange={(e) => { setSku(e.target.value); clearError("sku") }} placeholder="Tự sinh nếu để trống" />
+          <Input
+            id="sku"
+            value={sku}
+            onChange={(e) => {
+              setSku(e.target.value)
+              clearError("sku")
+            }}
+            placeholder="Tự sinh nếu để trống"
+          />
           <FieldError errors={errors.sku ? [{ message: errors.sku }] : undefined} />
         </div>
         <div className="space-y-2">
@@ -95,27 +121,45 @@ export function ProductCreatePage() {
         <div className="space-y-2">
           <Label htmlFor="brand">Thương hiệu</Label>
           <Select value={brandId} onValueChange={setBrandId}>
-            <SelectTrigger id="brand"><SelectValue placeholder="Chọn thương hiệu" /></SelectTrigger>
+            <SelectTrigger id="brand">
+              <SelectValue placeholder="Chọn thương hiệu" />
+            </SelectTrigger>
             <SelectContent>
-              {brands?.map((b) => <SelectItem key={b.id} value={String(b.id)}>{b.name}</SelectItem>)}
+              {brands?.map((b) => (
+                <SelectItem key={b.id} value={String(b.id)}>
+                  {b.name}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
         <div className="space-y-2">
           <Label htmlFor="category">Danh mục</Label>
           <Select value={categoryId} onValueChange={setCategoryId}>
-            <SelectTrigger id="category"><SelectValue placeholder="Chọn danh mục" /></SelectTrigger>
+            <SelectTrigger id="category">
+              <SelectValue placeholder="Chọn danh mục" />
+            </SelectTrigger>
             <SelectContent>
-              {categories?.map((c) => <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>)}
+              {categories?.map((c) => (
+                <SelectItem key={c.id} value={String(c.id)}>
+                  {c.name}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
         <div className="space-y-2">
           <Label htmlFor="unit">Đơn vị tính</Label>
           <Select value={unit} onValueChange={setUnit}>
-            <SelectTrigger id="unit"><SelectValue placeholder="Chọn ĐVT" /></SelectTrigger>
+            <SelectTrigger id="unit">
+              <SelectValue placeholder="Chọn ĐVT" />
+            </SelectTrigger>
             <SelectContent>
-              {UNITS.map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}
+              {UNITS.map((u) => (
+                <SelectItem key={u} value={u}>
+                  {u}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
@@ -125,14 +169,22 @@ export function ProductCreatePage() {
             {TRACKING_TYPES.map((t) => (
               <div key={t} className="flex items-center gap-2">
                 <RadioGroupItem value={t} id={`tracking-${t}`} />
-                <Label htmlFor={`tracking-${t}`} className="font-normal">{t === "SERIALIZED" ? "Theo serial" : "Hàng rời"}</Label>
+                <Label htmlFor={`tracking-${t}`} className="font-normal">
+                  {t === TRACKING_TYPE.SERIALIZED ? "Theo serial" : "Hàng rời"}
+                </Label>
               </div>
             ))}
           </RadioGroup>
         </div>
         <div className="space-y-2">
           <Label htmlFor="sellPrice">Giá bán</Label>
-          <Input id="sellPrice" type="number" min={0} value={sellPrice} onChange={(e) => setSellPrice(e.target.value)} />
+          <Input
+            id="sellPrice"
+            type="number"
+            min={0}
+            value={sellPrice}
+            onChange={(e) => setSellPrice(e.target.value)}
+          />
         </div>
         <div className="space-y-2">
           <Label htmlFor="minStock">Tồn tối thiểu</Label>
@@ -146,7 +198,9 @@ export function ProductCreatePage() {
       </div>
 
       <div className="flex gap-2 justify-end">
-        <Button variant="outline" onClick={() => navigate("/products")}>Hủy</Button>
+        <Button variant="outline" onClick={() => navigate("/products")}>
+          Hủy
+        </Button>
         <Button onClick={handleSubmit} disabled={!name.trim() || createProduct.isPending}>
           {createProduct.isPending ? "Đang tạo..." : "Tạo sản phẩm"}
         </Button>

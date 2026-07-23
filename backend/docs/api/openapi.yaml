@@ -920,9 +920,75 @@ components:
           nullable: true
         isActive:
           type: boolean
+        maxCapacity:
+          type: number
+          format: decimal
+          nullable: true
         createdAt:
           type: string
           format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    # =========================== LOCATION MAP ===========================
+    LocationMapResponse:
+      type: object
+      properties:
+        zones:
+          type: array
+          items:
+            $ref: "#/components/schemas/ZoneData"
+
+    ZoneData:
+      type: object
+      properties:
+        zoneCode:
+          type: string
+        shelves:
+          type: array
+          items:
+            $ref: "#/components/schemas/ShelfData"
+
+    ShelfData:
+      type: object
+      properties:
+        shelfCode:
+          type: string
+        bins:
+          type: array
+          items:
+            $ref: "#/components/schemas/BinData"
+
+    BinData:
+      type: object
+      properties:
+        id:
+          type: integer
+        binCode:
+          type: string
+        fullCode:
+          type: string
+        productCount:
+          type: integer
+          format: int64
+
+    # =========================== INVENTORY ===========================
+    InventoryItemResponse:
+      type: object
+      properties:
+        productId:
+          type: integer
+        productName:
+          type: string
+        productSku:
+          type: string
+        quantity:
+          type: integer
+        minStock:
+          type: integer
+        location:
+          type: string
         updatedAt:
           type: string
           format: date-time
@@ -953,6 +1019,627 @@ components:
         categoryId:
           type: integer
         zoneCode:
+          type: string
+
+    # =========================== STOCK ADJUSTMENT ===========================
+    StockAdjustmentResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        adjustCode:
+          type: string
+        type:
+          type: string
+        productUnitId:
+          type: integer
+          nullable: true
+        serialNumber:
+          type: string
+          nullable: true
+        productId:
+          type: integer
+          nullable: true
+        productName:
+          type: string
+          nullable: true
+        productSku:
+          type: string
+          nullable: true
+        quantity:
+          type: integer
+          nullable: true
+        reason:
+          type: string
+          nullable: true
+        imageUrl:
+          type: string
+          nullable: true
+        status:
+          type: string
+        createdBy:
+          type: integer
+        createdByName:
+          type: string
+          nullable: true
+        approvedBy:
+          type: integer
+          nullable: true
+        approvedByName:
+          type: string
+          nullable: true
+        approvalNote:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateStockAdjustmentRequest:
+      type: object
+      properties:
+        type:
+          type: string
+        productUnitId:
+          type: integer
+          nullable: true
+        productId:
+          type: integer
+          nullable: true
+        quantity:
+          type: integer
+          nullable: true
+        reason:
+          type: string
+        imageUrl:
+          type: string
+          nullable: true
+
+    ApproveAdjustmentRequest:
+      type: object
+      properties:
+        approvalNote:
+          type: string
+          nullable: true
+
+    # =========================== PRICE ADJUSTMENT ===========================
+    PriceAdjustmentResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        adjustCode:
+          type: string
+        importReceiptItemId:
+          type: integer
+        productName:
+          type: string
+          nullable: true
+        productSku:
+          type: string
+          nullable: true
+        oldPrice:
+          type: number
+          format: decimal
+        newPrice:
+          type: number
+          format: decimal
+        reason:
+          type: string
+          nullable: true
+        status:
+          type: string
+        createdBy:
+          type: integer
+        createdByName:
+          type: string
+          nullable: true
+        approvedBy:
+          type: integer
+          nullable: true
+        approvedByName:
+          type: string
+          nullable: true
+        approvalNote:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreatePriceAdjustmentRequest:
+      type: object
+      required: [importReceiptItemId, newPrice, reason]
+      properties:
+        importReceiptItemId:
+          type: integer
+        newPrice:
+          type: number
+          format: decimal
+        reason:
+          type: string
+
+    # =========================== PURCHASE ORDER ===========================
+    PurchaseOrderResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        poCode:
+          type: string
+        supplierId:
+          type: integer
+        supplierName:
+          type: string
+        totalAmount:
+          type: number
+          format: decimal
+        status:
+          type: string
+        expectedDate:
+          type: string
+          format: date
+          nullable: true
+        note:
+          type: string
+          nullable: true
+        createdBy:
+          type: integer
+        createdByName:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/POItemResponse"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    POItemResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        productId:
+          type: integer
+        productName:
+          type: string
+        productSku:
+          type: string
+        quantity:
+          type: number
+          format: decimal
+        unitPrice:
+          type: number
+          format: decimal
+        receivedQuantity:
+          type: number
+          format: decimal
+
+    CreatePurchaseOrderRequest:
+      type: object
+      required: [supplierId, items]
+      properties:
+        supplierId:
+          type: integer
+        expectedDate:
+          type: string
+          format: date
+          nullable: true
+        note:
+          type: string
+          nullable: true
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/POItemRequest"
+
+    POItemRequest:
+      type: object
+      properties:
+        productId:
+          type: integer
+        quantity:
+          type: number
+          format: decimal
+        unitPrice:
+          type: number
+          format: decimal
+
+    # =========================== RETURN RECEIPT ===========================
+    ReturnReceiptResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        receiptCode:
+          type: string
+        customerId:
+          type: integer
+          nullable: true
+        customerName:
+          type: string
+          nullable: true
+        originalExportReceiptId:
+          type: integer
+          nullable: true
+        reason:
+          type: string
+        status:
+          type: string
+        note:
+          type: string
+          nullable: true
+        createdBy:
+          type: integer
+        createdByName:
+          type: string
+        approvedBy:
+          type: integer
+          nullable: true
+        approvedByName:
+          type: string
+          nullable: true
+        approvedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReturnReceiptItemResponse"
+
+    ReturnReceiptItemResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        productUnitId:
+          type: integer
+        productId:
+          type: integer
+        quantity:
+          type: number
+          format: decimal
+        condition:
+          type: string
+        resultingAction:
+          type: string
+
+    ReturnReceiptRequest:
+      type: object
+      required: [customerId, originalExportReceiptId, reason, items]
+      properties:
+        customerId:
+          type: integer
+        originalExportReceiptId:
+          type: integer
+        reason:
+          type: string
+        note:
+          type: string
+          nullable: true
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReturnItemRequest"
+
+    ReturnItemRequest:
+      type: object
+      properties:
+        productUnitId:
+          type: integer
+        productId:
+          type: integer
+        quantity:
+          type: number
+          format: decimal
+        condition:
+          type: string
+        resultingAction:
+          type: string
+
+    # =========================== WARRANTY ===========================
+    WarrantyRequestResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        requestCode:
+          type: string
+        productUnitId:
+          type: integer
+        serialNumber:
+          type: string
+        productId:
+          type: integer
+        productName:
+          type: string
+        productSku:
+          type: string
+        customerId:
+          type: integer
+          nullable: true
+        customerName:
+          type: string
+          nullable: true
+        issueDescription:
+          type: string
+        resolutionType:
+          type: string
+          nullable: true
+        replacementUnitId:
+          type: integer
+          nullable: true
+        replacementSerialNumber:
+          type: string
+          nullable: true
+        rmaNumber:
+          type: string
+          nullable: true
+        sentToPartnerAt:
+          type: string
+          format: date-time
+          nullable: true
+        expectedReturnAt:
+          type: string
+          format: date-time
+          nullable: true
+        partnerNote:
+          type: string
+          nullable: true
+        status:
+          type: string
+        handledBy:
+          type: integer
+          nullable: true
+        handledByName:
+          type: string
+          nullable: true
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+        note:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    WarrantyLookupResponse:
+      type: object
+      properties:
+        productUnitId:
+          type: integer
+        serialNumber:
+          type: string
+        productId:
+          type: integer
+        productName:
+          type: string
+        productSku:
+          type: string
+        productUnitStatus:
+          type: string
+        purchaseDate:
+          type: string
+          format: date-time
+          nullable: true
+        warrantyExpiresAt:
+          type: string
+          format: date-time
+          nullable: true
+        warrantyStatus:
+          type: string
+        eligible:
+          type: boolean
+        customerId:
+          type: integer
+          nullable: true
+        customerName:
+          type: string
+          nullable: true
+        saleReceiptCode:
+          type: string
+          nullable: true
+        history:
+          type: array
+          items:
+            $ref: "#/components/schemas/WarrantyRequestResponse"
+
+    CreateWarrantyRequest:
+      type: object
+      required: [serialNumber, customerId, issueDescription]
+      properties:
+        serialNumber:
+          type: string
+        customerId:
+          type: integer
+        issueDescription:
+          type: string
+        note:
+          type: string
+          nullable: true
+        allowExpired:
+          type: boolean
+          nullable: true
+
+    ResolveWarrantyRequest:
+      type: object
+      required: [resolutionType]
+      properties:
+        resolutionType:
+          type: string
+        replacementUnitId:
+          type: integer
+          nullable: true
+        rmaNumber:
+          type: string
+          nullable: true
+        expectedReturnAt:
+          type: string
+          format: date-time
+          nullable: true
+        partnerNote:
+          type: string
+          nullable: true
+        note:
+          type: string
+          nullable: true
+
+    CompleteWarrantyRequest:
+      type: object
+      required: [result]
+      properties:
+        result:
+          type: string
+        note:
+          type: string
+          nullable: true
+
+    CancelWarrantyRequest:
+      type: object
+      required: [note]
+      properties:
+        note:
+          type: string
+
+    # =========================== REPORT ===========================
+    InventorySummaryResponse:
+      type: object
+      properties:
+        totalProducts:
+          type: integer
+          format: int64
+        totalUnits:
+          type: integer
+          format: int64
+        totalStockValue:
+          type: number
+          format: decimal
+        lowStockCount:
+          type: integer
+          format: int64
+        outOfStockCount:
+          type: integer
+          format: int64
+
+    CategoryStockResponse:
+      type: object
+      properties:
+        categoryId:
+          type: integer
+          nullable: true
+        categoryName:
+          type: string
+        productCount:
+          type: integer
+          format: int64
+        totalUnits:
+          type: integer
+          format: int64
+        totalStockValue:
+          type: number
+          format: decimal
+
+    LowStockResponse:
+      type: object
+      properties:
+        productId:
+          type: integer
+        productName:
+          type: string
+        productSku:
+          type: string
+          nullable: true
+        quantity:
+          type: integer
+        minStock:
+          type: integer
+
+    StockValueResponse:
+      type: object
+      properties:
+        productId:
+          type: integer
+        productName:
+          type: string
+        productSku:
+          type: string
+          nullable: true
+        categoryName:
+          type: string
+          nullable: true
+        quantity:
+          type: integer
+          format: int64
+        unitPrice:
+          type: number
+          format: decimal
+        totalValue:
+          type: number
+          format: decimal
+
+    ActivityResponse:
+      type: object
+      properties:
+        type:
+          type: string
+        receiptCode:
+          type: string
+        date:
+          type: string
+          format: date-time
+        counterpartyName:
+          type: string
+        lineItems:
+          type: integer
+        totalAmount:
+          type: number
+          format: decimal
+
+    DeadStockResponse:
+      type: object
+      properties:
+        productId:
+          type: integer
+        productName:
+          type: string
+        productSku:
+          type: string
+        serialNumber:
+          type: string
+        importedAt:
+          type: string
+          format: date-time
+        daysInStock:
+          type: integer
+          format: int64
+        costPrice:
+          type: number
+          format: decimal
+
+    # =========================== UPLOAD ===========================
+    UploadResponse:
+      type: object
+      properties:
+        url:
           type: string
 
   parameters:
@@ -1012,6 +1699,28 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ExceptionMessage"
+
+  /api/v1/auth/logout:
+    post:
+      tags: [Auth]
+      summary: Logout (clears refresh cookie)
+      operationId: logout
+      responses:
+        "200":
+          description: Logged out
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+                description: Empty refresh token cookie
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        type: string
 
   /api/v1/auth/refresh-token:
     post:
@@ -2336,6 +3045,27 @@ paths:
                         $ref: "#/components/schemas/ResponsePage"
 
   # =========================== STOCK CHECK ===========================
+  /api/v1/stock-check/my:
+    get:
+      tags: [Stock Check]
+      summary: My stock checks (paginated)
+      operationId: getMyStockChecks
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/pageParam"
+        - $ref: "#/components/parameters/sizeParam"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/ResponsePage"
+
   /api/v1/stock-check:
     post:
       tags: [Stock Check]
@@ -2809,10 +3539,11 @@ paths:
               schema:
                 $ref: "#/components/schemas/ResponseObject"
 
-    delete:
+  /api/v1/location/{id}/toggle-active:
+    put:
       tags: [Location]
-      summary: Delete location (soft)
-      operationId: deleteLocation
+      summary: Toggle location active status
+      operationId: toggleLocationActive
       security:
         - BearerAuth: []
       parameters:
@@ -2827,6 +3558,24 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ResponseObject"
+
+  /api/v1/location/map:
+    get:
+      tags: [Location]
+      summary: Get zone → shelf → bin tree with product counts
+      operationId: getLocationMap
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/LocationMapResponse"
 
   # =========================== DASHBOARD ===========================
   /api/v1/dashboard/stats:
@@ -2911,4 +3660,945 @@ paths:
                   - properties:
                       data:
                         $ref: "#/components/schemas/CategoryZoneResponse"
+
+  # =========================== STOCK ADJUSTMENT ===========================
+  /api/v1/stock-adjustment/my:
+    get:
+      tags: [Stock Adjustment]
+      summary: My stock adjustments (paginated)
+      operationId: getMyStockAdjustments
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: type
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+        - $ref: "#/components/parameters/pageParam"
+        - $ref: "#/components/parameters/sizeParam"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/ResponsePage"
+
+  /api/v1/stock-adjustment:
+    get:
+      tags: [Stock Adjustment]
+      summary: All stock adjustments (paginated)
+      operationId: listStockAdjustments
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: type
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+        - $ref: "#/components/parameters/pageParam"
+        - $ref: "#/components/parameters/sizeParam"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/ResponsePage"
+    post:
+      tags: [Stock Adjustment]
+      summary: Create a stock adjustment
+      operationId: createStockAdjustment
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateStockAdjustmentRequest"
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/StockAdjustmentResponse"
+
+  /api/v1/stock-adjustment/{id}:
+    get:
+      tags: [Stock Adjustment]
+      summary: Get stock adjustment detail
+      operationId: getStockAdjustment
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/StockAdjustmentResponse"
+
+  /api/v1/stock-adjustment/{id}/approve:
+    put:
+      tags: [Stock Adjustment]
+      summary: Approve stock adjustment
+      operationId: approveStockAdjustment
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApproveAdjustmentRequest"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/StockAdjustmentResponse"
+
+  /api/v1/stock-adjustment/{id}/reject:
+    put:
+      tags: [Stock Adjustment]
+      summary: Reject stock adjustment
+      operationId: rejectStockAdjustment
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApproveAdjustmentRequest"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/StockAdjustmentResponse"
+
+  # =========================== PRICE ADJUSTMENT ===========================
+  /api/v1/price-adjustment/my:
+    get:
+      tags: [Price Adjustment]
+      summary: My price adjustments (paginated)
+      operationId: getMyPriceAdjustments
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+        - $ref: "#/components/parameters/pageParam"
+        - $ref: "#/components/parameters/sizeParam"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/ResponsePage"
+
+  /api/v1/price-adjustment:
+    get:
+      tags: [Price Adjustment]
+      summary: All price adjustments (paginated)
+      operationId: listPriceAdjustments
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+        - $ref: "#/components/parameters/pageParam"
+        - $ref: "#/components/parameters/sizeParam"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/ResponsePage"
+    post:
+      tags: [Price Adjustment]
+      summary: Create a price adjustment
+      operationId: createPriceAdjustment
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePriceAdjustmentRequest"
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/PriceAdjustmentResponse"
+
+  /api/v1/price-adjustment/{id}:
+    get:
+      tags: [Price Adjustment]
+      summary: Get price adjustment detail
+      operationId: getPriceAdjustment
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/PriceAdjustmentResponse"
+
+  /api/v1/price-adjustment/{id}/approve:
+    put:
+      tags: [Price Adjustment]
+      summary: Approve price adjustment
+      operationId: approvePriceAdjustment
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                approvalNote:
+                  type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/PriceAdjustmentResponse"
+
+  /api/v1/price-adjustment/{id}/reject:
+    put:
+      tags: [Price Adjustment]
+      summary: Reject price adjustment
+      operationId: rejectPriceAdjustment
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                approvalNote:
+                  type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/PriceAdjustmentResponse"
+
+  # =========================== PURCHASE ORDER ===========================
+  /api/v1/purchase-order:
+    get:
+      tags: [Purchase Order]
+      summary: List purchase orders (paginated)
+      operationId: listPurchaseOrders
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+        - $ref: "#/components/parameters/pageParam"
+        - $ref: "#/components/parameters/sizeParam"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/ResponsePage"
+    post:
+      tags: [Purchase Order]
+      summary: Create a purchase order
+      operationId: createPurchaseOrder
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePurchaseOrderRequest"
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/PurchaseOrderResponse"
+
+  /api/v1/purchase-order/{id}:
+    get:
+      tags: [Purchase Order]
+      summary: Get purchase order detail
+      operationId: getPurchaseOrder
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/PurchaseOrderResponse"
+
+  /api/v1/purchase-order/{id}/cancel:
+    put:
+      tags: [Purchase Order]
+      summary: Cancel purchase order
+      operationId: cancelPurchaseOrder
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/PurchaseOrderResponse"
+
+  # =========================== RETURN RECEIPT ===========================
+  /api/v1/return-receipts:
+    get:
+      tags: [Return Receipt]
+      summary: List return receipts (paginated)
+      operationId: listReturnReceipts
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/pageParam"
+        - $ref: "#/components/parameters/sizeParam"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/ResponsePage"
+    post:
+      tags: [Return Receipt]
+      summary: Create a return receipt
+      operationId: createReturnReceipt
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReturnReceiptRequest"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/ReturnReceiptResponse"
+
+  /api/v1/return-receipts/{id}:
+    get:
+      tags: [Return Receipt]
+      summary: Get return receipt detail
+      operationId: getReturnReceipt
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/ReturnReceiptResponse"
+
+  /api/v1/return-receipts/{id}/approve:
+    put:
+      tags: [Return Receipt]
+      summary: Approve return receipt
+      operationId: approveReturnReceipt
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/ReturnReceiptResponse"
+
+  /api/v1/return-receipts/{id}/cancel:
+    put:
+      tags: [Return Receipt]
+      summary: Cancel return receipt
+      operationId: cancelReturnReceipt
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/ReturnReceiptResponse"
+
+  # =========================== WARRANTY ===========================
+  /api/v1/warranty-request/lookup:
+    get:
+      tags: [Warranty]
+      summary: Lookup warranty by serial number
+      operationId: lookupWarranty
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: serialNumber
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/WarrantyLookupResponse"
+
+  /api/v1/warranty-request:
+    get:
+      tags: [Warranty]
+      summary: List warranty requests (paginated)
+      operationId: listWarrantyRequests
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: resolutionType
+          in: query
+          schema:
+            type: string
+        - $ref: "#/components/parameters/pageParam"
+        - $ref: "#/components/parameters/sizeParam"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/ResponsePage"
+    post:
+      tags: [Warranty]
+      summary: Create a warranty request
+      operationId: createWarrantyRequest
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateWarrantyRequest"
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/WarrantyRequestResponse"
+
+  /api/v1/warranty-request/my-handled:
+    get:
+      tags: [Warranty]
+      summary: My handled warranty requests (paginated)
+      operationId: getMyHandledWarrantyRequests
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/pageParam"
+        - $ref: "#/components/parameters/sizeParam"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/ResponsePage"
+
+  /api/v1/warranty-request/{id}:
+    get:
+      tags: [Warranty]
+      summary: Get warranty request detail
+      operationId: getWarrantyRequest
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/WarrantyRequestResponse"
+
+  /api/v1/warranty-request/{id}/resolve:
+    put:
+      tags: [Warranty]
+      summary: Resolve warranty request
+      operationId: resolveWarrantyRequest
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResolveWarrantyRequest"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/WarrantyRequestResponse"
+
+  /api/v1/warranty-request/{id}/complete:
+    put:
+      tags: [Warranty]
+      summary: Complete warranty request
+      operationId: completeWarrantyRequest
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CompleteWarrantyRequest"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/WarrantyRequestResponse"
+
+  /api/v1/warranty-request/{id}/cancel:
+    put:
+      tags: [Warranty]
+      summary: Cancel warranty request
+      operationId: cancelWarrantyRequest
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CancelWarrantyRequest"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/WarrantyRequestResponse"
+
+  # =========================== INVENTORY ===========================
+  /api/v1/inventory:
+    get:
+      tags: [Inventory]
+      summary: List inventory items (paginated)
+      operationId: listInventoryItems
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+        - $ref: "#/components/parameters/pageParam"
+        - $ref: "#/components/parameters/sizeParam"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/ResponsePage"
+
+  # =========================== REPORT ===========================
+  /api/v1/report/inventory-summary:
+    get:
+      tags: [Report]
+      summary: Get inventory summary
+      operationId: getInventorySummary
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/InventorySummaryResponse"
+
+  /api/v1/report/inventory-by-category:
+    get:
+      tags: [Report]
+      summary: Get stock by category
+      operationId: getStockByCategory
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/CategoryStockResponse"
+
+  /api/v1/report/low-stock:
+    get:
+      tags: [Report]
+      summary: Get low stock products (paginated)
+      operationId: getLowStock
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/pageParam"
+        - $ref: "#/components/parameters/sizeParam"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/ResponsePage"
+
+  /api/v1/report/stock-value:
+    get:
+      tags: [Report]
+      summary: Get stock value by product
+      operationId: getStockValue
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/StockValueResponse"
+
+  /api/v1/report/activity:
+    get:
+      tags: [Report]
+      summary: Get activity report by date range
+      operationId: getActivity
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: from
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date-time
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/ActivityResponse"
+
+  /api/v1/report/dead-stock:
+    get:
+      tags: [Report]
+      summary: Get dead stock report
+      operationId: getDeadStock
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: daysThreshold
+          in: query
+          schema:
+            type: integer
+            default: 90
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/DeadStockResponse"
+
+  # =========================== UPLOAD ===========================
+  /api/v1/upload:
+    post:
+      tags: [Upload]
+      summary: Upload a file (returns URL)
+      operationId: uploadFile
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ResponseObject"
+                  - properties:
+                      data:
+                        $ref: "#/components/schemas/UploadResponse"
 

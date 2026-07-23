@@ -10,28 +10,44 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Badge } from "@/components/ui/badge"
 import { Empty, EmptyTitle } from "@/components/ui/empty"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select"
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { Trash2, Upload, X } from "lucide-react"
+import { Upload, X } from "lucide-react"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Switch } from "@/components/ui/switch"
 import { AspectRatio } from "@/components/ui/aspect-ratio"
 import { ButtonGroup } from "@/components/ui/button-group"
 import {
-  Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator,
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
 import { Card, CardContent } from "@/components/ui/card"
 import { toast } from "@/utils/toast"
+import { PRODUCT_UNIT_TYPE, TRACKING_TYPE } from "@/utils/types"
 
-const UNITS = ["PIECE", "BOX", "SET", "METER", "KG"]
-const TRACKING_TYPES = ["SERIALIZED", "BULK"]
+const UNITS = [
+  PRODUCT_UNIT_TYPE.PIECE,
+  PRODUCT_UNIT_TYPE.BOX,
+  PRODUCT_UNIT_TYPE.SET,
+  PRODUCT_UNIT_TYPE.METER,
+  PRODUCT_UNIT_TYPE.KG,
+]
+const TRACKING_TYPES = [TRACKING_TYPE.SERIALIZED, TRACKING_TYPE.BULK]
 
 export function ProductEditPage() {
   const { id } = useParams<{ id: string }>()
@@ -59,48 +75,74 @@ export function ProductEditPage() {
 
   useEffect(() => {
     if (!id) return
-    Promise.all([
-      getProductById(productId),
-      getProductImages(productId),
-    ]).then(([product, imgs]) => {
-      setName(product.name); setSku(product.sku ?? ""); setBarcode(product.barcode ?? "")
-      setBrandId(product.brandId ? String(product.brandId) : "")
-      setCategoryId(product.categoryId ? String(product.categoryId) : "")
-      setUnit(product.unit ?? ""); setTrackingType(product.trackingType ?? "")
-      setSellPrice(product.sellPrice ? String(product.sellPrice) : "")
-      setMinStock(product.minStock ? String(product.minStock) : "0")
-      setDescription(product.description ?? ""); setIsActive(product.isActive)
-      setImages(imgs)
-    }).finally(() => setLoading(false))
+    Promise.all([getProductById(productId), getProductImages(productId)])
+      .then(([product, imgs]) => {
+        setName(product.name)
+        setSku(product.sku ?? "")
+        setBarcode(product.barcode ?? "")
+        setBrandId(product.brandId ? String(product.brandId) : "")
+        setCategoryId(product.categoryId ? String(product.categoryId) : "")
+        setUnit(product.unit ?? "")
+        setTrackingType(product.trackingType ?? "")
+        setSellPrice(product.sellPrice ? String(product.sellPrice) : "")
+        setMinStock(product.minStock ? String(product.minStock) : "0")
+        setDescription(product.description ?? "")
+        setIsActive(product.isActive)
+        setImages(imgs)
+      })
+      .finally(() => setLoading(false))
   }, [id])
 
   const save = useMutation({
-    mutationFn: () => updateProduct(productId, {
-      name: name.trim(), sku: sku || null, barcode: barcode || null,
-      brandId: brandId ? Number(brandId) : null, categoryId: categoryId ? Number(categoryId) : null,
-      unit: unit || null, trackingType: trackingType || null,
-      sellPrice: sellPrice ? Number(sellPrice) : null, minStock: minStock ? Number(minStock) : null,
-      description: description || null,
-    }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["products"] }); toast.success("Cập nhật thành công"); navigate("/products") },
+    mutationFn: () => {
+      const payload = {
+        name: name.trim(),
+        sku: sku || "",
+        unit: unit || "",
+        retailPrice: sellPrice ? Number(sellPrice) : 0,
+        brandId: brandId ? Number(brandId) : null,
+        categoryId: categoryId ? Number(categoryId) : null,
+        barcode: barcode || null,
+        trackingType: trackingType || null,
+        minStock: minStock ? Number(minStock) : undefined,
+        description: description || undefined,
+      }
+      return updateProduct(productId, payload)
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["products"] })
+      toast.success("Cập nhật thành công")
+      navigate("/products")
+    },
     onError: (e: Error) => toast.error(e.message),
   })
 
   const toggleActive = useMutation({
     mutationFn: () => toggleProductActive(productId),
-    onSuccess: () => { setIsActive(!isActive); toast.success(isActive ? "Đã vô hiệu hóa" : "Đã kích hoạt"); qc.invalidateQueries({ queryKey: ["products"] }) },
+    onSuccess: () => {
+      setIsActive(!isActive)
+      toast.success(isActive ? "Đã vô hiệu hóa" : "Đã kích hoạt")
+      qc.invalidateQueries({ queryKey: ["products"] })
+    },
     onError: (e: Error) => toast.error(e.message),
   })
 
   const addImage = useMutation({
     mutationFn: (url: string) => createProductImage({ productId, url, isPrimary: images.length === 0 }),
-    onSuccess: (img) => { setImages((prev) => [...prev, img]); toast.success("Đã thêm ảnh") },
+    onSuccess: (img) => {
+      setImages((prev) => [...prev, img])
+      toast.success("Đã thêm ảnh")
+    },
     onError: (e: Error) => toast.error(e.message),
   })
 
   const removeImage = useMutation({
     mutationFn: (imageId: number) => deleteProductImage(imageId),
-    onSuccess: () => { setImages((prev) => prev.filter((i) => i.id !== showDeleteImgDialog)); toast.success("Đã xóa ảnh"); setShowDeleteImgDialog(null) },
+    onSuccess: () => {
+      setImages((prev) => prev.filter((i) => i.id !== showDeleteImgDialog))
+      toast.success("Đã xóa ảnh")
+      setShowDeleteImgDialog(null)
+    },
     onError: (e: Error) => toast.error(e.message),
   })
 
@@ -110,12 +152,24 @@ export function ProductEditPage() {
   }
 
   const handleSubmit = () => {
-    if (!name.trim()) { toast.error("Tên sản phẩm là bắt buộc"); return }
-    if (sku && !/^[A-Za-z0-9-]+$/.test(sku)) { toast.error("SKU chỉ gồm chữ, số và dấu gạch"); return }
+    if (!name.trim()) {
+      toast.error("Tên sản phẩm là bắt buộc")
+      return
+    }
+    if (sku && !/^[A-Za-z0-9-]+$/.test(sku)) {
+      toast.error("SKU chỉ gồm chữ, số và dấu gạch")
+      return
+    }
     save.mutate()
   }
 
-  if (loading) return <div className="space-y-4"><Skeleton className="h-8 w-48" /><Skeleton className="h-64 w-full" /></div>
+  if (loading)
+    return (
+      <div className="space-y-4">
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-64 w-full" />
+      </div>
+    )
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
@@ -123,9 +177,13 @@ export function ProductEditPage() {
         <div className="flex items-center gap-3">
           <Breadcrumb>
             <BreadcrumbList>
-              <BreadcrumbItem><BreadcrumbLink onClick={() => navigate("/products")}>Sản phẩm</BreadcrumbLink></BreadcrumbItem>
+              <BreadcrumbItem>
+                <BreadcrumbLink onClick={() => navigate("/products")}>Sản phẩm</BreadcrumbLink>
+              </BreadcrumbItem>
               <BreadcrumbSeparator />
-              <BreadcrumbItem><BreadcrumbPage>Sửa</BreadcrumbPage></BreadcrumbItem>
+              <BreadcrumbItem>
+                <BreadcrumbPage>Sửa</BreadcrumbPage>
+              </BreadcrumbItem>
             </BreadcrumbList>
           </Breadcrumb>
           <h1 className="text-xl font-semibold tracking-tight">Sửa sản phẩm</h1>
@@ -137,7 +195,9 @@ export function ProductEditPage() {
         <CardContent className="pt-6">
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2 sm:col-span-2">
-              <Label htmlFor="name">Tên sản phẩm <span className="text-destructive">*</span></Label>
+              <Label htmlFor="name">
+                Tên sản phẩm <span className="text-destructive">*</span>
+              </Label>
               <Input id="name" required value={name} onChange={(e) => setName(e.target.value)} />
             </div>
             <div className="space-y-2">
@@ -151,27 +211,45 @@ export function ProductEditPage() {
             <div className="space-y-2">
               <Label htmlFor="brand">Thương hiệu</Label>
               <Select value={brandId} onValueChange={setBrandId}>
-                <SelectTrigger id="brand"><SelectValue placeholder="Chọn thương hiệu" /></SelectTrigger>
+                <SelectTrigger id="brand">
+                  <SelectValue placeholder="Chọn thương hiệu" />
+                </SelectTrigger>
                 <SelectContent>
-                  {brands?.map((b) => <SelectItem key={b.id} value={String(b.id)}>{b.name}</SelectItem>)}
+                  {brands?.map((b) => (
+                    <SelectItem key={b.id} value={String(b.id)}>
+                      {b.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
               <Label htmlFor="category">Danh mục</Label>
               <Select value={categoryId} onValueChange={setCategoryId}>
-                <SelectTrigger id="category"><SelectValue placeholder="Chọn danh mục" /></SelectTrigger>
+                <SelectTrigger id="category">
+                  <SelectValue placeholder="Chọn danh mục" />
+                </SelectTrigger>
                 <SelectContent>
-                  {categories?.map((c) => <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>)}
+                  {categories?.map((c) => (
+                    <SelectItem key={c.id} value={String(c.id)}>
+                      {c.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
               <Label htmlFor="unit">Đơn vị tính</Label>
               <Select value={unit} onValueChange={setUnit}>
-                <SelectTrigger id="unit"><SelectValue placeholder="Chọn ĐVT" /></SelectTrigger>
+                <SelectTrigger id="unit">
+                  <SelectValue placeholder="Chọn ĐVT" />
+                </SelectTrigger>
                 <SelectContent>
-                  {UNITS.map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}
+                  {UNITS.map((u) => (
+                    <SelectItem key={u} value={u}>
+                      {u}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -181,18 +259,32 @@ export function ProductEditPage() {
                 {TRACKING_TYPES.map((t) => (
                   <div key={t} className="flex items-center gap-2">
                     <RadioGroupItem value={t} id={`edit-tracking-${t}`} />
-                    <Label htmlFor={`edit-tracking-${t}`} className="font-normal">{t === "SERIALIZED" ? "Theo serial" : "Hàng rời"}</Label>
+                    <Label htmlFor={`edit-tracking-${t}`} className="font-normal">
+                      {t === TRACKING_TYPE.SERIALIZED ? "Theo serial" : "Hàng rời"}
+                    </Label>
                   </div>
                 ))}
               </RadioGroup>
             </div>
             <div className="space-y-2">
               <Label htmlFor="sellPrice">Giá bán</Label>
-              <Input id="sellPrice" type="number" min={0} value={sellPrice} onChange={(e) => setSellPrice(e.target.value)} />
+              <Input
+                id="sellPrice"
+                type="number"
+                min={0}
+                value={sellPrice}
+                onChange={(e) => setSellPrice(e.target.value)}
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="minStock">Tồn tối thiểu</Label>
-              <Input id="minStock" type="number" min={0} value={minStock} onChange={(e) => setMinStock(e.target.value)} />
+              <Input
+                id="minStock"
+                type="number"
+                min={0}
+                value={minStock}
+                onChange={(e) => setMinStock(e.target.value)}
+              />
             </div>
           </div>
         </CardContent>
@@ -225,10 +317,25 @@ export function ProductEditPage() {
               {images.map((img) => (
                 <div key={img.id} className="relative group size-20">
                   <AspectRatio ratio={1}>
-                    <img src={img.url} alt="" className="size-full object-cover rounded-md border" onError={(e) => { (e.target as HTMLImageElement).src = ""; (e.target as HTMLImageElement).classList.add("hidden") }} />
+                    <img
+                      src={img.url}
+                      alt={img.isPrimary ? "Ảnh chính của sản phẩm" : "Ảnh sản phẩm"}
+                      className="size-full object-cover rounded-md border"
+                      onError={(e) => {
+                        ;(e.target as HTMLImageElement).src = ""
+                        ;(e.target as HTMLImageElement).classList.add("hidden")
+                      }}
+                    />
                   </AspectRatio>
-                  {img.isPrimary && <span className="absolute top-0.5 left-0.5 text-[10px] bg-primary text-primary-foreground px-1 rounded">Chính</span>}
-                  <button onClick={() => setShowDeleteImgDialog(img.id)} className="absolute top-0.5 right-0.5 bg-background/80 rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                  {img.isPrimary && (
+                    <span className="absolute top-0.5 left-0.5 text-[10px] bg-primary text-primary-foreground px-1 rounded">
+                      Chính
+                    </span>
+                  )}
+                  <button
+                    onClick={() => setShowDeleteImgDialog(img.id)}
+                    className="absolute top-0.5 right-0.5 bg-background/80 rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
                     <X className="size-3 text-destructive" />
                   </button>
                 </div>
@@ -240,14 +347,21 @@ export function ProductEditPage() {
 
       <div className="flex justify-end">
         <ButtonGroup>
-          <Button variant="outline" onClick={() => navigate("/products")}>Hủy</Button>
+          <Button variant="outline" onClick={() => navigate("/products")}>
+            Hủy
+          </Button>
           <Button onClick={handleSubmit} disabled={!name.trim() || save.isPending}>
             {save.isPending ? "Đang lưu..." : "Lưu"}
           </Button>
         </ButtonGroup>
       </div>
 
-      <AlertDialog open={!!showDeleteImgDialog} onOpenChange={(v) => { if (!v) setShowDeleteImgDialog(null) }}>
+      <AlertDialog
+        open={!!showDeleteImgDialog}
+        onOpenChange={(v) => {
+          if (!v) setShowDeleteImgDialog(null)
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Xóa ảnh</AlertDialogTitle>
@@ -255,7 +369,13 @@ export function ProductEditPage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Không</AlertDialogCancel>
-            <AlertDialogAction onClick={() => showDeleteImgDialog && removeImage.mutate(showDeleteImgDialog)} disabled={removeImage.isPending} className="bg-destructive hover:bg-destructive/90">Xóa</AlertDialogAction>
+            <AlertDialogAction
+              onClick={() => showDeleteImgDialog && removeImage.mutate(showDeleteImgDialog)}
+              disabled={removeImage.isPending}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              Xóa
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

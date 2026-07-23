@@ -29,7 +29,7 @@ function renderReceiptHtml(r: ReceiptData): string {
           <td class="num">${item.quantity}</td>
           <td class="num">${item.unitPrice.toLocaleString("vi-VN")}</td>
           <td class="num">${(item.quantity * item.unitPrice).toLocaleString("vi-VN")}</td>
-        </tr>`
+        </tr>`,
     )
     .join("")
 

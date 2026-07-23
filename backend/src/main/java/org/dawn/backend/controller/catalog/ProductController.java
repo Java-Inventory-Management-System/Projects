@@ -19,13 +19,13 @@ public class ProductController {
     private final ProductService productService;
 
     @GetMapping("")
-    @PreAuthorize(AuthorizationExpressions.ROLE_STOCK_MANAGER_ADMIN)
+    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_ADMIN_STOCK)
     public ResponseObject<ResponsePage<ProductResponse>> getAll(Pageable pageable) {
         return ResponseObject.success(productService.findAll(pageable));
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize(AuthorizationExpressions.ROLE_STOCK_MANAGER_ADMIN)
+    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_ADMIN_STOCK)
     public ResponseObject<ProductResponse> getOne(@PathVariable Long id) {
         return ResponseObject.success(productService.findOne(id));
     }

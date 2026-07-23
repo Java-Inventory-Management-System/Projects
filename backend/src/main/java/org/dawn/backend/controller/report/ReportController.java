@@ -58,8 +58,13 @@ public class ReportController {
 
     @GetMapping("/dead-stock")
     @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_ADMIN)
-    public ResponseObject<List<DeadStockResponse>> getDeadStock(
-            @RequestParam(defaultValue = "90") int daysThreshold) {
-        return ResponseObject.success(reportService.getDeadStock(daysThreshold));
+    public ResponseObject<ResponsePage<DeadStockResponse>> getDeadStock(
+            @RequestParam(defaultValue = "90") int daysThreshold,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) Long categoryId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) Instant fromDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) Instant toDate,
+            Pageable pageable) {
+        return ResponseObject.success(reportService.getDeadStock(daysThreshold, keyword, categoryId, fromDate, toDate, pageable));
     }
 }

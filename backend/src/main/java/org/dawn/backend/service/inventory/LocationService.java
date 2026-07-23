@@ -35,6 +35,7 @@ public class LocationService {
     private final LocationRepository locationRepository;
     private final ProductUnitRepository productUnitRepository;
 
+    @Transactional(readOnly = true)
     public LocationMapResponse getMap() {
         var locations = locationRepository.findAllByOrderByZoneCodeAscShelfCodeAscBinCodeAsc();
         var counts = productUnitRepository.countByLocation();
@@ -58,12 +59,14 @@ public class LocationService {
         return new LocationMapResponse(zones);
     }
 
+    @Transactional(readOnly = true)
     public ResponsePage<LocationResponse> findAll(Pageable pageable) {
         return ResponsePage.of(locationRepository
                 .findAll(pageable)
                 .map(LocationMappingHelper::map));
     }
 
+    @Transactional(readOnly = true)
     public LocationResponse findOne(Long id) {
         return locationRepository
                 .findById(id)
@@ -71,6 +74,7 @@ public class LocationService {
                 .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.LOCATION_NOT_FOUND));
     }
 
+    @Transactional(readOnly = true)
     public ResponsePage<LocationResponse> search(String keyword, Pageable pageable) {
         return ResponsePage.of(locationRepository
                 .findByFullCodeContainingIgnoreCase(keyword, pageable)
@@ -80,9 +84,6 @@ public class LocationService {
     @Transactional
     @AuditLog(action = LogConstant.Action.CREATE_LOCATION, entity = LogConstant.Entity.LOCATION)
     public LocationResponse create(LocationRequest request) {
-        if (request.zoneCode() == null || request.shelfCode() == null || request.binCode() == null) {
-            throw new InvalidRequestException(Message.Inventory.LOCATION_CODE_REQUIRED);
-        }
         String fullCode = request.zoneCode() + "-" + request.shelfCode() + "-" + request.binCode();
         if (locationRepository.existsByFullCode(fullCode)) {
             throw new ResourceAlreadyExistedException(Message.Inventory.LOCATION_CODE_EXISTS);

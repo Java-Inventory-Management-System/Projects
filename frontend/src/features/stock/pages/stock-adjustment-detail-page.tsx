@@ -6,7 +6,9 @@ import {
   approveStockAdjustment,
   rejectStockAdjustment,
 } from "@/services/stock-adjustment-service"
-import { useAuthStore } from "@/store/auth-store"
+import { usePermission } from "@/hooks/use-permission"
+import { ADJUSTMENT_STATUS } from "@/utils/types"
+import { ROLES } from "@/utils/permissions"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
@@ -14,21 +16,24 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Empty, EmptyTitle } from "@/components/ui/empty"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { ButtonGroup } from "@/components/ui/button-group"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog"
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb"
 import { Check, X } from "lucide-react"
 import { Separator } from "@/components/ui/separator"
-import { Card, CardContent } from "@/components/ui/card"
 import { toast } from "@/utils/toast"
 
 const typeLabel: Record<string, string> = { DAMAGED: "Hư hỏng", LOST: "Mất", FOUND: "Thừa" }
 const typeColor: Record<string, "destructive" | "outline" | "default"> = {
-  DAMAGED: "destructive", LOST: "destructive", FOUND: "default",
+  DAMAGED: "destructive",
+  LOST: "destructive",
+  FOUND: "default",
 }
 const statusLabel: Record<string, { label: string; variant: "default" | "secondary" | "destructive" }> = {
   PENDING: { label: "Chờ duyệt", variant: "secondary" },
@@ -40,7 +45,7 @@ export const StockAdjustmentDetailPage = () => {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const qc = useQueryClient()
-  const user = useAuthStore((s) => s.user)
+  const perm = usePermission()
 
   const [approvalAction, setApprovalAction] = useState<"approve" | "reject" | null>(null)
   const [approvalNote, setApprovalNote] = useState("")
@@ -59,7 +64,8 @@ export const StockAdjustmentDetailPage = () => {
       qc.invalidateQueries({ queryKey: ["inventory"] })
       qc.invalidateQueries({ queryKey: ["inventory-summary"] })
       qc.invalidateQueries({ queryKey: ["low-stock"] })
-      setApprovalAction(null); setApprovalNote("")
+      setApprovalAction(null)
+      setApprovalNote("")
       toast.success("Đã duyệt phiếu điều chỉnh")
     },
     onError: (err: Error) => toast.error(err.message || "Duyệt thất bại"),
@@ -70,7 +76,8 @@ export const StockAdjustmentDetailPage = () => {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["stock-adjustment", id] })
       qc.invalidateQueries({ queryKey: ["stock-adjustments"] })
-      setApprovalAction(null); setApprovalNote("")
+      setApprovalAction(null)
+      setApprovalNote("")
       toast.success("Đã từ chối phiếu điều chỉnh")
     },
     onError: (err: Error) => toast.error(err.message || "Từ chối thất bại"),
@@ -88,22 +95,29 @@ export const StockAdjustmentDetailPage = () => {
   if (!adj) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
-        <Empty><EmptyTitle>Không tìm thấy phiếu điều chỉnh.</EmptyTitle></Empty>
+        <Empty>
+          <EmptyTitle>Không tìm thấy phiếu điều chỉnh.</EmptyTitle>
+        </Empty>
       </div>
     )
   }
 
   const st = statusLabel[adj.status] ?? { label: adj.status, variant: "secondary" }
-  const isManager = user?.role === "MANAGER" || user?.role === "ADMIN"
-  const canApprove = adj.status === "PENDING" && isManager
+  // MANAGER/ADMIN: approve/reject adjustments
+  const isManager = perm.hasRole(...ROLES.MANAGER_ADMIN)
+  const canApprove = adj.status === ADJUSTMENT_STATUS.PENDING && isManager
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <Breadcrumb>
         <BreadcrumbList>
-          <BreadcrumbItem><BreadcrumbLink onClick={() => navigate("/stock/adjustments")}>Điều chỉnh</BreadcrumbLink></BreadcrumbItem>
+          <BreadcrumbItem>
+            <BreadcrumbLink onClick={() => navigate("/stock/adjustments")}>Điều chỉnh</BreadcrumbLink>
+          </BreadcrumbItem>
           <BreadcrumbSeparator />
-          <BreadcrumbItem><BreadcrumbPage>{adj.adjustCode}</BreadcrumbPage></BreadcrumbItem>
+          <BreadcrumbItem>
+            <BreadcrumbPage>{adj.adjustCode}</BreadcrumbPage>
+          </BreadcrumbItem>
         </BreadcrumbList>
       </Breadcrumb>
       <div className="flex items-center gap-3">
@@ -133,7 +147,12 @@ export const StockAdjustmentDetailPage = () => {
           {adj.imageUrl && (
             <div>
               <span className="text-muted-foreground">Ảnh minh chứng</span>
-              <a href={adj.imageUrl} target="_blank" rel="noopener noreferrer" className="block mt-0.5 text-sm text-primary underline">
+              <a
+                href={adj.imageUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block mt-0.5 text-sm text-primary underline"
+              >
                 Xem ảnh
               </a>
             </div>
@@ -189,24 +208,42 @@ export const StockAdjustmentDetailPage = () => {
         </div>
       )}
 
-      <Dialog open={!!approvalAction} onOpenChange={(v) => { if (!v) { setApprovalAction(null); setApprovalNote("") } }}>
+      <Dialog
+        open={!!approvalAction}
+        onOpenChange={(v) => {
+          if (!v) {
+            setApprovalAction(null)
+            setApprovalNote("")
+          }
+        }}
+      >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{approvalAction === "approve" ? "Duyệt phiếu điều chỉnh" : "Từ chối phiếu điều chỉnh"}</DialogTitle>
+            <DialogTitle>
+              {approvalAction === "approve" ? "Duyệt phiếu điều chỉnh" : "Từ chối phiếu điều chỉnh"}
+            </DialogTitle>
           </DialogHeader>
           <ScrollArea className="max-h-[60vh]">
-          <div className="space-y-2">
-            <label className="text-sm text-muted-foreground">Ghi chú (không bắt buộc)</label>
-            <Textarea
-              value={approvalNote}
-              onChange={(e) => setApprovalNote(e.target.value)}
-              placeholder="Nhập ghi chú..."
-              rows={3}
-            />
-          </div>
+            <div className="space-y-2">
+              <label className="text-sm text-muted-foreground">Ghi chú (không bắt buộc)</label>
+              <Textarea
+                value={approvalNote}
+                onChange={(e) => setApprovalNote(e.target.value)}
+                placeholder="Nhập ghi chú..."
+                rows={3}
+              />
+            </div>
           </ScrollArea>
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setApprovalAction(null); setApprovalNote("") }}>Hủy</Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setApprovalAction(null)
+                setApprovalNote("")
+              }}
+            >
+              Hủy
+            </Button>
             <Button
               onClick={() => {
                 if (approvalAction === "approve") approveMut.mutate()

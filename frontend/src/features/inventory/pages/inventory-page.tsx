@@ -38,7 +38,9 @@ export const InventoryPage = () => {
   )
 
   const handleSearch = () => updateParams({ q: searchInput || undefined, page: undefined })
-  const handleKeyDown = (e: React.KeyboardEvent) => { if (e.key === "Enter") handleSearch() }
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") handleSearch()
+  }
 
   const columns: Column<InventoryItem>[] = [
     { header: "SKU", render: (item) => <span className="font-mono text-xs">{item.productSku}</span> },
@@ -48,34 +50,56 @@ export const InventoryPage = () => {
       className: "w-[80px] text-right",
       render: (item) => {
         const low = isLowStock(item)
-        return <span className={`tabular-nums ${low ? "font-semibold text-red-600 dark:text-red-400" : ""}`}>{item.quantity.toLocaleString("vi-VN")}</span>
+        return (
+          <span className={`tabular-nums ${low ? "font-semibold text-red-600 dark:text-red-400" : ""}`}>
+            {(item.quantity ?? 0).toLocaleString("vi-VN")}
+          </span>
+        )
       },
     },
     {
       header: "Tỉ lệ",
       className: "w-[100px]",
-      render: (item) => <Progress value={Math.min(100, Math.round((item.quantity / Math.max(1, item.minStock * 2)) * 100))} className="h-1.5 w-16" />,
+      render: (item) => (
+        <Progress
+          value={Math.min(100, Math.round((item.quantity / Math.max(1, item.minStock * 2)) * 100))}
+          className="h-1.5 w-16"
+        />
+      ),
     },
     {
       header: "Min",
       className: "w-[80px] text-right",
-      render: (item) => <span className="tabular-nums text-muted-foreground">{item.minStock.toLocaleString("vi-VN")}</span>,
+      render: (item) => (
+        <span className="tabular-nums text-muted-foreground">{(item.minStock ?? 0).toLocaleString("vi-VN")}</span>
+      ),
     },
     {
       header: "Trạng thái",
       className: "w-[90px] text-center",
       render: (item) =>
         isLowStock(item) ? (
-          <Badge variant="destructive" className="gap-1"><AlertTriangle className="size-3" />Thiếu</Badge>
+          <Badge variant="destructive" className="gap-1">
+            <AlertTriangle className="size-3" />
+            Thiếu
+          </Badge>
         ) : (
-          <Badge variant="outline" className="text-green-600 border-green-300 dark:text-green-400 dark:border-green-800">Còn hàng</Badge>
+          <Badge
+            variant="outline"
+            className="text-green-600 border-green-300 dark:text-green-400 dark:border-green-800"
+          >
+            Còn hàng
+          </Badge>
         ),
     },
     {
       header: "Vị trí",
       className: "w-[100px]",
       render: (item) => (
-        <span className="inline-flex items-center gap-1 text-muted-foreground"><MapPin className="size-3" />{item.location}</span>
+        <span className="inline-flex items-center gap-1 text-muted-foreground">
+          <MapPin className="size-3" />
+          {item.location}
+        </span>
       ),
     },
     {
@@ -107,24 +131,36 @@ export const InventoryPage = () => {
           />
         </div>
         {search && (
-          <Button variant="ghost" size="sm" onClick={() => { setSearchInput(""); setSearchParams(new URLSearchParams()) }}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              setSearchInput("")
+              setSearchParams(new URLSearchParams())
+            }}
+          >
             Xoá
           </Button>
         )}
       </div>
 
-      <DataTable
-        columns={columns}
-        data={items}
-        isLoading={loading}
-        emptyMessage="Không có hàng tồn kho"
-      />
+      <DataTable columns={columns} data={items} isLoading={loading} emptyMessage="Không có hàng tồn kho" />
 
       {pagination && pagination.totalPages > 1 && (
-        <PaginationBar page={page} totalPages={pagination.totalPages} onChange={(p) => updateParams({ page: String(p) })} />
+        <PaginationBar
+          page={page}
+          totalPages={pagination.totalPages}
+          onChange={(p) => updateParams({ page: String(p) })}
+        />
       )}
 
-      <ViewInventoryModal item={viewItem} open={!!viewItem} onOpenChange={(v) => { if (!v) setViewItem(null) }} />
+      <ViewInventoryModal
+        item={viewItem}
+        open={!!viewItem}
+        onOpenChange={(v) => {
+          if (!v) setViewItem(null)
+        }}
+      />
     </div>
   )
 }

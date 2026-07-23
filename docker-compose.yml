@@ -71,6 +71,19 @@ services:
     networks:
       - network
 
+  test:
+    container_name: frontend-test
+    image: node:22-alpine
+    working_dir: /app
+    volumes:
+      - ./frontend:/app
+    environment:
+      NODE_ENV: test
+      VITE_BACKEND_URL: http://backend:8888/api/v1
+    command: sh -c "npm ci 2>/dev/null && npm run test:api"
+    networks:
+      - network
+
   nginx:
     container_name: nginx
     image: nginx:alpine

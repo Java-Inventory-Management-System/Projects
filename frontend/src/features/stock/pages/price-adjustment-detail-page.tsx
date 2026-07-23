@@ -1,8 +1,13 @@
 import { useState } from "react"
 import { useParams, useNavigate } from "react-router-dom"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { getPriceAdjustmentById, approvePriceAdjustment, rejectPriceAdjustment } from "@/services/price-adjustment-service"
+import {
+  getPriceAdjustmentById,
+  approvePriceAdjustment,
+  rejectPriceAdjustment,
+} from "@/services/price-adjustment-service"
 import { usePermission } from "@/hooks/use-permission"
+import { ADJUSTMENT_STATUS } from "@/utils/types"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
@@ -12,11 +17,23 @@ import { Empty, EmptyTitle } from "@/components/ui/empty"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Check, X } from "lucide-react"
 import {
-  Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator,
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
 import { Card, CardContent } from "@/components/ui/card"
 import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { toast } from "@/utils/toast"
 
@@ -51,11 +68,25 @@ export function PriceAdjustmentDetailPage() {
       toast.success("Thao tác thành công")
       setConfirmAction(null)
     },
-    onError: (e: Error) => { toast.error(e.message); setConfirmAction(null) },
+    onError: (e: Error) => {
+      toast.error(e.message)
+      setConfirmAction(null)
+    },
   })
 
-  if (isLoading) return <div className="space-y-4"><Skeleton className="h-8 w-48" /><Skeleton className="h-64 w-full" /></div>
-  if (!adj) return <Empty><EmptyTitle>Không tìm thấy phiếu điều chỉnh giá</EmptyTitle></Empty>
+  if (isLoading)
+    return (
+      <div className="space-y-4">
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-64 w-full" />
+      </div>
+    )
+  if (!adj)
+    return (
+      <Empty>
+        <EmptyTitle>Không tìm thấy phiếu điều chỉnh giá</EmptyTitle>
+      </Empty>
+    )
 
   const s = statusLabel[adj.status] ?? { label: adj.status, variant: "secondary" }
 
@@ -63,9 +94,13 @@ export function PriceAdjustmentDetailPage() {
     <div className="mx-auto max-w-2xl space-y-6">
       <Breadcrumb>
         <BreadcrumbList>
-          <BreadcrumbItem><BreadcrumbLink onClick={() => navigate("/stock/price-adjustments")}>Điều chỉnh giá</BreadcrumbLink></BreadcrumbItem>
+          <BreadcrumbItem>
+            <BreadcrumbLink onClick={() => navigate("/stock/price-adjustments")}>Điều chỉnh giá</BreadcrumbLink>
+          </BreadcrumbItem>
           <BreadcrumbSeparator />
-          <BreadcrumbItem><BreadcrumbPage>{adj.adjustCode}</BreadcrumbPage></BreadcrumbItem>
+          <BreadcrumbItem>
+            <BreadcrumbPage>{adj.adjustCode}</BreadcrumbPage>
+          </BreadcrumbItem>
         </BreadcrumbList>
       </Breadcrumb>
 
@@ -74,7 +109,7 @@ export function PriceAdjustmentDetailPage() {
           <h1 className="text-xl font-semibold tracking-tight">{adj.adjustCode}</h1>
           <Badge variant={s.variant}>{s.label}</Badge>
         </div>
-        {perm.canApprove("PENDING") && adj.status === "PENDING" && (
+        {perm.canApprove(ADJUSTMENT_STATUS.PENDING) && adj.status === ADJUSTMENT_STATUS.PENDING && (
           <div className="flex gap-2">
             <Button variant="outline" className="text-destructive" onClick={() => setConfirmAction("reject")}>
               <X className="size-4 mr-1" /> Từ chối
@@ -89,11 +124,31 @@ export function PriceAdjustmentDetailPage() {
       <Card>
         <CardContent className="pt-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-            <div><span className="text-muted-foreground">Sản phẩm:</span><p className="font-medium">{adj.productName ?? "—"} {adj.productSku && <span className="text-muted-foreground">({adj.productSku})</span>}</p></div>
-            <div><span className="text-muted-foreground">Giá cũ:</span><p className="font-medium">{adj.oldPrice.toLocaleString("vi-VN")}₫</p></div>
-            <div><span className="text-muted-foreground">Giá mới:</span><p className="font-medium">{adj.newPrice.toLocaleString("vi-VN")}₫</p></div>
-            <div><span className="text-muted-foreground">Người tạo:</span><p className="font-medium">{adj.createdByName ?? "—"}</p></div>
-            {adj.approvedByName && <div><span className="text-muted-foreground">Người duyệt:</span><p className="font-medium">{adj.approvedByName}</p></div>}
+            <div>
+              <span className="text-muted-foreground">Sản phẩm:</span>
+              <p className="font-medium">
+                {adj.productName ?? "—"}{" "}
+                {adj.productSku && <span className="text-muted-foreground">({adj.productSku})</span>}
+              </p>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Giá cũ:</span>
+              <p className="font-medium">{(adj.oldPrice ?? 0).toLocaleString("vi-VN")}₫</p>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Giá mới:</span>
+              <p className="font-medium">{(adj.newPrice ?? 0).toLocaleString("vi-VN")}₫</p>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Người tạo:</span>
+              <p className="font-medium">{adj.createdByName ?? "—"}</p>
+            </div>
+            {adj.approvedByName && (
+              <div>
+                <span className="text-muted-foreground">Người duyệt:</span>
+                <p className="font-medium">{adj.approvedByName}</p>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -118,21 +173,33 @@ export function PriceAdjustmentDetailPage() {
         </Card>
       )}
 
-      <AlertDialog open={!!confirmAction} onOpenChange={(v) => { if (!v) setConfirmAction(null) }}>
+      <AlertDialog
+        open={!!confirmAction}
+        onOpenChange={(v) => {
+          if (!v) setConfirmAction(null)
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{confirmAction === "approve" ? "Duyệt điều chỉnh giá" : "Từ chối điều chỉnh giá"}</AlertDialogTitle>
-            <AlertDialogDescription>Xác nhận {confirmAction === "approve" ? "duyệt" : "từ chối"} phiếu điều chỉnh giá này?</AlertDialogDescription>
+            <AlertDialogTitle>
+              {confirmAction === "approve" ? "Duyệt điều chỉnh giá" : "Từ chối điều chỉnh giá"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Xác nhận {confirmAction === "approve" ? "duyệt" : "từ chối"} phiếu điều chỉnh giá này?
+            </AlertDialogDescription>
           </AlertDialogHeader>
           <ScrollArea className="max-h-[60vh]">
-          <div className="space-y-2">
-            <Label>Ghi chú (không bắt buộc)</Label>
-            <Input value={approvalNote} onChange={(e) => setApprovalNote(e.target.value)} />
-          </div>
+            <div className="space-y-2">
+              <Label>Ghi chú (không bắt buộc)</Label>
+              <Input value={approvalNote} onChange={(e) => setApprovalNote(e.target.value)} />
+            </div>
           </ScrollArea>
           <AlertDialogFooter>
             <AlertDialogCancel>Không</AlertDialogCancel>
-            <AlertDialogAction onClick={() => confirmAction && action.mutate(confirmAction)} disabled={action.isPending}>
+            <AlertDialogAction
+              onClick={() => confirmAction && action.mutate(confirmAction)}
+              disabled={action.isPending}
+            >
               {action.isPending ? "Đang xử lý..." : "Xác nhận"}
             </AlertDialogAction>
           </AlertDialogFooter>

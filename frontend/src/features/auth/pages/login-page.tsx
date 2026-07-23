@@ -30,7 +30,11 @@ export const LoginPage = () => {
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
-          <div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-lg bg-primary text-lg font-bold text-primary-foreground">
+          <div
+            role="img"
+            aria-label="Warehouse logo"
+            className="mx-auto mb-4 flex size-12 items-center justify-center rounded-lg bg-primary text-lg font-bold text-primary-foreground"
+          >
             W
           </div>
           <h1 className="text-xl font-semibold tracking-tight">Quản lý kho</h1>
@@ -43,7 +47,7 @@ export const LoginPage = () => {
             <Input
               id="username"
               type="text"
-                placeholder="admin / manager / sales / stock"
+              placeholder="Nhập tên đăng nhập"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               required

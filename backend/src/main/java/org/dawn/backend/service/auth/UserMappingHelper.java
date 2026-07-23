@@ -13,7 +13,7 @@ public interface UserMappingHelper {
                 .fullName(u.getFullName())
                 .email(u.getEmail())
                 .role(u.getRole().getName().name())
-                .status(u.getStatus())
+                .status(u.getStatus().name())
                 .gender(u.getGender())
                 .dob(u.getDob())
                 .phoneNumber(u.getPhoneNumber())

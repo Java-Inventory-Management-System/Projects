@@ -23,7 +23,7 @@ export const ImageUpload = ({ value, onChange, className }: ImageUploadProps) =>
       const formData = new FormData()
       formData.append("file", file)
 
-      const { url } = await http.post("/upload", formData) as { url: string }
+      const { url } = (await http.post("/upload", formData)) as { url: string }
       if (url) {
         setPreview(url)
         onChange(url)
@@ -70,7 +70,10 @@ export const ImageUpload = ({ value, onChange, className }: ImageUploadProps) =>
 
   return (
     <div
-      onDragOver={(e) => { e.preventDefault(); setDragging(true) }}
+      onDragOver={(e) => {
+        e.preventDefault()
+        setDragging(true)
+      }}
       onDragLeave={() => setDragging(false)}
       onDrop={handleDrop}
       onClick={() => inputRef.current?.click()}
@@ -81,13 +84,7 @@ export const ImageUpload = ({ value, onChange, className }: ImageUploadProps) =>
         className,
       )}
     >
-      <input
-        ref={inputRef}
-        type="file"
-        accept="image/*"
-        className="hidden"
-        onChange={handleChange}
-      />
+      <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={handleChange} />
       {uploading ? (
         <Loader2 className="size-8 animate-spin text-muted-foreground" />
       ) : (

@@ -11,9 +11,7 @@ export const NotFoundPage = () => {
           404
         </div>
         <h1 className="text-xl font-semibold tracking-tight">Page Not Found</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          The page you're looking for doesn't exist.
-        </p>
+        <p className="mt-1 text-sm text-muted-foreground">The page you're looking for doesn't exist.</p>
         <Button className="mt-6" onClick={() => navigate("/")}>
           Back to Dashboard
         </Button>

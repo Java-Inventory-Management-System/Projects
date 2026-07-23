@@ -1,5 +1,6 @@
 package org.dawn.backend.controller.inventory;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.dawn.backend.config.web.response.ResponseObject;
 import org.dawn.backend.config.web.response.ResponsePage;
@@ -19,26 +20,26 @@ public class CustomerController {
     private final CustomerService customerService;
 
     @GetMapping("")
-    @PreAuthorize(AuthorizationExpressions.ROLE_STOCK_MANAGER_ADMIN)
+    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_ADMIN_STOCK)
     public ResponseObject<ResponsePage<CustomerResponse>> getAll(Pageable pageable) {
         return ResponseObject.success(customerService.findAll(pageable));
     }
 
     @GetMapping("/search")
-    @PreAuthorize(AuthorizationExpressions.ROLE_STOCK_MANAGER_ADMIN)
+    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_ADMIN_STOCK)
     public ResponseObject<ResponsePage<CustomerResponse>> search(@RequestParam String keyword, Pageable pageable) {
         return ResponseObject.success(customerService.search(keyword, pageable));
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize(AuthorizationExpressions.ROLE_STOCK_MANAGER_ADMIN)
+    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_ADMIN_STOCK)
     public ResponseObject<CustomerResponse> getOne(@PathVariable Long id) {
         return ResponseObject.success(customerService.findOne(id));
     }
 
     @PostMapping("")
-    @PreAuthorize(AuthorizationExpressions.ROLE_STOCK_MANAGER_ADMIN)
-    public ResponseObject<CustomerResponse> create(@RequestBody CustomerRequest request) {
+    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_ADMIN_STOCK)
+    public ResponseObject<CustomerResponse> create(@Valid @RequestBody CustomerRequest request) {
         return ResponseObject.created(customerService.create(request));
     }
 
