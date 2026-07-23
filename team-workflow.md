@@ -165,4 +165,14 @@ Chỉ là "ai làm gì, commit nào, chạy được chưa."
 
 ---
 
+## 7. Merge main
+
+- Ai cũng merge được. Không cần xin phép, không cần code review bắt buộc.
+- Không có gatekeeper, không có leader duyệt.
+- Nhưng merge xong phải **test chạy ổn trên máy của ít nhất 1 người khác.**
+- Nếu merge main mà main die → người merge tự fix, ko đẩy cho người khác.
+- Merge về main xong thì **tự chịu trách nhiệm** — main die là lỗi của người merge, ko phải lỗi "team không có quy trình."
+
+---
+
 *File này được viết để thay thế quy trình làm việc cũ. Đọc xong, nếu đồng ý — làm theo. Nếu không — phản biện, đừng tự sửa.*
