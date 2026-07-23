@@ -32,7 +32,7 @@
 | RQ-11 | CRUD sản phẩm (kèm unit ↔ tracking_type) | F    | Phỏng vấn | Must  | AD/QL    | US-26 |
 | RQ-12 | Upload ảnh sản phẩm (tối đa 5)           | F    | Phỏng vấn | Could | AD/QL    | US-27 |
 | RQ-13 | CRUD vị trí kho (zone-shelf-bin)         | F    | Phỏng vấn | Must  | AD/QL    | US-35 |
-| RQ-14 | CRUD khách hàng (NV: xem + thêm)         | F    | Phỏng vấn | Must  | AD/QL/NV | US-36 |
+| RQ-14 | CRUD khách hàng (NV/SL: xem + thêm)       | F    | Phỏng vấn | Must  | AD/QL/NV/SL | US-36 |
 
 ### Purchase Order
 
@@ -117,7 +117,7 @@
 
 > Mỗi story được trace ngược về bảng/cột trong ERD và các quyết định nghiệp vụ.
 
-Actor: **AD** = Admin, **QL** = Quản lý kho, **NV** = Nhân viên, **HT** = Hệ thống (background job/automation)
+Actor: **AD** = Admin, **QL** = Quản lý kho, **NV** = Nhân viên kho, **SL** = Nhân viên bán hàng, **HT** = Hệ thống (background job/automation)
 
 ### 2.1 Epic 1 — Nhập kho
 
@@ -154,21 +154,21 @@ Actor: **AD** = Admin, **QL** = Quản lý kho, **NV** = Nhân viên, **HT** = H
 
 ### 2.2 Epic 2 — Xuất kho
 
-**US-08** | Là **NV**, tôi muốn khởi tạo phiếu xuất với lý do xuất (bán/nội bộ/trả NCC/hủy), để phân loại mục đích xuất kho.
+**US-08** | Là **QL/NV/SL**, tôi muốn khởi tạo phiếu xuất với lý do xuất (bán/nội bộ/trả NCC/hủy), để phân loại mục đích xuất kho.
 - AC: Nếu lý do là bán hàng → bắt buộc chọn/tạo `customer_id`.
 - Priority: Must.
 
-**US-09** | Là **NV**, tôi muốn hệ thống tự động chọn serial theo FIFO khi xuất, để không phải chọn tay từng serial.
+**US-09** | Là **QL/NV/SL**, tôi muốn hệ thống tự động chọn serial theo FIFO khi xuất, để không phải chọn tay từng serial.
 - AC: Query `ORDER BY imported_at ASC ... FOR UPDATE`; danh sách serial hiển thị cho NV xem trước khi xác nhận; gom theo `location_id` để giảm di chuyển.
 - Priority: Must.
 - **Đã chốt:** Cho phép NV override serial tay + bắt buộc lý do.
 
-**US-10** | Là **NV**, tôi muốn được báo số lượng tối đa có thể xuất khi tồn không đủ, để chọn xuất một phần thay vì bị chặn hoàn toàn.
+**US-10** | Là **QL/NV/SL**, tôi muốn được báo số lượng tối đa có thể xuất khi tồn không đủ, để chọn xuất một phần thay vì bị chặn hoàn toàn.
 - AC: Hệ thống tính tồn khả dụng trước khi cho thêm dòng; cho phép xuất partial; không cho phép tồn âm (trừ khi cấu hình bật).
 - Priority: Must.
 - **Đã chốt:** Chặn tồn âm với serialized. Với bulk: mặc định chặn, có thể mở sau nếu có nhu cầu.
 
-**US-11** | Là **NV**, tôi muốn xuất tạm (reserve) phiếu xuất, để khoá serial và chờ QL duyệt.
+**US-11** | Là **QL/NV/SL**, tôi muốn xuất tạm (reserve) phiếu xuất, để khoá serial và chờ QL duyệt.
 - AC: Hệ thống lock serial đã chọn (`SELECT ... FOR UPDATE`), phiếu chuyển `pending_approval`; ghi audit log. Serial bị khoá không được chọn bởi phiếu xuất khác.
 - Priority: Must.
 
@@ -176,7 +176,7 @@ Actor: **AD** = Admin, **QL** = Quản lý kho, **NV** = Nhân viên, **HT** = H
 - AC: Chỉ QL/AD được duyệt; `approved_by ≠ created_by`. Khi duyệt: `product_units.status` từ `reserved` → `sold`; nếu `reason = sale` → set `warranty_start_date` = ngày duyệt, tính `warranty_expires_at`; phiếu `completed`; ghi audit log #4. Nếu từ chối → phiếu `cancelled`, giải phóng serial (`reserved` → `in_stock`).
 - Priority: Must.
 
-**US-12** | Là **NV**, tôi muốn đổi serial thay thế trước khi hoàn tất nếu hàng thực tế không khớp serial hệ thống chọn, để xử lý sai lệch giữa hệ thống và thực tế kho.
+**US-12** | Là **QL/NV/SL**, tôi muốn đổi serial thay thế trước khi hoàn tất nếu hàng thực tế không khớp serial hệ thống chọn, để xử lý sai lệch giữa hệ thống và thực tế kho.
 - AC: Cơ chế swap serial trong cùng phiếu xuất trước khi confirm cuối.
 - Priority: Could.
 
@@ -184,17 +184,17 @@ Actor: **AD** = Admin, **QL** = Quản lý kho, **NV** = Nhân viên, **HT** = H
 - AC: `product_units` liên quan set lại `in_stock`, giữ nguyên `imported_at` gốc (không phá FIFO); nếu đã kích hoạt bảo hành → reset `warranty_start_date`/`warranty_expires_at` về NULL; ghi audit log #6.
 - Priority: Must.
 
-**US-33** | Là **NV**, tôi muốn xuất một phần số lượng lẻ (ví dụ 1.5m cáp) từ một unit dạng bulk, để phục vụ bán lẻ theo mét/kg.
+**US-33** | Là **QL/NV/SL**, tôi muốn xuất một phần số lượng lẻ (ví dụ 1.5m cáp) từ một unit dạng bulk, để phục vụ bán lẻ theo mét/kg.
 - AC: Nếu `remaining_quantity > qty_xuất` → chỉ trừ `remaining_quantity`, không đổi `status`; nếu `remaining_quantity = qty_xuất` → set `status = sold`; tổng tồn = SUM(remaining_quantity) cho bulk + COUNT(id) cho serialized.
 - Priority: Must.
 
 ### 2.3 Epic 3 — Bảo hành
 
-**US-14** | Là **NV**, tôi muốn tra cứu bảo hành theo serial, để xem sản phẩm, ngày mua, hạn bảo hành và lịch sử xử lý trước đó.
+**US-14** | Là **NV/SL**, tôi muốn tra cứu bảo hành theo serial, để xem sản phẩm, ngày mua, hạn bảo hành và lịch sử xử lý trước đó.
 - AC: Hỗ trợ tìm gần đúng khi serial dễ nhầm (O/0, I/l).
 - Priority: Must.
 
-**US-15** | Là **NV**, tôi muốn tiếp nhận yêu cầu bảo hành từ khách, để tạo phiếu và ghi nhận mô tả lỗi.
+**US-15** | Là **NV/SL**, tôi muốn tiếp nhận yêu cầu bảo hành từ khách, để tạo phiếu và ghi nhận mô tả lỗi.
 - AC: Kiểm tra serial tồn tại và còn hạn; xác minh khách qua tên/SĐT nếu có thể; tạo `warranty_requests.status = pending`.
 - Priority: Must.
 
@@ -269,7 +269,7 @@ Actor: **AD** = Admin, **QL** = Quản lý kho, **NV** = Nhân viên, **HT** = H
 - AC: `full_code` unique dạng `A-01-01A`; soft-delete qua `is_active`; không cho xóa vị trí đang có unit `in_stock` gán vào.
 - Priority: Must.
 
-**US-36** | Là **AD/QL/NV**, tôi muốn CRUD thông tin khách hàng, để tra cứu và quản lý lịch sử mua hàng/bảo hành.
+**US-36** | Là **AD/QL/NV/SL**, tôi muốn CRUD thông tin khách hàng, để tra cứu và quản lý lịch sử mua hàng/bảo hành.
 - AC: NV chỉ được xem + thêm mới (không sửa/xóa); AD/QL full CRUD; soft-delete qua `is_active`.
 - Priority: Must.
 

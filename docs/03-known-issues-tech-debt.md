@@ -300,6 +300,17 @@ private void validateUnitTrackingType(Product product) {
 - Phù hợp làm invariant test bằng ArchUnit hoặc unit test tầng service (đúng mục tiêu học nâng cao đã đề ra cho WMS sample project).
 - Trade-off chấp nhận: nếu chỉ có 1 QL, escalate lên Admin nghĩa là Admin phải tham gia duyệt trong tình huống này — chấp nhận được vì đây là exception/backup, không phải luồng vận hành chính.
 
+### 7.10. Traceability & UX doc chưa đồng bộ role SALES
+
+**Vấn đề:** Role SALES được thêm vào hệ thống sau khi bộ tài liệu (01–07) đã được viết dựa trên 3 role (ADMIN, MANAGER, STOCK). Việc thêm role được cập nhật đầy đủ ở `02-sop-nghiep-vu.md` §1.3.1 (bảng phân quyền) và code (`@PreAuthorize`), nhưng các tài liệu còn lại đồng bộ không đầy đủ.
+
+**Phạm vi ảnh hưởng:**
+- `04-requirements-traceability.md`: legend thiếu SL, một số user story actor chỉ ghi `NV` nhưng thực tế SALES cũng thao tác (tạo phiếu xuất, tiếp nhận BH, quản lý khách hàng).
+- `07-ux-design.md`: §2.2 tiêu đề WarrantyCreatePage ghi `(SALES)` — thiếu STOCK.
+- `01-domain-model.md`: dòng 28 ghi level 3 chung cho SALES/STOCK — level này dùng trong `UserRoleSecurity.canUpdate()` (hierarchical user mgmt), đã xác nhận không ảnh hưởng feature-level permissions.
+
+**Đã xử lý:** Các file trên đã được đồng bộ trong cùng lượt sửa này (xem git diff cho danh sách đầy đủ). `02-sop-nghiep-vu.md` §1.3.1 đã đúng từ lượt trước, không sửa lại.
+
 ---
 
 ## 8. Bugs từ phân tích Inventory (08)

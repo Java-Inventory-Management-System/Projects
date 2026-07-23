@@ -116,7 +116,7 @@ Toàn bộ Detail page dùng chung 1 **WarrantyTimeline** (dọc) làm neo thị
 - Nút **"+ Tiếp nhận mới"** — hiện với SALES/STOCK/QL (theo phân quyền chung), dẫn tới `/warranty/new`.
 - Dùng chung `PaginationBar` như các list page khác.
 
-### 2.2 `/warranty/new` — WarrantyCreatePage (SALES)
+### 2.2 `/warranty/new` — WarrantyCreatePage (SALES/STOCK)
 
 Nguyên tắc thiết kế: **tra cứu trước, nhập tay sau** — không cho nhập mô tả lỗi trước khi biết chắc sản phẩm này đủ điều kiện BH, tránh SALES làm cả form rồi mới phát hiện hết hạn.
 

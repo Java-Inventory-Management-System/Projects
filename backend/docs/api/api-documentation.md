@@ -53,10 +53,10 @@
 
 | Role | Level | Description |
 |------|-------|-------------|
-| `ADMIN` | 1 | Full access |
+| `ADMIN` | 1 | System admin — user mgmt, audit, approve/cancel (backup) |
 | `MANAGER` | 2 | Management access |
 | `STOCK` | 3 | Inventory operations |
-| `SALES` | 4 | Sales operations (no API access) |
+| `SALES` | 4 | Sales operations — export, return, warranty, customer |
 
 ---
 
@@ -307,8 +307,8 @@ Update user's role.
 
 | Method | Path | Description | Auth |
 |--------|------|-------------|------|
-| GET | `/api/v1/product` | List products (paginated) | STOCK, MANAGER, ADMIN |
-| GET | `/api/v1/product/{id}` | Get product detail | STOCK, MANAGER, ADMIN |
+| GET | `/api/v1/product` | List products (paginated) | SALES, STOCK, MANAGER |
+| GET | `/api/v1/product/{id}` | Get product detail | SALES, STOCK, MANAGER |
 | POST | `/api/v1/product` | Create product | MANAGER |
 | PUT | `/api/v1/product/{id}` | Update product | MANAGER |
 | PUT | `/api/v1/product/{id}/toggle-active` | Toggle active status | MANAGER |
@@ -483,7 +483,7 @@ interface ExceptionMessage {
   message: string;
 }
 
-type URole = 'ADMIN' | 'MANAGER' | 'STOCK';
+type URole = 'ADMIN' | 'MANAGER' | 'STOCK' | 'SALES';
 
 // ============ Auth ============
 
@@ -739,9 +739,9 @@ interface AuditLog {
 
 | Method | Path | Description | Auth |
 |--------|------|-------------|------|
-| GET | `/api/v1/export-receipt` | List export receipts (paginated) | STOCK, MANAGER, ADMIN |
-| GET | `/api/v1/export-receipt/{id}` | Get receipt detail | STOCK, MANAGER, ADMIN |
-| POST | `/api/v1/export-receipt` | Create export | MANAGER, STOCK |
+| GET | `/api/v1/export-receipt` | List export receipts (paginated) | SALES, STOCK, MANAGER |
+| GET | `/api/v1/export-receipt/{id}` | Get receipt detail | SALES, STOCK, MANAGER |
+| POST | `/api/v1/export-receipt` | Create export | SALES, MANAGER, STOCK |
 | PUT | `/api/v1/export-receipt/{id}/approve` | Approve export | MANAGER, ADMIN |
 | PUT | `/api/v1/export-receipt/{id}/cancel` | Cancel export | MANAGER, ADMIN |
 
@@ -785,10 +785,10 @@ interface AuditLog {
 
 | Method | Path | Description | Auth |
 |--------|------|-------------|------|
-| GET | `/api/v1/product-unit` | List product units (paginated) | STOCK, MANAGER, ADMIN |
-| GET | `/api/v1/product-unit/{id}` | Get unit detail | STOCK, MANAGER, ADMIN |
-| GET | `/api/v1/product-unit/status/{status}` | List units by status | STOCK, MANAGER, ADMIN |
-| GET | `/api/v1/product-unit/product/{productId}` | List units by product | STOCK, MANAGER, ADMIN |
+| GET | `/api/v1/product-unit` | List product units (paginated) | SALES, STOCK, MANAGER |
+| GET | `/api/v1/product-unit/{id}` | Get unit detail | SALES, STOCK, MANAGER |
+| GET | `/api/v1/product-unit/status/{status}` | List units by status | SALES, STOCK, MANAGER |
+| GET | `/api/v1/product-unit/product/{productId}` | List units by product | SALES, STOCK, MANAGER |
 
 **ProductUnitStatus enum**: `IN_STOCK`, `SOLD`, `DEFECTIVE`, `DAMAGED_IN_STORAGE`, `LOST`, `REMOVED`, `DISPOSED`, `UNDER_REPAIR`, `SENT_TO_MANUFACTURER`, `RETURNED`, `RETURNED_TO_SUPPLIER`
 
@@ -885,10 +885,10 @@ interface AuditLog {
 
 | Method | Path | Description | Auth |
 |--------|------|-------------|------|
-| GET | `/api/v1/customer` | List customers (paginated) | STOCK, MANAGER, ADMIN |
-| GET | `/api/v1/customer/search` | Search by keyword | STOCK, MANAGER, ADMIN |
-| GET | `/api/v1/customer/{id}` | Get detail | STOCK, MANAGER, ADMIN |
-| POST | `/api/v1/customer` | Create | STOCK, MANAGER, ADMIN |
+| GET | `/api/v1/customer` | List customers (paginated) | SALES, STOCK, MANAGER |
+| GET | `/api/v1/customer/search` | Search by keyword | SALES, STOCK, MANAGER |
+| GET | `/api/v1/customer/{id}` | Get detail | SALES, STOCK, MANAGER |
+| POST | `/api/v1/customer` | Create | SALES, STOCK, MANAGER |
 | PUT | `/api/v1/customer/{id}` | Update | MANAGER |
 | PUT | `/api/v1/customer/{id}/toggle-active` | Toggle active | MANAGER |
 
@@ -920,10 +920,10 @@ interface AuditLog {
 
 | Method | Path | Description | Auth |
 |--------|------|-------------|------|
-| GET | `/api/v1/location` | List locations (paginated) | STOCK, MANAGER, ADMIN |
-| GET | `/api/v1/location/search` | Search by keyword | STOCK, MANAGER, ADMIN |
-| GET | `/api/v1/location/{id}` | Get detail | STOCK, MANAGER, ADMIN |
-| GET | `/api/v1/location/map` | Get zone→shelf→bin tree with counts | STOCK, MANAGER, ADMIN |
+| GET | `/api/v1/location` | List locations (paginated) | SALES, STOCK, MANAGER |
+| GET | `/api/v1/location/search` | Search by keyword | SALES, STOCK, MANAGER |
+| GET | `/api/v1/location/{id}` | Get detail | SALES, STOCK, MANAGER |
+| GET | `/api/v1/location/map` | Get zone→shelf→bin tree with counts | SALES, STOCK, MANAGER |
 | POST | `/api/v1/location` | Create | MANAGER |
 | PUT | `/api/v1/location/{id}` | Update | MANAGER |
 | PUT | `/api/v1/location/{id}/toggle-active` | Toggle active | MANAGER |
@@ -1013,7 +1013,7 @@ interface AuditLog {
 | GET | `/api/v1/price-adjustment` | All adjustments | MANAGER / ADMIN / STOCK |
 | GET | `/api/v1/price-adjustment/{id}` | Detail | MANAGER / ADMIN / STOCK |
 | POST | `/api/v1/price-adjustment` | Create | MANAGER / STOCK |
-| PUT | `/api/v1/price-adjustment/{id}/approve` | Approve | MANAGER / ADMIN / STOCK |
+| PUT | `/api/v1/price-adjustment/{id}/approve` | Approve | MANAGER, ADMIN |
 | PUT | `/api/v1/price-adjustment/{id}/reject` | Reject | MANAGER / ADMIN / STOCK |
 
 **Query params**: `status` (PENDING / APPROVED / REJECTED)
@@ -1037,11 +1037,11 @@ interface AuditLog {
 
 | Method | Path | Description | Auth |
 |--------|------|-------------|------|
-| GET | `/api/v1/return-receipts` | List (paginated) | MANAGER / ADMIN / STOCK |
-| GET | `/api/v1/return-receipts/{id}` | Detail | MANAGER / ADMIN / STOCK |
-| POST | `/api/v1/return-receipts` | Create | MANAGER / ADMIN / STOCK |
-| PUT | `/api/v1/return-receipts/{id}/approve` | Approve | MANAGER / ADMIN |
-| PUT | `/api/v1/return-receipts/{id}/cancel` | Cancel | MANAGER / ADMIN / STOCK |
+| GET | `/api/v1/return-receipts` | List (paginated) | SALES, STOCK, MANAGER |
+| GET | `/api/v1/return-receipts/{id}` | Detail | SALES, STOCK, MANAGER |
+| POST | `/api/v1/return-receipts` | Create | SALES, STOCK, MANAGER |
+| PUT | `/api/v1/return-receipts/{id}/approve` | Approve | MANAGER, ADMIN |
+| PUT | `/api/v1/return-receipts/{id}/cancel` | Cancel | MANAGER, ADMIN |
 
 **Return receipt flow**: Customer returns goods → create return receipt (ref links original export) → approve → stock restored
 
@@ -1051,11 +1051,11 @@ interface AuditLog {
 
 | Method | Path | Description | Auth |
 |--------|------|-------------|------|
-| GET | `/api/v1/warranty-request/lookup` | Lookup by serial | STOCK / MANAGER / ADMIN |
-| GET | `/api/v1/warranty-request` | List (paginated) | STOCK / MANAGER / ADMIN |
+| GET | `/api/v1/warranty-request/lookup` | Lookup by serial | SALES, STOCK, MANAGER |
+| GET | `/api/v1/warranty-request` | List (paginated) | SALES, STOCK, MANAGER |
 | GET | `/api/v1/warranty-request/my-handled` | My handled requests | MANAGER |
-| GET | `/api/v1/warranty-request/{id}` | Detail | STOCK / MANAGER / ADMIN |
-| POST | `/api/v1/warranty-request` | Create | MANAGER / STOCK |
+| GET | `/api/v1/warranty-request/{id}` | Detail | SALES, STOCK, MANAGER |
+| POST | `/api/v1/warranty-request` | Create | SALES, MANAGER, STOCK |
 | PUT | `/api/v1/warranty-request/{id}/resolve` | Resolve (repair/RMA/replace) | MANAGER |
 | PUT | `/api/v1/warranty-request/{id}/complete` | Complete (after repair/RMA) | MANAGER |
 | PUT | `/api/v1/warranty-request/{id}/cancel` | Cancel with reason | MANAGER |
@@ -1083,7 +1083,7 @@ interface AuditLog {
 
 | Method | Path | Description | Auth |
 |--------|------|-------------|------|
-| GET | `/api/v1/inventory` | List inventory items (paginated, searchable) | STOCK, MANAGER, ADMIN |
+| GET | `/api/v1/inventory` | List inventory items (paginated, searchable) | SALES, STOCK, MANAGER |
 
 **Query params**: `search`
 
@@ -1106,7 +1106,7 @@ interface AuditLog {
 ADMIN > MANAGER > STOCK
 ```
 
-- **ADMIN**: full access, user management, approve/cancel all transactions
+- **ADMIN**: system admin — user management, audit, approve/cancel (backup when QL absent), không khởi tạo giao dịch nghiệp vụ
 - **MANAGER**: CRUD master data, approve transactions, reports
 - **STOCK**: read-only on most, create transactions (import/export/stock-check/adjustment)
 

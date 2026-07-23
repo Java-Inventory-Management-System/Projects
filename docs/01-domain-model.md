@@ -25,7 +25,7 @@ erDiagram
     roles {
         bigint id PK
         varchar50 name UK "ADMIN | MANAGER | SALES | STOCK"
-        int level "1=ADMIN | 2=MANAGER | 3=SALES/STOCK"
+        int level "1=ADMIN | 2=MANAGER | 3=SALES/STOCK — dùng trong UserRoleSecurity.canUpdate() (hierarchical user mgmt), không dùng cho feature-level permissions"
         varchar255 description
         timestamp created_at
         timestamp updated_at
