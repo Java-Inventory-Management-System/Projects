@@ -36,14 +36,20 @@ export function mapResponsePage<T>(raw: unknown, mapItem: (item: unknown) => T):
     totalElements?: number
     size?: number
     number?: number
+    pagination?: {
+      pageNumber?: number
+      pageSize?: number
+      totalElements?: number
+      totalPages?: number
+    }
   }
   return {
     content: (body.content ?? []).map(mapItem),
     pagination: {
-      totalPages: body.totalPages ?? 0,
-      totalElements: body.totalElements ?? 0,
-      size: body.size ?? 20,
-      number: body.number ?? 0,
+      totalPages: body.totalPages ?? body.pagination?.totalPages ?? 0,
+      totalElements: body.totalElements ?? body.pagination?.totalElements ?? 0,
+      size: body.size ?? body.pagination?.pageSize ?? 20,
+      number: body.number ?? body.pagination?.pageNumber ?? 0,
     },
   }
 }
