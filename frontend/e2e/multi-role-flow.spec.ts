@@ -2,9 +2,13 @@ import { test, expect } from "@playwright/test"
 import { loginAsStock, loginAsManager } from "./helpers/auth"
 import { navigateTo } from "./helpers/nav"
 import { initTokens, getToken } from "./helpers/api"
+import { cleanupProduct1 } from "./helpers/cleanup"
+import { approveDialog } from "./helpers/approve"
 
 test.describe("Multi-Role Cross-Flow (Liên kết nghiệp vụ)", () => {
   const API = "http://localhost:8888/api/v1"
+
+  test.beforeAll(() => cleanupProduct1())
 
   test("STOCK import → STOCK export → MANAGER approves both → verify inventory", async ({ browser }) => {
     const stockCtx = await browser.newContext()
@@ -36,19 +40,15 @@ test.describe("Multi-Role Cross-Flow (Liên kết nghiệp vụ)", () => {
     const impItemId = impData.items[0].id
 
     // STOCK confirms
-    await stock.request.put(`${API}/import-receipt/${impId}/confirm`, {
+    const confirmRes = await stock.request.put(`${API}/import-receipt/${impId}/confirm`, {
       data: { serials: [{ itemId: impItemId, serialNumbers: [`${serial}-1`, `${serial}-2`], locationId: 1 }] },
       headers: { Authorization: `Bearer ${stockToken}` },
     })
+    expect(confirmRes.ok()).toBeTruthy()
 
     // MANAGER approves import via detail page
     await navigateTo(mgr, `/stock/imports/${impId}`)
-    await mgr.waitForTimeout(1000)
-
-    const impApproveBtn = mgr.locator('button:has-text("Duyệt")')
-    await expect(impApproveBtn).toBeVisible({ timeout: 10000 })
-    await impApproveBtn.click()
-    await mgr.waitForTimeout(1500)
+    await approveDialog(mgr, impId)
 
     // Verify import COMPLETED
     const impVerify = await mgr.request.get(`${API}/import-receipt/${impId}`, {
@@ -56,9 +56,12 @@ test.describe("Multi-Role Cross-Flow (Liên kết nghiệp vụ)", () => {
     })
     expect(((await impVerify.json()) as { data: { status: string } }).data.status).toBe("COMPLETED")
 
-    // Get product unit IDs
-    const impDetail = (await impVerify.json()) as { data: { items: Array<{ productUnitIds?: number[] }> } }
-    const unitIds = impDetail.data.items.flatMap((i) => i.productUnitIds ?? [])
+    // Get product unit IDs via dedicated endpoint
+    const unitsRes = await mgr.request.get(`${API}/import-receipt/${impId}/units`, {
+      headers: { Authorization: `Bearer ${managerToken}` },
+    })
+    const units = (await unitsRes.json()) as { data: Array<{ id: number }> }
+    const unitIds = units.data.map((u) => u.id)
     expect(unitIds.length).toBe(2)
 
     // ── Flow 2: Export ──
@@ -73,16 +76,12 @@ test.describe("Multi-Role Cross-Flow (Liên kết nghiệp vụ)", () => {
       },
       headers: { Authorization: `Bearer ${stockToken}` },
     })
+    expect(expRes.ok()).toBeTruthy()
     const expId: number = (await expRes.json()).data.id
 
     // MANAGER approves export via detail page
     await navigateTo(mgr, `/stock/exports/${expId}`)
-    await mgr.waitForTimeout(1000)
-
-    const expApproveBtn = mgr.locator('button:has-text("Duyệt")')
-    await expect(expApproveBtn).toBeVisible({ timeout: 10000 })
-    await expApproveBtn.click()
-    await mgr.waitForTimeout(1500)
+    await approveDialog(mgr, expId)
 
     // Verify export COMPLETED
     const expVerify = await mgr.request.get(`${API}/export-receipt/${expId}`, {
@@ -91,18 +90,14 @@ test.describe("Multi-Role Cross-Flow (Liên kết nghiệp vụ)", () => {
     expect(((await expVerify.json()) as { data: { status: string } }).data.status).toBe("COMPLETED")
 
     // ── Flow 3: Verify inventory ──
-    // The exported unit is now SOLD, remaining unit is IN_STOCK
-    const unitRes = await stock.request.get(`${API}/product-unit/${unitIds[0]}`, {
+    // The exported unit is now SOLD, remaining unit is IN_STOCK (order unknown)
+    const s0 = ((await (await stock.request.get(`${API}/product-unit/${unitIds[0]}`, {
       headers: { Authorization: `Bearer ${stockToken}` },
-    })
-    const unit1 = (await unitRes.json()) as { data: { status: string } }
-    expect(unit1.data.status).toBe("SOLD")
-
-    const unitRes2 = await stock.request.get(`${API}/product-unit/${unitIds[1]}`, {
+    })).json()) as { data: { status: string } }).data.status
+    const s1 = ((await (await stock.request.get(`${API}/product-unit/${unitIds[1]}`, {
       headers: { Authorization: `Bearer ${stockToken}` },
-    })
-    const unit2 = (await unitRes2.json()) as { data: { status: string } }
-    expect(unit2.data.status).toBe("IN_STOCK")
+    })).json()) as { data: { status: string } }).data.status
+    expect(new Set([s0, s1])).toEqual(new Set(["SOLD", "IN_STOCK"]))
 
     await stockCtx.close()
     await mgrCtx.close()

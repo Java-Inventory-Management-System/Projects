@@ -2,9 +2,12 @@ import { test, expect } from "@playwright/test"
 import { loginAsStock, loginAsManager } from "./helpers/auth"
 import { navigateTo } from "./helpers/nav"
 import { initTokens, getToken } from "./helpers/api"
+import { cleanupProduct1 } from "./helpers/cleanup"
 
 test.describe("Return Flow (Trả hàng) — SOP §7", () => {
   const API = "http://localhost:8888/api/v1"
+
+  test.beforeAll(() => cleanupProduct1())
 
   test("STOCK creates return → MANAGER approves → unit RESTOCKED", async ({ browser }) => {
     const stockCtx = await browser.newContext()
@@ -34,13 +37,15 @@ test.describe("Return Flow (Trả hàng) — SOP §7", () => {
     const impItemId: number = impData.items[0].id
 
     // Confirm + approve import
-    await stock.request.put(`${API}/import-receipt/${impId}/confirm`, {
+    const confirmRes = await stock.request.put(`${API}/import-receipt/${impId}/confirm`, {
       data: { serials: [{ itemId: impItemId, serialNumbers: [serial], locationId: 1 }] },
       headers: { Authorization: `Bearer ${stockToken}` },
     })
-    await stock.request.put(`${API}/import-receipt/${impId}/approve`, {
+    expect(confirmRes.ok()).toBeTruthy()
+    const impApproveRes = await stock.request.put(`${API}/import-receipt/${impId}/approve`, {
       headers: { Authorization: `Bearer ${managerToken}` },
     })
+    expect(impApproveRes.ok()).toBeTruthy()
 
     // Get product unit IDs from the import
     const impDetail = await stock.request.get(`${API}/import-receipt/${impId}`, {
@@ -61,12 +66,20 @@ test.describe("Return Flow (Trả hàng) — SOP §7", () => {
       },
       headers: { Authorization: `Bearer ${stockToken}` },
     })
+    expect(expRes.ok()).toBeTruthy()
     const expId: number = (await expRes.json()).data.id
 
     // Approve export
-    await stock.request.put(`${API}/export-receipt/${expId}/approve`, {
+    const expApproveRes = await stock.request.put(`${API}/export-receipt/${expId}/approve`, {
       headers: { Authorization: `Bearer ${managerToken}` },
     })
+    expect(expApproveRes.ok()).toBeTruthy()
+
+    // Verify unit is actually SOLD
+    const unitCheck = await stock.request.get(`${API}/product-unit/${unitIds[0]}`, {
+      headers: { Authorization: `Bearer ${stockToken}` },
+    })
+    expect(((await unitCheck.json()) as { data: { status: string } }).data.status).toBe("SOLD")
 
     // ── Step 1: Create return via API (UI form may be complex) ──
     const retRes = await stock.request.post(`${API}/return-receipts`, {
@@ -79,29 +92,27 @@ test.describe("Return Flow (Trả hàng) — SOP §7", () => {
       },
       headers: { Authorization: `Bearer ${stockToken}` },
     })
+    if (!retRes.ok()) console.error("Return fail:", await retRes.text())
     expect(retRes.ok()).toBeTruthy()
     const retId: number = (await retRes.json()).data.id
 
     // ── Step 2: MANAGER approves via UI ──
+    // Return detail page approves directly (no confirmation dialog)
     await navigateTo(mgr, `/returns/${retId}`)
-    await mgr.waitForTimeout(1000)
+    const retApproveResp = mgr.waitForResponse(
+      (r) => r.url().includes(`/${retId}/approve`) && r.status() === 200,
+    )
+    const retApproveBtn = mgr.locator('button:has-text("Duyệt")')
+    await expect(retApproveBtn).toBeVisible({ timeout: 10000 })
+    await retApproveBtn.click()
+    await retApproveResp
 
-    const approveBtn = mgr.locator('button:has-text("Duyệt")')
-    if (await approveBtn.isVisible()) {
-      await approveBtn.click()
-      await mgr.waitForTimeout(1500)
-    } else {
-      await mgr.request.put(`${API}/return-receipts/${retId}/approve`, {
-        headers: { Authorization: `Bearer ${managerToken}` },
-      })
-    }
-
-    // ── Step 3: Verify APPROVED ──
+    // ── Step 3: Verify COMPLETED (approve sets status to COMPLETED for return receipts) ──
     const retDetail = await mgr.request.get(`${API}/return-receipts/${retId}`, {
       headers: { Authorization: `Bearer ${managerToken}` },
     })
     const retData = (await retDetail.json()) as { data: { status: string } }
-    expect(retData.data.status).toBe("APPROVED")
+    expect(retData.data.status).toBe("COMPLETED")
 
     await stockCtx.close()
     await mgrCtx.close()

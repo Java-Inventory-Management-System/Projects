@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test"
 import { loginAsStock, loginAsManager } from "./helpers/auth"
 import { navigateTo } from "./helpers/nav"
 import { initTokens, getToken, ensureImport } from "./helpers/api"
+import { approveDialog } from "./helpers/approve"
 
 test.describe("Stock Adjustment Flow (Điều chỉnh tồn) — SOP §5", () => {
   const API = "http://localhost:8888/api/v1"
@@ -32,12 +33,7 @@ test.describe("Stock Adjustment Flow (Điều chỉnh tồn) — SOP §5", () =>
 
     // MANAGER approves via UI detail page
     await navigateTo(mgr, `/stock/adjustments/${adjId}`)
-    await mgr.waitForTimeout(1000)
-
-    const approveBtn = mgr.locator('button:has-text("Duyệt")')
-    await expect(approveBtn).toBeVisible({ timeout: 10000 })
-    await approveBtn.click()
-    await mgr.waitForTimeout(1500)
+    await approveDialog(mgr, adjId)
 
     // Verify APPROVED
     const detail = await mgr.request.get(`${API}/stock-adjustment/${adjId}`, {

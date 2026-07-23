@@ -277,7 +277,7 @@ function ActivityTab() {
   const firstDay = new Date(today.getFullYear(), today.getMonth(), 1)
   const [from, setFrom] = useState(firstDay.toISOString().slice(0, 10))
   const [to, setTo] = useState(today.toISOString().slice(0, 10))
-  const { data, isLoading } = useActivity(from, to)
+  const { data, isLoading } = useActivity(from + "T00:00:00Z", to + "T23:59:59Z")
   return (
     <div className="space-y-3">
       <div className="flex gap-3">

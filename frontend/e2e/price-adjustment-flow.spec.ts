@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test"
 import { loginAsStock, loginAsManager } from "./helpers/auth"
 import { navigateTo } from "./helpers/nav"
 import { initTokens, getToken } from "./helpers/api"
+import { approveDialog } from "./helpers/approve"
 
 test.describe("Price Adjustment Flow (Điều chỉnh giá) — SOP §8", () => {
   const API = "http://localhost:8888/api/v1"
@@ -28,18 +29,21 @@ test.describe("Price Adjustment Flow (Điều chỉnh giá) — SOP §8", () => 
       },
       headers: { Authorization: `Bearer ${stockToken}` },
     })
+    expect(impRes.ok()).toBeTruthy()
     const impData = (await impRes.json()).data
     const impId = impData.id
     const impItemId = impData.items[0].id
 
     // Confirm + approve import
-    await stock.request.put(`${API}/import-receipt/${impId}/confirm`, {
+    const confirmRes = await stock.request.put(`${API}/import-receipt/${impId}/confirm`, {
       data: { serials: [{ itemId: impItemId, serialNumbers: [serial], locationId: 1 }] },
       headers: { Authorization: `Bearer ${stockToken}` },
     })
-    await stock.request.put(`${API}/import-receipt/${impId}/approve`, {
+    expect(confirmRes.ok()).toBeTruthy()
+    const impApproveRes = await stock.request.put(`${API}/import-receipt/${impId}/approve`, {
       headers: { Authorization: `Bearer ${managerToken}` },
     })
+    expect(impApproveRes.ok()).toBeTruthy()
 
     // STOCK creates price adjustment via API
     const adjRes = await stock.request.post(`${API}/price-adjustment`, {
@@ -51,12 +55,7 @@ test.describe("Price Adjustment Flow (Điều chỉnh giá) — SOP §8", () => 
 
     // MANAGER approves via UI
     await navigateTo(mgr, `/stock/price-adjustments/${adjId}`)
-    await mgr.waitForTimeout(1000)
-
-    const approveBtn = mgr.locator('button:has-text("Duyệt")')
-    await expect(approveBtn).toBeVisible({ timeout: 10000 })
-    await approveBtn.click()
-    await mgr.waitForTimeout(1500)
+    await approveDialog(mgr, adjId)
 
     // Verify APPROVED + newPrice
     const detail = await mgr.request.get(`${API}/price-adjustment/${adjId}`, {

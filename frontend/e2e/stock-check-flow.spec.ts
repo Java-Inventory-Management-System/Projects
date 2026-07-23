@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test"
 import { loginAsStock, loginAsManager } from "./helpers/auth"
 import { navigateTo } from "./helpers/nav"
 import { initTokens, getToken, ensureImport } from "./helpers/api"
+import { approveDialog } from "./helpers/approve"
 
 test.describe("Stock Check Flow (Kiểm kê) — SOP §4", () => {
   const API = "http://localhost:8888/api/v1"
@@ -22,10 +23,10 @@ test.describe("Stock Check Flow (Kiểm kê) — SOP §4", () => {
     const { productUnitIds } = await ensureImport(stock)
     test.skip(productUnitIds.length === 0, "No product units")
 
-    // MANAGER creates stock check via API
-    const createRes = await mgr.request.post(`${API}/stock-check`, {
+    // STOCK creates stock check via API (creator ≠ approver)
+    const createRes = await stock.request.post(`${API}/stock-check`, {
       data: { note: "E2E stock check", productUnitIds },
-      headers: { Authorization: `Bearer ${managerToken}` },
+      headers: { Authorization: `Bearer ${stockToken}` },
     })
     expect(createRes.ok()).toBeTruthy()
     const checkId: number = (await createRes.json()).data.id
@@ -48,19 +49,7 @@ test.describe("Stock Check Flow (Kiểm kê) — SOP §4", () => {
 
     // MANAGER approves via UI detail page
     await navigateTo(mgr, `/stock/checks/${checkId}`)
-    await mgr.waitForTimeout(1000)
-
-    const approveBtn = mgr.locator('button:has-text("Approve")')
-    await expect(approveBtn).toBeVisible({ timeout: 10000 })
-    await approveBtn.click()
-    await mgr.waitForTimeout(1500)
-
-    // Confirm approve in dialog
-    const confirmBtn = mgr.locator('button:has-text("Confirm Approve")')
-    if (await confirmBtn.isVisible()) {
-      await confirmBtn.click()
-      await mgr.waitForTimeout(1500)
-    }
+    await approveDialog(mgr, checkId, "Approve", "Confirm Approve")
 
     // Verify APPROVED
     const detail = await mgr.request.get(`${API}/stock-check/${checkId}`, {
