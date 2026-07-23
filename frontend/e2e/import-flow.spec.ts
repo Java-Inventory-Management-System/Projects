@@ -1,13 +1,12 @@
 import { test, expect } from "@playwright/test"
 import { loginAsStock, loginAsManager } from "./helpers/auth"
 import { navigateTo } from "./helpers/nav"
-import { initTokens, getToken } from "./helpers/api"
+import { initTokens, getToken, API_URL} from "./helpers/api"
 import { approveDialog } from "./helpers/approve"
 
 test.describe("Import Flow (Nhập kho) — SOP §2", () => {
-  const API = "http://localhost:8888/api/v1"
 
-  test("STOCK creates import → STOCK confirms → MANAGER approves (API+UI hybrid)", async ({ browser }) => {
+  test("STOCK creates import → STOCK confirms → MANAGER approves (API_URL +UI hybrid)", async ({ browser }) => {
     const stockCtx = await browser.newContext()
     const mgrCtx = await browser.newContext()
     const stock = await stockCtx.newPage()
@@ -21,8 +20,8 @@ test.describe("Import Flow (Nhập kho) — SOP §2", () => {
     const managerToken = await getToken("manager", mgr)
     const serial = `E2E-IMP-${Date.now()}`
 
-    // STOCK creates import via API
-    const createRes = await stock.request.post(`${API}/import-receipt`, {
+    // STOCK creates import via API 
+    const createRes = await stock.request.post(`${API_URL}/import-receipt`, {
       data: {
         supplierId: 1, note: "E2E import",
         items: [{ productId: 1, quantity: 1, unitPrice: 10000000, warrantyMonths: 12, serialNumbers: [serial], locationId: 1 }],
@@ -35,7 +34,7 @@ test.describe("Import Flow (Nhập kho) — SOP §2", () => {
     const itemId: number = createData.items[0].id
 
     // STOCK confirms (creates product units, sets PENDING_APPROVAL)
-    const confirmRes = await stock.request.put(`${API}/import-receipt/${receiptId}/confirm`, {
+    const confirmRes = await stock.request.put(`${API_URL}/import-receipt/${receiptId}/confirm`, {
       data: { serials: [{ itemId, serialNumbers: [serial], locationId: 1 }] },
       headers: { Authorization: `Bearer ${stockToken}` },
     })
@@ -46,7 +45,7 @@ test.describe("Import Flow (Nhập kho) — SOP §2", () => {
     await approveDialog(mgr, receiptId)
 
     // Verify COMPLETED
-    const detail = await mgr.request.get(`${API}/import-receipt/${receiptId}`, {
+    const detail = await mgr.request.get(`${API_URL}/import-receipt/${receiptId}`, {
       headers: { Authorization: `Bearer ${managerToken}` },
     })
     expect(((await detail.json()) as { data: { status: string } }).data.status).toBe("COMPLETED")
@@ -69,7 +68,7 @@ test.describe("Import Flow (Nhập kho) — SOP §2", () => {
     const managerToken = await getToken("manager", mgr)
     const serial = `E2E-IMP-LIST-${Date.now()}`
 
-    const createRes = await stock.request.post(`${API}/import-receipt`, {
+    const createRes = await stock.request.post(`${API_URL}/import-receipt`, {
       data: {
         supplierId: 1, note: "E2E list approve",
         items: [{ productId: 1, quantity: 1, unitPrice: 10000000, warrantyMonths: 12, serialNumbers: [serial], locationId: 1 }],
@@ -82,7 +81,7 @@ test.describe("Import Flow (Nhập kho) — SOP §2", () => {
     const itemId: number = createData.items[0].id
 
     // STOCK confirms
-    const confirm2Res = await stock.request.put(`${API}/import-receipt/${receiptId}/confirm`, {
+    const confirm2Res = await stock.request.put(`${API_URL}/import-receipt/${receiptId}/confirm`, {
       data: { serials: [{ itemId, serialNumbers: [serial], locationId: 1 }] },
       headers: { Authorization: `Bearer ${stockToken}` },
     })
@@ -92,7 +91,7 @@ test.describe("Import Flow (Nhập kho) — SOP §2", () => {
     await navigateTo(mgr, `/stock/imports/${receiptId}`)
     await approveDialog(mgr, receiptId)
 
-    const detail = await mgr.request.get(`${API}/import-receipt/${receiptId}`, {
+    const detail = await mgr.request.get(`${API_URL}/import-receipt/${receiptId}`, {
       headers: { Authorization: `Bearer ${managerToken}` },
     })
     expect(((await detail.json()) as { data: { status: string } }).data.status).toBe("COMPLETED")

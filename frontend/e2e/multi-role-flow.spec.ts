@@ -1,12 +1,11 @@
 import { test, expect } from "@playwright/test"
 import { loginAsStock, loginAsManager } from "./helpers/auth"
 import { navigateTo } from "./helpers/nav"
-import { initTokens, getToken } from "./helpers/api"
+import { initTokens, getToken, API_URL } from "./helpers/api"
 import { cleanupProduct1 } from "./helpers/cleanup"
 import { approveDialog } from "./helpers/approve"
 
 test.describe("Multi-Role Cross-Flow (Liên kết nghiệp vụ)", () => {
-  const API = "http://localhost:8888/api/v1"
 
   test.beforeAll(() => cleanupProduct1())
 
@@ -27,7 +26,7 @@ test.describe("Multi-Role Cross-Flow (Liên kết nghiệp vụ)", () => {
 
     // ── Flow 1: Import ──
     // STOCK creates
-    const impRes = await stock.request.post(`${API}/import-receipt`, {
+    const impRes = await stock.request.post(`${API_URL}/import-receipt`, {
       data: {
         supplierId: 1,
         note: "Multi-role import",
@@ -40,7 +39,7 @@ test.describe("Multi-Role Cross-Flow (Liên kết nghiệp vụ)", () => {
     const impItemId = impData.items[0].id
 
     // STOCK confirms
-    const confirmRes = await stock.request.put(`${API}/import-receipt/${impId}/confirm`, {
+    const confirmRes = await stock.request.put(`${API_URL}/import-receipt/${impId}/confirm`, {
       data: { serials: [{ itemId: impItemId, serialNumbers: [`${serial}-1`, `${serial}-2`], locationId: 1 }] },
       headers: { Authorization: `Bearer ${stockToken}` },
     })
@@ -51,13 +50,13 @@ test.describe("Multi-Role Cross-Flow (Liên kết nghiệp vụ)", () => {
     await approveDialog(mgr, impId)
 
     // Verify import COMPLETED
-    const impVerify = await mgr.request.get(`${API}/import-receipt/${impId}`, {
+    const impVerify = await mgr.request.get(`${API_URL}/import-receipt/${impId}`, {
       headers: { Authorization: `Bearer ${managerToken}` },
     })
     expect(((await impVerify.json()) as { data: { status: string } }).data.status).toBe("COMPLETED")
 
     // Get product unit IDs via dedicated endpoint
-    const unitsRes = await mgr.request.get(`${API}/import-receipt/${impId}/units`, {
+    const unitsRes = await mgr.request.get(`${API_URL}/import-receipt/${impId}/units`, {
       headers: { Authorization: `Bearer ${managerToken}` },
     })
     const units = (await unitsRes.json()) as { data: Array<{ id: number }> }
@@ -66,13 +65,12 @@ test.describe("Multi-Role Cross-Flow (Liên kết nghiệp vụ)", () => {
 
     // ── Flow 2: Export ──
     // STOCK creates export
-    const expRes = await stock.request.post(`${API}/export-receipt`, {
+    const expRes = await stock.request.post(`${API_URL}/export-receipt`, {
       data: {
         reason: "SALE",
         customerId: 1,
         note: "Multi-role export",
-        items: [{ productId: 1, quantity: 1, unitPrice: 15000000 }],
-        productUnitIds: [unitIds[0]],
+        items: [{ productId: 1, quantity: 1, unitPrice: 15000000, productUnitIds: [unitIds[0]] }],
       },
       headers: { Authorization: `Bearer ${stockToken}` },
     })
@@ -84,20 +82,21 @@ test.describe("Multi-Role Cross-Flow (Liên kết nghiệp vụ)", () => {
     await approveDialog(mgr, expId)
 
     // Verify export COMPLETED
-    const expVerify = await mgr.request.get(`${API}/export-receipt/${expId}`, {
+    const expVerify = await mgr.request.get(`${API_URL}/export-receipt/${expId}`, {
       headers: { Authorization: `Bearer ${managerToken}` },
     })
     expect(((await expVerify.json()) as { data: { status: string } }).data.status).toBe("COMPLETED")
 
     // ── Flow 3: Verify inventory ──
-    // The exported unit is now SOLD, remaining unit is IN_STOCK (order unknown)
-    const s0 = ((await (await stock.request.get(`${API}/product-unit/${unitIds[0]}`, {
+    // First unit exported → SOLD, second unit remains IN_STOCK
+    const s0 = ((await (await stock.request.get(`${API_URL}/product-unit/${unitIds[0]}`, {
       headers: { Authorization: `Bearer ${stockToken}` },
     })).json()) as { data: { status: string } }).data.status
-    const s1 = ((await (await stock.request.get(`${API}/product-unit/${unitIds[1]}`, {
+    const s1 = ((await (await stock.request.get(`${API_URL}/product-unit/${unitIds[1]}`, {
       headers: { Authorization: `Bearer ${stockToken}` },
     })).json()) as { data: { status: string } }).data.status
-    expect(new Set([s0, s1])).toEqual(new Set(["SOLD", "IN_STOCK"]))
+    expect(s0).toBe("SOLD")
+    expect(s1).toBe("IN_STOCK")
 
     await stockCtx.close()
     await mgrCtx.close()

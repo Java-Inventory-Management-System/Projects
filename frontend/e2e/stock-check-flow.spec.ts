@@ -1,11 +1,10 @@
 import { test, expect } from "@playwright/test"
 import { loginAsStock, loginAsManager } from "./helpers/auth"
 import { navigateTo } from "./helpers/nav"
-import { initTokens, getToken, ensureImport } from "./helpers/api"
+import { initTokens, getToken, ensureImport, API_URL } from "./helpers/api"
 import { approveDialog } from "./helpers/approve"
 
 test.describe("Stock Check Flow (Kiểm kê) — SOP §4", () => {
-  const API = "http://localhost:8888/api/v1"
 
   test("MANAGER creates stock check → STOCK records → MANAGER approves", async ({ browser }) => {
     const mgrCtx = await browser.newContext()
@@ -23,16 +22,16 @@ test.describe("Stock Check Flow (Kiểm kê) — SOP §4", () => {
     const { productUnitIds } = await ensureImport(stock)
     test.skip(productUnitIds.length === 0, "No product units")
 
-    // STOCK creates stock check via API (creator ≠ approver)
-    const createRes = await stock.request.post(`${API}/stock-check`, {
+    // STOCK creates stock check via API_URL (creator ≠ approver)
+    const createRes = await stock.request.post(`${API_URL}/stock-check`, {
       data: { note: "E2E stock check", productUnitIds },
       headers: { Authorization: `Bearer ${stockToken}` },
     })
     expect(createRes.ok()).toBeTruthy()
     const checkId: number = (await createRes.json()).data.id
 
-    // STOCK records count via API (UI form complex)
-    const recordRes = await stock.request.put(`${API}/stock-check/${checkId}/items`, {
+    // STOCK records count via API_URL (UI form complex)
+    const recordRes = await stock.request.put(`${API_URL}/stock-check/${checkId}/items`, {
       data: {
         items: productUnitIds.map((id) => ({
           productUnitId: id, actualStatus: "IN_STOCK", countedQuantity: 1, note: "E2E ok",
@@ -42,8 +41,8 @@ test.describe("Stock Check Flow (Kiểm kê) — SOP §4", () => {
     })
     expect(recordRes.ok()).toBeTruthy()
 
-    // STOCK completes via API
-    await stock.request.put(`${API}/stock-check/${checkId}/complete`, {
+    // STOCK completes via API_URL
+    await stock.request.put(`${API_URL}/stock-check/${checkId}/complete`, {
       headers: { Authorization: `Bearer ${stockToken}` },
     })
 
@@ -52,7 +51,7 @@ test.describe("Stock Check Flow (Kiểm kê) — SOP §4", () => {
     await approveDialog(mgr, checkId, "Approve", "Confirm Approve")
 
     // Verify APPROVED
-    const detail = await mgr.request.get(`${API}/stock-check/${checkId}`, {
+    const detail = await mgr.request.get(`${API_URL}/stock-check/${checkId}`, {
       headers: { Authorization: `Bearer ${managerToken}` },
     })
     expect(((await detail.json()) as { data: { status: string } }).data.status).toBe("APPROVED")

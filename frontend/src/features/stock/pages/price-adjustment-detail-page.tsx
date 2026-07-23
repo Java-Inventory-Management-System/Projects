@@ -109,7 +109,7 @@ export function PriceAdjustmentDetailPage() {
           <h1 className="text-xl font-semibold tracking-tight">{adj.adjustCode}</h1>
           <Badge variant={s.variant}>{s.label}</Badge>
         </div>
-        {perm.canApprove(ADJUSTMENT_STATUS.PENDING) && adj.status === ADJUSTMENT_STATUS.PENDING && (
+        {perm.canApprove() && adj.status === ADJUSTMENT_STATUS.PENDING && (
           <div className="flex gap-2">
             <Button variant="outline" className="text-destructive" onClick={() => setConfirmAction("reject")}>
               <X className="size-4 mr-1" /> Từ chối

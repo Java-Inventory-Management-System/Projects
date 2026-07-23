@@ -1,10 +1,9 @@
 import { test, expect } from "@playwright/test"
 import { loginAsStock, loginAsManager } from "./helpers/auth"
-import { initTokens, getToken } from "./helpers/api"
+import { initTokens, getToken, API_URL } from "./helpers/api"
 import { cleanupProduct1 } from "./helpers/cleanup"
 
 test.describe("Warranty Flow (Bảo hành) — SOP §6", () => {
-  const API = "http://localhost:8888/api/v1"
 
   test.beforeAll(() => cleanupProduct1())
 
@@ -23,7 +22,7 @@ test.describe("Warranty Flow (Bảo hành) — SOP §6", () => {
 
     // Setup: import 2 units → export 1 (SOLD for warranty) → keep 1 IN_STOCK (for replacement)
     const serial = `E2E-WRN-${Date.now()}`
-    const impRes = await stock.request.post(`${API}/import-receipt`, {
+    const impRes = await stock.request.post(`${API_URL}/import-receipt`, {
       data: {
         supplierId: 1,
         note: "E2E warranty setup",
@@ -35,36 +34,36 @@ test.describe("Warranty Flow (Bảo hành) — SOP §6", () => {
     const impId = impData.id
     const impItemId = impData.items[0].id
 
-    const confirmRes = await stock.request.put(`${API}/import-receipt/${impId}/confirm`, {
+    const confirmRes = await stock.request.put(`${API_URL}/import-receipt/${impId}/confirm`, {
       data: { serials: [{ itemId: impItemId, serialNumbers: [`${serial}-A`, `${serial}-B`], locationId: 1 }] },
       headers: { Authorization: `Bearer ${stockToken}` },
     })
     expect(confirmRes.ok()).toBeTruthy()
-    const impApproveRes = await stock.request.put(`${API}/import-receipt/${impId}/approve`, {
+    const impApproveRes = await stock.request.put(`${API_URL}/import-receipt/${impId}/approve`, {
       headers: { Authorization: `Bearer ${managerToken}` },
     })
     expect(impApproveRes.ok()).toBeTruthy()
 
-    const unitsRes = await stock.request.get(`${API}/import-receipt/${impId}/units`, {
+    const unitsRes = await stock.request.get(`${API_URL}/import-receipt/${impId}/units`, {
       headers: { Authorization: `Bearer ${stockToken}` },
     })
     const unitIds: number[] = (await unitsRes.json()).data.map((u: any) => u.id)
     test.skip(unitIds.length < 2, "Need at least 2 units")
 
     // Export only 1 unit → unitIds[0] becomes SOLD, unitIds[1] stays IN_STOCK for replacement
-    const expRes = await stock.request.post(`${API}/export-receipt`, {
-      data: { reason: "SALE", customerId: 1, note: "E2E warranty setup", items: [{ productId: 1, quantity: 1, unitPrice: 15000000 }] },
+    const expRes = await stock.request.post(`${API_URL}/export-receipt`, {
+      data: { reason: "SALE", customerId: 1, note: "E2E warranty setup", items: [{ productId: 1, quantity: 1, unitPrice: 15000000, productUnitIds: [unitIds[0]] }] },
       headers: { Authorization: `Bearer ${stockToken}` },
     })
     expect(expRes.ok()).toBeTruthy()
     const expId: number = (await expRes.json()).data.id
-    const expApproveRes = await stock.request.put(`${API}/export-receipt/${expId}/approve`, {
+    const expApproveRes = await stock.request.put(`${API_URL}/export-receipt/${expId}/approve`, {
       headers: { Authorization: `Bearer ${managerToken}` },
     })
     expect(expApproveRes.ok()).toBeTruthy()
 
-    // ── Step 1: Create warranty request via API ──
-    const wrRes = await stock.request.post(`${API}/warranty-request`, {
+    // ── Step 1: Create warranty request via API_URL ──
+    const wrRes = await stock.request.post(`${API_URL}/warranty-request`, {
       data: { serialNumber: `${serial}-A`, customerId: 1, issueDescription: "E2E test: no power", note: "Customer walk-in" },
       headers: { Authorization: `Bearer ${stockToken}` },
     })
@@ -73,14 +72,14 @@ test.describe("Warranty Flow (Bảo hành) — SOP §6", () => {
 
     // ── Step 2: Resolve as REPLACE (replace with the IN_STOCK unit) ──
     // REPLACE resolve also completes the warranty; no separate complete step.
-    const resolveRes = await stock.request.put(`${API}/warranty-request/${wrId}/resolve`, {
+    const resolveRes = await stock.request.put(`${API_URL}/warranty-request/${wrId}/resolve`, {
       data: { resolutionType: "REPLACE", replacementUnitId: unitIds[1], rmaNumber: `RMA-E2E-${Date.now()}` },
       headers: { Authorization: `Bearer ${managerToken}` },
     })
     expect(resolveRes.ok()).toBeTruthy()
 
     // ── Step 3: Verify COMPLETED with REPLACE resolution ──
-    const wrDetail = await stock.request.get(`${API}/warranty-request/${wrId}`, {
+    const wrDetail = await stock.request.get(`${API_URL}/warranty-request/${wrId}`, {
       headers: { Authorization: `Bearer ${stockToken}` },
     })
     const wrData = (await wrDetail.json()) as { data: { status: string; resolutionType: string } }
