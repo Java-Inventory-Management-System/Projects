@@ -52,6 +52,12 @@ services:
     networks:
       - network
 
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_BASE_API_URL: /api/v1
+
   nginx:
     depends_on:
       frontend:
