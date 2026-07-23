@@ -14,8 +14,6 @@ make infra       # MySQL
 cd frontend && npm run dev
 ```
 
-## Tài liệu
+## Quy trình làm việc
 
-- [Hướng dẫn môi trường](docs/setup.md)
-- [Kiến trúc nghiệp vụ](docs/workflow.md)
-- [Domain model](docs/domain-model.md)
+- [Team Workflow](team-workflow.md) — quy trình nhóm, feature pipeline, vibe code standard, merge main policy.
