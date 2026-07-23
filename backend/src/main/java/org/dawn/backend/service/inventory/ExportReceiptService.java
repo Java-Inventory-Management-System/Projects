@@ -143,7 +143,20 @@ public class ExportReceiptService {
             boolean isBulk = BULK_UNITS.contains(unit);
 
             List<ProductUnit> available;
-            if (isBulk) {
+            List<Long> specifiedIds = itemReq.productUnitIds();
+
+            if (specifiedIds != null && !specifiedIds.isEmpty()) {
+                available = productUnitRepository.findByIdInWithLock(specifiedIds);
+                if (available.size() != specifiedIds.size()) {
+                    throw new InvalidRequestException("Some specified product units are not available");
+                }
+                for (ProductUnit pu : available) {
+                    if (!pu.getProductId().equals(itemReq.productId())) {
+                        throw new InvalidRequestException(
+                                Message.format(Message.Inventory.PRODUCT_UNIT_NOT_FOUND, pu.getId()));
+                    }
+                }
+            } else if (isBulk) {
                 available = productUnitRepository.findByProductIdAndStatusWithLock(itemReq.productId());
             } else {
                 available = productUnitRepository.findAvailableForExportWithLock(itemReq.productId());

@@ -7,15 +7,17 @@ services:
     container_name: mysql
     image: mysql:8.4.5
     restart: always
+    ports:
+      - '3307:3306'
     environment:
-      MYSQL_DATABASE: inventory_db
-      MYSQL_ROOT_PASSWORD: 123456
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-inventory_db}
+      MYSQL_ROOT_PASSWORD: ${DB_PASS:-123456}
     command:
       - mysqld
       - --max_allowed_packet=128M
       - --innodb_buffer_pool_size=256M
     volumes:
-      - ./data/mysql:/var/lib/mysql
+      - db-data:/var/lib/mysql
     healthcheck:
       test: ['CMD', 'mysqladmin', 'ping', '-h', 'localhost']
       timeout: 20s
@@ -32,26 +34,32 @@ services:
       mysql:
         condition: service_healthy
     environment:
-      DB_URL: jdbc:mysql://mysql:3306/inventory_db?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
-      DB_USER: root
-      DB_PASS: 123456
-      DB_DRIVER: com.mysql.cj.jdbc.Driver
-      JWT_SECRET: RGF3bkJyZWFrZXJEYXduQnJlYWtlckRhd25CcmVha2Vy
-      JWT_EXPIRATION: 86400000
-      JWT_REFRESH_EXPIRATION: 86400000
-      JWT_COOKIE_NAME: dawn-jwt
-      JWT_COOKIE_REFRESH_NAME: dawn-jwt-refresh
-      FRONTEND_URL: http://localhost
-      MAIL_ENABLED: false
-      MAIL_HOST: localhost
-      MAIL_PORT: 1025
-      MAIL_USERNAME: dummy
-      MAIL_PASSWORD: dummy
-      MAIL_FROM: noreply@test.local
+      DB_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-inventory_db}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      DB_USER: ${DB_USER:-root}
+      DB_PASS: ${DB_PASS:-123456}
+      DB_DRIVER: ${DB_DRIVER:-com.mysql.cj.jdbc.Driver}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRATION: ${JWT_EXPIRATION:-86400000}
+      JWT_REFRESH_EXPIRATION: ${JWT_REFRESH_EXPIRATION:-86400000}
+      JWT_COOKIE_NAME: ${JWT_COOKIE_NAME:-dawn-jwt}
+      JWT_COOKIE_REFRESH_NAME: ${JWT_COOKIE_REFRESH_NAME:-dawn-jwt-refresh}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost}
+      MAIL_ENABLED: ${MAIL_ENABLED:-false}
+      MAIL_HOST: ${MAIL_HOST:-localhost}
+      MAIL_PORT: ${MAIL_PORT:-1025}
+      MAIL_USERNAME: ${MAIL_USERNAME:-dummy}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-dummy}
+      MAIL_FROM: ${MAIL_FROM:-noreply@test.local}
       CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
       CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
       CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}
-      UPLOAD_PATH: ./uploads
+      UPLOAD_PATH: ${UPLOAD_PATH:-./uploads}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8888/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
     ports:
       - '8888:8888'
     networks:
@@ -62,25 +70,12 @@ services:
     build:
       context: ./frontend
       args:
-        VITE_BASE_API_URL: /api/v1
+        VITE_BASE_API_URL: ${VITE_BASE_API_URL:-/api/v1}
     restart: always
     depends_on:
       - backend
     ports:
       - '5173:80'
-    networks:
-      - network
-
-  test:
-    container_name: frontend-test
-    image: node:22-alpine
-    working_dir: /app
-    volumes:
-      - ./frontend:/app
-    environment:
-      NODE_ENV: test
-      VITE_BACKEND_URL: http://backend:8888/api/v1
-    command: sh -c "npm ci 2>/dev/null && npm run test:api"
     networks:
       - network
 
@@ -97,3 +92,6 @@ services:
       - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf
     networks:
       - network
+
+volumes:
+  db-data:

@@ -2,7 +2,6 @@ import { useAuthStore } from "@/store/auth-store"
 import { useCallback } from "react"
 import { ROLES } from "@/utils/permissions"
 import type { URole } from "@/utils/types"
-import { EXPORT_RECEIPT_STATUS } from "@/utils/types"
 
 export function usePermission() {
   const user = useAuthStore((s) => s.user)
@@ -12,7 +11,7 @@ export function usePermission() {
   const canCancel = useCallback(() => hasRole(...ROLES.MANAGER_ADMIN), [hasRole])
 
   const canApprove = useCallback(
-    (status: string) => hasRole(...ROLES.MANAGER_ADMIN) && status === EXPORT_RECEIPT_STATUS.PENDING_APPROVAL,
+    () => hasRole(...ROLES.MANAGER_ADMIN),
     [hasRole],
   )
 

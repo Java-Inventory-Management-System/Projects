@@ -1,12 +1,12 @@
 import { test, expect } from "@playwright/test"
 import { loginAsStock, loginAsManager } from "./helpers/auth"
 import { navigateTo } from "./helpers/nav"
-import { initTokens, getToken, ensureImport } from "./helpers/api"
+import { initTokens, getToken, ensureImport, API_URL } from "./helpers/api"
+import { approveDialog } from "./helpers/approve"
 
 test.describe("Stock Adjustment Flow (Điều chỉnh tồn) — SOP §5", () => {
-  const API = "http://localhost:8888/api/v1"
 
-  test("STOCK creates adjustment via API → MANAGER approves via UI", async ({ browser }) => {
+  test("STOCK creates adjustment via API_URL → MANAGER approves via UI", async ({ browser }) => {
     const stockCtx = await browser.newContext()
     const mgrCtx = await browser.newContext()
     const stock = await stockCtx.newPage()
@@ -22,8 +22,8 @@ test.describe("Stock Adjustment Flow (Điều chỉnh tồn) — SOP §5", () =>
     const { productUnitIds } = await ensureImport(stock)
     test.skip(productUnitIds.length === 0, "No product units")
 
-    // STOCK creates adjustment via API
-    const createRes = await stock.request.post(`${API}/stock-adjustment`, {
+    // STOCK creates adjustment via API_URL
+    const createRes = await stock.request.post(`${API_URL}/stock-adjustment`, {
       data: { type: "DAMAGED", productUnitId: productUnitIds[0], reason: "E2E test: damaged" },
       headers: { Authorization: `Bearer ${stockToken}` },
     })
@@ -32,15 +32,10 @@ test.describe("Stock Adjustment Flow (Điều chỉnh tồn) — SOP §5", () =>
 
     // MANAGER approves via UI detail page
     await navigateTo(mgr, `/stock/adjustments/${adjId}`)
-    await mgr.waitForTimeout(1000)
-
-    const approveBtn = mgr.locator('button:has-text("Duyệt")')
-    await expect(approveBtn).toBeVisible({ timeout: 10000 })
-    await approveBtn.click()
-    await mgr.waitForTimeout(1500)
+    await approveDialog(mgr, adjId)
 
     // Verify APPROVED
-    const detail = await mgr.request.get(`${API}/stock-adjustment/${adjId}`, {
+    const detail = await mgr.request.get(`${API_URL}/stock-adjustment/${adjId}`, {
       headers: { Authorization: `Bearer ${managerToken}` },
     })
     expect(((await detail.json()) as { data: { status: string } }).data.status).toBe("APPROVED")

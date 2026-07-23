@@ -46,6 +46,19 @@ spring:
     password: ${MAIL_PASSWORD:}
     from: ${MAIL_FROM:noreply@localhost}
 
+# Actuator
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: when-authorized
+  health:
+    mail:
+      enabled: false
+
 # Springdoc
 springdoc:
   swagger-ui:
