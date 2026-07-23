@@ -1,19 +1,22 @@
 package org.dawn.backend.controller.inventory;
 
+import java.util.List;
+
 import lombok.RequiredArgsConstructor;
+
+import org.springframework.data.domain.Pageable;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
+
 import org.dawn.backend.config.web.response.ResponseObject;
 import org.dawn.backend.config.web.response.ResponsePage;
 import org.dawn.backend.constant.security.AuthorizationExpressions;
+import org.dawn.backend.controller.inventory.request.ConfirmImportRequest;
 import org.dawn.backend.controller.inventory.request.ImportReceiptRequest;
 import org.dawn.backend.controller.inventory.response.ImportReceiptResponse;
 import org.dawn.backend.controller.inventory.response.ProductUnitResponse;
 import org.dawn.backend.service.inventory.ImportReceiptService;
 import org.dawn.backend.service.inventory.ProductUnitService;
-import org.springframework.data.domain.Pageable;
-import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 @RestController
 @RequestMapping
@@ -38,7 +41,13 @@ public class ImportReceiptController {
     @PostMapping("/import-receipt")
     @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_ADMIN_STOCK)
     public ResponseObject<ImportReceiptResponse> create(@RequestBody ImportReceiptRequest request) {
-        return ResponseObject.created(importReceiptService.createAndConfirm(request));
+        return ResponseObject.created(importReceiptService.create(request));
+    }
+
+    @PutMapping("/import-receipt/{id}/confirm")
+    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_ADMIN_STOCK)
+    public ResponseObject<ImportReceiptResponse> confirm(@PathVariable Long id, @RequestBody ConfirmImportRequest request) {
+        return ResponseObject.success(importReceiptService.confirm(id, request));
     }
 
     @PutMapping("/import-receipt/{id}/approve")

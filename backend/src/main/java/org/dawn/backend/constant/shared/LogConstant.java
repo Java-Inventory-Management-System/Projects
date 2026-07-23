@@ -23,6 +23,7 @@ public class LogConstant {
         public static final String CREATE_PRODUCT = "CREATE_PRODUCT";
         public static final String UPDATE_PRODUCT = "UPDATE_PRODUCT";
         public static final String TOGGLE_PRODUCT = "TOGGLE_PRODUCT";
+        public static final String CREATE_IMPORT = "CREATE_IMPORT";
         public static final String CONFIRM_IMPORT = "CONFIRM_IMPORT";
         public static final String APPROVE_IMPORT = "APPROVE_IMPORT";
         public static final String CANCEL_IMPORT = "CANCEL_IMPORT";

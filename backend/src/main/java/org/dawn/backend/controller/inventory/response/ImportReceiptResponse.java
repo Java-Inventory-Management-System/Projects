@@ -34,6 +34,7 @@ public record ImportReceiptResponse(
             BigDecimal quantity,
             BigDecimal unitPrice,
             Integer warrantyMonths,
-            Integer createdUnits
+            Integer createdUnits,
+            List<Long> productUnitIds
     ) {}
 }

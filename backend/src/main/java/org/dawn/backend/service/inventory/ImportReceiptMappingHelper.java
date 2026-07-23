@@ -1,12 +1,13 @@
 package org.dawn.backend.service.inventory;
 
+import java.util.List;
+import java.util.Map;
+
 import org.dawn.backend.controller.inventory.response.ImportReceiptResponse;
 import org.dawn.backend.controller.inventory.response.ImportReceiptResponse.ImportItemResponse;
 import org.dawn.backend.entity.catalog.Product;
 import org.dawn.backend.entity.inventory.ImportReceipt;
 import org.dawn.backend.entity.inventory.ImportReceiptItem;
-
-import java.util.List;
 
 public interface ImportReceiptMappingHelper {
 
@@ -16,8 +17,9 @@ public interface ImportReceiptMappingHelper {
                                       String approvedByName,
                                       String poCode,
                                       List<ImportReceiptItem> items,
-                                      java.util.Map<Long, Product> productMap,
-                                      java.util.Map<Long, Integer> unitCounts) {
+                                      Map<Long, Product> productMap,
+                                      Map<Long, Integer> unitCounts,
+                                      Map<Long, List<Long>> unitIds) {
         return ImportReceiptResponse.builder()
                 .id(receipt.getId())
                 .receiptCode(receipt.getReceiptCode())
@@ -43,6 +45,7 @@ public interface ImportReceiptMappingHelper {
                             .unitPrice(item.getUnitPrice())
                             .warrantyMonths(item.getWarrantyMonths())
                             .createdUnits(unitCounts.getOrDefault(item.getId(), 0))
+                            .productUnitIds(unitIds.getOrDefault(item.getId(), List.of()))
                             .build();
                 }).toList())
                 .createdAt(receipt.getCreatedAt())

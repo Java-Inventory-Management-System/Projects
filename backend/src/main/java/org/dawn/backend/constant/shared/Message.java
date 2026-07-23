@@ -111,9 +111,13 @@ public class Message {
         public static final String CUSTOMER_REQUIRED_FOR_SALE = "Customer is required for sale export";
         public static final String INVALID_EXPORT_REASON = "Invalid export reason: {0}";
         public static final String DISPOSE_ONLY_DAMAGED = "Only damaged units can be disposed";
+        public static final String BULK_CANNOT_SELECT_UNITS = "Cannot select specific units for bulk products";
+        public static final String UNIT_NOT_BELONG_TO_PRODUCT = "Product unit does not belong to the specified product";
+        public static final String UNIT_NOT_AVAILABLE = "Product unit is not available for export";
         public static final String SUPPLIER_REQUIRED = "Supplier is required";
         public static final String ONLY_PENDING_APPROVAL_CAN_APPROVE = "Only pending approval receipts can be approved";
         public static final String ONLY_PENDING_APPROVAL_CAN_CANCEL = "Only pending approval receipts can be cancelled";
+        public static final String ONLY_DRAFT_CAN_CONFIRM = "Only draft import receipts can be confirmed";
         public static final String STOCK_CHECK_NOT_FOUND = "Stock check not found";
         public static final String STOCK_CHECK_ALREADY_APPROVED = "Stock check already approved";
         public static final String STOCK_CHECK_ALREADY_REJECTED = "Stock check already rejected";
