@@ -27,8 +27,6 @@ services:
 
   backend:
     container_name: backend
-    build:
-      context: ./backend
     restart: always
     depends_on:
       mysql:
@@ -67,10 +65,6 @@ services:
 
   frontend:
     container_name: frontend
-    build:
-      context: ./frontend
-      args:
-        VITE_BASE_API_URL: ${VITE_BASE_API_URL:-/api/v1}
     restart: always
     depends_on:
       - backend
