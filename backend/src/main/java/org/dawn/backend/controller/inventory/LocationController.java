@@ -21,19 +21,19 @@ public class LocationController {
     private final LocationService locationService;
 
     @GetMapping("")
-    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_ADMIN_STOCK)
+    @PreAuthorize(AuthorizationExpressions.CAN_OPERATE)
     public ResponseObject<ResponsePage<LocationResponse>> getAll(Pageable pageable) {
         return ResponseObject.success(locationService.findAll(pageable));
     }
 
     @GetMapping("/search")
-    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_ADMIN_STOCK)
+    @PreAuthorize(AuthorizationExpressions.CAN_OPERATE)
     public ResponseObject<ResponsePage<LocationResponse>> search(@RequestParam String keyword, Pageable pageable) {
         return ResponseObject.success(locationService.search(keyword, pageable));
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_ADMIN_STOCK)
+    @PreAuthorize(AuthorizationExpressions.CAN_OPERATE)
     public ResponseObject<LocationResponse> getOne(@PathVariable Long id) {
         return ResponseObject.success(locationService.findOne(id));
     }
@@ -51,7 +51,7 @@ public class LocationController {
     }
 
     @GetMapping("/map")
-    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_ADMIN_STOCK)
+    @PreAuthorize(AuthorizationExpressions.CAN_VIEW_INVENTORY)
     public ResponseObject<LocationMapResponse> getMap() {
         return ResponseObject.success(locationService.getMap());
     }

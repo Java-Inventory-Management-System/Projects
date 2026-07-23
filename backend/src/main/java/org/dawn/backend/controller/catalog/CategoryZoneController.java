@@ -22,19 +22,19 @@ public class CategoryZoneController {
     private final CategoryZoneService categoryZoneService;
 
     @GetMapping("")
-    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_ADMIN_STOCK)
+    @PreAuthorize(AuthorizationExpressions.CAN_VIEW_INVENTORY)
     public ResponseObject<List<CategoryZoneResponse>> getAll() {
         return ResponseObject.success(categoryZoneService.getAll());
     }
 
     @GetMapping("/{categoryId}")
-    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_ADMIN_STOCK)
+    @PreAuthorize(AuthorizationExpressions.CAN_VIEW_INVENTORY)
     public ResponseObject<CategoryZoneResponse> getByCategoryId(@PathVariable Long categoryId) {
         return ResponseObject.success(categoryZoneService.getByCategoryId(categoryId));
     }
 
     @GetMapping("/map")
-    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_ADMIN_STOCK)
+    @PreAuthorize(AuthorizationExpressions.CAN_VIEW_INVENTORY)
     public ResponseObject<Map<Long, String>> getZoneMap() {
         return ResponseObject.success(categoryZoneService.getZoneMap());
     }

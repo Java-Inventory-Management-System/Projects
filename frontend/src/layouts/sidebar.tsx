@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query"
 import { cn } from "@/utils/cn"
 import { useAuthStore } from "@/store/auth-store"
 import { filterNavItems, navSections } from "@/utils/navigation"
+import { ROLES } from "@/utils/permissions"
 import { getImportReceipts } from "@/services/import-service"
 import { getExportReceipts } from "@/services/export-service"
 import { IMPORT_RECEIPT_STATUS, EXPORT_RECEIPT_STATUS } from "@/utils/types"
@@ -15,6 +16,7 @@ interface SidebarProps {
 
 export function Sidebar({ collapsed, onNavigate }: SidebarProps) {
   const user = useAuthStore((s) => s.user)
+  const userRole = useAuthStore((s) => s.user?.role)
   if (!user) return null
 
   const visibleSections = navSections
@@ -27,6 +29,7 @@ export function Sidebar({ collapsed, onNavigate }: SidebarProps) {
       const r = await getImportReceipts(0, 1, undefined, IMPORT_RECEIPT_STATUS.PENDING_APPROVAL)
       return r.pagination.totalElements
     },
+    enabled: userRole ? ROLES.ALL_STOCK.includes(userRole) : false,
     staleTime: 60_000,
   })
 

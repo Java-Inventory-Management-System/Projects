@@ -26,7 +26,7 @@ public class AuditLogController {
     private final AuditLogService auditLogService;
 
     @GetMapping
-    @PreAuthorize(AuthorizationExpressions.ROLE_ADMIN_MANAGER)
+    @PreAuthorize(AuthorizationExpressions.CAN_VIEW_REPORTS)
     public ResponseObject<ResponsePage<AuditLog>> list(
             @RequestParam(required = false) String action,
             @RequestParam(required = false) String entity,

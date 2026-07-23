@@ -87,6 +87,7 @@ function PageGuard({ roles, children }: { roles?: URole[]; children: ReactNode }
 function RootRedirect() {
   const role = useAuthStore((s) => s.user?.role)
   if (role === "STOCK") return <Navigate to="/stock/units" replace />
+  if (role === "SALES") return <Navigate to="/stock/exports" replace />
   return <DashboardPage />
 }
 
@@ -185,7 +186,7 @@ export const router = createBrowserRouter([
             path: "customers",
             element: (
               <Lazy>
-                <PageGuard roles={ROLES.ALL_STOCK}>
+                <PageGuard roles={ROLES.SALES_ACCESS}>
                   <CustomersPage />
                 </PageGuard>
               </Lazy>
@@ -216,7 +217,7 @@ export const router = createBrowserRouter([
             path: "stock/exports",
             element: (
               <Lazy>
-                <PageGuard roles={ROLES.ALL_STOCK}>
+                <PageGuard roles={ROLES.SALES_ACCESS}>
                   <ExportListPage />
                 </PageGuard>
               </Lazy>
@@ -226,7 +227,7 @@ export const router = createBrowserRouter([
             path: "stock/exports/new",
             element: (
               <Lazy>
-                <PageGuard roles={ROLES.MANAGER_STOCK}>
+                <PageGuard roles={ROLES.SALES_ACCESS}>
                   <ExportCreatePage />
                 </PageGuard>
               </Lazy>
@@ -306,7 +307,7 @@ export const router = createBrowserRouter([
             path: "stock/exports/:id",
             element: (
               <Lazy>
-                <PageGuard roles={ROLES.ALL_STOCK}>
+                <PageGuard roles={ROLES.SALES_ACCESS}>
                   <ExportDetailPage />
                 </PageGuard>
               </Lazy>
@@ -377,7 +378,7 @@ export const router = createBrowserRouter([
             path: "warranty",
             element: (
               <Lazy>
-                <PageGuard roles={ROLES.ALL_STOCK}>
+                <PageGuard roles={ROLES.SALES_ACCESS}>
                   <WarrantyListPage />
                 </PageGuard>
               </Lazy>
@@ -387,7 +388,7 @@ export const router = createBrowserRouter([
             path: "warranty/new",
             element: (
               <Lazy>
-                <PageGuard roles={ROLES.ALL_STOCK}>
+                <PageGuard roles={ROLES.SALES_ACCESS}>
                   <WarrantyCreatePage />
                 </PageGuard>
               </Lazy>
@@ -397,7 +398,7 @@ export const router = createBrowserRouter([
             path: "warranty/:id",
             element: (
               <Lazy>
-                <PageGuard roles={ROLES.ALL_STOCK}>
+                <PageGuard roles={ROLES.SALES_ACCESS}>
                   <WarrantyDetailPage />
                 </PageGuard>
               </Lazy>
@@ -407,7 +408,7 @@ export const router = createBrowserRouter([
             path: "returns",
             element: (
               <Lazy>
-                <PageGuard roles={ROLES.ALL_STOCK}>
+                <PageGuard roles={ROLES.SALES_ACCESS}>
                   <ReturnListPage />
                 </PageGuard>
               </Lazy>
@@ -417,7 +418,7 @@ export const router = createBrowserRouter([
             path: "returns/new",
             element: (
               <Lazy>
-                <PageGuard roles={ROLES.ALL_STOCK}>
+                <PageGuard roles={ROLES.SALES_ACCESS}>
                   <ReturnCreatePage />
                 </PageGuard>
               </Lazy>
@@ -427,7 +428,7 @@ export const router = createBrowserRouter([
             path: "returns/:id",
             element: (
               <Lazy>
-                <PageGuard roles={ROLES.ALL_STOCK}>
+                <PageGuard roles={ROLES.SALES_ACCESS}>
                   <ReturnDetailPage />
                 </PageGuard>
               </Lazy>
@@ -437,7 +438,7 @@ export const router = createBrowserRouter([
             path: "stock/units",
             element: (
               <Lazy>
-                <PageGuard roles={ROLES.ALL_STOCK}>
+                <PageGuard roles={ROLES.SALES_ACCESS}>
                   <StockUnitsPage />
                 </PageGuard>
               </Lazy>

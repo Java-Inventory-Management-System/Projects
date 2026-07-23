@@ -21,31 +21,31 @@ public class StockCheckController {
     private final StockCheckService stockCheckService;
 
     @GetMapping("/stock-check/my")
-    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_ADMIN_STOCK)
+    @PreAuthorize(AuthorizationExpressions.CAN_VIEW_INVENTORY)
     public ResponseObject<ResponsePage<StockCheckResponse>> getMyStockChecks(Pageable pageable) {
         return ResponseObject.success(stockCheckService.findMyChecks(pageable));
     }
 
     @GetMapping("/stock-check")
-    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_ADMIN)
+    @PreAuthorize(AuthorizationExpressions.CAN_VIEW_REPORTS)
     public ResponseObject<ResponsePage<StockCheckResponse>> getAll(Pageable pageable) {
         return ResponseObject.success(stockCheckService.findAll(pageable));
     }
 
     @GetMapping("/stock-check/{id}")
-    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_ADMIN_STOCK)
+    @PreAuthorize(AuthorizationExpressions.CAN_VIEW_INVENTORY)
     public ResponseObject<StockCheckResponse> getOne(@PathVariable Long id) {
         return ResponseObject.success(stockCheckService.findOne(id));
     }
 
     @PostMapping("/stock-check")
-    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_STOCK)
+    @PreAuthorize(AuthorizationExpressions.CAN_OPERATE_STOCK)
     public ResponseObject<StockCheckResponse> create(@RequestBody CreateStockCheckRequest request) {
         return ResponseObject.created(stockCheckService.create(request));
     }
 
     @PutMapping("/stock-check/{id}/items")
-    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_STOCK)
+    @PreAuthorize(AuthorizationExpressions.CAN_OPERATE_STOCK)
     public ResponseObject<StockCheckResponse> recordItems(
             @PathVariable Long id,
             @RequestBody StockCheckItemRequest.BatchRequest request) {
@@ -53,13 +53,13 @@ public class StockCheckController {
     }
 
     @PutMapping("/stock-check/{id}/complete")
-    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_STOCK)
+    @PreAuthorize(AuthorizationExpressions.CAN_OPERATE_STOCK)
     public ResponseObject<StockCheckResponse> complete(@PathVariable Long id) {
         return ResponseObject.success(stockCheckService.complete(id));
     }
 
     @PutMapping("/stock-check/{id}/approve")
-    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_ADMIN)
+    @PreAuthorize(AuthorizationExpressions.CAN_APPROVE)
     public ResponseObject<StockCheckResponse> approve(
             @PathVariable Long id,
             @RequestBody(required = false) ApproveStockCheckRequest request) {
@@ -67,7 +67,7 @@ public class StockCheckController {
     }
 
     @PutMapping("/stock-check/{id}/reject")
-    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_ADMIN)
+    @PreAuthorize(AuthorizationExpressions.CAN_APPROVE)
     public ResponseObject<StockCheckResponse> reject(
             @PathVariable Long id,
             @RequestBody(required = false) ApproveStockCheckRequest request) {

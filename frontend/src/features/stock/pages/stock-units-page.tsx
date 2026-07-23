@@ -1,5 +1,7 @@
-import { useState, lazy, Suspense } from "react"
+import { useState, lazy, Suspense, useEffect } from "react"
 import { Skeleton } from "@/components/ui/skeleton"
+import { useAuthStore } from "@/store/auth-store"
+import { ROLES } from "@/utils/permissions"
 
 const StockOverviewTab = lazy(() => import("./stock-overview-tab").then((m) => ({ default: m.StockOverviewTab })))
 const ProductUnitListPage = lazy(() =>
@@ -11,10 +13,10 @@ const InventoryPage = lazy(() =>
 const LocationsMapPage = lazy(() => import("./locations-map-page").then((m) => ({ default: m.LocationsMapPage })))
 
 const TABS = [
-  { key: "overview", label: "Tổng quan" },
+  { key: "overview", label: "Tổng quan", roles: ROLES.MANAGER_ADMIN_STOCK },
   { key: "list", label: "Danh sách" },
   { key: "inventory", label: "Tồn kho" },
-  { key: "map", label: "Bản đồ kho" },
+  { key: "map", label: "Bản đồ kho", roles: ROLES.MANAGER_ADMIN_STOCK },
 ] as const
 
 type TabKey = (typeof TABS)[number]["key"]
@@ -22,12 +24,21 @@ type TabKey = (typeof TABS)[number]["key"]
 const TAB_FALLBACK = <Skeleton className="h-96 w-full" />
 
 export function StockUnitsPage() {
-  const [tab, setTab] = useState<TabKey>("overview")
+  const user = useAuthStore((s) => s.user)
+
+  const availableTabs = TABS.filter((t) => !t.roles || (user && t.roles.includes(user.role)))
+  const [tab, setTab] = useState<TabKey>(availableTabs[0]?.key ?? "list")
+
+  useEffect(() => {
+    if (!availableTabs.some((t) => t.key === tab)) {
+      setTab(availableTabs[0]?.key ?? "list")
+    }
+  }, [user?.role])
 
   return (
     <div className="space-y-4">
       <div className="flex gap-1 border-b pb-px">
-        {TABS.map((t) => (
+        {availableTabs.map((t) => (
           <button
             key={t.key}
             onClick={() => setTab(t.key)}
@@ -37,7 +48,7 @@ export function StockUnitsPage() {
           </button>
         ))}
       </div>
-      {tab === "overview" && (
+      {tab === "overview" && availableTabs.some((t) => t.key === "overview") && (
         <Suspense fallback={TAB_FALLBACK}>
           <StockOverviewTab />
         </Suspense>
@@ -52,7 +63,7 @@ export function StockUnitsPage() {
           <InventoryPage />
         </Suspense>
       )}
-      {tab === "map" && (
+      {tab === "map" && availableTabs.some((t) => t.key === "map") && (
         <Suspense fallback={TAB_FALLBACK}>
           <LocationsMapPage />
         </Suspense>

@@ -19,26 +19,26 @@ public class ProductImageController {
     private final ProductImageService productImageService;
 
     @GetMapping("/product/{productId}")
-    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_ADMIN)
+    @PreAuthorize(AuthorizationExpressions.CAN_VIEW_REPORTS)
     public ResponseObject<List<ProductImageResponse>> getByProductId(@PathVariable Long productId) {
         return ResponseObject.success(productImageService.findByProductId(productId));
     }
 
     @PostMapping("")
-    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER)
+    @PreAuthorize(AuthorizationExpressions.CAN_MANAGE_CATALOG)
     public ResponseObject<ProductImageResponse> create(@RequestBody ProductImageRequest request) {
         return ResponseObject.created(productImageService.create(request));
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER)
+    @PreAuthorize(AuthorizationExpressions.CAN_MANAGE_CATALOG)
     public ResponseObject<Void> delete(@PathVariable Long id) {
         productImageService.delete(id);
         return ResponseObject.deleted();
     }
 
     @DeleteMapping("/product/{productId}")
-    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER)
+    @PreAuthorize(AuthorizationExpressions.CAN_MANAGE_CATALOG)
     public ResponseObject<Void> deleteByProductId(@PathVariable Long productId) {
         productImageService.deleteByProductId(productId);
         return ResponseObject.deleted();

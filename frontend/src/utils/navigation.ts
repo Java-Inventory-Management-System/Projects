@@ -35,13 +35,13 @@ export interface NavSection {
 export const navSections: NavSection[] = [
   {
     items: [
-      { label: "Dashboard", icon: LayoutDashboard, path: "/", roles: [...ROLES.MANAGER_ADMIN, ...ROLES.SALES] },
+      { label: "Dashboard", icon: LayoutDashboard, path: "/", roles: ROLES.MANAGER_ADMIN },
       { label: "Products", icon: Package, path: "/products", roles: ROLES.ALL_STOCK },
       { label: "Brands", icon: Building2, path: "/brands", roles: ROLES.ALL_STOCK },
       { label: "Categories", icon: Tags, path: "/categories", roles: ROLES.ALL_STOCK },
       { label: "Suppliers", icon: Truck, path: "/suppliers", roles: ROLES.ALL_STOCK },
-      { label: "Customers", icon: Contact, path: "/customers", roles: ROLES.ALL_STOCK },
-      { label: "Inventory", icon: ScanBarcode, path: "/stock/units", roles: ROLES.ALL_STOCK },
+      { label: "Customers", icon: Contact, path: "/customers", roles: ROLES.SALES_ACCESS },
+      { label: "Inventory", icon: ScanBarcode, path: "/stock/units", roles: ROLES.SALES_ACCESS },
     ],
   },
   {
@@ -50,11 +50,11 @@ export const navSections: NavSection[] = [
   {
     items: [
       { label: "Imports", icon: ArrowDownToLine, path: "/stock/imports", roles: ROLES.ALL_STOCK },
-      { label: "Exports", icon: ArrowUpFromLine, path: "/stock/exports", roles: ROLES.ALL_STOCK },
+      { label: "Exports", icon: ArrowUpFromLine, path: "/stock/exports", roles: ROLES.SALES_ACCESS },
       { label: "Stock Checks", icon: ClipboardCheck, path: "/stock/checks", roles: ROLES.ALL_STOCK },
       { label: "Adjustments", icon: ClipboardCheck, path: "/stock/adjustments", roles: ROLES.ALL_STOCK },
-      { label: "Warranty", icon: ShieldCheck, path: "/warranty", roles: ROLES.ALL_STOCK },
-      { label: "Returns", icon: Undo2, path: "/returns", roles: ROLES.ALL_STOCK },
+      { label: "Warranty", icon: ShieldCheck, path: "/warranty", roles: ROLES.SALES_ACCESS },
+      { label: "Returns", icon: Undo2, path: "/returns", roles: ROLES.SALES_ACCESS },
       { label: "Price Adj.", icon: ClipboardList, path: "/stock/price-adjustments", roles: ROLES.ALL_STOCK },
     ],
   },

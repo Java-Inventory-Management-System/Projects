@@ -7,4 +7,6 @@ export const ROLES = {
   MANAGER: ["MANAGER"] as URole[],
   ADMIN: ["ADMIN"] as URole[],
   SALES: ["SALES"] as URole[],
+  SALES_ACCESS: ["SALES", "STOCK", "MANAGER", "ADMIN"] as URole[],
+  MANAGER_ADMIN_STOCK: ["MANAGER", "ADMIN", "STOCK"] as URole[],
 }

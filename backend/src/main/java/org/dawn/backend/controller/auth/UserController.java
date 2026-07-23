@@ -24,37 +24,37 @@ public class UserController {
     private final UserService userService;
 
     @GetMapping("")
-    @PreAuthorize(AuthorizationExpressions.ROLE_ADMIN)
+    @PreAuthorize(AuthorizationExpressions.CAN_MANAGE_SYSTEM)
     public ResponseObject<ResponsePage<UserResponse>> getAll(Pageable pageable) {
         return ResponseObject.success(userService.findAll(pageable));
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize(AuthorizationExpressions.ROLE_ADMIN)
+    @PreAuthorize(AuthorizationExpressions.CAN_MANAGE_SYSTEM)
     public ResponseObject<UserResponse> getOne(@PathVariable Long id) {
         return ResponseObject.success(userService.findOne(id));
     }
 
     @PostMapping("")
-    @PreAuthorize(AuthorizationExpressions.ROLE_ADMIN)
+    @PreAuthorize(AuthorizationExpressions.CAN_MANAGE_SYSTEM)
     public ResponseObject<CreateUserResponse> create(@Valid @RequestBody RegisterRequest dto) {
         return ResponseObject.created(userService.createUser(dto));
     }
 
     @PutMapping("/{id}/info")
-    @PreAuthorize(AuthorizationExpressions.ROLE_ADMIN)
+    @PreAuthorize(AuthorizationExpressions.CAN_MANAGE_SYSTEM)
     public ResponseObject<UserResponse> updateInfo(@PathVariable Long id, @RequestBody UpdateInfoRequest info) {
         return ResponseObject.success(userService.updateInfo(id, info));
     }
 
     @PutMapping("/{id}/status")
-    @PreAuthorize(AuthorizationExpressions.ROLE_ADMIN)
+    @PreAuthorize(AuthorizationExpressions.CAN_MANAGE_SYSTEM)
     public ResponseObject<UserResponse> updateStatus(@PathVariable Long id, @RequestBody ToggleActiveRequest request) {
         return ResponseObject.success(userService.updateStatus(id, request.active()));
     }
 
     @PutMapping("/{id}/role")
-    @PreAuthorize(AuthorizationExpressions.ROLE_ADMIN)
+    @PreAuthorize(AuthorizationExpressions.CAN_MANAGE_SYSTEM)
     public ResponseObject<UserResponse> updateRole(@PathVariable Long id, @RequestBody URole role) {
         return ResponseObject.success(userService.updateRole(id, role));
     }

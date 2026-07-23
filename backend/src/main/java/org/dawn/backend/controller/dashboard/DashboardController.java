@@ -18,7 +18,7 @@ public class DashboardController {
     private final DashboardService dashboardService;
 
     @GetMapping("/stats")
-    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_ADMIN)
+    @PreAuthorize(AuthorizationExpressions.CAN_VIEW_REPORTS)
     public ResponseObject<DashboardResponse> getStats() {
         return ResponseObject.success(dashboardService.getStats());
     }
