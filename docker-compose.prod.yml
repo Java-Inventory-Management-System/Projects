@@ -1,0 +1,43 @@
+services:
+  mysql:
+    image: mysql:8.4.5
+    volumes:
+      - /var/lib/mysql/data:/var/lib/mysql
+    restart: always
+
+  backend:
+    image: ghcr.io/${GHCR_NAMESPACE}/backend:${IMAGE_TAG:-latest}
+    restart: always
+    environment:
+      SPRING_FLYWAY_ENABLED: "false"
+      DB_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      DB_USER: ${DB_USER}
+      DB_PASS: ${DB_PASS}
+      DB_DRIVER: ${DB_DRIVER}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRATION: ${JWT_EXPIRATION}
+      JWT_REFRESH_EXPIRATION: ${JWT_REFRESH_EXPIRATION}
+      JWT_COOKIE_NAME: ${JWT_COOKIE_NAME}
+      JWT_COOKIE_REFRESH_NAME: ${JWT_COOKIE_REFRESH_NAME}
+      FRONTEND_URL: ${FRONTEND_URL}
+      MAIL_ENABLED: ${MAIL_ENABLED}
+      MAIL_HOST: ${MAIL_HOST}
+      MAIL_PORT: ${MAIL_PORT}
+      MAIL_USERNAME: ${MAIL_USERNAME}
+      MAIL_PASSWORD: ${MAIL_PASSWORD}
+      MAIL_FROM: ${MAIL_FROM}
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET}
+      UPLOAD_PATH: ${UPLOAD_PATH}
+
+  frontend:
+    image: ghcr.io/${GHCR_NAMESPACE}/frontend:${IMAGE_TAG:-latest}
+    restart: always
+
+  nginx:
+    restart: always
+
+volumes:
+  db-data:
+    driver: local

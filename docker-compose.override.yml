@@ -1,0 +1,16 @@
+services:
+  backend:
+    build:
+      context: ./backend
+    volumes:
+      - ./backend/src:/app/src
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      MAIL_ENABLED: "false"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - '5173:80'
