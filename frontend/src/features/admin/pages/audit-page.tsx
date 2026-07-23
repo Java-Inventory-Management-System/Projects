@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Eye } from "lucide-react"
+import { Eye, X, Search } from "lucide-react"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 import { DataTable, type Column } from "@/components/ui/data-table"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -54,35 +54,59 @@ export const AuditPage = () => {
   const [actionFilter, setActionFilter] = useState("all")
   const [entityFilter, setEntityFilter] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
+  const [fromDate, setFromDate] = useState("")
+  const [toDate, setToDate] = useState("")
   const [viewLog, setViewLog] = useState<AuditLog | null>(null)
-
-  const fetch = async (p: number) => {
-    setLoading(true)
-    try {
-      const res = await searchAuditLogs({
-        page: p,
-        size: pageSize,
-        sort: sortStr,
-        action: actionFilter === "all" ? undefined : actionFilter,
-        entity: entityFilter || undefined,
-        status: statusFilter === "all" ? undefined : statusFilter,
-      })
-      setData(res)
-    } catch {
-      // silent
-    } finally {
-      setLoading(false)
-    }
-  }
 
   useEffect(() => {
     setPage(0)
-  }, [actionFilter, entityFilter, statusFilter])
+  }, [actionFilter, entityFilter, statusFilter, fromDate, toDate])
+
   useEffect(() => {
-    fetch(page)
-  }, [page, pageSize, sortStr, actionFilter, entityFilter, statusFilter])
+    const doFetch = async () => {
+      setLoading(true)
+      try {
+        const res = await searchAuditLogs({
+          page,
+          size: pageSize,
+          sort: sortStr,
+          action: actionFilter === "all" ? undefined : actionFilter,
+          entity: entityFilter || undefined,
+          status: statusFilter === "all" ? undefined : statusFilter,
+          from: fromDate ? fromDate + "T00:00:00Z" : undefined,
+          to: toDate ? toDate + "T23:59:59Z" : undefined,
+        })
+        setData(res)
+      } catch {
+        // silent
+      } finally {
+        setLoading(false)
+      }
+    }
+    doFetch()
+  }, [page, pageSize, sortStr, actionFilter, entityFilter, statusFilter, fromDate, toDate])
 
   const s = data?.pagination
+
+  const hasFilters = actionFilter !== "all" || !!entityFilter || statusFilter !== "all" || !!fromDate || !!toDate
+
+  const clearAll = () => {
+    setActionFilter("all")
+    setEntityFilter("")
+    setStatusFilter("all")
+    setFromDate("")
+    setToDate("")
+  }
+
+  const activeChips: { key: string; label: string; onRemove: () => void }[] = []
+  if (actionFilter !== "all") activeChips.push({ key: "action", label: `Hành động: ${actionFilter}`, onRemove: () => setActionFilter("all") })
+  if (entityFilter) activeChips.push({ key: "entity", label: `Đối tượng: ${entityFilter}`, onRemove: () => setEntityFilter("") })
+  if (statusFilter !== "all") {
+    const st = statusBadge[statusFilter]?.label ?? statusFilter
+    activeChips.push({ key: "status", label: `Trạng thái: ${st}`, onRemove: () => setStatusFilter("all") })
+  }
+  if (fromDate) activeChips.push({ key: "from", label: `Từ: ${fromDate}`, onRemove: () => setFromDate("") })
+  if (toDate) activeChips.push({ key: "to", label: `Đến: ${toDate}`, onRemove: () => setToDate("") })
 
   const columns: Column<AuditLog>[] = [
     {
@@ -126,45 +150,90 @@ export const AuditPage = () => {
     <div className="space-y-4">
       <h1 className="text-xl font-semibold tracking-tight">Nhật ký hoạt động</h1>
 
-      <div className="flex flex-wrap gap-2 items-end">
-        <div className="space-y-1">
-          <Label className="text-xs">Hành động</Label>
-          <Select value={actionFilter} onValueChange={setActionFilter}>
-            <SelectTrigger className="w-40 h-8 text-xs">
-              <SelectValue placeholder="Tất cả" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Tất cả</SelectItem>
-              {actionOptions.map((a) => (
-                <SelectItem key={a} value={a}>
-                  {a}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+      <div className="space-y-3">
+        <div className="flex flex-wrap gap-2 items-end">
+          <div className="space-y-1">
+            <Label className="text-xs">Hành động</Label>
+            <Select value={actionFilter} onValueChange={setActionFilter}>
+              <SelectTrigger className="w-40 h-8 text-xs">
+                <SelectValue placeholder="Tất cả" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tất cả</SelectItem>
+                {actionOptions.map((a) => (
+                  <SelectItem key={a} value={a}>
+                    {a}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Đối tượng</Label>
+            <Input
+              placeholder="Ví dụ: USER"
+              className="w-36 h-8 text-xs"
+              value={entityFilter}
+              onChange={(e) => setEntityFilter(e.target.value)}
+            />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Trạng thái</Label>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-32 h-8 text-xs">
+                <SelectValue placeholder="Tất cả" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tất cả</SelectItem>
+                <SelectItem value={AUDIT_STATUS.SUCCESS}>Thành công</SelectItem>
+                <SelectItem value={AUDIT_STATUS.FAILED}>Thất bại</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Từ ngày</Label>
+            <Input
+              type="date"
+              className="w-36 h-8 text-xs"
+              value={fromDate}
+              onChange={(e) => setFromDate(e.target.value)}
+            />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Đến ngày</Label>
+            <Input
+              type="date"
+              className="w-36 h-8 text-xs"
+              value={toDate}
+              onChange={(e) => setToDate(e.target.value)}
+            />
+          </div>
+          {hasFilters && (
+            <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={clearAll}>
+              <X className="size-3.5 mr-1" /> Xoá bộ lọc
+            </Button>
+          )}
         </div>
-        <div className="space-y-1">
-          <Label className="text-xs">Đối tượng</Label>
-          <Input
-            placeholder="Ví dụ: USER"
-            className="w-36 h-8 text-xs"
-            value={entityFilter}
-            onChange={(e) => setEntityFilter(e.target.value)}
-          />
-        </div>
-        <div className="space-y-1">
-          <Label className="text-xs">Trạng thái</Label>
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-32 h-8 text-xs">
-              <SelectValue placeholder="Tất cả" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Tất cả</SelectItem>
-              <SelectItem value={AUDIT_STATUS.SUCCESS}>Thành công</SelectItem>
-              <SelectItem value={AUDIT_STATUS.FAILED}>Thất bại</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+
+        {activeChips.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {activeChips.map((chip) => (
+              <Badge key={chip.key} variant="secondary" className="gap-1 text-xs h-6 px-2 font-normal">
+                {chip.label}
+                <button onClick={chip.onRemove} className="ml-0.5 hover:text-foreground">
+                  <X className="size-3" />
+                </button>
+              </Badge>
+            ))}
+          </div>
+        )}
+
+        {s && !loading && (
+          <p className="text-xs text-muted-foreground">
+            <Search className="size-3 inline mr-1" />
+            {s.totalElements} kết quả
+          </p>
+        )}
       </div>
 
       <DataTable

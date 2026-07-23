@@ -14,7 +14,8 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog"
 import { SerialModal } from "@/features/stock/components/serial-modal"
-import { ScanLine, CircleCheckBig, Circle, Trash2, ClipboardList } from "lucide-react"
+import { ScanLine, CircleCheckBig, Circle, Trash2, ClipboardList, Info } from "lucide-react"
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 
 interface Props {
   items: LineItem[]
@@ -130,10 +131,28 @@ export function ImportStepSerials({ items, dispatch, isManager }: Props) {
       )}
 
       <div className="flex items-center justify-between">
-        {isManager && <span className="text-sm font-semibold">Tổng: {totalAmount.toLocaleString("vi-VN")}₫</span>}
-        <p className="text-xs text-muted-foreground italic">
-          Tổng serial cần nhập: {items.reduce((s, i) => s + i.quantity, 0)} &middot; Đã nhập: {totalSerials}
-        </p>
+        {isManager && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="sm" className="h-7 gap-1 px-1">
+                <Info className="size-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">
+              Tổng: {totalAmount.toLocaleString("vi-VN")}₫
+            </TooltipContent>
+          </Tooltip>
+        )}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button variant="ghost" size="sm" className="h-7 gap-1 px-1">
+              <Info className="size-3.5" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">
+            Tổng serial cần nhập: {items.reduce((s, i) => s + i.quantity, 0)} &middot; Đã nhập: {totalSerials}
+          </TooltipContent>
+        </Tooltip>
         <Button variant="ghost" size="sm" className="gap-1.5 text-xs h-8" onClick={() => setPasteDialogOpen(true)}>
           <ClipboardList className="size-3.5" />
           Dán serial hàng loạt
