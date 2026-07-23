@@ -104,7 +104,7 @@ export const StockAdjustmentDetailPage = () => {
 
   const st = statusLabel[adj.status] ?? { label: adj.status, variant: "secondary" }
   // MANAGER/ADMIN: approve/reject adjustments
-  const isManager = perm.hasRole(...ROLES.MANAGER_ADMIN)
+  const isManager = perm.hasRole(...ROLES.CAN_APPROVE)
   const canApprove = adj.status === ADJUSTMENT_STATUS.PENDING && isManager
 
   return (

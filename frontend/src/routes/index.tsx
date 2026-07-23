@@ -126,7 +126,7 @@ export const router = createBrowserRouter([
             path: "products",
             element: (
               <Lazy>
-                <PageGuard roles={ROLES.ALL_STOCK}>
+                <PageGuard roles={ROLES.CAN_VIEW_INVENTORY}>
                   <ProductsPage />
                 </PageGuard>
               </Lazy>
@@ -156,7 +156,7 @@ export const router = createBrowserRouter([
             path: "brands",
             element: (
               <Lazy>
-                <PageGuard roles={ROLES.ALL_STOCK}>
+                <PageGuard roles={ROLES.CAN_VIEW_INVENTORY}>
                   <BrandsPage />
                 </PageGuard>
               </Lazy>
@@ -166,7 +166,7 @@ export const router = createBrowserRouter([
             path: "categories",
             element: (
               <Lazy>
-                <PageGuard roles={ROLES.ALL_STOCK}>
+                <PageGuard roles={ROLES.CAN_VIEW_INVENTORY}>
                   <CategoriesPage />
                 </PageGuard>
               </Lazy>
@@ -176,7 +176,7 @@ export const router = createBrowserRouter([
             path: "suppliers",
             element: (
               <Lazy>
-                <PageGuard roles={ROLES.ALL_STOCK}>
+                <PageGuard roles={ROLES.CAN_VIEW_INVENTORY}>
                   <SuppliersPage />
                 </PageGuard>
               </Lazy>
@@ -186,7 +186,7 @@ export const router = createBrowserRouter([
             path: "customers",
             element: (
               <Lazy>
-                <PageGuard roles={ROLES.SALES_ACCESS}>
+                <PageGuard roles={ROLES.CAN_OPERATE}>
                   <CustomersPage />
                 </PageGuard>
               </Lazy>
@@ -197,7 +197,7 @@ export const router = createBrowserRouter([
             path: "stock/imports",
             element: (
               <Lazy>
-                <PageGuard roles={ROLES.ALL_STOCK}>
+                <PageGuard roles={ROLES.CAN_VIEW_INVENTORY}>
                   <ImportListPage />
                 </PageGuard>
               </Lazy>
@@ -207,7 +207,7 @@ export const router = createBrowserRouter([
             path: "stock/imports/new",
             element: (
               <Lazy>
-                <PageGuard roles={ROLES.ALL_STOCK}>
+                <PageGuard roles={ROLES.CAN_VIEW_INVENTORY}>
                   <ImportCreatePage />
                 </PageGuard>
               </Lazy>
@@ -217,7 +217,7 @@ export const router = createBrowserRouter([
             path: "stock/exports",
             element: (
               <Lazy>
-                <PageGuard roles={ROLES.SALES_ACCESS}>
+                <PageGuard roles={ROLES.CAN_OPERATE}>
                   <ExportListPage />
                 </PageGuard>
               </Lazy>
@@ -227,7 +227,7 @@ export const router = createBrowserRouter([
             path: "stock/exports/new",
             element: (
               <Lazy>
-                <PageGuard roles={ROLES.SALES_ACCESS}>
+                <PageGuard roles={ROLES.CAN_OPERATE}>
                   <ExportCreatePage />
                 </PageGuard>
               </Lazy>
@@ -237,7 +237,7 @@ export const router = createBrowserRouter([
             path: "stock/checks",
             element: (
               <Lazy>
-                <PageGuard roles={ROLES.ALL_STOCK}>
+                <PageGuard roles={ROLES.CAN_VIEW_INVENTORY}>
                   <StockCheckListPage />
                 </PageGuard>
               </Lazy>
@@ -247,7 +247,7 @@ export const router = createBrowserRouter([
             path: "stock/checks/new",
             element: (
               <Lazy>
-                <PageGuard roles={ROLES.MANAGER_STOCK}>
+                <PageGuard roles={ROLES.CAN_OPERATE_STOCK}>
                   <StockCheckCreatePage />
                 </PageGuard>
               </Lazy>
@@ -257,7 +257,7 @@ export const router = createBrowserRouter([
             path: "stock/checks/:id",
             element: (
               <Lazy>
-                <PageGuard roles={ROLES.ALL_STOCK}>
+                <PageGuard roles={ROLES.CAN_VIEW_INVENTORY}>
                   <StockCheckDetailPage />
                 </PageGuard>
               </Lazy>
@@ -267,7 +267,7 @@ export const router = createBrowserRouter([
             path: "stock/adjustments",
             element: (
               <Lazy>
-                <PageGuard roles={ROLES.ALL_STOCK}>
+                <PageGuard roles={ROLES.CAN_VIEW_INVENTORY}>
                   <StockAdjustmentListPage />
                 </PageGuard>
               </Lazy>
@@ -277,7 +277,7 @@ export const router = createBrowserRouter([
             path: "stock/adjustments/new",
             element: (
               <Lazy>
-                <PageGuard roles={ROLES.MANAGER_STOCK}>
+                <PageGuard roles={ROLES.CAN_OPERATE_STOCK}>
                   <StockAdjustmentCreatePage />
                 </PageGuard>
               </Lazy>
@@ -287,7 +287,7 @@ export const router = createBrowserRouter([
             path: "stock/adjustments/:id",
             element: (
               <Lazy>
-                <PageGuard roles={ROLES.ALL_STOCK}>
+                <PageGuard roles={ROLES.CAN_VIEW_INVENTORY}>
                   <StockAdjustmentDetailPage />
                 </PageGuard>
               </Lazy>
@@ -297,7 +297,7 @@ export const router = createBrowserRouter([
             path: "stock/imports/:id",
             element: (
               <Lazy>
-                <PageGuard roles={ROLES.ALL_STOCK}>
+                <PageGuard roles={ROLES.CAN_VIEW_INVENTORY}>
                   <ImportDetailPage />
                 </PageGuard>
               </Lazy>
@@ -307,7 +307,7 @@ export const router = createBrowserRouter([
             path: "stock/exports/:id",
             element: (
               <Lazy>
-                <PageGuard roles={ROLES.SALES_ACCESS}>
+                <PageGuard roles={ROLES.CAN_OPERATE}>
                   <ExportDetailPage />
                 </PageGuard>
               </Lazy>
@@ -317,7 +317,7 @@ export const router = createBrowserRouter([
             path: "stock/price-adjustments",
             element: (
               <Lazy>
-                <PageGuard roles={ROLES.ALL_STOCK}>
+                <PageGuard roles={ROLES.CAN_VIEW_INVENTORY}>
                   <PriceAdjustmentListPage />
                 </PageGuard>
               </Lazy>
@@ -327,7 +327,7 @@ export const router = createBrowserRouter([
             path: "stock/price-adjustments/new",
             element: (
               <Lazy>
-                <PageGuard roles={ROLES.MANAGER_STOCK}>
+                <PageGuard roles={ROLES.CAN_OPERATE_STOCK}>
                   <PriceAdjustmentCreatePage />
                 </PageGuard>
               </Lazy>
@@ -337,7 +337,7 @@ export const router = createBrowserRouter([
             path: "stock/price-adjustments/:id",
             element: (
               <Lazy>
-                <PageGuard roles={ROLES.ALL_STOCK}>
+                <PageGuard roles={ROLES.CAN_VIEW_INVENTORY}>
                   <PriceAdjustmentDetailPage />
                 </PageGuard>
               </Lazy>
@@ -378,7 +378,7 @@ export const router = createBrowserRouter([
             path: "warranty",
             element: (
               <Lazy>
-                <PageGuard roles={ROLES.SALES_ACCESS}>
+                <PageGuard roles={ROLES.CAN_OPERATE}>
                   <WarrantyListPage />
                 </PageGuard>
               </Lazy>
@@ -388,7 +388,7 @@ export const router = createBrowserRouter([
             path: "warranty/new",
             element: (
               <Lazy>
-                <PageGuard roles={ROLES.SALES_ACCESS}>
+                <PageGuard roles={ROLES.CAN_OPERATE}>
                   <WarrantyCreatePage />
                 </PageGuard>
               </Lazy>
@@ -398,7 +398,7 @@ export const router = createBrowserRouter([
             path: "warranty/:id",
             element: (
               <Lazy>
-                <PageGuard roles={ROLES.SALES_ACCESS}>
+                <PageGuard roles={ROLES.CAN_OPERATE}>
                   <WarrantyDetailPage />
                 </PageGuard>
               </Lazy>
@@ -408,7 +408,7 @@ export const router = createBrowserRouter([
             path: "returns",
             element: (
               <Lazy>
-                <PageGuard roles={ROLES.SALES_ACCESS}>
+                <PageGuard roles={ROLES.CAN_OPERATE}>
                   <ReturnListPage />
                 </PageGuard>
               </Lazy>
@@ -418,7 +418,7 @@ export const router = createBrowserRouter([
             path: "returns/new",
             element: (
               <Lazy>
-                <PageGuard roles={ROLES.SALES_ACCESS}>
+                <PageGuard roles={ROLES.CAN_OPERATE}>
                   <ReturnCreatePage />
                 </PageGuard>
               </Lazy>
@@ -428,7 +428,7 @@ export const router = createBrowserRouter([
             path: "returns/:id",
             element: (
               <Lazy>
-                <PageGuard roles={ROLES.SALES_ACCESS}>
+                <PageGuard roles={ROLES.CAN_OPERATE}>
                   <ReturnDetailPage />
                 </PageGuard>
               </Lazy>
@@ -438,7 +438,7 @@ export const router = createBrowserRouter([
             path: "stock/units",
             element: (
               <Lazy>
-                <PageGuard roles={ROLES.SALES_ACCESS}>
+                <PageGuard roles={ROLES.CAN_OPERATE}>
                   <StockUnitsPage />
                 </PageGuard>
               </Lazy>
@@ -460,7 +460,7 @@ export const router = createBrowserRouter([
             path: "audit",
             element: (
               <Lazy>
-                <PageGuard roles={ROLES.MANAGER_ADMIN}>
+                <PageGuard roles={ROLES.CAN_VIEW_REPORTS}>
                   <AuditPage />
                 </PageGuard>
               </Lazy>

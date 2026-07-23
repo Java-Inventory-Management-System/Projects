@@ -1,12 +1,14 @@
 import type { URole } from "./types"
 
 export const ROLES = {
-  ALL_STOCK: ["STOCK", "MANAGER", "ADMIN"] as URole[],
-  MANAGER_ADMIN: ["MANAGER", "ADMIN"] as URole[],
-  MANAGER_STOCK: ["MANAGER", "STOCK"] as URole[],
-  MANAGER: ["MANAGER"] as URole[],
   ADMIN: ["ADMIN"] as URole[],
-  SALES: ["SALES"] as URole[],
-  SALES_ACCESS: ["SALES", "STOCK", "MANAGER", "ADMIN"] as URole[],
-  MANAGER_ADMIN_STOCK: ["MANAGER", "ADMIN", "STOCK"] as URole[],
+  MANAGER: ["MANAGER"] as URole[],
+
+  CAN_VIEW_REPORTS: ["MANAGER", "ADMIN"] as URole[],
+  CAN_APPROVE: ["MANAGER", "ADMIN"] as URole[],
+  CAN_MANAGE_CATALOG: ["MANAGER"] as URole[],
+  CAN_MANAGE_SYSTEM: ["ADMIN"] as URole[],
+  CAN_OPERATE_STOCK: ["MANAGER", "STOCK"] as URole[],
+  CAN_VIEW_INVENTORY: ["MANAGER", "ADMIN", "STOCK"] as URole[],
+  CAN_OPERATE: ["SALES", "STOCK", "MANAGER", "ADMIN"] as URole[],
 }

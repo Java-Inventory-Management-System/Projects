@@ -8,16 +8,16 @@ export function usePermission() {
 
   const hasRole = useCallback((...roles: URole[]) => !!user && roles.includes(user.role), [user])
 
-  const canCancel = useCallback(() => hasRole(...ROLES.MANAGER_ADMIN), [hasRole])
+  const canCancel = useCallback(() => hasRole(...ROLES.CAN_APPROVE), [hasRole])
 
   const canApprove = useCallback(
-    () => hasRole(...ROLES.MANAGER_ADMIN),
+    () => hasRole(...ROLES.CAN_APPROVE),
     [hasRole],
   )
 
   const isAdmin = useCallback(() => hasRole(...ROLES.ADMIN), [hasRole])
 
-  const canManageStock = useCallback(() => hasRole(...ROLES.ALL_STOCK), [hasRole])
+  const canManageStock = useCallback(() => hasRole(...ROLES.CAN_VIEW_INVENTORY), [hasRole])
 
   return { user, hasRole, canCancel, canApprove, isAdmin, canManageStock }
 }

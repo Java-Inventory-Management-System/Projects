@@ -20,12 +20,12 @@ const SummaryTab = lazy(() =>
 )
 
 const ALL_TABS = [
-  { key: "summary", label: "Tổng quan", roles: [...ROLES.MANAGER_ADMIN, ...ROLES.SALES] },
-  { key: "category", label: "Theo danh mục", roles: ROLES.MANAGER_ADMIN },
-  { key: "low-stock", label: "Sắp hết hàng", roles: ROLES.MANAGER_ADMIN },
-  { key: "stock-value", label: "Giá trị tồn", roles: ROLES.MANAGER_ADMIN },
-  { key: "activity", label: "Hoạt động", roles: ROLES.MANAGER_ADMIN },
-  { key: "dead-stock", label: "Tồn lâu", roles: ROLES.MANAGER_ADMIN },
+  { key: "summary", label: "Tổng quan", roles: ROLES.CAN_OPERATE },
+  { key: "category", label: "Theo danh mục", roles: ROLES.CAN_VIEW_REPORTS },
+  { key: "low-stock", label: "Sắp hết hàng", roles: ROLES.CAN_VIEW_REPORTS },
+  { key: "stock-value", label: "Giá trị tồn", roles: ROLES.CAN_VIEW_REPORTS },
+  { key: "activity", label: "Hoạt động", roles: ROLES.CAN_VIEW_REPORTS },
+  { key: "dead-stock", label: "Tồn lâu", roles: ROLES.CAN_VIEW_REPORTS },
 ] as const
 
 type TabKey = (typeof ALL_TABS)[number]["key"]

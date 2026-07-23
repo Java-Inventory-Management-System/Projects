@@ -25,7 +25,7 @@ export function PriceAdjustmentListPage() {
   const page = Number(searchParams.get("page") ?? "0")
   const statusFilter = searchParams.get("status") ?? ""
   // MANAGER/ADMIN → all adjustments; STOCK/SALES → own only
-  const isAdminManager = perm.hasRole(...ROLES.MANAGER_ADMIN)
+  const isAdminManager = perm.hasRole(...ROLES.CAN_APPROVE)
 
   const [pageSize, setPageSize] = useState(20)
   const [sort, setSort] = useState<{ key: string; dir: "asc" | "desc" } | undefined>(undefined)

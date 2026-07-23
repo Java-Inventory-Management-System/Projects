@@ -133,7 +133,7 @@ export const StockCheckDetailPage = () => {
   // STOCK: record results, complete check
   const isStock = perm.hasRole("STOCK")
   // MANAGER/ADMIN: approve/reject
-  const isManager = perm.hasRole(...ROLES.MANAGER_ADMIN)
+  const isManager = perm.hasRole(...ROLES.CAN_APPROVE)
   const canEdit =
     (check.status === STOCK_CHECK_STATUS.PENDING || check.status === STOCK_CHECK_STATUS.IN_PROGRESS) && isStock
   const canApprove = check.status === STOCK_CHECK_STATUS.COMPLETED && isManager

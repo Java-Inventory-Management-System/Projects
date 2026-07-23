@@ -13,10 +13,10 @@ const InventoryPage = lazy(() =>
 const LocationsMapPage = lazy(() => import("./locations-map-page").then((m) => ({ default: m.LocationsMapPage })))
 
 const TABS = [
-  { key: "overview", label: "Tổng quan", roles: ROLES.MANAGER_ADMIN_STOCK },
+  { key: "overview", label: "Tổng quan", roles: ROLES.CAN_VIEW_INVENTORY },
   { key: "list", label: "Danh sách" },
   { key: "inventory", label: "Tồn kho" },
-  { key: "map", label: "Bản đồ kho", roles: ROLES.MANAGER_ADMIN_STOCK },
+  { key: "map", label: "Bản đồ kho", roles: ROLES.CAN_VIEW_INVENTORY },
 ] as const
 
 type TabKey = (typeof TABS)[number]["key"]

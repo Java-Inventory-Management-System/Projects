@@ -35,13 +35,13 @@ export interface NavSection {
 export const navSections: NavSection[] = [
   {
     items: [
-      { label: "Dashboard", icon: LayoutDashboard, path: "/", roles: ROLES.MANAGER_ADMIN },
-      { label: "Products", icon: Package, path: "/products", roles: ROLES.ALL_STOCK },
-      { label: "Brands", icon: Building2, path: "/brands", roles: ROLES.ALL_STOCK },
-      { label: "Categories", icon: Tags, path: "/categories", roles: ROLES.ALL_STOCK },
-      { label: "Suppliers", icon: Truck, path: "/suppliers", roles: ROLES.ALL_STOCK },
-      { label: "Customers", icon: Contact, path: "/customers", roles: ROLES.SALES_ACCESS },
-      { label: "Inventory", icon: ScanBarcode, path: "/stock/units", roles: ROLES.SALES_ACCESS },
+      { label: "Dashboard", icon: LayoutDashboard, path: "/", roles: ROLES.CAN_VIEW_REPORTS },
+      { label: "Products", icon: Package, path: "/products", roles: ROLES.CAN_VIEW_INVENTORY },
+      { label: "Brands", icon: Building2, path: "/brands", roles: ROLES.CAN_VIEW_INVENTORY },
+      { label: "Categories", icon: Tags, path: "/categories", roles: ROLES.CAN_VIEW_INVENTORY },
+      { label: "Suppliers", icon: Truck, path: "/suppliers", roles: ROLES.CAN_VIEW_INVENTORY },
+      { label: "Customers", icon: Contact, path: "/customers", roles: ROLES.CAN_OPERATE },
+      { label: "Inventory", icon: ScanBarcode, path: "/stock/units", roles: ROLES.CAN_OPERATE },
     ],
   },
   {
@@ -49,19 +49,19 @@ export const navSections: NavSection[] = [
   },
   {
     items: [
-      { label: "Imports", icon: ArrowDownToLine, path: "/stock/imports", roles: ROLES.ALL_STOCK },
-      { label: "Exports", icon: ArrowUpFromLine, path: "/stock/exports", roles: ROLES.SALES_ACCESS },
-      { label: "Stock Checks", icon: ClipboardCheck, path: "/stock/checks", roles: ROLES.ALL_STOCK },
-      { label: "Adjustments", icon: ClipboardCheck, path: "/stock/adjustments", roles: ROLES.ALL_STOCK },
-      { label: "Warranty", icon: ShieldCheck, path: "/warranty", roles: ROLES.SALES_ACCESS },
-      { label: "Returns", icon: Undo2, path: "/returns", roles: ROLES.SALES_ACCESS },
-      { label: "Price Adj.", icon: ClipboardList, path: "/stock/price-adjustments", roles: ROLES.ALL_STOCK },
+      { label: "Imports", icon: ArrowDownToLine, path: "/stock/imports", roles: ROLES.CAN_VIEW_INVENTORY },
+      { label: "Exports", icon: ArrowUpFromLine, path: "/stock/exports", roles: ROLES.CAN_OPERATE },
+      { label: "Stock Checks", icon: ClipboardCheck, path: "/stock/checks", roles: ROLES.CAN_VIEW_INVENTORY },
+      { label: "Adjustments", icon: ClipboardCheck, path: "/stock/adjustments", roles: ROLES.CAN_VIEW_INVENTORY },
+      { label: "Warranty", icon: ShieldCheck, path: "/warranty", roles: ROLES.CAN_OPERATE },
+      { label: "Returns", icon: Undo2, path: "/returns", roles: ROLES.CAN_OPERATE },
+      { label: "Price Adj.", icon: ClipboardList, path: "/stock/price-adjustments", roles: ROLES.CAN_VIEW_INVENTORY },
     ],
   },
   {
     items: [
       { label: "Users", icon: Users, path: "/users", roles: ROLES.ADMIN },
-      { label: "Audit", icon: History, path: "/audit", roles: ROLES.MANAGER_ADMIN },
+      { label: "Audit", icon: History, path: "/audit", roles: ROLES.CAN_VIEW_REPORTS },
     ],
   },
 ]

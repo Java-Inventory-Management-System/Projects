@@ -29,7 +29,7 @@ export function Sidebar({ collapsed, onNavigate }: SidebarProps) {
       const r = await getImportReceipts(0, 1, undefined, IMPORT_RECEIPT_STATUS.PENDING_APPROVAL)
       return r.pagination.totalElements
     },
-    enabled: userRole ? ROLES.ALL_STOCK.includes(userRole) : false,
+    enabled: userRole ? ROLES.CAN_VIEW_INVENTORY.includes(userRole) : false,
     staleTime: 60_000,
   })
 

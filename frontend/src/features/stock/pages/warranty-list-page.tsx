@@ -119,7 +119,7 @@ export const WarrantyListPage = () => {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-semibold tracking-tight">Bảo hành</h1>
-        {perm.hasRole(...ROLES.ALL_STOCK) && (
+        {perm.hasRole(...ROLES.CAN_VIEW_INVENTORY) && (
           <Button onClick={() => navigate("/warranty/new")}>
             <Plus className="size-4 mr-1" /> Tiếp nhận bảo hành
           </Button>
