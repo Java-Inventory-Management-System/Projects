@@ -23,7 +23,7 @@
 | RQ-06 | Admin gán role cho user (≠ ADMIN)     | F    | Phỏng vấn  | Must  | AD    | US-28 |
 | RQ-07 | Admin không tự gán ADMIN cho bản thân | N    | SAD review | Must  | AD    | US-28 |
 | RQ-08 | Admin không thể tạo user role ADMIN   | N    | SAD review | Must  | AD    | US-28 |
-| RQ-09 | CRUD role                             | F    | SAD review | Could | AD    | US-37 |
+| RQ-09 | CRUD role                             | F    | SAD review | Won't | AD    | US-37 |
 
 ### Catalog
 
@@ -107,9 +107,9 @@
 
 | ID    | Yêu cầu                             | Loại | Nguồn         | Pri | Ghi chú                                    |
 | ----- | ----------------------------------- | ---- | ------------- | --- | ------------------------------------------ |
-| RQ-49 | Quy trình trả hàng khách (ngoài BH) | F    | Edge cases    | Should | Đã có thiết kế (`return_receipts` + flow chi tiết, `sell_price_history`) |
-| RQ-50 | Điều chỉnh giá nhập sau xác nhận    | F    | Edge cases    | Should | Đã có thiết kế (`price_adjustments` flow) |
-| RQ-51 | Retention policy audit log          | N    | Domain review | TBD | Chưa có yêu cầu từ business — cần xác nhận (xem `06-open-questions.md`) |
+| RQ-49 | Quy trình trả hàng khách (ngoài BH) | F    | Edge cases    | Must | Đã có thiết kế (`return_receipts` + flow chi tiết, `sell_price_history`) |
+| RQ-50 | Điều chỉnh giá nhập sau xác nhận    | F    | Edge cases    | Must | Đã có thiết kế (`price_adjustments` flow) |
+| RQ-51 | Retention policy audit log          | N    | Domain review | Must | Tối thiểu 2 năm — đã chốt với business. Không làm archive/purge job ở phase 1. |
 | RQ-52 | Backup duyệt khi QL vắng            | N    | SAD review    | Must | Admin duyệt thay |
 
 ---
@@ -138,7 +138,7 @@ Actor: **AD** = Admin, **QL** = Quản lý kho, **NV** = Nhân viên kho, **SL**
 **US-04** | Là **NV**, tôi muốn gán vị trí kho cho từng dòng sản phẩm hoặc cả lô, để hàng có vị trí lưu trữ xác định.
 - AC: Chọn `location_id`; hệ thống gợi ý vị trí trống hoặc vị trí đã có sản phẩm cùng loại.
 - Priority: Should.
-- **Cần xác nhận:** độ chi tiết zone-shelf-bin có thực sự cần thiết ở quy mô kho hiện tại, hay đang over-engineering đón đầu tương lai?
+- **Đã chốt:** Giữ 3 cấp zone-shelf-bin, shelf/bin optional khi nhập (chỉ bắt buộc zone).
 
 **US-05** | Là **NV**, tôi muốn xác nhận phiếu nhập, để hệ thống tạo các `product_units` ở trạng thái `in_stock` và mốc `imported_at` cho FIFO.
 - AC: Thao tác trong 1 transaction; `imported_at` set tại thời điểm xác nhận (không phải lúc tạo record nháp); phiếu chuyển `pending_approval` (chưa `completed`); ghi audit log #1; các unit từ phiếu này chưa được xuất kho cho tới khi QL duyệt.
@@ -167,7 +167,7 @@ Actor: **AD** = Admin, **QL** = Quản lý kho, **NV** = Nhân viên kho, **SL**
 **US-10** | Là **QL/NV/SL**, tôi muốn được báo số lượng tối đa có thể xuất khi tồn không đủ, để chọn xuất một phần thay vì bị chặn hoàn toàn.
 - AC: Hệ thống tính tồn khả dụng trước khi cho thêm dòng; cho phép xuất partial; không cho phép tồn âm (trừ khi cấu hình bật).
 - Priority: Must.
-- **Đã chốt:** Chặn tồn âm với serialized. Với bulk: mặc định chặn, có thể mở sau nếu có nhu cầu.
+- **Đã chốt:** Chặn tồn âm với serialized. Với bulk: giữ chặn cứng, không mở phase 1.
 
 **US-11** | Là **QL/NV/SL**, tôi muốn xuất tạm (reserve) phiếu xuất, để khoá serial và chờ QL duyệt.
 - AC: Hệ thống lock serial đã chọn (`SELECT ... FOR UPDATE`), phiếu chuyển `pending_approval`; ghi audit log. Serial bị khoá không được chọn bởi phiếu xuất khác.
@@ -201,6 +201,7 @@ Actor: **AD** = Admin, **QL** = Quản lý kho, **NV** = Nhân viên kho, **SL**
 
 **US-16** | Là **NV/QL**, tôi muốn xử lý yêu cầu bảo hành theo 1 trong 4 hướng (sửa chữa/đổi mới/hoàn tiền/từ chối), để giải quyết dứt điểm từng ca bảo hành.
 - AC: Sửa chữa → chuyển `under_repair`, không tính tồn; nếu gửi NCC → lưu `rma_number`, `sent_to_partner_at`; sửa xong → `sold`, không sửa được → `defective`. Đổi mới → serial cũ chuyển `defective`; serial mới `in_stock → sold`, kế thừa hạn BH còn lại (giữ nguyên `warranty_start_date` gốc). Hoàn tiền → unit chuyển `returned`. Từ chối → không đổi status, ghi rõ lý do.
+- Lưu ý: nếu warranty_request đến từ nhánh WARRANTY_TRANSFER của return_receipt (§7.2), unit đầu vào đã ở `defective` thay vì `sold` — transition tương ứng theo từng resolution xem `01-domain-model.md` §2.1 (bảng có cột riêng cho nguồn `defective`).
 - Priority: Must.
 - **Đã chốt:** Kế thừa hạn BH cũ — giữ nguyên `warranty_start_date` gốc, không reset.
 
@@ -211,7 +212,7 @@ Actor: **AD** = Admin, **QL** = Quản lý kho, **NV** = Nhân viên kho, **SL**
 **US-18** | Là **NV**, tôi muốn xử lý trường hợp đổi hàng bảo hành nhưng hết tồn serial cùng loại, để không bị kẹt quy trình.
 - AC: Giữ `pending` chờ nhập thêm hàng, hoặc chuyển hướng RMA/từ chối.
 - Priority: Should.
-- **Cần xác nhận:** không có SLA nào cho việc "giữ pending bao lâu" — khách chờ vô thời hạn có chấp nhận được không?
+- **Đã chốt:** SLA = 7 ngày làm việc kể từ QL duyệt REPLACE. Quá hạn → cảnh báo QL, không tự huỷ. QL có nút "Chuyển sang REFUND". Config qua `system_settings`.
 
 ### 2.4 Epic 4 — Điều chỉnh tồn kho thủ công
 
@@ -246,8 +247,8 @@ Actor: **AD** = Admin, **QL** = Quản lý kho, **NV** = Nhân viên kho, **SL**
 - AC: Có serial → tạo `product_unit` mới ghi chú "found during stock check"; không rõ serial → tạo bản ghi tổng chờ xử lý (dùng cơ chế fallback `product_id` + `quantity`).
 - Priority: Should.
 
-**US-43** | Là **NV**, khi kiểm kê phát hiện thiếu (`difference = missing`), tôi muốn chuyển `product_unit` sang `lost` ngay trong phiếu kiểm kê.
-- AC: Unit chuyển `in_stock → lost`; ghi rõ nguyên nhân và người kiểm kê; ghi audit log. Nếu sau này tìm thấy, dùng adjustment `type=found` để khôi phục.
+**US-43** | Là **NV**, khi kiểm kê phát hiện thiếu (`difference = missing`), tôi muốn ghi nhận trạng thái thực tế trong phiếu kiểm kê, để QL có căn cứ duyệt chuyển `lost`.
+- AC: NV nhập `actual_status = missing/lost` cho từng unit; hệ thống tự tính `difference = missing`. Unit chỉ thực sự chuyển `in_stock → lost` khi QL duyệt kết quả kiểm kê ở Bước 4 (không phải lúc NV đếm). Ghi audit log khi duyệt. Nếu sau này tìm thấy, dùng adjustment `type=found` để khôi phục.
 - Priority: Should.
 
 ### 2.6 Epic 6 — Quản lý danh mục & vị trí
@@ -264,10 +265,10 @@ Actor: **AD** = Admin, **QL** = Quản lý kho, **NV** = Nhân viên kho, **SL**
 **US-27** | Là **QL**, tôi muốn upload tối đa 5 ảnh cho sản phẩm và đánh dấu 1 ảnh đại diện, để hiển thị sản phẩm trực quan.
 - AC: `is_primary` duy nhất 1 ảnh/sản phẩm; `sort_order` cho thứ tự hiển thị.
 - Priority: Could.
-- **Cần xác nhận:** con số "5 ảnh" chưa rõ nguồn — cần acceptance criteria/lý do cụ thể.
+- **Đã chốt:** Giữ default 5. Configurable qua `system_settings` key `product_max_images`.
 
 **US-35** | Là **QL**, tôi muốn CRUD vị trí kho (zone/shelf/bin), để có danh sách vị trí hợp lệ trước khi gán cho `product_units`.
-- AC: `full_code` unique dạng `A-01-01A`; soft-delete qua `is_active`; không cho xóa vị trí đang có unit `in_stock` gán vào.
+- AC: `full_code` unique dạng `A-01-01A` (đủ 3 cấp) hoặc `A` (chỉ zone); shelf/bin optional — chỉ bắt buộc zone; soft-delete qua `is_active`; không cho xóa vị trí đang có unit `in_stock` gán vào.
 - Priority: Must.
 
 **US-36** | Là **QL/NV/SL**, tôi muốn CRUD thông tin khách hàng, để tra cứu và quản lý lịch sử mua hàng/bảo hành.
@@ -290,14 +291,14 @@ Actor: **AD** = Admin, **QL** = Quản lý kho, **NV** = Nhân viên kho, **SL**
 
 **US-37** | Là **AD**, tôi muốn CRUD role (tên, level, mô tả), để định nghĩa các nhóm quyền trong hệ thống.
 - AC: `level` xác định thứ bậc (1=ADMIN, 2=MANAGER, 3=SALES/STOCK); không cho xóa role đang có user gán vào.
-- Priority: Could — nếu 4 role (ADMIN/MANAGER/SALES/STOCK) là cố định vĩnh viễn thì có thể seed data thay vì làm màn hình CRUD.
+- Priority: Won't — 4 role cố định (seed data). Bỏ khỏi scope chính thức.
 
 ### 2.8 Epic 8 — Audit & Compliance
 
 **US-31** | Là **AD**, tôi muốn xem toàn bộ audit log hệ thống, để giám sát mọi thay đổi dữ liệu.
 - AC: Xem tất cả entity/action; filter theo user/action/thời gian.
 - Priority: Should.
-- **Cần xác nhận:** chưa có yêu cầu retention (audit log giữ bao lâu) — liên quan luật kế toán/lưu trữ chứng từ tại VN.
+- **Đã chốt:** Tối thiểu 2 năm. Không làm archive/purge job ở phase 1.
 
 **US-32** | Là **HT**, khi một transaction chính thành công, tôi cần ghi audit log **sau khi commit** để tránh phantom log, và khi transaction chính lỗi, tôi cần ghi log FAILED độc lập.
 - AC: SUCCESS dùng `afterCommit()` callback; FAILED dùng `@Async @Transactional(REQUIRES_NEW)`; lỗi ghi audit log tự thân bị swallow + log fallback, không fail request chính.
@@ -347,23 +348,18 @@ Actor: **AD** = Admin, **QL** = Quản lý kho, **NV** = Nhân viên kho, **SL**
 
 ---
 
-## 3. Gaps cần xác nhận lại với Business
+## 3. Trade-off đã chấp nhận
 
-### 3.1 Validation gaps (đã có thiết kế, chưa chắc đúng nghiệp vụ)
+> Các trade-off dưới đây là rủi ro kiến trúc/nghiệp vụ đã được chấp nhận, không phải gap còn mở. Nguồn sự thật duy nhất cho các quyết định đã chốt là `06-open-questions.md` mục "Đã chốt".
 
-| # | Gap | Story liên quan | Rủi ro nếu không xác nhận |
+### 3.1 Trade-off đã chấp nhận
+
+| # | Trade-off | Story liên quan | Rủi ro |
 |---|---|---|---|
-| 1 | FIFO cứng, không cho chọn tay serial | US-09 | Có thể chặn use case thực tế |
-| 2 | `removed` không thể revert | US-07 | Thao tác sai không có đường lùi |
-| 3 | Warranty inheritance là chính sách business, chưa xác nhận nguồn | US-16 | Có thể sai luật/chính sách cửa hàng thật |
-| 4 | Tồn âm "có thể bật" nhưng thiếu luồng nghiệp vụ đi kèm | US-10 | Bật tính năng nhưng thiếu logic hỗ trợ backorder |
-| 5 | SLA xử lý bảo hành khi hết serial | US-18 | Khách có thể chờ vô thời hạn |
-| 6 | Backup approval khi QL vắng mặt | US-20 | Nghẽn quy trình vì thiếu người duyệt |
-| 7 | Mapping unit↔tracking_type hard-code | US-26 | Thêm UOM mới phải sửa code |
-| 8 | Retention policy cho audit log | US-31 | Có thể vi phạm yêu cầu lưu trữ pháp lý |
-| 9 | Location granularity (bin-level) có cần thiết không | US-04 | Over-engineering, vi phạm YAGNI |
-| 10 | Số ảnh tối đa "5" chưa rõ nguồn | US-27 | Constraint tùy tiện, không traceable |
-| 11 | 4 role có cố định vĩnh viễn hay cần CRUD | US-37 | Có thể làm dư tính năng không cần thiết |
+| 1 | FIFO cứng, không cho chọn tay serial (trừ override có lý do) | US-09 | Có thể chặn use case thực tế nếu khách hàng yêu cầu chọn serial cụ thể (vd lấy hàng cận date). Đã có cơ chế override + lý do làm giảm nhẹ. |
+| 2 | `removed` không thể revert | US-07 | Thao tác sai không có đường lùi — phải tạo lại phiếu nhập + serial từ đầu. Chấp nhận để giữ tính bất biến audit trail. |
+| 3 | Backup approval khi QL vắng mặt | US-20 | Nghẽn quy trình nếu Admin cũng không duyệt kịp. Chấp nhận vì tần suất thấp (QL vắng là exception). |
+| 4 | Mapping unit↔tracking_type hard-code | US-26 | Thêm UOM mới phải sửa code. Chấp nhận vì UOM ít thay đổi, không đáng làm config động. |
 
 ### 3.2 Domain-model gaps — Đã đóng
 

@@ -76,6 +76,7 @@
 | Hủy phiếu nhập/xuất | ✅ (backup) | ✅ | ❌ | ❌ |
 | Xem tồn kho | ✅ | ✅ | ✅ | ✅ |
 | Điều chỉnh min_stock | ✅ (cấu hình) | ✅ | ❌ | ❌ |
+| Sửa giá bán (sell_price) | ❌ | ✅ | ✅ | ✅ |
 | Tạo phiếu kiểm kê | ❌ | ✅ | ❌ | ❌ |
 | Duyệt kiểm kê lệch * | ✅ (escalation) | ✅ * | ❌ | ❌ |
 | Tạo phiếu điều chỉnh tồn thủ công | ❌ | ✅ | ✅ (cần duyệt) | ❌ |
@@ -83,6 +84,12 @@
 | Tra cứu bảo hành | ✅ | ✅ | ✅ | ✅ |
 | Xử lý bảo hành (đổi/sửa/từ chối) | ❌ | ✅ | ✅ (tiếp nhận, kiểm tra) | ✅ (tiếp nhận) |
 | Dashboard & Báo cáo | ✅ (chỉ xem) | ✅ | ❌ | ❌ |
+| Tạo phiếu trả hàng | ❌ | ❌ | ❌ | ✅ |
+| Duyệt phiếu trả hàng * | ✅ (escalation) | ✅ * | ❌ | ❌ |
+| Tạo phiếu điều chỉnh giá nhập | ❌ | ✅ | ✅ | ❌ |
+| Duyệt phiếu điều chỉnh giá nhập * | ✅ (escalation) | ✅ * | ❌ | ❌ |
+| Tạo/Sửa PO | ❌ | ✅ | ❌ | ❌ |
+| Hủy PO | ❌ | ✅ | ❌ | ❌ |
 
 **\*** Ràng buộc `created_by ≠ approved_by`: nếu Manager là người tạo phiếu, họ không được tự duyệt phiếu đó — hệ thống tự động escalate lên Admin. Nếu doanh nghiệp có từ 2 Manager trở lên, một Manager khác cũng có thể duyệt thay cho nhau, không bắt buộc phải là Admin.
 
@@ -122,7 +129,7 @@ STOCK/QL tạo phiếu nhập (draft) ──┬──→ Huỷ bỏ draft
 - **Cho phép nhiều dòng cùng 1 `product_id`** trong cùng phiếu (ví dụ: 2 đợt hàng phụ của cùng 1 SP với giá vốn khác nhau). Không có ràng buộc unique theo product_id trong phạm vi 1 phiếu nhập.
 - Trạng thái khởi tạo: **`draft`** — cho phép sửa số lượng/giá/serial trước khi gửi duyệt.
 
-> **Điểm mở**: Giá nhập lệch so với giá dự kiến trong PO — hiện tại cho nhập giá thực tế tự do, PO chỉ tham khảo. **Cần xác nhận lại với chủ shop** trước khi coi là chính thức.
+> **Đã chốt:** Giá nhập lệch so với PO — cho nhập tự do, cảnh báo mềm (không chặn) nếu lệch >10% so với `purchase_order_items.unit_price`, bắt buộc ghi note khi lệch.
 
 #### Bước 2: Nhập serial — NV / QL
 
@@ -161,8 +168,10 @@ Kiểm tra trùng trong nội bộ file TRƯỚC khi validate với DB, tránh c
   1. Zone = mapping `category_id → zone_code` (bảng `category_zones`).
   2. Trong zone, ưu tiên bin đã chứa cùng `product_id` và còn dưới capacity (cảnh báo mềm, không chặn).
   3. Hết chỗ → bin trống, ưu tiên bin % dùng thấp nhất.
+  4. Nếu zone chỉ có location cấp zone (không chia shelf/bin) — gán thẳng vào location đó, bỏ qua bước ưu tiên theo bin.
 - NV có thể **đổi location thủ công** (kèm lý do nếu khác zone ưu tiên).
 - Không chặn cứng nếu bin đầy — **cảnh báo mềm** (vì kích thước linh kiện đa dạng).
+- Nếu zone không có location nào (rỗng) — hệ thống báo lỗi, yêu cầu QL tạo location trước.
 
 #### Bước 5: Xác nhận & gửi duyệt → PENDING_APPROVAL
 
@@ -234,7 +243,7 @@ SALES/STOCK tạo phiếu xuất (reason + items)
 - Chọn sản phẩm + số lượng cần xuất.
 - Hệ thống kiểm tra tồn khả dụng ngay: `SUM(remaining_quantity WHERE status=in_stock)`.
   - Nếu thiếu → báo số lượng tối đa có thể xuất, cho xuất partial.
-  - **Không cho phép tồn âm** với hàng serialized. Với bulk, mặc định chặn, có thể mở sau nếu có nhu cầu thực tế.
+  - **Không cho phép tồn âm** với hàng serialized. Với bulk, giữ chặn cứng — không mở ở phase 1.
 
 #### Bước 2: Hệ thống chọn serial theo FIFO + NV override
 
@@ -399,6 +408,7 @@ Tách nhánh riêng "sai lệch vị trí" — chỉ update `location_id`, khôn
 - **Không cần duyệt 4-eyes** (không ảnh hưởng số lượng/giá trị tồn kho, chỉ đổi vị trí vật lý).
 - Ghi `ProductUnitStatusLog` với `source_type='RELOCATE'` (từ location cũ → mới, ai làm, lúc nào).
 - Hệ thống kiểm tra location mới có `is_active=true` và còn capacity (cảnh báo mềm, không chặn).
+- **Chặn cứng** nếu zone đích đang có phiếu kiểm kê `IN_PROGRESS` hoặc `PENDING` — báo lỗi "Zone đang được kiểm kê, không thể relocate. Chờ kiểm kê xong hoặc tạo phiếu relocate sau."
 
 #### Bước 3: Kết thúc đếm → COMPLETED — NV
 
@@ -415,7 +425,7 @@ Tách nhánh riêng "sai lệch vị trí" — chỉ update `location_id`, khôn
 - QL từ chối → `REJECTED`, không áp dụng thay đổi nào.
 
 **Edge case — Found nhiều hơn Lost trước đó:**
-Nếu số lượng `FOUND` > tổng `LOST` trong cùng phiếu → **cảnh báo**, bắt buộc QL duyệt tay, không auto-approve.
+Nếu số lượng `FOUND` > tổng `LOST` trong cùng phiếu → **cảnh báo** (bắt buộc QL duyệt tay, không auto-approve). Đã chốt: giữ >0 là ngưỡng cảnh báo, không thêm ngưỡng %.
 
 ### 4.3 Sơ đồ trạng thái StockCheck
 
@@ -466,7 +476,7 @@ NV/QL tạo phiếu điều chỉnh (DAMAGED / LOST / FOUND)
 >
 > | Type | Ai duyệt (bình thường)? | Backup khi QL vắng | Ghi chú |
 > |---|---|---|---|
-> | LOST | Manager | Admin | Cần xác nhận mất thật — quan trọng hơn DAMAGED/FOUND nên có thể yêu cầu note chặt hơn |
+> | LOST | Manager | Admin | Cần xác nhận mất thật |
 > | DAMAGED | Manager | Admin | Cần ảnh minh chứng |
 > | FOUND | Manager | Admin | Phát hiện thừa, dễ duyệt hơn |
 
@@ -474,11 +484,13 @@ NV/QL tạo phiếu điều chỉnh (DAMAGED / LOST / FOUND)
 |------|----------|
 | DAMAGED | `unit.status` → `damaged_in_storage` |
 | LOST | `unit.status` → `lost` |
-| FOUND (có unit) | `unit.status` → `in_stock` (chỉ nếu đang ở LOST/REMOVED/DAMAGED_IN_STORAGE) |
+| FOUND (có unit) | `unit.status` → `in_stock` (chỉ nếu đang ở LOST/DAMAGED_IN_STORAGE) |
 | FOUND (không unit) | Tạo `ProductUnit` mới với serial `FOUND-{adjust_code}` |
 
+- Với **bulk** FOUND có `product_unit_id`: cộng lại `remaining_quantity` của lot đó (tương tự cách DAMAGED/LOST trừ `remaining_quantity` về 0). Nếu lot đã hết (`remaining_quantity` = 0 trước khi found) → cộng dồn lên, không cần set `remaining_quantity = initial_quantity` (vì FOUND chỉ khôi phục tồn đã mất, không reset lịch sử lot).
+
 **Edge case — Found không thể restore:**
-Nếu unit đang ở `sold`/`disposed`/`returned_to_supplier` — chặn, báo "Unit không thể khôi phục từ trạng thái này".
+Nếu unit đang ở `sold`/`removed`/`disposed`/`returned_to_supplier` — chặn, báo "Unit không thể khôi phục từ trạng thái này". `removed` là state terminal, không revert được (theo `01-domain-model.md` mục 2).
 
 ### 5.3 Sơ đồ trạng thái StockAdjustment
 
@@ -517,7 +529,7 @@ Khách báo lỗi → NV/SALES tạo warranty_request
 - SALES kiểm tra cả `serial_number` (ghi trên chip/board) **và tem bảo hành** (`warranty_seal_code`, dán ngoài vỏ hộp):
   - Nếu có `warranty_seal_code` trong hệ thống → xác nhận mua tại shop, đủ điều kiện đổi mới nhanh (REPLACE).
   - Nếu không có trong hệ thống (shop không dùng tem riêng, hoặc tem ngoài hệ thống khác) → bỏ qua bước này.
-- **Mất/rách tem bảo hành**: xử lý theo 1 trong 2 hướng — **(a)** mất tem vẫn tra cứu được bằng serial, chỉ mất quyền đổi mới nhanh (REPLACE) tại shop, chuyển sang BH hãng (REPAIR/SENT_TO_MANUFACTURER); **(b)** mất tem = từ chối toàn bộ BH shop (kể cả sửa). → **Chưa chốt, xem `06-open-questions.md` #13**.
+- **Mất/rách tem bảo hành**: xử lý theo hướng (a) — mất tem vẫn tra cứu được bằng serial, chỉ mất quyền đổi mới nhanh (REPLACE) tại shop, chuyển sang REPAIR/SENT_TO_MANUFACTURER.
 - Nếu hết BH → từ chối tiếp nhận, hướng dẫn khách.
 
 #### Bước 2: Nhận hàng + kiểm tra — STOCK
@@ -526,31 +538,35 @@ Khách báo lỗi → NV/SALES tạo warranty_request
 - Nhập kết quả kiểm tra:
   - `check_result`: CONFIRMED / REJECTED (không lỗi, không BH)
   - `check_note`
-- Tạo `ProductUnitStatusLog`: `sold → under_repair` hoặc `sold → sent_to_manufacturer`.
+- **CONFIRMED**: unit GIỮ NGUYÊN trạng thái hiện tại (`sold`, hoặc `defective`/`returned` nếu đến từ WARRANTY_TRANSFER của return_receipt §7.2). Chưa chuyển transition — chờ QL chọn resolution ở Bước 3.
+- Nếu kết quả `REJECTED`: auto-resolve thẳng (không cần QL duyệt lần 2), bắt buộc `check_note` chi tiết (validate chặn submit nếu để trống). Phiếu chuyển `resolved` với `resolution_type=reject` — ghi `ProductUnitStatusLog` ghi nhận REJECTED (không đổi status unit).
 
 #### Bước 3: Đề xuất resolution + duyệt — QL
 
-| Resolution | Mô tả | Hậu quả |
-|------------|-------|---------|
-| `REPAIR` | Sửa tại kho (hoặc gửi NCC) | Unit giữ `under_repair`, khi xong → `in_stock`. Nếu gửi NCC: → `sent_to_manufacturer` |
-| `REPLACE` | Đổi serial mới | Tạo export `reason=internal`, `sell_price=0`. Unit mới → `sold`. **Kế thừa `warranty_start_date` gốc** |
-| `REFUND` | Hoàn tiền | Unit → `returned`. ExportReceipt có `refund_amount`. Liên quan `return_receipts` |
-| `REJECT` | Từ chối BH | Unit → `sold`, trả về khách. Ghi rõ lý do |
+| Resolution | Mô tả | Transition unit gốc | Hậu quả |
+|------------|-------|---------------------|---------|
+| `REPAIR` | Sửa tại kho (hoặc gửi NCC) | `sold → under_repair` (hoặc `defective → under_repair` nếu từ WARRANTY_TRANSFER) | Unit giữ `under_repair`, khi xong → `in_stock`. Nếu gửi NCC: → `sent_to_manufacturer` |
+| `REPLACE` | Đổi serial mới | `sold → defective` (hoặc `defective → defective` nếu từ WARRANTY_TRANSFER — unit đã ở defective, giữ nguyên, chỉ ghi nhận) | Tạo export `reason=internal`, `sell_price=0`. Unit mới → `sold`. **Kế thừa `warranty_start_date` gốc** |
+| `REFUND` | Hoàn tiền | `sold → returned` (hoặc `defective → returned`/`sold → returned` nếu từ WARRANTY_TRANSFER) | Unit → `returned`. ExportReceipt có `refund_amount`. Liên quan `return_receipts` |
+| `REJECT` | Từ chối BH | **Không đổi** — unit giữ nguyên trạng thái | Trả về khách. Ghi rõ lý do |
 
 #### Bước 4: Thực thi — STOCK
 
-- REPAIR: sửa xong → chuyển `under_repair → in_stock`.
+- REPAIR: transition `sold → under_repair` (hoặc `defective → under_repair`) đã xảy ra ở Bước 3 khi QL duyệt resolution. Ở Bước 4 STOCK chỉ thực thi: sửa xong → chuyển `under_repair → in_stock`.
 - REPLACE: lấy unit mới từ kho → xuất `internal` với `sell_price=0`, `warranty_start_date` kế thừa.
 - REFUND: unit → `returned`. Khách nhận tiền.
 
 **Edge case — Chuỗi đổi BH lặp:**
-Cảnh báo (không chặn) nếu 1 serial gốc đã qua >2 lần đổi.
+Cảnh báo (không chặn) nếu 1 serial gốc đã qua >2 lần đổi. **Đã chốt:** giữ cảnh báo, không chặn cứng.
 
 **Edge case — Hãng làm mất/hư hàng lúc vận chuyển RMA:**
 Ghi nhận trên `warranty_request`, chuyển `product_unit.status → lost`. Cửa hàng chịu trách nhiệm đền cho khách (chính sách nội bộ, không phải lỗi hệ thống).
 
 **Edge case — Hãng trả RMA nhưng lỗi cũ vẫn còn:**
 Chấp nhận unit vẫn lỗi hoặc gửi lại lần 2 (re-RMA). Ghi chú rõ số lần gửi trên `warranty_request` để tránh vòng lặp gửi-nhận không kiểm soát.
+
+**Edge case — REPLACE hết serial tồn kho:**
+SLA: 7 ngày làm việc kể từ ngày QL duyệt resolution=REPLACE. Quá hạn → cảnh báo QL trên dashboard, không tự huỷ. QL có nút "Chuyển sang REFUND" để đổi hướng xử lý — STOCK chỉ thực thi sau khi QL đã bấm chuyển hướng. Config: số ngày SLA lưu trong `system_settings` key `warranty_replace_sla_days`.
 
 ### 6.4 Sơ đồ trạng thái WarrantyRequest
 
@@ -580,12 +596,12 @@ Khách muốn trả hàng (đổi ý / lỗi / sai hàng)
 
 | Reason | Mô tả | Điều kiện |
 |--------|-------|-----------|
-| `CHANGE_MIND` | Khách đổi ý, không lỗi | Trong vòng N ngày kể từ `export_receipt.approved_at` (số ngày cụ thể cần chốt với business) |
+| `CHANGE_MIND` | Khách đổi ý, không lỗi | Trong vòng 7 ngày kể từ `export_receipt.approved_at` |
 | `DEFECTIVE` | Hàng lỗi kỹ thuật | Còn hạn BH (warranty) |
 | `WRONG_ITEM` | Giao sai hàng | Không giới hạn thời gian |
 
 > **Case đặc thù ngành linh kiện — Test-and-return abuse:**
-> Khách mua CPU/GPU về ép xung/test rồi đòi trả vì "không như kỳ vọng" — **không phải warranty** (không lỗi kỹ thuật) và **không phải DOA** (đã dùng, không phải lỗi lúc nhận hàng). Đây là nhánh cần tách khỏi cả `warranty_requests` lẫn case DOA — xử lý theo đúng flow `CHANGE_MIND` ở mục này, với policy thời hạn riêng (VD 7 ngày, xem câu hỏi #7 ở `06-open-questions.md`) khác hẳn `warranty_months`.
+> Khách mua CPU/GPU về ép xung/test rồi đòi trả vì "không như kỳ vọng" — **không phải warranty** (không lỗi kỹ thuật) và **không phải DOA** (đã dùng, không phải lỗi lúc nhận hàng). Đây là nhánh cần tách khỏi cả `warranty_requests` lẫn case DOA — xử lý theo đúng flow `CHANGE_MIND` ở mục này, với policy 7 ngày (đã chốt).
 
 - Link `original_export_receipt_id` (bắt buộc).
 - Trạng thái: `PENDING_APPROVAL`.
@@ -595,7 +611,7 @@ Khách muốn trả hàng (đổi ý / lỗi / sai hàng)
 | Condition | Mô tả | Hậu quả |
 |-----------|-------|----------|
 | `GOOD` | Hàng còn nguyên vẹn | → `RESTOCK`: unit → `in_stock`. Nếu đã có `is_warranty_active=true` → set `false`. |
-| `DEFECTIVE` | Hàng có lỗi | → `SCRAP`: unit → `disposed`. Hoặc `WARRANTY_TRANSFER`: hệ thống tự tạo 1 `warranty_request` mới, khởi tạo thẳng ở state `received` (bỏ qua `pending` — vì bản chất SALES/STOCK đã tiếp nhận và kiểm tra hàng ngay trong flow trả hàng này rồi, không cần lặp lại bước tiếp nhận). `check_result` copy từ kết quả kiểm tra condition ở return_receipt (`DEFECTIVE` → `CONFIRMED`). Từ đây warranty_request đi tiếp bình thường theo SOP §6 từ bước 3 (QL duyệt resolution). |
+| `DEFECTIVE` | Hàng có lỗi | → `SCRAP`: unit → `disposed`. Hoặc `WARRANTY_TRANSFER`: hệ thống tự tạo 1 `warranty_request` mới, khởi tạo thẳng ở state `received` (bỏ qua `pending`). Unit chuyển `sold → defective` tại thời điểm này (vì hàng đã được xác nhận lỗi thật). `check_result` copy từ kết quả kiểm tra condition (`DEFECTIVE` → `CONFIRMED`). Từ đây warranty_request đi tiếp theo SOP §6 từ bước 3 (QL duyệt resolution). **Lưu ý transition**: vì unit đã ở `defective`, resolution REPAIR sẽ chuyển `defective → under_repair`; REPLACE giữ nguyên `defective` (ghi nhận đã xử lý); REFUND chuyển `defective → returned`. REJECT giữ nguyên `defective`. |
 
 #### Bước 3: Duyệt — QL (khác người tạo)
 
@@ -607,11 +623,19 @@ Khách muốn trả hàng (đổi ý / lỗi / sai hàng)
 ### 7.3 State machine ProductUnit (liên quan trả hàng)
 
 ```
-sold → returned (return_receipt completed)
-     → in_stock  (nếu GOOD + RESTOCK)
-     → disposed  (nếu DEFECTIVE + SCRAP)
-     → defective (nếu DEFECTIVE + WARRANTY_TRANSFER)
+sold → returned      (return_receipt completed, condition=DEFECTIVE → SCRAP/WARRANTY_TRANSFER)
+sold → in_stock      (condition=GOOD → RESTOCK)
+sold → disposed      (condition=DEFECTIVE → SCRAP)
+sold → defective     (condition=DEFECTIVE → WARRANTY_TRANSFER — khởi tạo warranty_request với unit ở defective)
 ```
+
+**Transition từ `defective` khi warranty_request đi tiếp (SOP §6.3 Bước 3):**
+| Resolution | Transition |
+|------------|-----------|
+| REPAIR | `defective → under_repair` |
+| REPLACE | Giữ `defective` (ghi nhận xử lý) |
+| REFUND | `defective → returned` |
+| REJECT | Giữ `defective` |
 
 ---
 
@@ -629,7 +653,7 @@ NV/QL tạo price_adjustment (link import_receipt_item, ghi giá cũ→mới + l
 ### 8.2 Nguyên tắc
 
 - **KHÔNG sửa trực tiếp** `import_receipt_items.unit_price` — luôn tạo adjustment record, duyệt xong mới áp dụng.
-- Chỉ áp dụng cho `ProductUnit` còn `in_stock` (prospective, không hồi tố).
+- Chỉ áp dụng cho `ProductUnit` còn `in_stock` (prospective, không hồi tố). Unit đang `reserved` không được áp dụng — quyết định có chủ đích (vì reserved unit đang chờ duyệt xuất, giá vốn sẽ tính theo cost_price cũ tại thời điểm reserve; nếu adjustment chạy vào lúc này sẽ gây lệch COGS).
 - Unit đã bán giữ nguyên `cost_price` cũ — COGS quá khứ không thay đổi.
 
 ### 8.3 Các bước chi tiết
@@ -650,7 +674,7 @@ NV/QL tạo price_adjustment (link import_receipt_item, ghi giá cũ→mới + l
 
 ### 8.4 Giá bán (sell_price) — không cần duyệt
 
-- NV sửa `sell_price` trên sản phẩm bất kỳ lúc.
+- NV (STOCK/SALES) sửa `sell_price` trên sản phẩm bất kỳ lúc.
 - Ghi vào `sell_price_history`: `product_id, old_price, new_price, changed_by, changed_at`.
 - Không ảnh hưởng giá xuất đã xảy ra.
 
@@ -684,42 +708,11 @@ Thêm `warehouse_id` (FK) vào: `locations`, `import_receipts`, `export_receipts
 
 #### `sell_price_history` (bảng mới)
 
-```sql
-CREATE TABLE sell_price_history (
-    id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    product_id BIGINT NOT NULL,
-    old_price DECIMAL(15,2) NOT NULL,
-    new_price DECIMAL(15,2) NOT NULL,
-    changed_by BIGINT NOT NULL,
-    changed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-```
+Đã có sẵn trong `01-domain-model.md` (`sell_price_history`).
 
 #### `return_receipts` + `return_receipt_items` (bảng mới)
 
-```sql
-CREATE TABLE return_receipts (
-    id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    receipt_code VARCHAR(32) NOT NULL UNIQUE,
-    customer_id BIGINT NOT NULL,
-    original_export_receipt_id BIGINT NOT NULL,
-    reason VARCHAR(20) NOT NULL,          -- CHANGE_MIND / DEFECTIVE / WRONG_ITEM
-    status VARCHAR(20) NOT NULL DEFAULT 'PENDING_APPROVAL',
-    created_by BIGINT NOT NULL,
-    approved_by BIGINT,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    approved_at TIMESTAMP
-);
-
-CREATE TABLE return_receipt_items (
-    id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    return_receipt_id BIGINT NOT NULL,
-    product_unit_id BIGINT,
-    quantity INT COMMENT 'cho bulk',
-    condition VARCHAR(20) NOT NULL,       -- GOOD / DEFECTIVE
-    resulting_action VARCHAR(20) NOT NULL -- RESTOCK / SCRAP / WARRANTY_TRANSFER
-);
-```
+Đã có sẵn trong `01-domain-model.md` (`return_receipts`, `return_receipt_items`).
 
 #### `import_receipt_items` — bổ sung field
 
@@ -838,8 +831,14 @@ Các mục sau **không thuộc phạm vi SOP này**:
 | Adjustment LOST | Duyệt | MANAGER, ADMIN |
 | Adjustment DAMAGED | Duyệt | MANAGER, ADMIN |
 | Adjustment FOUND | Duyệt | MANAGER, ADMIN |
+| ReturnReceipt | Tạo | SALES |
+| ReturnReceipt | Duyệt (→ COMPLETED) | MANAGER, ADMIN |
+| PriceAdjustment | Tạo | STOCK, MANAGER |
+| PriceAdjustment | Duyệt (→ APPROVED) | MANAGER, ADMIN |
 | PO | Tạo/Sửa | MANAGER |
 | PO | Cancel | MANAGER |
+
+> **Đã chốt:** LOST adjustment trong flow xuất thiếu (§3.3) — hệ thống tự tạo (created_by=STOCK), không cần MANAGER tạo tay. Duyệt adjustment LOST = đồng thời duyệt export receipt, không cần dual sign-off riêng.
 
 ### Phân biệt form nhập theo role
 
