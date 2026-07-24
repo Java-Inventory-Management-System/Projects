@@ -13,3 +13,7 @@ demo-serials.csv
 
 # Docker build artifacts
 docker/nginx/html/
+
+# opencode config (keep template, ignore actual)
+opencode.jsonc
+*/opencode.jsonc
