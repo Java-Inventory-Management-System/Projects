@@ -249,7 +249,7 @@ jobs:
       - name: Deploy via webhook (Cloudflare Tunnel)
         run: |
           set -e
-          RESPONSE=$(curl -sS -w "\n%{http_code}" -X POST "${{ secrets.DEPLOY_WEBHOOK_URL }}" \
+          RESPONSE=$(curl -sS -w "\n%{http_code}" -X POST "https://deploy.${{ vars.DEPLOY_DOMAIN }}/hooks/deploy" \
             -H "X-Deploy-Token: ${{ secrets.DEPLOY_WEBHOOK_TOKEN }}" \
             -H "Content-Type: application/json" \
             -d "{\"image_tag\":\"${{ steps.tag.outputs.tag }}\"}")
