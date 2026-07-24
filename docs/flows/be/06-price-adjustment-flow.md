@@ -33,10 +33,9 @@
 ## State Machine
 
 ```mermaid
-stateDiagram-v2
-    [*] --> PENDING : Tạo phiếu điều chỉnh giá
-    PENDING --> APPROVED : Approve — batch update costPrice
-    PENDING --> REJECTED : Reject — no change
+flowchart LR
+    PENDING -->|Approve: batch update costPrice| APPROVED
+    PENDING -->|Reject| REJECTED
 ```
 
 ## Audit

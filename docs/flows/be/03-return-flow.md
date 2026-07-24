@@ -33,18 +33,17 @@
 ## State Machine
 
 ```mermaid
-stateDiagram-v2
-    [*] --> PENDING_APPROVAL : Tạo phiếu trả hàng
+flowchart LR
+    subgraph "ReturnReceipt"
+        PENDING_APPROVAL -->|Approve 4-eyes| COMPLETED
+        PENDING_APPROVAL -->|Cancel| CANCELLED
+    end
 
-    PENDING_APPROVAL --> COMPLETED : Approve (4-eyes)
-    PENDING_APPROVAL --> CANCELLED : Cancel
-
-    state "ProductUnit" as PU {
-        [*] --> SOLD
-        SOLD --> IN_STOCK : GOOD → RESTOCK
-        SOLD --> DISPOSED : DEFECTIVE → SCRAP
-        SOLD --> DEFECTIVE : DEFECTIVE → WARRANTY_TRANSFER
-    }
+    subgraph "ProductUnit"
+        SOLD -->|GOOD → RESTOCK| IN_STOCK
+        SOLD -->|DEFECTIVE → SCRAP| DISPOSED
+        SOLD -->|DEFECTIVE → WARRANTY_TRANSFER| DEFECTIVE
+    end
 ```
 
 ## Audit

@@ -32,12 +32,11 @@
 ## State Machine
 
 ```mermaid
-stateDiagram-v2
-    [*] --> DRAFT : Tạo đơn đặt hàng
-    DRAFT --> PARTIAL : Nhập 1 phần (via import)
-    DRAFT --> CANCELLED : Hủy
-    PARTIAL --> COMPLETED : Nhập đủ số lượng
-    PARTIAL --> CANCELLED : Hủy khi đã nhập 1 phần
+flowchart LR
+    DRAFT -->|Nhập 1 phần| PARTIAL
+    DRAFT -->|Hủy| CANCELLED
+    PARTIAL -->|Nhập đủ| COMPLETED
+    PARTIAL -->|Hủy| CANCELLED
 ```
 
 ## Audit

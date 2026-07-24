@@ -34,20 +34,17 @@
 ## State Machine
 
 ```mermaid
-stateDiagram-v2
-    [*] --> PENDING_APPROVAL : Tạo phiếu xuất
+flowchart LR
+    subgraph "ExportReceipt"
+        PA[PENDING_APPROVAL] -->|Approve 4-eyes| COMPLETED
+        PA -->|Cancel| CANCELLED
+    end
 
-    PENDING_APPROVAL --> COMPLETED : Approve (4-eyes)
-    PENDING_APPROVAL --> CANCELLED : Cancel
-
-    state "ProductUnit" as PU {
-        [*] --> IN_STOCK
-        IN_STOCK --> RESERVED : Export create — FIFO select
-        RESERVED --> SOLD : Approve — COGS calc
-        RESERVED --> IN_STOCK : Cancel — release reserve
-    }
-
-    note right of RESERVED : Optimistic locking (@Version)<br/>prevents double-booking
+    subgraph "ProductUnit"
+        IST[IN_STOCK] -->|Export create -- FIFO| RESERVED
+        RESERVED -->|Approve| SOLD
+        RESERVED -->|Cancel| IST
+    end
 ```
 
 ## Audit

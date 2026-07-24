@@ -41,21 +41,18 @@
 ## State Machine
 
 ```mermaid
-stateDiagram-v2
-    [*] --> DRAFT : Create phiếu nhập
+flowchart LR
+    subgraph "ImportReceipt"
+        DRAFT -->|Confirm| PENDING_APPROVAL
+        DRAFT -->|Cancel| CANCELLED
+        PENDING_APPROVAL -->|Approve 4-eyes| COMPLETED
+        PENDING_APPROVAL -->|Cancel| CANCELLED
+    end
 
-    DRAFT --> PENDING_APPROVAL : Confirm — tạo ProductUnit + status log
-    DRAFT --> CANCELLED : Cancel trước confirm
-    PENDING_APPROVAL --> COMPLETED : Approve (4-eyes)
-    PENDING_APPROVAL --> CANCELLED : Cancel trước duyệt
-
-    note right of PENDING_APPROVAL : created_by ≠ approved_by enforced
-
-    state "ProductUnit" as PU {
-        [*] --> PENDING_QC
-        PENDING_QC --> IN_STOCK : QC Pass / auto confirm
-        PENDING_QC --> DEFECTIVE : QC FAIL_HARDWARE (DOA)
-    }
+    subgraph "ProductUnit"
+        PQC[PENDING_QC] -->|QC Pass| IN_STOCK
+        PQC -->|FAIL_HARDWARE| DEFECTIVE
+    end
 ```
 
 ## Audit

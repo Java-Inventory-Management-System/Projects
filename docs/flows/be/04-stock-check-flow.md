@@ -37,13 +37,12 @@
 ## State Machine
 
 ```mermaid
-stateDiagram-v2
-    [*] --> PENDING : Tạo phiếu kiểm kê
-    PENDING --> IN_PROGRESS : Ghi nhận items
-    PENDING --> EXPIRED : Quá 1 ngày (scheduled task)
-    IN_PROGRESS --> COMPLETED : NV hoàn tất kiểm
-    COMPLETED --> APPROVED : Approve — apply lệch
-    COMPLETED --> REJECTED : Reject — không đổi gì
+flowchart LR
+    PENDING -->|NV ghi nhận items| IN_PROGRESS
+    PENDING -->|Quá 1 ngày| EXPIRED
+    IN_PROGRESS -->|NV hoàn tất| COMPLETED
+    COMPLETED -->|QL Approve| APPROVED
+    COMPLETED -->|QL Reject| REJECTED
 ```
 
 ## Audit

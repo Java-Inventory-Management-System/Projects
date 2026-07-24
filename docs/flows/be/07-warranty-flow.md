@@ -38,28 +38,23 @@
 ## State Machine
 
 ```mermaid
-stateDiagram-v2
-    [*] --> PENDING : Tạo yêu cầu BH
+flowchart LR
+    subgraph "WarrantyRequest"
+        PENDING -->|STOCK nhận hàng| RECEIVED
+        RECEIVED -->|CONFIRMED| UNDER_EVALUATION
+        RECEIVED -->|REJECTED auto-resolve| RESOLVED
+        UNDER_EVALUATION -->|QL duyệt resolution| RESOLVED
+    end
 
-    PENDING --> RECEIVED : STOCK nhận hàng
-    RECEIVED --> UNDER_EVALUATION : STOCK check → CONFIRMED
-    RECEIVED --> RESOLVED : STOCK check → REJECTED (auto-resolve)
-
-    UNDER_EVALUATION --> RESOLVED : QL duyệt resolution
-
-    RESOLVED --> [*] : STOCK thực thi xong
-
-    state "ProductUnit" as PU {
-        SOLD --> UNDER_REPAIR : resolution = REPAIR
-        SOLD --> SENT_TO_MANUFACTURER : resolution = RMA (gửi NCC)
-        SOLD --> DEFECTIVE : resolution = REPLACE
-        UNDER_REPAIR --> SOLD : sửa xong, trả khách
-        UNDER_REPAIR --> DEFECTIVE : không sửa được
-        SENT_TO_MANUFACTURER --> SOLD : NCC trả hàng đã sửa
-        SENT_TO_MANUFACTURER --> DEFECTIVE : NCC từ chối BH
-    }
-
-    note right of UNDER_EVALUATION : 4 resolution cards: REPAIR / REPLACE / REFUND / REJECT<br/>REJECTED tại RECEIVED → auto-resolve,<br/>không cần QL duyệt lần 2
+    subgraph "ProductUnit transitions"
+        SOLD -.->|REPAIR| UNDER_REPAIR
+        SOLD -.->|RMA gửi NCC| SENT_TO_MANUFACTURER
+        SOLD -.->|REPLACE| DEFECTIVE
+        UNDER_REPAIR -->|sửa xong| SOLD
+        UNDER_REPAIR -->|hỏng| DEFECTIVE
+        SENT_TO_MANUFACTURER -->|NCC trả| SOLD
+        SENT_TO_MANUFACTURER -->|NCC từ chối| DEFECTIVE
+    end
 ```
 
 ## Audit
