@@ -59,7 +59,7 @@ Thêm nút **"Tạo phiếu điều chỉnh (N)"** áp dụng batch cho tất c�
 
 ### 1.4 Trả hàng khách
 
-- Bắt buộc chọn export gốc **trước** (autocomplete theo mã phiếu xuất hoặc serial), sau đó mới hiện được `reason` (`CHANGE_MIND` / `DEFECTIVE` / `WRONG_ITEM`) — tránh NV chọn reason trước rồi mới tìm export gốc, dễ chọn sai.
+- Bắt buộc chọn export gốc **trước** (autocomplete theo mã phiếu xuất hoặc serial), sau đó mới hiện được `reason` (`CHANGE_MIND` / `DEFECTIVE` / `WRONG_ITEM`) — tránh SALES chọn reason trước rồi mới tìm export gốc, dễ chọn sai.
 - Nếu `reason=CHANGE_MIND`: hiện rõ số ngày còn lại trong hạn (đếm từ `export_receipt.approved_at`), **disable** submit nếu quá hạn thay vì để submit xong mới báo lỗi.
 - Bước kiểm tra condition (STOCK): 2 lựa chọn `GOOD` / `DEFECTIVE`, nếu DEFECTIVE thêm lựa chọn con `SCRAP` hay `WARRANTY_TRANSFER`.
 
@@ -310,6 +310,6 @@ Ghi đè chung: **ADMIN chỉ duyệt thay khi QL vắng** — UI nên thêm 1 d
 
 1. **Mất tem BH xử lý sao** (#13) — quyết định (a)/(b) sẽ đổi hẳn nội dung banner ở §2.2.
 2. **SLA chờ khi hết serial đổi** (#1) — quyết định số ngày cụ thể sẽ bật/tắt nút "Chuyển sang REFUND thay thế" ở §2.3.
-3. **REJECT có cần QL xác nhận lần 2 không** — ảnh hưởng luồng auto-resolve.
+3. **REJECT có cần QL xác nhận lần 2 không** (#15) — ảnh hưởng luồng auto-resolve.
 
 Ngoài 3 điểm trên, phần còn lại có thể code thẳng theo thiết kế này vì đã khớp `02-sop-nghiep-vu.md §6`.
