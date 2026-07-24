@@ -41,7 +41,7 @@ Wizard 4 bước: **Chọn NCC/PO → Thêm SP+SL → Nhập serial → QC & xá
   | Gần đầy | `productCount >= 80% maxCapacity` |
   | Đầy | `productCount >= maxCapacity` |
 
-- **Khi nhập kho — chọn bin**: LocationPicker hiển thị `fullCode + productCount/maxCapacity` cho từng bin; bin đã đầy vẫn chọn được nhưng hiện warning mềm "Bin đã đầy, cân nhắc chọn bin khác" (khớp SOP §2.2 Bước 4 — cảnh báo mềm, không chặn).
+- **Khi nhập kho — chọn location**: LocationPicker hiển thị `fullCode + productCount/maxCapacity` cho từng bin/location; shelf/bin optional — nếu zone chỉ có location cấp zone (không chia shelf/bin), cho phép chọn dừng ở cấp zone, không bắt buộc phải chọn tới bin. Location đầy vẫn chọn được nhưng hiện warning mềm "Vị trí đã đầy, cân nhắc chọn vị trí khác" (khớp SOP §2.2 Bước 4 — cảnh báo mềm, không chặn).
 
 - **Chống mất dữ liệu khi thoát giữa chừng:** đã có `useBlocker` (cảnh báo trước khi rời trang) cho form nhập. Chưa có lưu draft vào localStorage — nếu cần, hướng dài hạn là lưu tạm form + hỏi "Khôi phục?" khi quay lại form.
 
@@ -59,8 +59,8 @@ Thêm nút **"Tạo phiếu điều chỉnh (N)"** áp dụng batch cho tất c�
 
 ### 1.4 Trả hàng khách
 
-- Bắt buộc chọn export gốc **trước** (autocomplete theo mã phiếu xuất hoặc serial), sau đó mới hiện được `reason` (`CHANGE_MIND` / `DEFECTIVE` / `WRONG_ITEM`) — tránh NV chọn reason trước rồi mới tìm export gốc, dễ chọn sai.
-- Nếu `reason=CHANGE_MIND`: hiện rõ số ngày còn lại trong hạn (đếm từ `export_receipt.approved_at`), **disable** submit nếu quá hạn thay vì để submit xong mới báo lỗi.
+- Bắt buộc chọn export gốc **trước** (autocomplete theo mã phiếu xuất hoặc serial), sau đó mới hiện được `reason` (`CHANGE_MIND` / `DEFECTIVE` / `WRONG_ITEM`) — tránh SALES chọn reason trước rồi mới tìm export gốc, dễ chọn sai.
+- Nếu `reason=CHANGE_MIND`: hiện rõ số ngày còn lại trong hạn 7 ngày (đếm từ `export_receipt.approved_at`), **disable** submit nếu quá 7 ngày thay vì để submit xong mới báo lỗi.
 - Bước kiểm tra condition (STOCK): 2 lựa chọn `GOOD` / `DEFECTIVE`, nếu DEFECTIVE thêm lựa chọn con `SCRAP` hay `WARRANTY_TRANSFER`.
 
 ### 1.5 Điều chỉnh giá
@@ -73,7 +73,7 @@ Form đơn giản: chọn item nhập (nếu điều chỉnh giá vốn) hoặc 
 
 > Thiết kế UI/UX chi tiết cho 3 route: `/warranty`, `/warranty/new`, `/warranty/:id`.
 > Căn cứ nghiệp vụ: `02-sop-nghiep-vu.md §6`.
-> Các điểm còn phụ thuộc quyết định business (xem `06-open-questions.md`) được đánh dấu **⏳ TBD** — UI vẫn thiết kế được, chỉ cần đổi tham số/copy khi có quyết định.
+> Tất cả câu hỏi mở đã được chốt với business ngày 24/07/2026 và tích hợp vào các file living docs tương ứng.
 
 ### 2.0 Bản đồ trạng thái ↔ actor ↔ màn hình
 
@@ -116,7 +116,7 @@ Toàn bộ Detail page dùng chung 1 **WarrantyTimeline** (dọc) làm neo thị
 - Nút **"+ Tiếp nhận mới"** — hiện với SALES/STOCK/QL (theo phân quyền chung), dẫn tới `/warranty/new`.
 - Dùng chung `PaginationBar` như các list page khác.
 
-### 2.2 `/warranty/new` — WarrantyCreatePage (SALES)
+### 2.2 `/warranty/new` — WarrantyCreatePage (SALES/STOCK)
 
 Nguyên tắc thiết kế: **tra cứu trước, nhập tay sau** — không cho nhập mô tả lỗi trước khi biết chắc sản phẩm này đủ điều kiện BH, tránh SALES làm cả form rồi mới phát hiện hết hạn.
 
@@ -145,7 +145,7 @@ Sau khi tìm thấy, hiện **Serial Info Card**:
 - **Progress bar hạn BH**: xanh khi còn >30 ngày, vàng khi ≤30 ngày, đỏ + khóa form khi đã hết hạn.
 - **Dòng tem BH**: 3 trạng thái hiển thị —
   - ✅ Đã xác thực (`warranty_seal_code` khớp DB)
-  - ⚠️ Không có / không xác thực được — hiện nút "Khách nói mất tem" (dẫn tới nhánh xử lý theo quyết định **⏳ TBD #13**; tạm thời hiện disclaimer "Chính sách mất tem đang chờ xác nhận, liên hệ QL trước khi từ chối khách" thay vì tự ý chặn hẳn)
+  - ⚠️ Không có / không xác thực được — hiện nút "Khách nói mất tem" (chuyển sang REPAIR/SENT_TO_MANUFACTURER, mất quyền REPLACE nhanh tại shop)
   - — Không áp dụng (shop không dùng tem riêng — ẩn dòng này hoàn toàn nếu cấu hình global tắt tem)
 - **Lịch sử đổi BH**: nếu >2 lần → dòng này đổi màu cam + icon ⚠, không chặn nhưng nhắc SALES cân nhắc kỹ khi đề xuất.
 - **Không tìm thấy serial** → thông báo rõ: *"Không tìm thấy sản phẩm với serial này trong hệ thống. Kiểm tra lại serial hoặc xác nhận khách có mua tại đây không."* Không có form nào hiện thêm bên dưới.
@@ -203,7 +203,7 @@ Ghi chú kiểm tra:  [textarea]  ← bắt buộc nếu chọn REJECTED
 ```
 
 - REJECTED bắt buộc note (validate chặn submit nếu để trống).
-- CONFIRMED → chuyển `under_evaluation`, đồng thời tạo `ProductUnitStatusLog` (`sold → under_repair` hoặc `sold → sent_to_manufacturer`).
+- CONFIRMED → chuyển `under_evaluation` (chưa đổi status unit — transition thật xảy ra ở bước QL duyệt resolution).
 - REJECTED → phiếu chuyển thẳng `resolved` với `resolution=REJECT` (không cần qua QL duyệt riêng). *Lưu ý thiết kế*: nếu business muốn mọi REJECT đều phải qua QL xác nhận lần 2, cần đổi luồng — nên chốt với QL trước khi code.
 
 **State `under_evaluation` — QL duyệt resolution**
@@ -255,11 +255,12 @@ Serial được chọn: SN: DEF456 (nhập 15/07/2026)
 ```
 Sau xác nhận → tạo export nội bộ `sell_price=0`, unit mới `→ sold`, kế thừa `warranty_start_date` gốc.
 
-**REPLACE (hết hàng — nhánh chờ, phụ thuộc #1 TBD):**
+**REPLACE (hết hàng):**
 ```
-⏳ Đang chờ nhập hàng để đổi. Đã chờ 3 ngày.
-[Đánh dấu đã có hàng để đổi]   [Chuyển sang REFUND thay thế]
+⏳ Đang chờ nhập hàng để đổi. Đã chờ N ngày (SLA: 7 ngày làm việc).
+[Đánh dấu đã có hàng để đổi]   [Chuyển sang REFUND] (chỉ QL thấy nút này)
 ```
+(Ghi chú: nút "Chuyển sang REFUND" chỉ QL được bấm; STOCK chỉ thực thi sau khi QL đã đổi hướng.)
 
 **REFUND:**
 ```
@@ -308,8 +309,8 @@ Ghi đè chung: **ADMIN chỉ duyệt thay khi QL vắng** — UI nên thêm 1 d
 
 ### 2.7 Việc cần chốt trước khi code
 
-1. **Mất tem BH xử lý sao** (#13) — quyết định (a)/(b) sẽ đổi hẳn nội dung banner ở §2.2.
-2. **SLA chờ khi hết serial đổi** (#1) — quyết định số ngày cụ thể sẽ bật/tắt nút "Chuyển sang REFUND thay thế" ở §2.3.
-3. **REJECT có cần QL xác nhận lần 2 không** — ảnh hưởng luồng auto-resolve.
+1. ✅ **Mất tem BH** (#13) — đã chốt hướng (a). §2.2 đã cập nhật.
+2. ✅ **SLA chờ khi hết serial đổi** (#1) — đã chốt 7 ngày + nút "Chuyển sang REFUND" cho QL. §2.3 đã cập nhật.
+3. ✅ **REJECT có cần QL xác nhận lần 2 không** (#15) — đã chốt: không cần, giữ auto-resolve + bắt buộc check_note.
 
 Ngoài 3 điểm trên, phần còn lại có thể code thẳng theo thiết kế này vì đã khớp `02-sop-nghiep-vu.md §6`.

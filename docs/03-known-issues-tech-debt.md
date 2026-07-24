@@ -117,6 +117,16 @@ CREATE TABLE audit_logs (
 | 13  | User đổi password         | USER             | null             | null                         |
 | 14  | Admin reset password      | USER             | null             | null                         |
 | 15  | Đăng nhập thất bại        | AUTH             | -                | - (optional)                 |
+| 16  | Duyệt phiếu trả hàng      | RETURN_RECEIPT   | status=pending_approval | status=completed, resulting_action |
+| 17  | Từ chối phiếu trả hàng    | RETURN_RECEIPT   | status=pending_approval | status=cancelled                 |
+| 18  | Duyệt điều chỉnh giá nhập | PRICE_ADJUSTMENT | status=pending_approval | status=approved, old_unit_price→new_unit_price |
+| 19  | Từ chối điều chỉnh giá nhập | PRICE_ADJUSTMENT | status=pending_approval | status=rejected |
+| 20  | Tạo/hủy đơn đặt hàng (PO) | PURCHASE_ORDER   | null (tạo) / status=draft~partial (hủy) | status=draft (tạo) / status=cancelled (hủy) |
+| 21  | Admin sửa cấu hình hệ thống | SYSTEM_SETTING  | setting_value cũ | setting_value mới, updated_by |
+| 22  | Từ chối phiếu nhập (lúc pending_approval) | IMPORT_RECEIPT | status=pending_approval | status=cancelled; units→removed (khác #5 — #5 là hủy phiếu ĐÃ completed) |
+| 23  | Từ chối phiếu xuất (lúc pending_approval) | EXPORT_RECEIPT | status=pending_approval | status=cancelled; units→in_stock hoặc damaged_in_storage tùy reason (khác #6 — #6 là hủy phiếu ĐÃ completed) |
+| 24  | Từ chối kết quả kiểm kê | STOCK_CHECK | status=completed | status=rejected, không áp dụng thay đổi (khác #8 — #8 là approved) |
+| 25  | Từ chối phiếu điều chỉnh tồn | STOCK_ADJUSTMENT | status=pending | status=rejected (khác #7 — #7 là approved) |
 
 ### 7.3. `stock_adjustments.product_unit_id` nullable + fallback
 
@@ -300,6 +310,26 @@ private void validateUnitTrackingType(Product product) {
 - Phù hợp làm invariant test bằng ArchUnit hoặc unit test tầng service (đúng mục tiêu học nâng cao đã đề ra cho WMS sample project).
 - Trade-off chấp nhận: nếu chỉ có 1 QL, escalate lên Admin nghĩa là Admin phải tham gia duyệt trong tình huống này — chấp nhận được vì đây là exception/backup, không phải luồng vận hành chính.
 
+### 7.10. Traceability & UX doc chưa đồng bộ role SALES
+
+**Vấn đề:** Role SALES được thêm vào hệ thống sau khi bộ tài liệu (01–07) đã được viết dựa trên 3 role (ADMIN, MANAGER, STOCK). Việc thêm role được cập nhật đầy đủ ở `02-sop-nghiep-vu.md` §1.3.1 (bảng phân quyền) và code (`@PreAuthorize`), nhưng các tài liệu còn lại đồng bộ không đầy đủ.
+
+**Phạm vi ảnh hưởng:**
+- `04-requirements-traceability.md`: legend thiếu SL; RQ-22→33 actor chỉ ghi `NV` thiếu SL; US-40 (trả hàng) actor sai NV phải là SALES; US-25/35/36 actor gồm AD (trái matrix); US-41 (điều chỉnh giá) actor QL/AD sai, phải là NV/QL.
+- `06-ux-design.md`: §2.2 tiêu đề WarrantyCreatePage ghi `(SALES)` — thiếu STOCK; §1.4 dòng "tránh NV" sai actor (phải là SALES).
+- `01-domain-model.md`: dòng 28 ghi level 3 chung cho SALES/STOCK — level này dùng trong `UserRoleSecurity.canUpdate()` (hierarchical user mgmt), đã xác nhận không ảnh hưởng feature-level permissions.
+- `backend/docs/api/api-documentation.md`: role hierarchy, user create/response enums, role description thiếu SALES.
+- `02-sop-nghiep-vu.md`: §2 flow diagram/mô tả ghi SALES tạo phiếu nhập (trái §1.3.1); §12 approval table có ADMIN ở Tạo rows, thiếu SALES ở ExportReceipt Tạo.
+
+- `04-requirements-traceability.md` (US-xx): US-08→12/33 thêm SL, US-13/42 thêm AD, US-40 NV→SALES, US-25/35 bỏ AD, US-36 bỏ AD, US-41 QL/AD→NV/QL; RQ-10→13 bỏ AD, RQ-14 bỏ AD.
+- `06-ux-design.md`: §1.4 "tránh NV" → "tránh SALES".
+- `backend/docs/api/api-documentation.md`: thêm SALES vào role hierarchy, enum, description; sửa location/map, price-adjustment/reject permissions.
+- `02-sop-nghiep-vu.md`: §2.1/2.2 import bỏ SALES; §12 table bỏ ADMIN khỏi Tạo rows, thêm SALES ExportReceipt Tạo.
+- `06-open-questions.md`: thêm #17 về SALES sell_price.
+
+- `04-requirements-traceability.md` (RQ-xx matrix): RQ-21→QL/AD, RQ-22→QL/NV/SL, RQ-23→QL/NV/SL, RQ-24→QL/NV/SL, RQ-25→QL/NV/SL, RQ-26→QL/NV/SL, RQ-27→QL/AD, RQ-28→QL/NV/SL, RQ-29→NV/SL, RQ-30→NV/SL, RQ-31→NV/QL; US-16 NV→NV/QL.
+- Thêm SL vào legend actor đầu file `04-requirements-traceability.md`.
+
 ---
 
 ## 8. Bugs từ phân tích Inventory (08)
@@ -308,13 +338,15 @@ private void validateUnitTrackingType(Product product) {
 
 ### 8.1 P0 — Nghiệp vụ tồn kho
 
-#### 8.1.1 Location không có capacity check (08 §4)
+#### 8.1.1 Location không có capacity check (08 §4) — Đã xử lý schema
 
+- **Trạng thái:** Schema đã fix — `01-domain-model.md` `locations` đã có `max_capacity` (nullable). Validation mềm + UI % occupancy vẫn là việc code cần làm (xem `06-ux-design.md §1.1`).
 - **Nguồn:** `08-inventory-analysis-archive.md §4`
-- **Mô tả:** `Location` không có `maxCapacity`. Khi nhập kho, không kiểm tra bin đã đầy trước khi gán vị trí. Export không cho phép chọn location cụ thể.
+- **Mô tả cũ:** `Location` không có `maxCapacity`. Khi nhập kho, không kiểm tra bin đã đầy trước khi gán vị trí. Export không cho phép chọn location cụ thể.
 - **Vị trí:** `Location.java` (entity thiếu field), `ImportReceiptService` (thiếu capacity validation)
 - **Tác động:** Nhân viên có thể nhập chồng quá sức chứa thực tế; không kiểm soát được hàng lấy từ bin nào khi xuất.
-- **Fix:** Thêm `maxCapacity DECIMAL(15,2) NULL` vào `Location`. Validation mềm (cảnh báo, không chặn) khi vượt quá capacity. Frontend hiển thị % occupancy.
+- **Fix đề xuất cũ:** Thêm `maxCapacity DECIMAL(15,2) NULL` vào `Location`. Validation mềm (cảnh báo, không chặn) khi vượt quá capacity. Frontend hiển thị % occupancy.
+- **Việc còn lại:** Service-layer validation (cảnh báo mềm khi vượt capacity) + UI % occupancy.
 
 #### 8.1.2 Thiếu return flow 2 chiều — ImportReturn & SalesReturn (08 §6, §7)
 
@@ -529,3 +561,14 @@ private void validateUnitTrackingType(Product product) {
 | 6 | **Customer deduplication** | 08 §14 | Không unique constraint phone/email | ❌ Ngoài phạm vi 7 luồng |
 | 7 | **Batch operations cho xuất kho còn thiếu** | 08 §8 | Single Select, không bulk approve/cancel | ❌ Ngoài phạm vi SOP |
 | 8 | **Barcode/RFID hoàn toàn chưa có** | 08 §13 | `ProductUnit` không có field barcode | ❌ Ngoài phạm vi SOP |
+
+---
+
+## 11. Tech debt phát sinh từ quyết định business (24/07/2026)
+
+| # | Vấn đề | Quyết định | Tech debt / Migration |
+|---|--------|-----------|----------------------|
+| 1 | **Bảng `system_settings` mới** | Thêm bảng key-value cho tham số cấu hình (SLA, product_max_images, deadstock threshold...). ADMIN sửa được, các role khác read-only hoặc không thấy. | Migration mới: tạo bảng + seed mặc định. Cần thêm API endpoint `GET/PUT /api/v1/admin/settings`. |
+| 2 | **Location shelf/bin optional** | zone bắt buộc, shelf/bin có thể NULL khi nhập. | Migration: ALTER `locations` để `shelf_code`, `bin_code` nullable. Service layer cần xử lý logic `full_code` sinh khi thiếu shelf/bin (VD "A-null-null" → chỉ "A"). |
+| 3 | **Warranty REPLACE SLA 7 ngày** | Config qua `system_settings`. Khi quá hạn → cảnh báo QL dashboard + nút "Chuyển sang REFUND". | Cần background job kiểm tra SLA + notification cho QL. |
+| 4 | **product_max_images configurable** | Default 5, config qua `system_settings`. | UI cần đọc config này thay vì hard-code 5. |

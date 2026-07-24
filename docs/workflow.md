@@ -119,8 +119,8 @@ Tạo phiếu kiểm kê (chọn các unit cần kiểm) ──→ IN_PROGRESS
   │
   ├─ Hoàn tất kiểm kê ──────────────────────────→ COMPLETED
   │     │
-  │     ├─ Manager duyệt ─────────────────────→ APPROVED
-  │     └─ Manager từ chối ───────────────────→ REJECTED
+  │     ├─ Admin/Manager duyệt ────────────────→ APPROVED
+  │     └─ Admin/Manager từ chối ──────────────→ REJECTED
 ```
 
 **Request (tạo)**:
@@ -168,8 +168,8 @@ Tạo phiếu kiểm kê (chọn các unit cần kiểm) ──→ IN_PROGRESS
 ```
 Tạo phiếu điều chỉnh ─────────→ PENDING
   │
-  ├─ Manager duyệt ───────────→ APPROVED
-  └─ Manager từ chối ─────────→ REJECTED
+  ├─ Admin/Manager duyệt ─────→ APPROVED
+  └─ Admin/Manager từ chối ───→ REJECTED
 ```
 
 **Request (tạo)**:
@@ -204,8 +204,8 @@ Tạo phiếu điều chỉnh ─────────→ PENDING
 ```
 Tạo phiếu điều chỉnh giá ───→ PENDING
   │
-  ├─ Manager duyệt ──────────→ APPROVED
-  └─ Manager từ chối ────────→ REJECTED
+  ├─ Admin/Manager duyệt ────→ APPROVED
+  └─ Admin/Manager từ chối ──→ REJECTED
 ```
 
 **Request (tạo)**:
@@ -233,12 +233,12 @@ Tạo phiếu điều chỉnh giá ───→ PENDING
 ```
 Tạo phiếu trả hàng ───────────→ PENDING_APPROVAL
   │
-  ├─ Manager duyệt ───────────→ APPROVED
+  ├─ Admin/Manager duyệt ─────→ APPROVED
   │     ├─ RESTOCK: nhập lại kho
   │     ├─ SCRAP: tiêu huỷ
   │     └─ WARRANTY_TRANSFER: chuyển bảo hành
   │
-  └─ Manager từ chối ─────────→ REJECTED
+  └─ Admin/Manager từ chối ───→ REJECTED
 ```
 
 **Request (tạo)**:
@@ -281,7 +281,7 @@ Tạo phiếu trả hàng ───────────→ PENDING_APPROVAL
 **Luồng**:
 
 ```
-Tra cứu BH theo serial ───── không cần login
+Tra cứu BH theo serial ───── (NV/SL/QL/AD)
   ↓
 Tạo yêu cầu BH ───────────→ PENDING
   │
@@ -359,8 +359,8 @@ IN_STOCK ────┬──────┼──→ LOST (điều chỉnh LOS
 
 | Role | Quyền |
 |------|-------|
-| `ADMIN` | Toàn quyền — tạo, duyệt, huỷ mọi phiếu |
-| `MANAGER` | Duyệt/từ chối phiếu (kiểm kê, điều chỉnh) |
+| `ADMIN` | Quản trị hệ thống (user, cấu hình), xem audit log/báo cáo; duyệt/huỷ phiếu (backup khi QL vắng) — không khởi tạo giao dịch nghiệp vụ |
+| `MANAGER` | Tạo và duyệt/từ chối phiếu; quản lý danh mục sản phẩm, NCC, brand; xem báo cáo |
 | `STOCK` | Tạo phiếu nhập, kiểm kê, điều chỉnh — không duyệt |
 | `SALES` | Tạo phiếu xuất, trả hàng, bảo hành — không duyệt |
 
