@@ -1,7 +1,7 @@
 # Jobs: changes → test-backend / test-frontend → integration → build-and-push → deploy
-# `build-and-push` uses matrix for both services (one block, no copy-paste).
-# Build-and-push always builds both images even if one didn't change — deploy
-# pulls by sha tag, an untouched image would have no sha tag in the registry.
+# build-and-push: matrix for both services (one block, no copy-paste). Always builds
+# both images — deploy pulls by sha tag, untouched service would have no sha in registry.
+# deploy: triggers almir/webhook via Cloudflare Tunnel (VM has no public IP).
 
 name: CI/CD
 
@@ -124,7 +124,7 @@ jobs:
         with:
           persist-credentials: false
 
-      # .env is gitignored, CI must create it. Throwaway values, never reused in prod.
+      # .env is gitignored — CI must create it (throwaway values).
       - name: Create .env for Docker Compose
         run: |
           cat > .env << 'EOF'
@@ -221,7 +221,7 @@ jobs:
           cache-from: type=gha,scope=${{ matrix.service }}
           cache-to: type=gha,mode=max,scope=${{ matrix.service }}
 
-  # SSH deploy to VPS (supports manual rollback via workflow_dispatch)
+  # deploy via Cloudflare-tunneled webhook (supports manual rollback)
   deploy:
     needs: build-and-push
     if: |
@@ -246,20 +246,22 @@ jobs:
             echo "Deploying freshly built tag: ${{ needs.build-and-push.outputs.deploy_tag }}"
           fi
 
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          key: ${{ secrets.VPS_SSH_KEY }}
-          script: |
-            set -e
-            cd /opt/myapp
-            export IMAGE_TAG=${{ steps.tag.outputs.tag }}
-            echo "Pulling images (tag: $IMAGE_TAG)..."
-            docker compose -f docker-compose.yml -f docker-compose.prod.yml pull
-            echo "Restarting services..."
-            docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
-            echo "Pruning old images..."
-            docker image prune -f
-            echo "Deploy complete (tag: $IMAGE_TAG)"
+      - name: Deploy via webhook (Cloudflare Tunnel)
+        run: |
+          set -e
+          RESPONSE=$(curl -sS -w "\n%{http_code}" -X POST "${{ secrets.DEPLOY_WEBHOOK_URL }}" \
+            -H "X-Deploy-Token: ${{ secrets.DEPLOY_WEBHOOK_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d "{\"image_tag\":\"${{ steps.tag.outputs.tag }}\"}")
+
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+
+          echo "HTTP status: $HTTP_CODE"
+          echo "Response body: $BODY"
+
+          if [ "$HTTP_CODE" -ge 400 ]; then
+            echo "::error::Deploy webhook failed (HTTP $HTTP_CODE)"
+            exit 1
+          fi
+          echo "Deploy webhook triggered (tag: ${{ steps.tag.outputs.tag }})"
