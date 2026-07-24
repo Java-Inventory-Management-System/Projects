@@ -34,12 +34,13 @@
 
 ```mermaid
 stateDiagram-v2
-    state "ReturnReceipt" as RR {
-        PENDING_APPROVAL --> COMPLETED : Approve
-        PENDING_APPROVAL --> CANCELLED : Cancel
-    }
+    [*] --> PENDING_APPROVAL : Tạo phiếu trả hàng
+
+    PENDING_APPROVAL --> COMPLETED : Approve (4-eyes)
+    PENDING_APPROVAL --> CANCELLED : Cancel
 
     state "ProductUnit" as PU {
+        [*] --> SOLD
         SOLD --> IN_STOCK : GOOD → RESTOCK
         SOLD --> DISPOSED : DEFECTIVE → SCRAP
         SOLD --> DEFECTIVE : DEFECTIVE → WARRANTY_TRANSFER

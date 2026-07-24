@@ -33,10 +33,11 @@
 
 ```mermaid
 stateDiagram-v2
+    [*] --> PENDING : Tạo phiếu điều chỉnh
     PENDING --> APPROVED : Approve — apply status change
     PENDING --> REJECTED : Reject — no change
 
-    note right of APPROVED : DAMAGED → DEFECTIVE<br/>LOST → LOST<br/>FOUND → IN_STOCK
+    note right of APPROVED : DAMAGED → DEFECTIVE<br/>LOST → LOST (ghi nhận)<br/>FOUND → IN_STOCK
 ```
 
 ## Audit

@@ -33,10 +33,11 @@
 
 ```mermaid
 stateDiagram-v2
-    DRAFT --> PARTIAL : Some items received (via import)
-    PARTIAL --> COMPLETED : All items received
-    DRAFT --> CANCELLED : Cancel
-    PARTIAL --> CANCELLED : Cancel partial
+    [*] --> DRAFT : Tạo đơn đặt hàng
+    DRAFT --> PARTIAL : Nhập 1 phần (via import)
+    DRAFT --> CANCELLED : Hủy
+    PARTIAL --> COMPLETED : Nhập đủ số lượng
+    PARTIAL --> CANCELLED : Hủy khi đã nhập 1 phần
 ```
 
 ## Audit

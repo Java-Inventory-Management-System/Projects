@@ -34,6 +34,7 @@
 
 ```mermaid
 stateDiagram-v2
+    [*] --> PENDING : Tạo phiếu điều chỉnh giá
     PENDING --> APPROVED : Approve — batch update costPrice
     PENDING --> REJECTED : Reject — no change
 ```

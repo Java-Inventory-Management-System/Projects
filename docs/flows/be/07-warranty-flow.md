@@ -39,20 +39,27 @@
 
 ```mermaid
 stateDiagram-v2
-    PENDING --> COMPLETED : Complete execution
-    PENDING --> CANCELLED : Cancel
+    [*] --> PENDING : Tạo yêu cầu BH
+
+    PENDING --> RECEIVED : STOCK nhận hàng
+    RECEIVED --> UNDER_EVALUATION : STOCK check → CONFIRMED
+    RECEIVED --> RESOLVED : STOCK check → REJECTED (auto-resolve)
+
+    UNDER_EVALUATION --> RESOLVED : QL duyệt resolution
+
+    RESOLVED --> [*] : STOCK thực thi xong
 
     state "ProductUnit" as PU {
-        SOLD --> UNDER_REPAIR : resolve → REPAIR
-        SOLD --> SENT_TO_MANUFACTURER : resolve → RMA
-        SOLD --> DEFECTIVE : resolve → REPLACE
-        UNDER_REPAIR --> SOLD : complete → repaired
-        UNDER_REPAIR --> DEFECTIVE : complete → cannot repair
-        SENT_TO_MANUFACTURER --> SOLD : complete → returned from mfr
-        SENT_TO_MANUFACTURER --> DEFECTIVE : complete → mfr rejected
+        SOLD --> UNDER_REPAIR : resolution = REPAIR
+        SOLD --> SENT_TO_MANUFACTURER : resolution = RMA (gửi NCC)
+        SOLD --> DEFECTIVE : resolution = REPLACE
+        UNDER_REPAIR --> SOLD : sửa xong, trả khách
+        UNDER_REPAIR --> DEFECTIVE : không sửa được
+        SENT_TO_MANUFACTURER --> SOLD : NCC trả hàng đã sửa
+        SENT_TO_MANUFACTURER --> DEFECTIVE : NCC từ chối BH
     }
 
-    note right of PU : REPLACE: auto-create export receipt<br/>for replacement unit (reason=INTERNAL)
+    note right of UNDER_EVALUATION : 4 resolution cards: REPAIR / REPLACE / REFUND / REJECT<br/>REJECTED tại RECEIVED → auto-resolve,<br/>không cần QL duyệt lần 2
 ```
 
 ## Audit

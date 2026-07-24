@@ -42,18 +42,20 @@
 
 ```mermaid
 stateDiagram-v2
+    [*] --> DRAFT : Create phiếu nhập
+
     DRAFT --> PENDING_APPROVAL : Confirm — tạo ProductUnit + status log
+    DRAFT --> CANCELLED : Cancel trước confirm
     PENDING_APPROVAL --> COMPLETED : Approve (4-eyes)
     PENDING_APPROVAL --> CANCELLED : Cancel trước duyệt
-    DRAFT --> CANCELLED : Cancel trước confirm
 
     note right of PENDING_APPROVAL : created_by ≠ approved_by enforced
-```
 
-```mermaid
-stateDiagram-v2
-    PENDING_QC --> IN_STOCK : Confirm — QC Pass / auto
-    PENDING_QC --> DEFECTIVE : QC FAIL_HARDWARE (DOA)
+    state "ProductUnit" as PU {
+        [*] --> PENDING_QC
+        PENDING_QC --> IN_STOCK : QC Pass / auto confirm
+        PENDING_QC --> DEFECTIVE : QC FAIL_HARDWARE (DOA)
+    }
 ```
 
 ## Audit

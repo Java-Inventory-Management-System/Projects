@@ -38,11 +38,12 @@
 
 ```mermaid
 stateDiagram-v2
-    PENDING --> IN_PROGRESS : Record items
-    IN_PROGRESS --> COMPLETED : Complete
-    COMPLETED --> APPROVED : Approve — apply differences
-    COMPLETED --> REJECTED : Reject — no changes
-    PENDING --> EXPIRED : Scheduled task (1 day)
+    [*] --> PENDING : Tạo phiếu kiểm kê
+    PENDING --> IN_PROGRESS : Ghi nhận items
+    PENDING --> EXPIRED : Quá 1 ngày (scheduled task)
+    IN_PROGRESS --> COMPLETED : NV hoàn tất kiểm
+    COMPLETED --> APPROVED : Approve — apply lệch
+    COMPLETED --> REJECTED : Reject — không đổi gì
 ```
 
 ## Audit
