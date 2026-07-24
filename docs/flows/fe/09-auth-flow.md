@@ -131,22 +131,25 @@ ROLES = {
 **File:** `layouts/sidebar.tsx` + `utils/navigation.ts`
 
 ```mermaid
-graph TD
-    A[NavConfig] --> B[Import: STOCK/MANAGER]
-    A --> C[Export: SALES/STOCK/MANAGER]
-    A --> D[Return: SALES/MANAGER]
-    A --> E[Warranty: SALES/STOCK/MANAGER]
-    A --> F[Stock Check: STOCK/MANAGER]
-    A --> G[Adjustments: STOCK/MANAGER]
-    A --> H[Price Adjust: all]
-    A --> I[Purchase Orders: MANAGER]
-    A --> J[Products: MANAGER/ADMIN/STOCK]
-    A --> K[Users: ADMIN]
-    A --> L[Audit: MANAGER/ADMIN]
-    A --> M[Reports: MANAGER/ADMIN]
+graph LR
+    subgraph "Role → allowed nav items"
+        direction LR
+        NW[filterNavItems] --> NR[Nav rules by role]
+        NR --> N1[Import → STOCK/MANAGER]
+        NR --> N2[Export → SALES/STOCK/MANAGER]
+        NR --> N3[Return → SALES/MANAGER]
+        NR --> N4[Warranty → SALES/STOCK/MANAGER]
+        NR --> N5[Stock check → STOCK/MANAGER]
+        NR --> N6[Adjustments → STOCK/MANAGER]
+        NR --> N7[Price adjust → all]
+        NR --> N8[PO → MANAGER]
+        NR --> N9[Products → MANAGER/ADMIN/STOCK]
+        NR --> N10[Users → ADMIN]
+        NR --> N11[Audit → MANAGER/ADMIN]
+        NR --> N12[Reports → MANAGER/ADMIN]
+    end
 
-    N[filterNavItems] --> O[Filter by user role]
-    O --> P[Render only allowed items]
+    NW --> OP[Output: filtered sidebar items]
 ```
 
 ## Component Tree — Auth System
@@ -154,27 +157,39 @@ graph TD
 ```mermaid
 graph TD
     subgraph "Public"
-        LP[LoginPage] --> AS[AuthService.login]
-        AS --> AST[AuthStore]
+        LP[LoginPage]
+        LP --> LS[AuthService.login]
     end
 
-    subgraph "Route protection chain"
-        PR[ProtectedRoute] --> AST
+    subgraph "Route protection"
+        PR[ProtectedRoute]
         PR --> PG[PageGuard]
         PG --> PERM[permissions.ts]
     end
 
     subgraph "Post-login shell"
-        APP[AppShell] --> SB[Sidebar]
+        APP[AppShell]
+        APP --> SB[Sidebar]
         APP --> TB[Topbar]
         SB --> NAV[filterNavItems]
-        TB --> AST
-        TB --> LOGOUT[Logout button]
+        TB --> LO[Logout button]
+    end
+
+    subgraph "Shared state"
+        AST[Zustand auth-store]
+        AST --> US[user state]
+        AST --> TK[token state]
+        AST --> HR[hasRole helper]
     end
 
     subgraph "API layer"
-        HC[HttpClient axios] --> AST
+        HC[HttpClient axios]
         HC --> RI[Response interceptor]
         RI --> RF[Auto refresh on 401]
     end
+
+    LP --> AST
+    PR --> AST
+    TB --> AST
+    HC --> AST
 ```

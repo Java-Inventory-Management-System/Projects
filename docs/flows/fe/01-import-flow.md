@@ -30,20 +30,26 @@ Uses shared `ReceiptListPage<R>` template with pre-configured columns.
 4-step wizard managed by `importCreateReducer`:
 
 ```mermaid
-graph TD
-    A[ImportCreatePage] --> B[Step 1: Select Products]
-    A --> C[Step 2: Enter Serials]
-    A --> D[Step 3: QC]
-    A --> E[Step 4: Confirm]
+graph LR
+    subgraph "Wizard steps (sequential)"
+        S1[Step 1: Select Products] --> S2[Step 2: Enter Serials]
+        S2 --> S3[Step 3: QC]
+        S3 --> S4[Step 4: Confirm]
+    end
 
-    B --> F[ImportCreateSidebar]
-    B --> G[StepProducts component]
-    C --> H[StepSerials component]
-    C --> I[SerialModal]
-    D --> J[StepQC component]
+    subgraph "Components per step"
+        S1 --- SP[StepProducts]
+        S1 --- SB[ImportCreateSidebar]
+        S2 --- SS[StepSerials]
+        S2 --- SM[SerialModal]
+        S3 --- SQ[StepQC]
+    end
 
-    A --> K[ImportCreateReducer]
-    K --> L[state: items, serials, qcResults]
+    subgraph "Data flow"
+        RD[ImportCreateReducer] --- IT[items state]
+        RD --- SL[serials state]
+        RD --- QC[qcResults state]
+    end
 ```
 
 | Step | Component | Logic |
@@ -90,27 +96,23 @@ graph TD
 
 ```mermaid
 graph TD
-    subgraph "Route /stock/imports"
-        IL[ImportListPage] --> RLP[ReceiptListPage template]
-        RLP --> TB[DataTable]
-        RLP --> PB[PaginationBar]
-        RLP --> VM[ViewImportModal]
-        VM --> DT[ImportReceiptDetail]
+    subgraph "/stock/imports"
+        IL[ImportListPage] --> TB[DataTable]
+        IL --> PB[PaginationBar]
+        IL --> VM[ViewImportModal]
     end
 
-    subgraph "Route /stock/imports/new"
+    subgraph "/stock/imports/new"
         IC[ImportCreatePage] --> WZ[Wizard Steps]
-        WZ --> SP[StepProducts]
-        WZ --> SS[StepSerials]
-        WZ --> SQ[StepQC]
-        WZ --> SC[StepConfirm]
-        SS --> LP[LocationPicker]
-        SS --> SM[SerialModal]
+        WZ --> S1[StepProducts]
+        WZ --> S2[StepSerials]
+        WZ --> S3[StepQC]
+        WZ --> S4[StepConfirm]
         IC --> SB[ImportCreateSidebar]
         IC --> RD[ImportCreateReducer]
     end
 
-    subgraph "Route /stock/imports/:id"
+    subgraph "/stock/imports/:id"
         ID[ImportDetailPage] --> DT2[DetailTable]
         ID --> AP[ApprovalDialog]
     end

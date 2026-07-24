@@ -37,18 +37,24 @@ This is the most complex page in the check flow:
 
 ```mermaid
 graph TD
-    A[StockCheckDetailPage] --> B[Header: checkCode + status badge]
+    A[StockCheckDetailPage]
+    A --> B[Header: checkCode + status badge]
+
     A --> C[Items table]
-    C --> D[StockCheckItemsTable component]
-    D --> E{Is IN_PROGRESS?}
-    E -->|Yes| F[Editable: actualStatus per unit]
-    E -->|No| G[Read-only: expected vs actual]
-    F --> H[Quick actions: Pass / Fail toggle]
+    C --> D[StockCheckItemsTable]
+    D --> E{status = IN_PROGRESS?}
+    E -->|yes| F[Editable: actualStatus per unit]
+    E -->|no| G[Read-only: expected vs actual]
+    F --> H[Pass / Fail toggle per row]
+
     A --> I[Difference summary bar]
-    I --> J[MATCH count, MISSING count, UNEXPECTED count]
+    I --> J1[MATCH count]
+    I --> J2[MISSING count]
+    I --> J3[UNEXPECTED count]
+
     A --> K[Action buttons]
-    K --> L[Complete button NV]
-    K --> M[Approve/Reject dialog QL]
+    K --> L["Complete (NV)"]
+    K --> M["Approve / Reject (QL)"]
 ```
 
 | State | NV actions | QL actions |

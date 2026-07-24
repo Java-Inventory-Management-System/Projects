@@ -27,22 +27,27 @@
 Two-stage design:
 
 ```mermaid
-graph TD
-    A[WarrantyCreatePage] --> B[Stage A: Serial lookup]
-    B --> C[Input serial → call lookup API]
-    C --> D{Serial found + in warranty?}
-    D -->|Yes| E[Show SerialInfoCard]
-    D -->|No| F[Show error / expired message]
-    E --> G[Stage B: Issue description]
-    G --> H[textarea + optional images]
-    H --> I[Submit → POST warranty-request]
-    I --> J[Print receipt button]
+graph LR
+    subgraph "Stage A: Serial lookup"
+        A1[Input serial] --> A2[GET lookup API]
+        A2 --> A3{In warranty?}
+        A3 -->|yes| A4[SerialInfoCard]
+        A3 -->|no| A5[Show error / expired]
+    end
 
-    E --> K[SerialInfoCard]
-    K --> K1[Product info + customer]
-    K --> K2[Warranty bar: remaining months]
-    K --> K3[Seal status badge]
-    K --> K4[Replacement history count]
+    subgraph "SerialInfoCard"
+        A4 --> C1[Product info + customer]
+        A4 --> C2[Warranty bar: remaining months]
+        A4 --> C3[Seal status badge]
+        A4 --> C4[Replacement history count]
+    end
+
+    subgraph "Stage B: Issue form"
+        A4 --> B1[Issue description textarea]
+        B1 --> B2[Upload images]
+        B2 --> B3[Submit → POST warranty-request]
+        B3 --> B4[Print receipt button]
+    end
 ```
 
 | Component | File | Purpose |
@@ -58,27 +63,31 @@ Most complex page — dynamic panel per state + role:
 
 ```mermaid
 graph TD
-    A[WarrantyDetailPage] --> B[Header: requestCode + product + serial]
-    A --> C[WarrantyTimeline]
-    C --> C1[4 milestones: received → checked → evaluated → resolved]
-    A --> D{Customer + product info card}
-    A --> E{Panel — depends on state + role}
+    A[WarrantyDetailPage]
+    A --> B[Header: requestCode + product + serial]
+    A --> C[WarrantyTimeline component]
+    C --> C1[Milestone: received]
+    C1 --> C2[Milestone: checked]
+    C2 --> C3[Milestone: evaluated]
+    C3 --> C4[Milestone: resolved]
 
-    E -->|Pending + STOCK| F[Receive button]
-    E -->|Received + STOCK| G[Check form: CONFIRMED / REJECTED]
-    E -->|Under evaluation + QL| H[4 ResolutionCards]
-    E -->|Resolved + STOCK| I[Execution panel]
-    E -->|Other| J[Read-only info]
+    A --> D[Panel — depends on state + role]
 
-    H --> CARD1[Repair card]
-    H --> CARD2[Replace card + stock count]
-    H --> CARD3[Refund card]
-    H --> CARD4[Reject card]
+    D -->|Pending / STOCK| E[Receive button]
+    D -->|Received / STOCK| F[Check form: CONFIRMED / REJECTED]
+    D -->|Under evaluation / QL| G[4 ResolutionCards]
+    D -->|Resolved / STOCK| H[Execution panel]
+    D -->|Other roles| I[Read-only info]
 
-    I --> REPAIR[Mark repaired / sent to mfr]
-    I --> REPLACE[Select replacement serial]
-    I --> REFUND[Enter refund amount]
-    I --> REJECT[Print rejection form]
+    G --> G1[Repair]
+    G --> G2[Replace + stock count]
+    G --> G3[Refund]
+    G --> G4[Reject]
+
+    H --> H1[Repair: mark done / sent to mfr]
+    H --> H2[Replace: select replacement serial]
+    H --> H3[Refund: enter amount]
+    H --> H4[Reject: print form]
 ```
 
 | State | STOCK sees | QL sees | SALES sees |
@@ -121,27 +130,30 @@ graph TD
 ```mermaid
 graph TD
     subgraph "/warranty"
-        WL[WarrantyListPage] --> TB[TabBar]
+        WL[WarrantyListPage]
+        WL --> TB[TabBar: status filters]
         WL --> DT[DataTable]
-        WL --> BTN[+ New Warranty]
+        WL --> BTN["+ New Warranty button"]
     end
 
     subgraph "/warranty/new"
-        WC[WarrantyCreatePage] --> SLW[SerialLookupWidget]
+        WC[WarrantyCreatePage]
+        WC --> SLW[SerialLookupWidget]
         SLW --> SIC[SerialInfoCard]
         SIC --> WSB[WarrantySealBadge]
-        WC --> FORM[Issue form]
+        WC --> FORM[Issue description form]
     end
 
     subgraph "/warranty/:id"
-        WD[WarrantyDetailPage] --> WT[WarrantyTimeline]
-        WD --> PANEL{DynamicPanel}
-        PANEL --> RC[ResolutionCards ×4]
-        PANEL --> EP[ExecutionPanel]
+        WD[WarrantyDetailPage]
+        WD --> WT[WarrantyTimeline]
+        WD --> PAN[DynamicPanel]
+        PAN --> RC[ResolutionCards]
+        PAN --> EP[ExecutionPanel]
         WD --> AP[ApprovalDialog]
     end
 
-    subgraph "Shared components"
+    subgraph "Shared"
         WSB
         WT
         RC
