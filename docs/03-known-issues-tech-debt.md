@@ -300,6 +300,28 @@ private void validateUnitTrackingType(Product product) {
 - Phù hợp làm invariant test bằng ArchUnit hoặc unit test tầng service (đúng mục tiêu học nâng cao đã đề ra cho WMS sample project).
 - Trade-off chấp nhận: nếu chỉ có 1 QL, escalate lên Admin nghĩa là Admin phải tham gia duyệt trong tình huống này — chấp nhận được vì đây là exception/backup, không phải luồng vận hành chính.
 
+### 7.10. Traceability & UX doc chưa đồng bộ role SALES
+
+**Vấn đề:** Role SALES được thêm vào hệ thống sau khi bộ tài liệu (01–07) đã được viết dựa trên 3 role (ADMIN, MANAGER, STOCK). Việc thêm role được cập nhật đầy đủ ở `02-sop-nghiep-vu.md` §1.3.1 (bảng phân quyền) và code (`@PreAuthorize`), nhưng các tài liệu còn lại đồng bộ không đầy đủ.
+
+**Phạm vi ảnh hưởng:**
+- `04-requirements-traceability.md`: legend thiếu SL; RQ-22→33 actor chỉ ghi `NV` thiếu SL; US-40 (trả hàng) actor sai NV phải là SALES; US-25/35/36 actor gồm AD (trái matrix); US-41 (điều chỉnh giá) actor QL/AD sai, phải là NV/QL.
+- `07-ux-design.md`: §2.2 tiêu đề WarrantyCreatePage ghi `(SALES)` — thiếu STOCK; §1.4 dòng "tránh NV" sai actor (phải là SALES).
+- `01-domain-model.md`: dòng 28 ghi level 3 chung cho SALES/STOCK — level này dùng trong `UserRoleSecurity.canUpdate()` (hierarchical user mgmt), đã xác nhận không ảnh hưởng feature-level permissions.
+- `backend/docs/api/api-documentation.md`: role hierarchy, user create/response enums, role description thiếu SALES.
+- `02-sop-nghiep-vu.md`: §2 flow diagram/mô tả ghi SALES tạo phiếu nhập (trái §1.3.1); §12 approval table có ADMIN ở Tạo rows, thiếu SALES ở ExportReceipt Tạo.
+
+**Đã xử lý — lượt 1 (trước session này):** US-xx và các file khác đã được đồng bộ, nhưng RQ-xx matrix (mục 1) bị bỏ sót. `02-sop-nghiep-vu.md` §1.3.1 đã đúng từ lượt trước, không sửa lại.
+- `04-requirements-traceability.md` (US-xx): US-08→12/33 thêm SL, US-13/42 thêm AD, US-40 NV→SALES, US-25/35 bỏ AD, US-36 bỏ AD, US-41 QL/AD→NV/QL; RQ-10→13 bỏ AD, RQ-14 bỏ AD.
+- `07-ux-design.md`: §1.4 "tránh NV" → "tránh SALES".
+- `backend/docs/api/api-documentation.md`: thêm SALES vào role hierarchy, enum, description; sửa location/map, price-adjustment/reject permissions.
+- `02-sop-nghiep-vu.md`: §2.1/2.2 import bỏ SALES; §12 table bỏ ADMIN khỏi Tạo rows, thêm SALES ExportReceipt Tạo.
+- `06-open-questions.md`: thêm #17 về SALES sell_price.
+
+**Đã xử lý — lượt 2 (session này, 2026-07-24):** Sửa RQ-xx matrix còn sót.
+- `04-requirements-traceability.md` (RQ-xx matrix): RQ-21→QL/AD, RQ-22→QL/NV/SL, RQ-23→QL/NV/SL, RQ-24→QL/NV/SL, RQ-25→QL/NV/SL, RQ-26→QL/NV/SL, RQ-27→QL/AD, RQ-28→QL/NV/SL, RQ-29→NV/SL, RQ-30→NV/SL, RQ-31→NV/QL; US-16 NV→NV/QL.
+- Thêm SL vào legend actor đầu file `04-requirements-traceability.md`.
+
 ---
 
 ## 8. Bugs từ phân tích Inventory (08)
@@ -308,13 +330,15 @@ private void validateUnitTrackingType(Product product) {
 
 ### 8.1 P0 — Nghiệp vụ tồn kho
 
-#### 8.1.1 Location không có capacity check (08 §4)
+#### 8.1.1 Location không có capacity check (08 §4) — Đã xử lý schema
 
+- **Trạng thái:** Schema đã fix — `01-domain-model.md` `locations` đã có `max_capacity` (nullable). Validation mềm + UI % occupancy vẫn là việc code cần làm (xem `07-ux-design.md §1.1`).
 - **Nguồn:** `08-inventory-analysis-archive.md §4`
-- **Mô tả:** `Location` không có `maxCapacity`. Khi nhập kho, không kiểm tra bin đã đầy trước khi gán vị trí. Export không cho phép chọn location cụ thể.
+- **Mô tả cũ:** `Location` không có `maxCapacity`. Khi nhập kho, không kiểm tra bin đã đầy trước khi gán vị trí. Export không cho phép chọn location cụ thể.
 - **Vị trí:** `Location.java` (entity thiếu field), `ImportReceiptService` (thiếu capacity validation)
 - **Tác động:** Nhân viên có thể nhập chồng quá sức chứa thực tế; không kiểm soát được hàng lấy từ bin nào khi xuất.
-- **Fix:** Thêm `maxCapacity DECIMAL(15,2) NULL` vào `Location`. Validation mềm (cảnh báo, không chặn) khi vượt quá capacity. Frontend hiển thị % occupancy.
+- **Fix đề xuất cũ:** Thêm `maxCapacity DECIMAL(15,2) NULL` vào `Location`. Validation mềm (cảnh báo, không chặn) khi vượt quá capacity. Frontend hiển thị % occupancy.
+- **Việc còn lại:** Service-layer validation (cảnh báo mềm khi vượt capacity) + UI % occupancy.
 
 #### 8.1.2 Thiếu return flow 2 chiều — ImportReturn & SalesReturn (08 §6, §7)
 

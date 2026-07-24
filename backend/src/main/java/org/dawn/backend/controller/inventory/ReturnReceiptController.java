@@ -19,31 +19,31 @@ public class ReturnReceiptController {
     private final ReturnReceiptService returnReceiptService;
 
     @GetMapping("")
-    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_ADMIN_STOCK)
+    @PreAuthorize(AuthorizationExpressions.CAN_OPERATE)
     public ResponseObject<ResponsePage<ReturnReceiptResponse>> findAll(Pageable pageable) {
         return ResponseObject.success(returnReceiptService.findAll(pageable));
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_ADMIN_STOCK)
+    @PreAuthorize(AuthorizationExpressions.CAN_OPERATE)
     public ResponseObject<ReturnReceiptResponse> findOne(@PathVariable Long id) {
         return ResponseObject.success(returnReceiptService.findOne(id));
     }
 
     @PostMapping("")
-    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_ADMIN_STOCK)
+    @PreAuthorize(AuthorizationExpressions.CAN_OPERATE)
     public ResponseObject<ReturnReceiptResponse> create(@RequestBody ReturnReceiptRequest request) {
         return ResponseObject.success(returnReceiptService.create(request));
     }
 
     @PutMapping("/{id}/approve")
-    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_ADMIN)
+    @PreAuthorize(AuthorizationExpressions.CAN_APPROVE)
     public ResponseObject<ReturnReceiptResponse> approve(@PathVariable Long id) {
         return ResponseObject.success(returnReceiptService.approve(id));
     }
 
     @PutMapping("/{id}/cancel")
-    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_ADMIN_STOCK)
+    @PreAuthorize(AuthorizationExpressions.CAN_APPROVE)
     public ResponseObject<ReturnReceiptResponse> cancel(@PathVariable Long id) {
         return ResponseObject.success(returnReceiptService.cancel(id));
     }

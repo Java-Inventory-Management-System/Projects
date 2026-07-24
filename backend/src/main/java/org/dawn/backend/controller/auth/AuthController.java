@@ -66,7 +66,7 @@ public class AuthController {
     }
 
     @PutMapping("/change-password")
-    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_ADMIN_STOCK)
+    @PreAuthorize(AuthorizationExpressions.CAN_VIEW_INVENTORY)
     public ResponseObject<String> changePassword(@RequestBody ChangePasswordRequest changeReq) {
         UserDetailsImpl currentUser = SecurityUtils.getCurrentUser();
         String message = authService.changePassword(currentUser.getUsername(), changeReq);

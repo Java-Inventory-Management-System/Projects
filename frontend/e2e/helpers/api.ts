@@ -1,6 +1,7 @@
 import { Page } from "@playwright/test"
 
-const API = "http://localhost:8888/api/v1"
+export const API_URL = process.env.API_URL ?? "http://localhost:8888/api/v1"
+const API = API_URL
 
 let stockToken = ""
 let managerToken = ""
@@ -64,11 +65,10 @@ export async function ensureImport(page: Page): Promise<{ importReceiptId: numbe
     headers: { Authorization: `Bearer ${managerToken}` },
   })
 
-  const detailRes = await page.request.get(`${API}/import-receipt/${id}`, {
+  const unitsRes = await page.request.get(`${API}/import-receipt/${id}/units`, {
     headers: { Authorization: `Bearer ${stockToken}` },
   })
-  const detailData = (await detailRes.json()).data
-  const productUnitIds: number[] = detailData.items.flatMap((i: any) => i.productUnitIds ?? [])
+  const productUnitIds: number[] = (await unitsRes.json()).data.map((u: any) => u.id)
 
   return { importReceiptId: id, productUnitIds }
 }

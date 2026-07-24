@@ -1,7 +1,7 @@
 import axios from "axios"
 import type { AxiosInstance } from "axios"
 
-const API_BASE = "http://localhost:8888/api/v1"
+const API_BASE = process.env.VITE_BACKEND_URL ?? "http://backend:8888/api/v1"
 
 export const api: AxiosInstance = axios.create({
   baseURL: API_BASE,

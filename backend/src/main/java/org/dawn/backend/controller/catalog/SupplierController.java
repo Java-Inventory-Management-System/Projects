@@ -20,31 +20,31 @@ public class SupplierController {
     private final SupplierService supplierService;
 
     @GetMapping("")
-    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_ADMIN_STOCK)
+    @PreAuthorize(AuthorizationExpressions.CAN_VIEW_INVENTORY)
     public ResponseObject<ResponsePage<SupplierResponse>> getAll(Pageable pageable) {
         return ResponseObject.success(supplierService.findAll(pageable));
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_ADMIN_STOCK)
+    @PreAuthorize(AuthorizationExpressions.CAN_VIEW_INVENTORY)
     public ResponseObject<SupplierResponse> getOne(@PathVariable Long id) {
         return ResponseObject.success(supplierService.findOne(id));
     }
 
     @PostMapping("")
-    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER)
+    @PreAuthorize(AuthorizationExpressions.CAN_MANAGE_CATALOG)
     public ResponseObject<SupplierResponse> create(@Valid @RequestBody SupplierRequest request) {
         return ResponseObject.created(supplierService.create(request));
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER)
+    @PreAuthorize(AuthorizationExpressions.CAN_MANAGE_CATALOG)
     public ResponseObject<SupplierResponse> update(@PathVariable Long id, @RequestBody SupplierRequest request) {
         return ResponseObject.success(supplierService.update(id, request));
     }
 
     @PutMapping("/{id}/toggle-active")
-    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER)
+    @PreAuthorize(AuthorizationExpressions.CAN_MANAGE_CATALOG)
     public ResponseObject<SupplierResponse> toggleActive(@PathVariable Long id) {
         return ResponseObject.success(supplierService.toggleActive(id));
     }

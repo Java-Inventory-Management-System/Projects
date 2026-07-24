@@ -1,12 +1,12 @@
 import { test, expect } from "@playwright/test"
 import { loginAsStock, loginAsManager } from "./helpers/auth"
 import { navigateTo } from "./helpers/nav"
-import { initTokens, getToken, ensureImport } from "./helpers/api"
+import { initTokens, getToken, ensureImport, API_URL } from "./helpers/api"
+import { approveDialog } from "./helpers/approve"
 
 test.describe("Export Flow (Xuất kho) — SOP §3", () => {
-  const API = "http://localhost:8888/api/v1"
 
-  test("STOCK creates export via API → MANAGER approves via UI → unit SOLD", async ({ browser }) => {
+  test("STOCK creates export via API_URL → MANAGER approves via UI → unit SOLD", async ({ browser }) => {
     const stockCtx = await browser.newContext()
     const mgrCtx = await browser.newContext()
     const stock = await stockCtx.newPage()
@@ -23,7 +23,7 @@ test.describe("Export Flow (Xuất kho) — SOP §3", () => {
     test.skip(productUnitIds.length === 0, "No product units available")
 
     // STOCK creates export
-    const createRes = await stock.request.post(`${API}/export-receipt`, {
+    const createRes = await stock.request.post(`${API_URL}/export-receipt`, {
       data: {
         reason: "SALE", customerId: 1, note: "E2E export",
         items: [{ productId: 1, quantity: 1, unitPrice: 15000000 }],
@@ -36,15 +36,10 @@ test.describe("Export Flow (Xuất kho) — SOP §3", () => {
 
     // MANAGER approves via UI
     await navigateTo(mgr, `/stock/exports/${exportId}`)
-    await mgr.waitForTimeout(1000)
-
-    const approveBtn = mgr.locator('button:has-text("Duyệt")')
-    await expect(approveBtn).toBeVisible({ timeout: 10000 })
-    await approveBtn.click()
-    await mgr.waitForTimeout(1500)
+    await approveDialog(mgr, exportId)
 
     // Verify COMPLETED + SALE
-    const detail = await mgr.request.get(`${API}/export-receipt/${exportId}`, {
+    const detail = await mgr.request.get(`${API_URL}/export-receipt/${exportId}`, {
       headers: { Authorization: `Bearer ${managerToken}` },
     })
     const data = (await detail.json()) as { data: { status: string; reason: string } }

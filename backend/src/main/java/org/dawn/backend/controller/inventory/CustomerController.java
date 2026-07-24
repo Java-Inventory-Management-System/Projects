@@ -20,25 +20,25 @@ public class CustomerController {
     private final CustomerService customerService;
 
     @GetMapping("")
-    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_ADMIN_STOCK)
+    @PreAuthorize(AuthorizationExpressions.CAN_OPERATE)
     public ResponseObject<ResponsePage<CustomerResponse>> getAll(Pageable pageable) {
         return ResponseObject.success(customerService.findAll(pageable));
     }
 
     @GetMapping("/search")
-    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_ADMIN_STOCK)
+    @PreAuthorize(AuthorizationExpressions.CAN_OPERATE)
     public ResponseObject<ResponsePage<CustomerResponse>> search(@RequestParam String keyword, Pageable pageable) {
         return ResponseObject.success(customerService.search(keyword, pageable));
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_ADMIN_STOCK)
+    @PreAuthorize(AuthorizationExpressions.CAN_OPERATE)
     public ResponseObject<CustomerResponse> getOne(@PathVariable Long id) {
         return ResponseObject.success(customerService.findOne(id));
     }
 
     @PostMapping("")
-    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_ADMIN_STOCK)
+    @PreAuthorize(AuthorizationExpressions.CAN_OPERATE)
     public ResponseObject<CustomerResponse> create(@Valid @RequestBody CustomerRequest request) {
         return ResponseObject.created(customerService.create(request));
     }

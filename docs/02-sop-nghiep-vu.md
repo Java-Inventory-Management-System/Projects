@@ -1,4 +1,4 @@
-> Gộp từ: `10-sop-quy-trinh-nghiep-vu.md`, `07-warehouse-flow.md` (routes, permissions), `09-business-analysis.md`, `09c-business-analysis-final-review.md` (các file này đã bị xóa sau khi gộp — xem git history nếu cần tra lại quá trình phân tích gốc).
+> Gộp từ: `02-sop-nghiep-vu.md` (phiên bản cũ đặt tên `10-sop-quy-trinh-nghiep-vu.md`), `07-warehouse-flow.md` (routes, permissions), `09-business-analysis.md`, `09c-business-analysis-final-review.md` (các file này đã bị xóa sau khi gộp — xem git history nếu cần tra lại quá trình phân tích gốc).
 
 # SOP Quy trình nghiệp vụ — Hệ thống Quản lý Kho Linh Kiện Máy Tính
 
@@ -76,7 +76,7 @@
 | Hủy phiếu nhập/xuất | ✅ (backup) | ✅ | ❌ | ❌ |
 | Xem tồn kho | ✅ | ✅ | ✅ | ✅ |
 | Điều chỉnh min_stock | ✅ (cấu hình) | ✅ | ❌ | ❌ |
-| Tạo phiếu kiểm kê | ❌ | ✅ | ✅ | ❌ |
+| Tạo phiếu kiểm kê | ❌ | ✅ | ❌ | ❌ |
 | Duyệt kiểm kê lệch * | ✅ (escalation) | ✅ * | ❌ | ❌ |
 | Tạo phiếu điều chỉnh tồn thủ công | ❌ | ✅ | ✅ (cần duyệt) | ❌ |
 | Duyệt phiếu điều chỉnh tồn thủ công * | ✅ (escalation) | ✅ * | ❌ | ❌ |
@@ -102,7 +102,7 @@ Mapping này hard-code trong Service layer, thêm UOM mới = sửa code (đã c
 ### 2.1 Flow tổng quát
 
 ```
-SALES/STOCK tạo phiếu nhập (draft) ──┬──→ Huỷ bỏ draft
+STOCK/QL tạo phiếu nhập (draft) ──┬──→ Huỷ bỏ draft
                                        │
                                        ↓
                             PENDING_APPROVAL
@@ -114,7 +114,7 @@ SALES/STOCK tạo phiếu nhập (draft) ──┬──→ Huỷ bỏ draft
 
 ### 2.2 Các bước chi tiết
 
-#### Bước 1: Tạo phiếu nhập (draft) — SALES / STOCK / QL
+#### Bước 1: Tạo phiếu nhập (draft) — STOCK / QL
 
 - Chọn nhà cung cấp (NCC) — validated: NCC phải tồn tại trong DB và đang `active`.
 - Link `purchase_order_id` nếu có (tùy chọn). Nếu PO đã COMPLETED → **chặn link**, báo "PO đã hoàn thành".
@@ -346,6 +346,7 @@ STOCK phát hiện thiếu (cần A, chỉ có B)
 pending_approval → completed (terminal)
                  → cancelled (terminal, units → in_stock)
                  → exception (chờ xử lý thiếu)
+exception → completed (sau khi adjustment LOST được duyệt)
 ```
 
 ---
@@ -463,11 +464,11 @@ NV/QL tạo phiếu điều chỉnh (DAMAGED / LOST / FOUND)
 
 > **Ai duyệt được loại nào:**
 >
-> | Type | Ai duyệt? | Ghi chú |
-> |---|---|---|
-> | LOST | Manager + Admin | Cần xác nhận mất thật — quan trọng hơn DAMAGED/FOUND nên yêu cầu chặt hơn |
-> | DAMAGED | Manager | Cần ảnh minh chứng |
-> | FOUND | Manager | Phát hiện thừa, dễ duyệt hơn |
+> | Type | Ai duyệt (bình thường)? | Backup khi QL vắng | Ghi chú |
+> |---|---|---|---|
+> | LOST | Manager | Admin | Cần xác nhận mất thật — quan trọng hơn DAMAGED/FOUND nên có thể yêu cầu note chặt hơn |
+> | DAMAGED | Manager | Admin | Cần ảnh minh chứng |
+> | FOUND | Manager | Admin | Phát hiện thừa, dễ duyệt hơn |
 
 | Loại | Tác động |
 |------|----------|
@@ -516,7 +517,7 @@ Khách báo lỗi → NV/SALES tạo warranty_request
 - SALES kiểm tra cả `serial_number` (ghi trên chip/board) **và tem bảo hành** (`warranty_seal_code`, dán ngoài vỏ hộp):
   - Nếu có `warranty_seal_code` trong hệ thống → xác nhận mua tại shop, đủ điều kiện đổi mới nhanh (REPLACE).
   - Nếu không có trong hệ thống (shop không dùng tem riêng, hoặc tem ngoài hệ thống khác) → bỏ qua bước này.
-- **Mất/rách tem bảo hành**: xử lý theo 1 trong 2 hướng — **(a)** mất tem vẫn tra cứu được bằng serial, chỉ mất quyền đổi mới nhanh (REPLACE) tại shop, chuyển sang BH hãng (REPAIR/SENT_TO_MANUFACTURER); **(b)** mất tem = từ chối toàn bộ BH shop (kể cả sửa). → **Chưa chốt, xem `11-open-questions.md` #12**.
+- **Mất/rách tem bảo hành**: xử lý theo 1 trong 2 hướng — **(a)** mất tem vẫn tra cứu được bằng serial, chỉ mất quyền đổi mới nhanh (REPLACE) tại shop, chuyển sang BH hãng (REPAIR/SENT_TO_MANUFACTURER); **(b)** mất tem = từ chối toàn bộ BH shop (kể cả sửa). → **Chưa chốt, xem `06-open-questions.md` #13**.
 - Nếu hết BH → từ chối tiếp nhận, hướng dẫn khách.
 
 #### Bước 2: Nhận hàng + kiểm tra — STOCK
@@ -677,14 +678,9 @@ CREATE TABLE warehouses (
 
 Thêm `warehouse_id` (FK) vào: `locations`, `import_receipts`, `export_receipts`, `stock_adjustments`, `stock_checks`.
 
-#### `price_adjustments` (giữ nguyên V10 nhưng bổ sung)
+#### `price_adjustments` — schema
 
-```sql
-ALTER TABLE price_adjustments
-  ADD COLUMN import_receipt_item_id BIGINT NOT NULL;
--- KHÔNG sửa trực tiếp import_receipt_items.unit_price khi approve
--- Chỉ update cost_price của ProductUnit còn in_stock
-```
+Đã có sẵn trong `01-domain-model.md` (bảng `price_adjustments` đã có `import_receipt_item_id`). Khi APPROVED: KHÔNG sửa trực tiếp `import_receipt_items.unit_price` — chỉ update `cost_price` của `ProductUnit` còn `in_stock`.
 
 #### `sell_price_history` (bảng mới)
 
@@ -725,28 +721,17 @@ CREATE TABLE return_receipt_items (
 );
 ```
 
-#### `import_receipt_items` — thêm field
+#### `import_receipt_items` — bổ sung field
 
-```sql
-ALTER TABLE import_receipt_items
-  ADD COLUMN supplier_batch_no VARCHAR(100) COMMENT 'Mã lô NCC (tuỳ chọn)';
-```
+`supplier_batch_no` đã có sẵn trong `01-domain-model.md` (`import_receipt_items`).
 
-#### `ProductUnit` — thêm field
+#### `ProductUnit` — bổ sung field
 
-```sql
-ALTER TABLE product_units
-  ADD COLUMN cost_price DECIMAL(15,2) COMMENT 'Snapshot từ import_receipt_item.unit_price lúc nhập',
-  ADD COLUMN is_warranty_active BOOLEAN DEFAULT TRUE,
-  ADD COLUMN warranty_seal_code VARCHAR(50) COMMENT 'Mã tem bảo hành dán ngoài vỏ hộp (do shop/NPP cấp, NULL nếu không dùng tem riêng)';
-```
+Các cột `cost_price`, `is_warranty_active`, `warranty_seal_code` đã có sẵn trong `01-domain-model.md` (`product_units`).
 
-#### `export_receipts` — thêm field
+#### `export_receipts` — bổ sung field
 
-```sql
-ALTER TABLE export_receipts
-  ADD COLUMN total_cogs DECIMAL(15,2) COMMENT 'Tổng cost_price của unit thực xuất';
-```
+`total_cogs` đã có sẵn trong `01-domain-model.md` (`export_receipts`).
 
 ### 9.2 Phân quyền duyệt khi QL vắng
 
@@ -783,13 +768,9 @@ Không cần bảng/field mới — **Admin đảm nhiệm duyệt thay** mọi 
 
 ### 9.4 Theo dõi sau trả NCC — cấu trúc dữ liệu bổ sung
 
-```sql
-ALTER TABLE export_receipts
-  ADD COLUMN source_import_receipt_id BIGINT NULL COMMENT 'FK → import_receipts.id, chỉ dùng cho reason=RETURN_SUPPLIER';
-
-ALTER TABLE product_units
-  ADD COLUMN reserved_quantity DECIMAL(15,2) NOT NULL DEFAULT 0 COMMENT 'Chỉ dùng cho bulk — số lượng đang reserve chờ duyệt';
-```
+> Các cột dưới đây đã có sẵn trong `01-domain-model.md`:
+> - `export_receipts.source_import_receipt_id` — dùng cho `reason=RETURN_SUPPLIER`
+> - `product_units.reserved_quantity` — bulk only, lượng đang reserve chờ duyệt
 
 ---
 
@@ -844,21 +825,21 @@ Các mục sau **không thuộc phạm vi SOP này**:
 
 | Entity | Action | Ai được làm? |
 |--------|--------|-------------|
-| ImportReceipt | Tạo | STOCK, MANAGER, ADMIN |
+| ImportReceipt | Tạo | STOCK, MANAGER |
 | ImportReceipt | Duyệt (→ COMPLETED) | MANAGER, ADMIN |
 | ImportReceipt | Cancel | MANAGER, ADMIN |
-| ExportReceipt | Tạo | STOCK, MANAGER, ADMIN |
+| ExportReceipt | Tạo | SALES, STOCK, MANAGER |
 | ExportReceipt | Duyệt (→ COMPLETED) | MANAGER, ADMIN |
 | ExportReceipt | Cancel | MANAGER, ADMIN |
-| StockCheck | Tạo | STOCK, MANAGER, ADMIN |
+| StockCheck | Tạo | MANAGER |
 | StockCheck | Xác nhận (→ APPROVED) | MANAGER, ADMIN |
-| StockCheck | Nhập kết quả đếm | STOCK (người tạo) |
-| Adjustment | Tạo | STOCK, MANAGER, ADMIN |
+| StockCheck | Nhập kết quả đếm | STOCK (thực hiện đếm) |
+| Adjustment | Tạo | STOCK, MANAGER |
 | Adjustment LOST | Duyệt | MANAGER, ADMIN |
 | Adjustment DAMAGED | Duyệt | MANAGER, ADMIN |
 | Adjustment FOUND | Duyệt | MANAGER, ADMIN |
-| PO | Tạo/Sửa | MANAGER, ADMIN |
-| PO | Cancel | MANAGER, ADMIN |
+| PO | Tạo/Sửa | MANAGER |
+| PO | Cancel | MANAGER |
 
 ### Phân biệt form nhập theo role
 

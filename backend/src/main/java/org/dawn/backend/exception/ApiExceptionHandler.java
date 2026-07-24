@@ -1,10 +1,12 @@
 package org.dawn.backend.exception;
 
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.dawn.backend.exception.payload.ExceptionMessage;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -29,6 +31,16 @@ public class ApiExceptionHandler {
                 .collect(Collectors.joining(", "));
         log.warn("Validation failed: {}", errors);
         return buildResponse(HttpStatus.BAD_REQUEST, errors);
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ExceptionMessage> handleAccessDenied(AccessDeniedException e, HttpServletRequest request) {
+        String principal = request.getUserPrincipal() != null
+                ? request.getUserPrincipal().getName()
+                : "anonymous";
+        log.warn("Access denied: user={} {} {}",
+                principal, request.getMethod(), request.getRequestURI());
+        return buildResponse(HttpStatus.FORBIDDEN, "Access denied");
     }
 
     @ExceptionHandler(Exception.class)

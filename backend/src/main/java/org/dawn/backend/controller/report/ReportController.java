@@ -25,31 +25,31 @@ public class ReportController {
     private final ReportService reportService;
 
     @GetMapping("/inventory-summary")
-    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_ADMIN)
+    @PreAuthorize(AuthorizationExpressions.CAN_VIEW_REPORTS)
     public ResponseObject<InventorySummaryResponse> getInventorySummary() {
         return ResponseObject.success(reportService.getInventorySummary());
     }
 
     @GetMapping("/inventory-by-category")
-    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_ADMIN)
+    @PreAuthorize(AuthorizationExpressions.CAN_VIEW_REPORTS)
     public ResponseObject<List<CategoryStockResponse>> getStockByCategory() {
         return ResponseObject.success(reportService.getStockByCategory());
     }
 
     @GetMapping("/low-stock")
-    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_ADMIN_STOCK)
+    @PreAuthorize(AuthorizationExpressions.CAN_VIEW_INVENTORY)
     public ResponseObject<ResponsePage<LowStockResponse>> getLowStock(Pageable pageable) {
         return ResponseObject.success(reportService.getLowStock(pageable));
     }
 
     @GetMapping("/stock-value")
-    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_ADMIN)
+    @PreAuthorize(AuthorizationExpressions.CAN_VIEW_REPORTS)
     public ResponseObject<List<StockValueResponse>> getStockValue() {
         return ResponseObject.success(reportService.getStockValue());
     }
 
     @GetMapping("/activity")
-    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_ADMIN)
+    @PreAuthorize(AuthorizationExpressions.CAN_VIEW_REPORTS)
     public ResponseObject<List<ActivityResponse>> getActivity(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to) {
@@ -57,7 +57,7 @@ public class ReportController {
     }
 
     @GetMapping("/dead-stock")
-    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_ADMIN)
+    @PreAuthorize(AuthorizationExpressions.CAN_VIEW_REPORTS)
     public ResponseObject<ResponsePage<DeadStockResponse>> getDeadStock(
             @RequestParam(defaultValue = "90") int daysThreshold,
             @RequestParam(required = false) String keyword,

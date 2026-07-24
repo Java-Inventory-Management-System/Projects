@@ -9,6 +9,7 @@
 
 > **Loại**: F = Functional, N = Non-functional, T = Technical constraint
 > **Priority**: MoSCoW (Must / Should / Could / Won't)
+> **Actor**: AD = ADMIN, QL = MANAGER (Quản lý), NV = STOCK (Nhân viên kho), SL = SALES (Nhân viên bán hàng), HT = Hệ thống
 
 ### Auth & Security
 
@@ -28,11 +29,11 @@
 
 | ID    | Yêu cầu                                  | Loại | Nguồn     | Pri   | Actor    | US    |
 | ----- | ---------------------------------------- | ---- | --------- | ----- | -------- | ----- |
-| RQ-10 | CRUD brand/category/supplier             | F    | Phỏng vấn | Must  | AD/QL    | US-25 |
-| RQ-11 | CRUD sản phẩm (kèm unit ↔ tracking_type) | F    | Phỏng vấn | Must  | AD/QL    | US-26 |
-| RQ-12 | Upload ảnh sản phẩm (tối đa 5)           | F    | Phỏng vấn | Could | AD/QL    | US-27 |
-| RQ-13 | CRUD vị trí kho (zone-shelf-bin)         | F    | Phỏng vấn | Must  | AD/QL    | US-35 |
-| RQ-14 | CRUD khách hàng (NV: xem + thêm)         | F    | Phỏng vấn | Must  | AD/QL/NV | US-36 |
+| RQ-10 | CRUD brand/category/supplier             | F    | Phỏng vấn | Must  | QL       | US-25 |
+| RQ-11 | CRUD sản phẩm (kèm unit ↔ tracking_type) | F    | Phỏng vấn | Must  | QL       | US-26 |
+| RQ-12 | Upload ảnh sản phẩm (tối đa 5)           | F    | Phỏng vấn | Could | QL       | US-27 |
+| RQ-13 | CRUD vị trí kho (zone-shelf-bin)         | F    | Phỏng vấn | Must  | QL       | US-35 |
+| RQ-14 | CRUD khách hàng (NV/SL: xem + thêm)       | F    | Phỏng vấn | Must  | QL/NV/SL | US-36 |
 
 ### Purchase Order
 
@@ -47,28 +48,28 @@
 
 | ID    | Yêu cầu                                | Loại | Nguồn     | Pri    | Actor | US    |
 | ----- | -------------------------------------- | ---- | --------- | ------ | ----- | ----- |
-| RQ-15 | Tạo phiếu nhập (chọn NCC, ngày)        | F    | Phỏng vấn | Must   | NV    | US-01 |
-| RQ-16 | Thêm dòng sản phẩm vào phiếu nhập      | F    | Phỏng vấn | Must   | NV    | US-02 |
-| RQ-17 | Nhập serial (tay/Excel/barcode)        | F    | Phỏng vấn | Must   | NV    | US-03 |
-| RQ-18 | Gán vị trí kho cho từng dòng/lô        | F    | Phỏng vấn | Should | NV    | US-04 |
-| RQ-19 | Xác nhận phiếu nhập (1 transaction)    | F    | Phỏng vấn | Must   | NV    | US-05 |
+| RQ-15 | Tạo phiếu nhập (chọn NCC, ngày)        | F    | Phỏng vấn | Must   | NV/QL | US-01 |
+| RQ-16 | Thêm dòng sản phẩm vào phiếu nhập      | F    | Phỏng vấn | Must   | NV/QL | US-02 |
+| RQ-17 | Nhập serial (tay/Excel/barcode)        | F    | Phỏng vấn | Must   | NV/QL | US-03 |
+| RQ-18 | Gán vị trí kho cho từng dòng/lô        | F    | Phỏng vấn | Should | NV/QL | US-04 |
+| RQ-19 | Xác nhận phiếu nhập (1 transaction)    | F    | Phỏng vấn | Must   | NV/QL | US-05 |
 | RQ-20 | Sửa serial sau nhập (nếu chưa xuất)    | F    | Phỏng vấn | Should | QL    | US-06 |
-| RQ-21 | Hủy phiếu nhập (soft-delete, terminal) | F    | Phỏng vấn | Must   | QL    | US-07 |
-| RQ-22 | Tạo phiếu xuất (chọn lý do, KH)        | F    | Phỏng vấn | Must   | NV    | US-08 |
-| RQ-23 | FIFO tự động khi xuất                  | F    | Phỏng vấn | Must   | NV    | US-09 |
-| RQ-24 | Báo tồn tối đa khi xuất thiếu          | F    | Phỏng vấn | Must   | NV    | US-10 |
-| RQ-25 | Xác nhận phiếu xuất (kích hoạt BH)     | F    | Phỏng vấn | Must   | NV    | US-11 |
-| RQ-26 | Đổi serial thay thế trước xuất         | F    | Phỏng vấn | Could  | NV    | US-12 |
-| RQ-27 | Hủy phiếu xuất (reset BH nếu có)       | F    | Phỏng vấn | Must   | QL    | US-13 |
-| RQ-28 | Xuất lẻ (bulk: meter/kg)               | F    | Phỏng vấn | Must   | NV    | US-33 |
+| RQ-21 | Hủy phiếu nhập (soft-delete, terminal) | F    | Phỏng vấn | Must   | QL/AD | US-07 |
+| RQ-22 | Tạo phiếu xuất (chọn lý do, KH)        | F    | Phỏng vấn | Must   | QL/NV/SL | US-08 |
+| RQ-23 | FIFO tự động khi xuất                  | F    | Phỏng vấn | Must   | QL/NV/SL | US-09 |
+| RQ-24 | Báo tồn tối đa khi xuất thiếu          | F    | Phỏng vấn | Must   | QL/NV/SL | US-10 |
+| RQ-25 | Xác nhận phiếu xuất (kích hoạt BH)     | F    | Phỏng vấn | Must   | QL/NV/SL | US-11 |
+| RQ-26 | Đổi serial thay thế trước xuất         | F    | Phỏng vấn | Could  | QL/NV/SL | US-12 |
+| RQ-27 | Hủy phiếu xuất (reset BH nếu có)       | F    | Phỏng vấn | Must   | QL/AD | US-13 |
+| RQ-28 | Xuất lẻ (bulk: meter/kg)               | F    | Phỏng vấn | Must   | QL/NV/SL | US-33 |
 
 ### Warranty
 
 | ID    | Yêu cầu                        | Loại | Nguồn     | Pri    | Actor | US    |
 | ----- | ------------------------------ | ---- | --------- | ------ | ----- | ----- |
-| RQ-29 | Tra cứu BH theo serial (fuzzy) | F    | Phỏng vấn | Must   | NV    | US-14 |
-| RQ-30 | Tiếp nhận yêu cầu BH           | F    | Phỏng vấn | Must   | NV    | US-15 |
-| RQ-31 | Xử lý BH (đổi/RMA/sửa/từ chối) | F    | Phỏng vấn | Must   | NV    | US-16 |
+| RQ-29 | Tra cứu BH theo serial (fuzzy) | F    | Phỏng vấn | Must   | NV/SL | US-14 |
+| RQ-30 | Tiếp nhận yêu cầu BH           | F    | Phỏng vấn | Must   | NV/SL | US-15 |
+| RQ-31 | Xử lý BH (đổi/RMA/sửa/từ chối) | F    | Phỏng vấn | Must   | NV/QL | US-16 |
 | RQ-32 | Hoàn tất phiếu BH + audit      | F    | Phỏng vấn | Must   | NV    | US-17 |
 | RQ-33 | Xử lý hết tồn khi đổi BH       | F    | Phỏng vấn | Should | NV    | US-18 |
 
@@ -76,7 +77,7 @@
 
 | ID | Yêu cầu | Loại | Nguồn | Pri | Actor | US |
 |---|---|---|---|---|---|---|
-| RQ-34 | Tạo phiếu điều chỉnh tồn | F | Phỏng vấn | Must | NV | US-19 |
+| RQ-34 | Tạo phiếu điều chỉnh tồn | F | Phỏng vấn | Must | NV/QL | US-19 |
 | RQ-35 | Duyệt phiếu điều chỉnh (4-eyes) | F | Phỏng vấn | Must | QL/AD | US-20 |
 | RQ-36 | Found không rõ serial (fallback) | F | Phỏng vấn | Should | HT | US-21 |
 | RQ-37 | Tạo phiếu kiểm kê | F | Phỏng vấn | Should | QL | US-22 |
@@ -117,7 +118,7 @@
 
 > Mỗi story được trace ngược về bảng/cột trong ERD và các quyết định nghiệp vụ.
 
-Actor: **AD** = Admin, **QL** = Quản lý kho, **NV** = Nhân viên, **HT** = Hệ thống (background job/automation)
+Actor: **AD** = Admin, **QL** = Quản lý kho, **NV** = Nhân viên kho, **SL** = Nhân viên bán hàng, **HT** = Hệ thống (background job/automation)
 
 ### 2.1 Epic 1 — Nhập kho
 
@@ -147,58 +148,58 @@ Actor: **AD** = Admin, **QL** = Quản lý kho, **NV** = Nhân viên, **HT** = H
 - AC: Chỉ cho sửa nếu unit chưa xuất kho và không trong bảo hành; ghi audit log giá trị cũ → mới.
 - Priority: Should.
 
-**US-07** | Là **QL**, tôi muốn hủy một phiếu nhập đã xác nhận, để xử lý trường hợp nhập nhầm hoàn toàn.
+**US-07** | Là **QL/AD**, tôi muốn hủy một phiếu nhập đã xác nhận, để xử lý trường hợp nhập nhầm hoàn toàn.
 - AC: Phiếu chuyển `cancelled`; các `product_units` liên quan chuyển `removed` (terminal, không thể revert); ghi audit log #5.
 - Priority: Must.
 - **Cần xác nhận (quan trọng):** `removed` không thể revert — nếu QL bấm nhầm nút hủy, phải tạo lại toàn bộ phiếu nhập + serial từ đầu.
 
 ### 2.2 Epic 2 — Xuất kho
 
-**US-08** | Là **NV**, tôi muốn khởi tạo phiếu xuất với lý do xuất (bán/nội bộ/trả NCC/hủy), để phân loại mục đích xuất kho.
+**US-08** | Là **QL/NV/SL**, tôi muốn khởi tạo phiếu xuất với lý do xuất (bán/nội bộ/trả NCC/hủy), để phân loại mục đích xuất kho.
 - AC: Nếu lý do là bán hàng → bắt buộc chọn/tạo `customer_id`.
 - Priority: Must.
 
-**US-09** | Là **NV**, tôi muốn hệ thống tự động chọn serial theo FIFO khi xuất, để không phải chọn tay từng serial.
+**US-09** | Là **QL/NV/SL**, tôi muốn hệ thống tự động chọn serial theo FIFO khi xuất, để không phải chọn tay từng serial.
 - AC: Query `ORDER BY imported_at ASC ... FOR UPDATE`; danh sách serial hiển thị cho NV xem trước khi xác nhận; gom theo `location_id` để giảm di chuyển.
 - Priority: Must.
 - **Đã chốt:** Cho phép NV override serial tay + bắt buộc lý do.
 
-**US-10** | Là **NV**, tôi muốn được báo số lượng tối đa có thể xuất khi tồn không đủ, để chọn xuất một phần thay vì bị chặn hoàn toàn.
+**US-10** | Là **QL/NV/SL**, tôi muốn được báo số lượng tối đa có thể xuất khi tồn không đủ, để chọn xuất một phần thay vì bị chặn hoàn toàn.
 - AC: Hệ thống tính tồn khả dụng trước khi cho thêm dòng; cho phép xuất partial; không cho phép tồn âm (trừ khi cấu hình bật).
 - Priority: Must.
 - **Đã chốt:** Chặn tồn âm với serialized. Với bulk: mặc định chặn, có thể mở sau nếu có nhu cầu.
 
-**US-11** | Là **NV**, tôi muốn xuất tạm (reserve) phiếu xuất, để khoá serial và chờ QL duyệt.
+**US-11** | Là **QL/NV/SL**, tôi muốn xuất tạm (reserve) phiếu xuất, để khoá serial và chờ QL duyệt.
 - AC: Hệ thống lock serial đã chọn (`SELECT ... FOR UPDATE`), phiếu chuyển `pending_approval`; ghi audit log. Serial bị khoá không được chọn bởi phiếu xuất khác.
 - Priority: Must.
 
-**US-42** | Là **QL**, tôi muốn duyệt phiếu xuất, để xác nhận xuất kho và kích hoạt bảo hành (nếu là bán hàng).
+**US-42** | Là **QL/AD**, tôi muốn duyệt phiếu xuất, để xác nhận xuất kho và kích hoạt bảo hành (nếu là bán hàng).
 - AC: Chỉ QL/AD được duyệt; `approved_by ≠ created_by`. Khi duyệt: `product_units.status` từ `reserved` → `sold`; nếu `reason = sale` → set `warranty_start_date` = ngày duyệt, tính `warranty_expires_at`; phiếu `completed`; ghi audit log #4. Nếu từ chối → phiếu `cancelled`, giải phóng serial (`reserved` → `in_stock`).
 - Priority: Must.
 
-**US-12** | Là **NV**, tôi muốn đổi serial thay thế trước khi hoàn tất nếu hàng thực tế không khớp serial hệ thống chọn, để xử lý sai lệch giữa hệ thống và thực tế kho.
+**US-12** | Là **QL/NV/SL**, tôi muốn đổi serial thay thế trước khi hoàn tất nếu hàng thực tế không khớp serial hệ thống chọn, để xử lý sai lệch giữa hệ thống và thực tế kho.
 - AC: Cơ chế swap serial trong cùng phiếu xuất trước khi confirm cuối.
 - Priority: Could.
 
-**US-13** | Là **QL**, tôi muốn hủy phiếu xuất đã xác nhận, để xử lý trường hợp xuất nhầm.
+**US-13** | Là **QL/AD**, tôi muốn hủy phiếu xuất đã xác nhận, để xử lý trường hợp xuất nhầm.
 - AC: `product_units` liên quan set lại `in_stock`, giữ nguyên `imported_at` gốc (không phá FIFO); nếu đã kích hoạt bảo hành → reset `warranty_start_date`/`warranty_expires_at` về NULL; ghi audit log #6.
 - Priority: Must.
 
-**US-33** | Là **NV**, tôi muốn xuất một phần số lượng lẻ (ví dụ 1.5m cáp) từ một unit dạng bulk, để phục vụ bán lẻ theo mét/kg.
+**US-33** | Là **QL/NV/SL**, tôi muốn xuất một phần số lượng lẻ (ví dụ 1.5m cáp) từ một unit dạng bulk, để phục vụ bán lẻ theo mét/kg.
 - AC: Nếu `remaining_quantity > qty_xuất` → chỉ trừ `remaining_quantity`, không đổi `status`; nếu `remaining_quantity = qty_xuất` → set `status = sold`; tổng tồn = SUM(remaining_quantity) cho bulk + COUNT(id) cho serialized.
 - Priority: Must.
 
 ### 2.3 Epic 3 — Bảo hành
 
-**US-14** | Là **NV**, tôi muốn tra cứu bảo hành theo serial, để xem sản phẩm, ngày mua, hạn bảo hành và lịch sử xử lý trước đó.
+**US-14** | Là **NV/SL**, tôi muốn tra cứu bảo hành theo serial, để xem sản phẩm, ngày mua, hạn bảo hành và lịch sử xử lý trước đó.
 - AC: Hỗ trợ tìm gần đúng khi serial dễ nhầm (O/0, I/l).
 - Priority: Must.
 
-**US-15** | Là **NV**, tôi muốn tiếp nhận yêu cầu bảo hành từ khách, để tạo phiếu và ghi nhận mô tả lỗi.
+**US-15** | Là **NV/SL**, tôi muốn tiếp nhận yêu cầu bảo hành từ khách, để tạo phiếu và ghi nhận mô tả lỗi.
 - AC: Kiểm tra serial tồn tại và còn hạn; xác minh khách qua tên/SĐT nếu có thể; tạo `warranty_requests.status = pending`.
 - Priority: Must.
 
-**US-16** | Là **NV**, tôi muốn xử lý yêu cầu bảo hành theo 1 trong 4 hướng (sửa chữa/đổi mới/hoàn tiền/từ chối), để giải quyết dứt điểm từng ca bảo hành.
+**US-16** | Là **NV/QL**, tôi muốn xử lý yêu cầu bảo hành theo 1 trong 4 hướng (sửa chữa/đổi mới/hoàn tiền/từ chối), để giải quyết dứt điểm từng ca bảo hành.
 - AC: Sửa chữa → chuyển `under_repair`, không tính tồn; nếu gửi NCC → lưu `rma_number`, `sent_to_partner_at`; sửa xong → `sold`, không sửa được → `defective`. Đổi mới → serial cũ chuyển `defective`; serial mới `in_stock → sold`, kế thừa hạn BH còn lại (giữ nguyên `warranty_start_date` gốc). Hoàn tiền → unit chuyển `returned`. Từ chối → không đổi status, ghi rõ lý do.
 - Priority: Must.
 - **Đã chốt:** Kế thừa hạn BH cũ — giữ nguyên `warranty_start_date` gốc, không reset.
@@ -251,25 +252,25 @@ Actor: **AD** = Admin, **QL** = Quản lý kho, **NV** = Nhân viên, **HT** = H
 
 ### 2.6 Epic 6 — Quản lý danh mục & vị trí
 
-**US-25** | Là **AD/QL**, tôi muốn CRUD brand/category/supplier, để duy trì danh mục sản phẩm.
+**US-25** | Là **QL**, tôi muốn CRUD brand/category/supplier, để duy trì danh mục sản phẩm.
 - AC: Soft-delete qua `is_active` (đồng bộ toàn hệ thống), không xóa cứng.
 - Priority: Must.
 
-**US-26** | Là **AD/QL**, tôi muốn tạo sản phẩm mới với đơn vị tính và tracking type, để hệ thống biết cách tính tồn kho cho sản phẩm đó.
+**US-26** | Là **QL**, tôi muốn tạo sản phẩm mới với đơn vị tính và tracking type, để hệ thống biết cách tính tồn kho cho sản phẩm đó.
 - AC: Validate mapping `unit ↔ tracking_type` bắt buộc (piece/box/set → serialized; meter/kg → bulk); sai → reject ở Service layer.
 - Priority: Must.
 - **Đã chốt:** Chấp nhận hard-code. Thêm UOM = sửa code.
 
-**US-27** | Là **AD/QL**, tôi muốn upload tối đa 5 ảnh cho sản phẩm và đánh dấu 1 ảnh đại diện, để hiển thị sản phẩm trực quan.
+**US-27** | Là **QL**, tôi muốn upload tối đa 5 ảnh cho sản phẩm và đánh dấu 1 ảnh đại diện, để hiển thị sản phẩm trực quan.
 - AC: `is_primary` duy nhất 1 ảnh/sản phẩm; `sort_order` cho thứ tự hiển thị.
 - Priority: Could.
 - **Cần xác nhận:** con số "5 ảnh" chưa rõ nguồn — cần acceptance criteria/lý do cụ thể.
 
-**US-35** | Là **AD/QL**, tôi muốn CRUD vị trí kho (zone/shelf/bin), để có danh sách vị trí hợp lệ trước khi gán cho `product_units`.
+**US-35** | Là **QL**, tôi muốn CRUD vị trí kho (zone/shelf/bin), để có danh sách vị trí hợp lệ trước khi gán cho `product_units`.
 - AC: `full_code` unique dạng `A-01-01A`; soft-delete qua `is_active`; không cho xóa vị trí đang có unit `in_stock` gán vào.
 - Priority: Must.
 
-**US-36** | Là **AD/QL/NV**, tôi muốn CRUD thông tin khách hàng, để tra cứu và quản lý lịch sử mua hàng/bảo hành.
+**US-36** | Là **QL/NV/SL**, tôi muốn CRUD thông tin khách hàng, để tra cứu và quản lý lịch sử mua hàng/bảo hành.
 - AC: NV chỉ được xem + thêm mới (không sửa/xóa); AD/QL full CRUD; soft-delete qua `is_active`.
 - Priority: Must.
 
@@ -314,17 +315,17 @@ Actor: **AD** = Admin, **QL** = Quản lý kho, **NV** = Nhân viên, **HT** = H
 
 ### 2.10 Epic 10 — Trả hàng từ khách (ngoài luồng bảo hành)
 
-**US-40** | Là **NV**, tôi muốn ghi nhận khách trả hàng thông thường (không phải hàng lỗi — ví dụ đổi ý, mua nhầm), để chuyển unit về lại trạng thái khả dụng hoặc xử lý theo tình trạng hàng trả.
+**US-40** | Là **SALES**, tôi muốn ghi nhận khách trả hàng thông thường (không phải hàng lỗi — ví dụ đổi ý, mua nhầm), để chuyển unit về lại trạng thái khả dụng hoặc xử lý theo tình trạng hàng trả.
 - AC: Unit chuyển `sold → returned`; nếu hàng còn nguyên → `returned → in_stock`; nếu hàng lỗi → `returned → defective`.
 - Priority: Must.
-- **⚠️ Gap ở tầng domain-model:** state machine đã định nghĩa transition, nhưng **không có bảng nào** theo dõi phiếu trả hàng. Cần bổ sung bảng `return_receipts`, chính sách hoàn tiền/đổi hàng, và audit action tương ứng.
+- **Đã chốt domain-model:** `return_receipts` + `return_receipt_items` đã có trong `01-domain-model.md` (bổ sung đợt merge SOP §9). Chính sách hoàn tiền/đổi hàng (vd thời gian CHANGE_MIND, condition DEFECTIVE→SCRAP hay WARRANTY_TRANSFER) đã được SOP §7 định nghĩa — nếu còn khoảng trống chính sách cụ thể (vd hạn mức hoàn tiền theo % giá trị), ghi nhận vào câu hỏi mới ở `06-open-questions.md`.
 
 ### 2.11 Epic 11 — Điều chỉnh đơn giá nhập sau xác nhận
 
-**US-41** | Là **QL/AD**, tôi muốn tạo phiếu điều chỉnh giá nhập riêng khi phát hiện sai giá sau khi phiếu nhập đã xác nhận, để sửa giá mà không phá vỡ tính bất biến của phiếu nhập gốc.
+**US-41** | Là **NV/QL**, tôi muốn tạo phiếu điều chỉnh giá nhập riêng khi phát hiện sai giá sau khi phiếu nhập đã xác nhận, để sửa giá mà không phá vỡ tính bất biến của phiếu nhập gốc.
 - AC: Không cho sửa trực tiếp `import_receipt_items.unit_price` sau khi phiếu `completed`; phiếu điều chỉnh giá cần được duyệt; ghi audit log.
 - Priority: Should.
-- **⚠️ Gap ở tầng domain-model:** hoàn toàn chưa có bảng, chưa có state, chưa có audit action. Cần bổ sung bảng `price_adjustments` trước khi story này có thể ước lượng effort.
+- **Đã chốt domain-model:** `price_adjustments` đã có trong `01-domain-model.md` (bổ sung đợt merge SOP §9). State machine (`pending_approval → approved | rejected`) + SOP flow chi tiết đã có ở `02-sop-nghiep-vu.md §8`. Story này có thể ước lượng dựa trên thiết kế hiện tại.
 
 ### 2.12 Epic 12 — Đặt hàng (Purchase Order)
 
@@ -364,9 +365,11 @@ Actor: **AD** = Admin, **QL** = Quản lý kho, **NV** = Nhân viên, **HT** = H
 | 10 | Số ảnh tối đa "5" chưa rõ nguồn | US-27 | Constraint tùy tiện, không traceable |
 | 11 | 4 role có cố định vĩnh viễn hay cần CRUD | US-37 | Có thể làm dư tính năng không cần thiết |
 
-### 3.2 Domain-model gaps (chưa có thiết kế — cần bổ sung ERD/bảng)
+### 3.2 Domain-model gaps — Đã đóng
 
-| # | Luồng | Thiếu gì | Story bị chặn |
+> Các gap dưới đây đã được giải quyết qua đợt merge SOP §9 vào ERD (xem git history). Giữ lại để trace lịch sử.
+
+| # | Luồng | Trạng thái | Ghi chú |
 |---|---|---|---|
-| A | Trả hàng khách (ngoài bảo hành) | Không có bảng `return_receipts`, không có audit action, chưa rõ chính sách hoàn tiền | US-40 |
-| B | Điều chỉnh giá nhập sau xác nhận | Không có bảng `price_adjustments`, không có state, không có audit action | US-41 |
+| A | Trả hàng khách (ngoài bảo hành) | ✅ Đã có `return_receipts` + `return_receipt_items` trong `01-domain-model.md` | SOP §7 đã định nghĩa chi tiết flow, condition, resulting_action. Nếu còn chính sách hoàn tiền cụ thể → ghi nhận ở `06-open-questions.md`. |
+| B | Điều chỉnh giá nhập sau xác nhận | ✅ Đã có `price_adjustments` trong `01-domain-model.md` | SOP §8 có state machine + flow duyệt. Story đã có thể ước lượng. |

@@ -25,7 +25,7 @@ erDiagram
     roles {
         bigint id PK
         varchar50 name UK "ADMIN | MANAGER | SALES | STOCK"
-        int level "1=ADMIN | 2=MANAGER | 3=SALES/STOCK"
+        int level "1=ADMIN | 2=MANAGER | 3=SALES/STOCK — dùng trong UserRoleSecurity.canUpdate() (hierarchical user mgmt), không dùng cho feature-level permissions"
         varchar255 description
         timestamp created_at
         timestamp updated_at
@@ -66,6 +66,7 @@ erDiagram
     %% ===== CATALOG =====
     brands ||--o{ products : "has"
     categories ||--o{ products : "has"
+    categories ||--o{ category_zones : "zone_mapping"
     suppliers ||--o{ import_receipts : "supplies"
 
     brands {
@@ -83,6 +84,13 @@ erDiagram
         boolean is_active
         timestamp created_at
         timestamp updated_at
+    }
+    %% category_zones: mapping tĩnh category → zone ưu tiên, dùng cho auto-assign location lúc QC pass.
+    %% Giả định: 1 category → 1 zone_code chính (không hỗ trợ multi-zone ưu tiên ở phase này).
+    category_zones {
+        bigint id PK
+        bigint category_id FK
+        varchar10 zone_code "'A' | 'B' | 'C' — khớp locations.zone_code"
     }
     suppliers {
         bigint id PK
@@ -126,6 +134,15 @@ erDiagram
         int sort_order
         timestamp created_at
     }
+    products ||--o{ sell_price_history : "price_changes"
+    sell_price_history {
+        bigint id PK
+        bigint product_id FK
+        decimal15_2 old_price
+        decimal15_2 new_price
+        bigint changed_by FK
+        timestamp changed_at
+    }
     warehouses ||--o{ locations : "contains"
     locations ||--o{ product_units : "stores_at"
 
@@ -144,11 +161,16 @@ erDiagram
         varchar50 full_code UK "'A-01-01A' — denormalized từ 3 cột trên"
         varchar255 description
         boolean is_active
+        decimal15_2 max_capacity "nullable — sức chứa tối đa (số đơn vị), NULL = không giới hạn. Validation mềm khi vượt, không chặn cứng (theo SOP §2.2 B4 và UX §1.1)"
         timestamp created_at
         timestamp updated_at
     }
     %% Lưu ý: cần thêm UNIQUE constraint tổ hợp (zone_code, shelf_code, bin_code)
     %% song song với full_code UK, tránh 2 record trùng vị trí vật lý nhưng full_code bị nhập lệch.
+    warehouses ||--o{ import_receipts : "stored_in"
+    warehouses ||--o{ export_receipts : "from"
+    warehouses ||--o{ stock_adjustments : "at"
+    warehouses ||--o{ stock_checks : "at"
     customers ||--o{ export_receipts : "buys"
     customers ||--o{ warranty_requests : "requests"
 
@@ -200,6 +222,7 @@ erDiagram
         varchar50 receipt_code UK "'IMP-20260706-001'"
         bigint supplier_id FK
         bigint purchase_order_id FK "nullable — link PO nếu có"
+        bigint warehouse_id FK
         decimal15_2 total_amount
         varchar20 status "pending | pending_approval | completed | cancelled"
         text note
@@ -215,6 +238,7 @@ erDiagram
         decimal15_2 quantity "serialized: integer, bulk: decimal"
         decimal15_2 unit_price
         int warranty_months
+        varchar100 supplier_batch_no "nullable — mã lô NCC"
         timestamp created_at
     }
     export_receipts ||--o{ export_receipt_items : "contains"
@@ -223,9 +247,12 @@ erDiagram
         bigint id PK
         varchar50 receipt_code UK "'EXP-20260706-001'"
         bigint customer_id FK "nullable — CHỈ bắt buộc khi reason='sale'; internal/return_supplier/dispose không có khách hàng thật"
+        bigint warehouse_id FK
         decimal15_2 total_amount
+        decimal15_2 total_cogs "tổng cost_price của unit thực xuất"
         varchar20 status "pending | pending_approval | completed | cancelled"
         varchar50 reason "sale | internal | return_supplier | dispose"
+        bigint source_import_receipt_id FK "nullable — chỉ dùng cho reason=return_supplier"
         text note
         bigint created_by FK
         bigint approved_by FK "nullable — cùng nguyên tắc 4-eyes với import_receipts (ADR 7.9); bắt buộc khác created_by nếu status=completed"
@@ -271,6 +298,8 @@ erDiagram
         date warranty_expires_at
         decimal15_2 cost_price "snapshot từ import_receipt_item.unit_price tại thời điểm nhập"
         boolean is_warranty_active DEFAULT TRUE
+        varchar50 warranty_seal_code "nullable — mã tem bảo hành do shop/NPP cấp"
+        decimal15_2 reserved_quantity DEFAULT 0 "bulk only: số lượng đang reserve chờ duyệt"
         timestamp created_at
     }
     export_receipt_item_units {
@@ -281,6 +310,49 @@ erDiagram
         decimal15_2 sell_price
         timestamp created_at
     }
+
+    %% ===== PRICE ADJUSTMENT =====
+    import_receipt_items ||--o{ price_adjustments : "adjusted_by"
+    price_adjustments {
+        bigint id PK
+        bigint import_receipt_item_id FK
+        decimal15_2 old_unit_price
+        decimal15_2 new_unit_price
+        text reason
+        varchar30 status "pending_approval | approved | rejected"
+        bigint created_by FK
+        bigint approved_by FK "nullable"
+        text approval_note
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    %% ===== RETURN =====
+    export_receipts ||--o{ return_receipts : "original"
+    customers ||--o{ return_receipts : "returns"
+    return_receipts ||--o{ return_receipt_items : "contains"
+    product_units ||--o{ return_receipt_items : "returned"
+    return_receipts {
+        bigint id PK
+        varchar32 receipt_code UK
+        bigint customer_id FK
+        bigint original_export_receipt_id FK
+        varchar20 reason "change_mind | defective | wrong_item"
+        varchar20 status "pending_approval | completed | cancelled"
+        bigint created_by FK
+        bigint approved_by FK "nullable"
+        timestamp created_at
+        timestamp approved_at
+    }
+    return_receipt_items {
+        bigint id PK
+        bigint return_receipt_id FK
+        bigint product_unit_id FK "nullable — NULL nếu bulk"
+        decimal15_2 quantity "cho bulk"
+        varchar20 condition "good | defective"
+        varchar20 resulting_action "restock | scrap | warranty_transfer"
+    }
+
     %% warranty_requests.replacement_unit_id: khi resolution_type=replace, unit thay thế (in_stock→sold)
     %% đồng thời hệ thống tự động tạo export_receipt ngầm với reason='internal' và ghi chú 'warranty replacement'
     %% để đảm bảo giá vốn và doanh thu được ghi nhận đúng trên báo cáo tài chính.
@@ -305,6 +377,7 @@ erDiagram
     stock_checks {
         bigint id PK
         varchar50 check_code UK "'SC-20260706-001'"
+        bigint warehouse_id FK
         varchar20 status "pending | in_progress | completed | approved | rejected"
         text note
         bigint created_by FK
@@ -331,6 +404,7 @@ erDiagram
     stock_adjustments {
         bigint id PK
         varchar50 adjust_code UK "'ADJ-20260706-001'"
+        bigint warehouse_id FK
         varchar30 type "damaged | lost | found"
         bigint product_unit_id FK "BẮT BUỘC với serialized và với bulk (chọn đúng lot cần trừ/cộng remaining_quantity)"
         bigint product_id FK "chỉ dùng kèm quantity khi product KHÔNG serial hoá và KHÔNG track theo lot (trường hợp hiếm/tương lai); với schema hiện tại (mọi product đều có product_units) trường này nên để trống"
@@ -345,6 +419,9 @@ erDiagram
     }
 
     %% ===== WARRANTY =====
+    %% State machine: pending (SALES tạo) → received (STOCK nhận + kiểm tra) → under_evaluation (QL duyệt resolution) → resolved (terminal).
+    %% Terminal outcomes stored in resolution_type (repaired/replaced/refunded/rejected).
+    %% check_result/check_note do STOCK nhập ở bước kiểm tra (state=received).
     warranty_requests {
         bigint id PK
         varchar50 request_code UK "'WR-20260706-001'"
@@ -352,14 +429,16 @@ erDiagram
         bigint customer_id FK
         text issue_description
         varchar30 resolution_type "replace | repair | refund | reject — xem bảng mapping sang product_units.status bên dưới mục 2"
-        bigint replacement_unit_id FK "nullable — chỉ set khi resolution_type=replace; unit này chuyển in_stock→sold. CẦN CHỐT: có tạo kèm export_receipt để lên báo cáo doanh thu/kế toán không, hay chỉ đổi status qua warranty_requests?"
+        bigint replacement_unit_id FK "nullable — chỉ set khi resolution_type=replace; unit này chuyển in_stock→sold — xem mục 2.1 để biết cơ chế tạo export_receipt ngầm khi replace"
+        varchar20 check_result NULL "CONFIRMED | REJECTED — STOCK nhập ở bước kiểm tra (state=received)"
+        text check_note NULL
         varchar100 rma_number
         timestamp sent_to_partner_at
         timestamp expected_return_at
         text partner_note
-        varchar20 status "pending | completed | cancelled"
+        varchar20 status "pending | received | under_evaluation | resolved"
         bigint handled_by FK
-        timestamp completed_at
+        timestamp resolved_at
         text note
         timestamp created_at
         timestamp updated_at
@@ -470,7 +549,7 @@ stateDiagram-v2
 | `repair` | `sold → under_repair` → (`under_repair → sold` khi sửa xong) hoặc `sent_to_manufacturer` nếu gửi NCC | — |
 | `replace` | `sold → defective` (unit lỗi coi như xử lý xong, không hoàn kho) | `in_stock → sold` (unit thay thế giao cho khách) |
 | `refund` | `sold → returned` (hoàn tiền, unit nhận lại từ khách) | — |
-| `reject` | **Không đổi status** — unit vẫn giữ nguyên `sold`, chỉ đóng `warranty_requests.status = 'cancelled'` (từ chối yêu cầu BH) | — |
+| `reject` | **Không đổi status** — unit vẫn giữ nguyên `sold`, chỉ đóng `warranty_requests.status = 'resolved'` với `resolution_type='reject'` (từ chối yêu cầu BH) | — |
 
 > Với `replace`: unit thay thế được chuyển `in_stock → sold` qua `warranty_requests`, đồng thời hệ thống **tự động tạo `export_receipt` ngầm** với `reason='internal'` và ghi chú `'warranty replacement for WR-xxx'` để đảm bảo giá vốn được ghi nhận. `export_receipt_item_units` ghi nhận unit thay thế với `sell_price = 0` (không phát sinh doanh thu) nhưng vẫn trừ giá vốn (cost of goods sold). Cách này giúp (1) không ảnh hưởng doanh thu báo cáo, (2) vẫn trừ đúng giá vốn, (3) FIFO tracking chính xác cho lần xuất kế tiếp.
 
@@ -496,7 +575,7 @@ DRAFT/PARTIAL → CANCELLED : hủy toàn bộ
 | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Quản lý tồn kho         | ✅ **Theo serial number** — mỗi sản phẩm vật lý có mã riêng (bảng `product_units`), phục vụ truy vết & bảo hành chi tiết                                                                                                                   |
 | Xuất kho                | ✅ **FIFO tự động** — hệ thống tự chọn các `product_units` có `imported_at` sớm nhất để xuất, không cần nhân viên chọn thủ công                                                                                                            |
-| Phạm vi kho             | ✅ **1 kho duy nhất ở giai đoạn đầu**, nhưng vẫn thiết kế sẵn `warehouse_id` để mở rộng sau — xem `10-sop-quy-trinh-nghiep-vu.md` mục 1.2                                                                                                                                                                        |
+| Phạm vi kho             | ✅ **1 kho duy nhất ở giai đoạn đầu**, nhưng vẫn thiết kế sẵn `warehouse_id` để mở rộng sau — xem `02-sop-nghiep-vu.md` §9.1                                                                                                                                                                        |
 | Quản lý vị trí kho      | ✅ **Location-based** — mỗi `product_unit` gán 1 vị trí (`location_id`). Khi nhập: chọn vị trí. Khi xuất: FIFO trong cùng vị trí hoặc lấy gần nhau nhất                                                                                    |
 | Điều chỉnh tồn thủ công | ✅ Hỗ trợ 3 loại: `damaged`, `lost`, `found` — tất cả đều cần duyệt + lý do + audit log                                                                                                                                                    |
 | Ảnh sản phẩm            | ✅ **Nhiều ảnh / sản phẩm (gallery)** — tối đa 5 ảnh, đánh dấu 1 ảnh `is_primary` làm ảnh đại diện                                                                                                                                         |

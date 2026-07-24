@@ -99,7 +99,7 @@ export const ReturnDetailPage = () => {
     )
 
   const st = statusLabel[receipt.status] ?? { label: receipt.status, variant: "secondary" as const }
-  const canApprove = receipt.status === EXPORT_RECEIPT_STATUS.PENDING_APPROVAL && perm.hasRole(...ROLES.MANAGER_ADMIN)
+  const canApprove = receipt.status === EXPORT_RECEIPT_STATUS.PENDING_APPROVAL && perm.hasRole(...ROLES.CAN_APPROVE)
   const canCancel = receipt.status === EXPORT_RECEIPT_STATUS.PENDING_APPROVAL
 
   return (

@@ -31,7 +31,7 @@ public class ReturnReceiptItem extends BaseEntity {
     @Column(name = "quantity", precision = 15, scale = 2)
     private BigDecimal quantity;
 
-    @Column(name = "condition", nullable = false, length = 20)
+    @Column(name = "`condition`", nullable = false, length = 20)
     private String condition;
 
     @Column(name = "resulting_action", nullable = false, length = 20)

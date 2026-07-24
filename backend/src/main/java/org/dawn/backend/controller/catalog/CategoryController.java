@@ -20,31 +20,31 @@ public class CategoryController {
     private final CategoryService categoryService;
 
     @GetMapping("")
-    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_ADMIN_STOCK)
+    @PreAuthorize(AuthorizationExpressions.CAN_VIEW_INVENTORY)
     public ResponseObject<ResponsePage<CategoryResponse>> getAll(Pageable pageable) {
         return ResponseObject.success(categoryService.findAll(pageable));
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_ADMIN_STOCK)
+    @PreAuthorize(AuthorizationExpressions.CAN_VIEW_INVENTORY)
     public ResponseObject<CategoryResponse> getOne(@PathVariable Long id) {
         return ResponseObject.success(categoryService.findOne(id));
     }
 
     @PostMapping("")
-    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER)
+    @PreAuthorize(AuthorizationExpressions.CAN_MANAGE_CATALOG)
     public ResponseObject<CategoryResponse> create(@Valid @RequestBody CategoryRequest request) {
         return ResponseObject.created(categoryService.create(request));
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER)
+    @PreAuthorize(AuthorizationExpressions.CAN_MANAGE_CATALOG)
     public ResponseObject<CategoryResponse> update(@PathVariable Long id, @RequestBody CategoryRequest request) {
         return ResponseObject.success(categoryService.update(id, request));
     }
 
     @PutMapping("/{id}/toggle-active")
-    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER)
+    @PreAuthorize(AuthorizationExpressions.CAN_MANAGE_CATALOG)
     public ResponseObject<CategoryResponse> toggleActive(@PathVariable Long id) {
         return ResponseObject.success(categoryService.toggleActive(id));
     }

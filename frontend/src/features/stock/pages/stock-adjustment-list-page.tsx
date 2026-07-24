@@ -126,7 +126,7 @@ export const StockAdjustmentListPage = () => {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-semibold tracking-tight">Điều chỉnh tồn kho</h1>
-        {perm.hasRole(...ROLES.MANAGER_STOCK) && (
+        {perm.hasRole(...ROLES.CAN_OPERATE_STOCK) && (
           <Button onClick={() => navigate("/stock/adjustments/new")}>
             <Plus className="size-4 mr-1" /> Tạo phiếu điều chỉnh
           </Button>

@@ -19,31 +19,31 @@ public class ExportReceiptController {
     private final ExportReceiptService exportReceiptService;
 
     @GetMapping("/export-receipt")
-    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_ADMIN_STOCK)
+    @PreAuthorize(AuthorizationExpressions.CAN_OPERATE)
     public ResponseObject<ResponsePage<ExportReceiptResponse>> getAll(Pageable pageable, @RequestParam(required = false) String status) {
         return ResponseObject.success(exportReceiptService.findAll(pageable, status));
     }
 
     @GetMapping("/export-receipt/{id}")
-    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_ADMIN_STOCK)
+    @PreAuthorize(AuthorizationExpressions.CAN_OPERATE)
     public ResponseObject<ExportReceiptResponse> getOne(@PathVariable Long id) {
         return ResponseObject.success(exportReceiptService.findOne(id));
     }
 
     @PostMapping("/export-receipt")
-    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_STOCK)
+    @PreAuthorize(AuthorizationExpressions.CAN_OPERATE)
     public ResponseObject<ExportReceiptResponse> create(@RequestBody ExportReceiptRequest request) {
         return ResponseObject.created(exportReceiptService.create(request));
     }
 
     @PutMapping("/export-receipt/{id}/approve")
-    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_ADMIN)
+    @PreAuthorize(AuthorizationExpressions.CAN_APPROVE)
     public ResponseObject<ExportReceiptResponse> approve(@PathVariable Long id) {
         return ResponseObject.success(exportReceiptService.approve(id));
     }
 
     @PutMapping("/export-receipt/{id}/cancel")
-    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_ADMIN)
+    @PreAuthorize(AuthorizationExpressions.CAN_APPROVE)
     public ResponseObject<ExportReceiptResponse> cancel(@PathVariable Long id) {
         return ResponseObject.success(exportReceiptService.cancel(id));
     }

@@ -20,31 +20,31 @@ public class BrandController {
     private final BrandService brandService;
 
     @GetMapping("")
-    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_ADMIN_STOCK)
+    @PreAuthorize(AuthorizationExpressions.CAN_VIEW_INVENTORY)
     public ResponseObject<ResponsePage<BrandResponse>> getAll(Pageable pageable) {
         return ResponseObject.success(brandService.findAll(pageable));
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_ADMIN_STOCK)
+    @PreAuthorize(AuthorizationExpressions.CAN_VIEW_INVENTORY)
     public ResponseObject<BrandResponse> getOne(@PathVariable Long id) {
         return ResponseObject.success(brandService.findOne(id));
     }
 
     @PostMapping("")
-    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER)
+    @PreAuthorize(AuthorizationExpressions.CAN_MANAGE_CATALOG)
     public ResponseObject<BrandResponse> create(@Valid @RequestBody BrandRequest request) {
         return ResponseObject.created(brandService.create(request));
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER)
+    @PreAuthorize(AuthorizationExpressions.CAN_MANAGE_CATALOG)
     public ResponseObject<BrandResponse> update(@PathVariable Long id, @RequestBody BrandRequest request) {
         return ResponseObject.success(brandService.update(id, request));
     }
 
     @PutMapping("/{id}/toggle-active")
-    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER)
+    @PreAuthorize(AuthorizationExpressions.CAN_MANAGE_CATALOG)
     public ResponseObject<BrandResponse> toggleActive(@PathVariable Long id) {
         return ResponseObject.success(brandService.toggleActive(id));
     }

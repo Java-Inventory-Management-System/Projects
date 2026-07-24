@@ -102,7 +102,7 @@ export const ReturnListPage = () => {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-semibold tracking-tight">Trả hàng</h1>
-        {perm.hasRole(...ROLES.ALL_STOCK) && (
+        {perm.hasRole(...ROLES.CAN_VIEW_INVENTORY) && (
           <Button onClick={() => navigate("/returns/new")}>
             <Plus className="size-4 mr-1" /> Tạo phiếu trả hàng
           </Button>

@@ -21,7 +21,7 @@ public class PriceAdjustmentController {
     private final PriceAdjustmentService priceAdjustmentService;
 
     @GetMapping("/my")
-    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_STOCK)
+    @PreAuthorize(AuthorizationExpressions.CAN_OPERATE_STOCK)
     public ResponseObject<ResponsePage<PriceAdjustmentResponse>> getMyAdjustments(
             Pageable pageable,
             @RequestParam(required = false) String status) {
@@ -29,7 +29,7 @@ public class PriceAdjustmentController {
     }
 
     @GetMapping
-    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_ADMIN_STOCK)
+    @PreAuthorize(AuthorizationExpressions.CAN_VIEW_INVENTORY)
     public ResponseObject<ResponsePage<PriceAdjustmentResponse>> getAll(
             Pageable pageable,
             @RequestParam(required = false) String status) {
@@ -37,19 +37,19 @@ public class PriceAdjustmentController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_ADMIN_STOCK)
+    @PreAuthorize(AuthorizationExpressions.CAN_VIEW_INVENTORY)
     public ResponseObject<PriceAdjustmentResponse> getOne(@PathVariable Long id) {
         return ResponseObject.success(priceAdjustmentService.findOne(id));
     }
 
     @PostMapping
-    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_STOCK)
+    @PreAuthorize(AuthorizationExpressions.CAN_OPERATE_STOCK)
     public ResponseObject<PriceAdjustmentResponse> create(@RequestBody CreatePriceAdjustmentRequest request) {
         return ResponseObject.created(priceAdjustmentService.create(request));
     }
 
     @PutMapping("/{id}/approve")
-    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_ADMIN_STOCK)
+    @PreAuthorize(AuthorizationExpressions.CAN_APPROVE)
     public ResponseObject<PriceAdjustmentResponse> approve(
             @PathVariable Long id,
             @RequestBody(required = false) Map<String, String> body) {
@@ -58,7 +58,7 @@ public class PriceAdjustmentController {
     }
 
     @PutMapping("/{id}/reject")
-    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER_ADMIN_STOCK)
+    @PreAuthorize(AuthorizationExpressions.CAN_APPROVE)
     public ResponseObject<PriceAdjustmentResponse> reject(
             @PathVariable Long id,
             @RequestBody(required = false) Map<String, String> body) {
