@@ -50,8 +50,13 @@ export function PriceAdjustmentCreatePage() {
       toast.error("Chọn sản phẩm cần điều chỉnh")
       return
     }
-    if (!newPrice || Number(newPrice) < 0) {
+    const newVal = Number(newPrice)
+    if (!newPrice || newVal < 0) {
       toast.error("Giá mới không hợp lệ")
+      return
+    }
+    if (oldPrice > 0 && newVal === oldPrice) {
+      toast.error("Giá mới phải khác giá cũ")
       return
     }
     if (!reason.trim()) {

@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, Plus, Search, X } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { cn } from "@/utils/cn"
 import { toast } from "@/utils/toast"
 import { mapResponsePage, mapProductUnit } from "@/utils/mappers"
 import {
@@ -41,6 +42,7 @@ export const ReturnCreatePage = () => {
   const [exportQuery, setExportQuery] = useState("")
   const [selectedExportId, setSelectedExportId] = useState<number | null>(null)
   const [selectedExportCode, setSelectedExportCode] = useState<string | null>(null)
+  const [selectedExportCreatedAt, setSelectedExportCreatedAt] = useState<string | null>(null)
   const [reason, setReason] = useState<string>(RETURN_REASON.DEFECTIVE)
   const [note, setNote] = useState("")
   const [items, setItems] = useState<ReturnItemInput[]>([])
@@ -101,6 +103,13 @@ export const ReturnCreatePage = () => {
     },
     onError: (err: Error) => toast.error(err.message || "Có lỗi xảy ra"),
   })
+
+  const changeMindInfo = (() => {
+    if (reason !== RETURN_REASON.CHANGE_MIND || !selectedExportCreatedAt) return null
+    const daysSince = Math.floor((Date.now() - new Date(selectedExportCreatedAt).getTime()) / 86400000)
+    const remaining = 7 - daysSince
+    return { daysSince, remaining, expired: remaining <= 0 }
+  })()
 
   const handleSubmit = () => {
     if (!selectedCustomerId || !selectedExportId || items.length === 0) return
@@ -207,6 +216,7 @@ export const ReturnCreatePage = () => {
                   onClick={() => {
                     setSelectedExportId(e.id)
                     setSelectedExportCode(e.receiptCode)
+                    setSelectedExportCreatedAt(e.createdAt)
                     setExportQuery("")
                   }}
                 >
@@ -235,6 +245,20 @@ export const ReturnCreatePage = () => {
               <SelectItem value={RETURN_REASON.WRONG_ITEM}>Sai hàng</SelectItem>
             </SelectContent>
           </Select>
+          {changeMindInfo && (
+            <div
+              className={cn(
+                "text-sm mt-2 rounded-lg border px-4 py-3",
+                changeMindInfo.expired
+                  ? "border-red-200 bg-red-50 dark:bg-red-950/20 dark:border-red-800 text-red-600"
+                  : "border-blue-200 bg-blue-50 dark:bg-blue-950/20 dark:border-blue-800 text-blue-600",
+              )}
+            >
+              {changeMindInfo.expired
+                ? `Đã quá hạn đổi ý — ${changeMindInfo.daysSince} ngày kể từ xuất kho`
+                : `Còn ${changeMindInfo.remaining} ngày để đổi ý (${changeMindInfo.daysSince} ngày kể từ xuất kho)`}
+            </div>
+          )}
         </div>
       </div>
 

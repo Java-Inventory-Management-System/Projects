@@ -479,6 +479,7 @@ export interface WarrantyRequest {
   productSku: string | null
   customerId: number | null
   customerName: string | null
+  createdByName: string | null
   issueDescription: string
   resolutionType: string | null
   replacementUnitId: number | null

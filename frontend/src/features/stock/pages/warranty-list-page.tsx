@@ -1,31 +1,32 @@
 import { useState, useCallback } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
+import { useQueries } from "@tanstack/react-query"
 import { useWarrantyRequests } from "@/hooks/use-warranty"
+import { getWarrantyRequests } from "@/services/warranty-service"
 import { usePermission } from "@/hooks/use-permission"
 import { ROLES } from "@/utils/permissions"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { WARRANTY_STATUS } from "@/utils/types"
-import { Plus, Eye, ChevronDown, ChevronUp } from "lucide-react"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
+import { Plus, Eye, AlertTriangle } from "lucide-react"
 import { DataTable, type Column } from "@/components/ui/data-table"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 import type { WarrantyRequest } from "@/utils/types"
 
-const statusLabel: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
-  PENDING: { label: "Chờ tiếp nhận", variant: "secondary" },
-  RECEIVED: { label: "Đã nhận hàng", variant: "outline" },
-  UNDER_EVALUATION: { label: "Đang xử lý", variant: "default" },
-  RESOLVED: { label: "Hoàn tất", variant: "default" },
+const statusLabel: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline"; className?: string }> = {
+  [WARRANTY_STATUS.PENDING]: { label: "Chờ tiếp nhận", variant: "secondary" },
+  [WARRANTY_STATUS.RECEIVED]: { label: "Đang kiểm tra", variant: "outline", className: "border-blue-300 text-blue-600 dark:text-blue-400" },
+  [WARRANTY_STATUS.UNDER_EVALUATION]: { label: "Chờ QL duyệt", variant: "outline", className: "border-amber-300 text-amber-600 dark:text-amber-400" },
+  [WARRANTY_STATUS.RESOLVED]: { label: "Đã xử lý", variant: "default" },
 }
 
-const statusColor: Record<string, string> = {
-  PENDING: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
-  RECEIVED: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
-  UNDER_EVALUATION: "",
-  RESOLVED: "",
-}
+const tabs = [
+  { key: "", label: "Tất cả" },
+  { key: WARRANTY_STATUS.PENDING, label: "Chờ tiếp nhận" },
+  { key: WARRANTY_STATUS.RECEIVED, label: "Đang kiểm tra" },
+  { key: WARRANTY_STATUS.UNDER_EVALUATION, label: "Chờ QL duyệt" },
+  { key: WARRANTY_STATUS.RESOLVED, label: "Đã xử lý" },
+] as const
 
 export const WarrantyListPage = () => {
   const navigate = useNavigate()
@@ -33,12 +34,10 @@ export const WarrantyListPage = () => {
   const perm = usePermission()
 
   const page = Number(searchParams.get("page") ?? "0")
-  const statusFilter = searchParams.get("status") ?? ""
+  const activeTab = searchParams.get("status") ?? ""
 
-  const [filterOpen, setFilterOpen] = useState(true)
   const [pageSize, setPageSize] = useState(10)
   const [sort, setSort] = useState<{ key: string; dir: "asc" | "desc" } | undefined>(undefined)
-  const sortStr = sort ? `${sort.key},${sort.dir}` : undefined
 
   const handleSort = useCallback((key: string) => {
     setSort((prev) => {
@@ -48,8 +47,15 @@ export const WarrantyListPage = () => {
     })
   }, [])
 
-  const { data, isLoading } = useWarrantyRequests(page, pageSize, statusFilter || undefined, undefined)
-  void sortStr
+  const { data, isLoading } = useWarrantyRequests(page, pageSize, activeTab || undefined, undefined)
+
+  const counts = useQueries({
+    queries: tabs.map((t) => ({
+      queryKey: ["warranty-count", t.key],
+      queryFn: () => getWarrantyRequests(0, 1, t.key || undefined),
+      staleTime: 30000,
+    })),
+  })
 
   const updateParams = useCallback(
     (updates: Record<string, string | undefined>) => {
@@ -72,23 +78,35 @@ export const WarrantyListPage = () => {
     {
       header: "Sản phẩm",
       render: (r) => (
-        <div>
+        <div className="flex items-center gap-1">
           <span className="font-medium">{r.productName}</span>
-          <span className="text-xs text-muted-foreground ml-1">{r.productSku}</span>
+          <span className="text-xs text-muted-foreground">{r.productSku}</span>
         </div>
       ),
     },
-    { header: "Serial", render: (r) => <span className="font-mono text-xs">{r.serialNumber}</span> },
+    {
+      header: "Serial",
+      render: (r) => (
+        <div className="flex items-center gap-1">
+          <span className="font-mono text-xs">{r.serialNumber}</span>
+          {r.resolutionType === "REPLACE" && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <AlertTriangle className="size-3 text-amber-500" />
+              </TooltipTrigger>
+              <TooltipContent>Đã đổi BH</TooltipContent>
+            </Tooltip>
+          )}
+        </div>
+      ),
+    },
     { header: "Khách hàng", render: (r) => <span className="text-muted-foreground">{r.customerName ?? "—"}</span> },
     {
       header: "Trạng thái",
+      sortKey: "status",
       render: (r) => {
         const st = statusLabel[r.status] ?? { label: r.status, variant: "secondary" as const }
-        return (
-          <Badge variant={st.variant} className={statusColor[r.status]}>
-            {st.label}
-          </Badge>
-        )
+        return <Badge variant={st.variant} className={st.className}>{st.label}</Badge>
       },
     },
     { header: "Người xử lý", render: (r) => <span className="text-muted-foreground">{r.handledByName ?? "—"}</span> },
@@ -126,45 +144,42 @@ export const WarrantyListPage = () => {
         )}
       </div>
 
-      <Collapsible open={filterOpen} onOpenChange={setFilterOpen}>
-        <div className="flex items-center gap-2">
-          <CollapsibleTrigger asChild>
-            <Button variant="outline" size="sm" className="gap-1">
-              {filterOpen ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
-              Bộ lọc
-            </Button>
-          </CollapsibleTrigger>
-        </div>
-        <CollapsibleContent className="mt-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <Select
-              value={statusFilter}
-              onValueChange={(v) => updateParams({ status: v || undefined, page: undefined })}
+      {/* Tabs with badge counts */}
+      <div className="flex gap-1 overflow-x-auto">
+        {tabs.map((tab, i) => {
+          const isActive = activeTab === tab.key
+          return (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => updateParams({ status: tab.key || undefined, page: undefined })}
+              className={`inline-flex items-center gap-2 px-3 py-1.5 text-sm rounded-md whitespace-nowrap transition-colors ${
+                isActive
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:bg-muted"
+              }`}
             >
-              <SelectTrigger className="w-40">
-                <SelectValue placeholder="Tất cả trạng thái" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tất cả trạng thái</SelectItem>
-                <SelectItem value={WARRANTY_STATUS.PENDING}>Chờ tiếp nhận</SelectItem>
-                <SelectItem value={WARRANTY_STATUS.RECEIVED}>Đã nhận hàng</SelectItem>
-                <SelectItem value={WARRANTY_STATUS.UNDER_EVALUATION}>Đang xử lý</SelectItem>
-                <SelectItem value={WARRANTY_STATUS.RESOLVED}>Hoàn tất</SelectItem>
-              </SelectContent>
-            </Select>
-            {statusFilter && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-xs"
-                onClick={() => setSearchParams(new URLSearchParams())}
-              >
-                Xoá bộ lọc
-              </Button>
-            )}
-          </div>
-        </CollapsibleContent>
-      </Collapsible>
+              {tab.label}
+              {(() => {
+                const c = counts[i]?.data?.pagination.totalElements
+                return c !== undefined ? (
+                  <span
+                    className={`text-[10px] tabular-nums ${
+                      isActive
+                        ? "text-primary-foreground/70"
+                        : tab.key === WARRANTY_STATUS.UNDER_EVALUATION
+                          ? "text-amber-500 font-semibold"
+                          : "text-muted-foreground/70"
+                    }`}
+                  >
+                    {c}
+                  </span>
+                ) : null
+              })()}
+            </button>
+          )
+        })}
+      </div>
 
       <DataTable
         columns={columns}

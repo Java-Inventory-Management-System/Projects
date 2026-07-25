@@ -24,8 +24,9 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
 import { Empty, EmptyTitle } from "@/components/ui/empty"
-import { Save, ClipboardCheck, Check, X } from "lucide-react"
+import { AlertCircle, CheckCircle2, HelpCircle, Save, ClipboardCheck, Check, X } from "lucide-react"
 import { ButtonGroup } from "@/components/ui/button-group"
+import { cn } from "@/utils/cn"
 import { toast } from "@/utils/toast"
 import { StockCheckItemsTable } from "../components/stock-check-items-table"
 import { ApprovalDialog } from "../components/approval-dialog"
@@ -210,11 +211,57 @@ export const StockCheckDetailPage = () => {
                 })
               }}
             >
-              <ClipboardCheck className="size-4 mr-1" /> Tạo Adjustment ({mismatchCount})
+              <ClipboardCheck className="size-4 mr-1" /> Tạo phiếu điều chỉnh ({mismatchCount})
             </Button>
           )}
         </div>
       </div>
+
+      {/* ponytail: top 10 diffs shown for quick scan; full list in Results tab */}
+      {localItems.some((i) => i.difference && i.difference !== STOCK_CHECK_DIFF.MATCH) && (
+        <div className="space-y-2">
+          <p className="text-sm font-medium text-muted-foreground">Chênh lệch phát hiện</p>
+          <div className="grid gap-2">
+            {localItems
+              .filter((i) => i.difference && i.difference !== STOCK_CHECK_DIFF.MATCH)
+              .slice(0, 10)
+              .map((i) => (
+                <div
+                  key={i.id}
+                  className={cn(
+                    "flex items-center gap-3 rounded-lg border px-4 py-2.5 text-sm",
+                    i.difference === STOCK_CHECK_DIFF.MISSING && "border-red-200 bg-red-50 dark:bg-red-950/20 dark:border-red-800",
+                    i.difference === STOCK_CHECK_DIFF.UNEXPECTED && "border-green-200 bg-green-50 dark:bg-green-950/20 dark:border-green-800",
+                    i.difference === STOCK_CHECK_DIFF.PARTIAL_SHORTAGE && "border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800",
+                  )}
+                >
+                  {i.difference === STOCK_CHECK_DIFF.MISSING ? (
+                    <AlertCircle className="size-4 text-red-500 shrink-0" />
+                  ) : i.difference === STOCK_CHECK_DIFF.UNEXPECTED ? (
+                    <CheckCircle2 className="size-4 text-green-500 shrink-0" />
+                  ) : (
+                    <HelpCircle className="size-4 text-amber-500 shrink-0" />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <span className="font-medium">{i.productName}</span>
+                    {i.serialNumber && <span className="text-xs text-muted-foreground ml-1 font-mono">{i.serialNumber}</span>}
+                  </div>
+                  <Badge
+                    variant="outline"
+                    className={cn(
+                      "text-[10px] shrink-0",
+                      i.difference === STOCK_CHECK_DIFF.MISSING && "border-red-200 text-red-600",
+                      i.difference === STOCK_CHECK_DIFF.UNEXPECTED && "border-green-200 text-green-600",
+                      i.difference === STOCK_CHECK_DIFF.PARTIAL_SHORTAGE && "border-amber-200 text-amber-600",
+                    )}
+                  >
+                    {i.difference === STOCK_CHECK_DIFF.MISSING ? "MISSING" : i.difference === STOCK_CHECK_DIFF.UNEXPECTED ? "UNEXPECTED" : "PARTIAL"}
+                  </Badge>
+                </div>
+              ))}
+          </div>
+        </div>
+      )}
 
       <Tabs defaultValue="info">
         <TabsList>

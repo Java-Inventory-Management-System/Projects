@@ -1,16 +1,20 @@
 import { useState, useEffect, useCallback } from "react"
 import { searchAuditLogs } from "@/services/audit-service"
-import type { AuditLog, ResponsePage } from "@/utils/types"
+import type { AuditLog, ResponsePage, UserResponse } from "@/utils/types"
 import { AUDIT_STATUS, AUDIT_ACTION } from "@/utils/types"
+import { getUsers } from "@/services/user-service"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Eye, X, Search } from "lucide-react"
+import { Eye, X, Search, ChevronsUpDown, Check } from "lucide-react"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 import { DataTable, type Column } from "@/components/ui/data-table"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover"
+import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command"
+import { cn } from "@/utils/cn"
 
 const statusBadge: Record<string, { label: string; variant: "default" | "destructive" | "secondary" }> = {
   [AUDIT_STATUS.SUCCESS]: { label: "Thành công", variant: "default" },
@@ -35,6 +39,13 @@ const actionOptions = [
   AUDIT_ACTION.EXPORT,
 ]
 
+const entityOptions = [
+  "USER", "IMPORT_RECEIPT", "EXPORT_RECEIPT", "PRODUCT_UNIT",
+  "WARRANTY_REQUEST", "RETURN_RECEIPT", "STOCK_CHECK", "STOCK_ADJUSTMENT",
+  "PRICE_ADJUSTMENT", "PURCHASE_ORDER", "BRAND", "CATEGORY", "PRODUCT",
+  "SUPPLIER", "LOCATION", "CUSTOMER", "SYSTEM_SETTINGS",
+]
+
 export const AuditPage = () => {
   const [data, setData] = useState<ResponsePage<AuditLog> | null>(null)
   const [loading, setLoading] = useState(true)
@@ -56,11 +67,17 @@ export const AuditPage = () => {
   const [statusFilter, setStatusFilter] = useState("all")
   const [fromDate, setFromDate] = useState("")
   const [toDate, setToDate] = useState("")
+  const [userIdFilter, setUserIdFilter] = useState("")
+  const [users, setUsers] = useState<UserResponse[]>([])
   const [viewLog, setViewLog] = useState<AuditLog | null>(null)
 
   useEffect(() => {
+    getUsers(0, 200).then((r) => setUsers(r.content)).catch(() => {})
+  }, [])
+
+  useEffect(() => {
     setPage(0)
-  }, [actionFilter, entityFilter, statusFilter, fromDate, toDate])
+  }, [actionFilter, entityFilter, statusFilter, fromDate, toDate, userIdFilter])
 
   useEffect(() => {
     const doFetch = async () => {
@@ -73,6 +90,7 @@ export const AuditPage = () => {
           action: actionFilter === "all" ? undefined : actionFilter,
           entity: entityFilter || undefined,
           status: statusFilter === "all" ? undefined : statusFilter,
+          userId: userIdFilter ? Number(userIdFilter) : undefined,
           from: fromDate ? fromDate + "T00:00:00Z" : undefined,
           to: toDate ? toDate + "T23:59:59Z" : undefined,
         })
@@ -84,11 +102,11 @@ export const AuditPage = () => {
       }
     }
     doFetch()
-  }, [page, pageSize, sortStr, actionFilter, entityFilter, statusFilter, fromDate, toDate])
+  }, [page, pageSize, sortStr, actionFilter, entityFilter, statusFilter, fromDate, toDate, userIdFilter])
 
   const s = data?.pagination
 
-  const hasFilters = actionFilter !== "all" || !!entityFilter || statusFilter !== "all" || !!fromDate || !!toDate
+  const hasFilters = actionFilter !== "all" || !!entityFilter || statusFilter !== "all" || !!fromDate || !!toDate || !!userIdFilter
 
   const clearAll = () => {
     setActionFilter("all")
@@ -96,6 +114,7 @@ export const AuditPage = () => {
     setStatusFilter("all")
     setFromDate("")
     setToDate("")
+    setUserIdFilter("")
   }
 
   const activeChips: { key: string; label: string; onRemove: () => void }[] = []
@@ -107,6 +126,10 @@ export const AuditPage = () => {
   }
   if (fromDate) activeChips.push({ key: "from", label: `Từ: ${fromDate}`, onRemove: () => setFromDate("") })
   if (toDate) activeChips.push({ key: "to", label: `Đến: ${toDate}`, onRemove: () => setToDate("") })
+  if (userIdFilter) {
+    const u = users.find((u) => String(u.id) === userIdFilter)
+    activeChips.push({ key: "user", label: `Người dùng: ${u?.fullName || userIdFilter}`, onRemove: () => setUserIdFilter("") })
+  }
 
   const columns: Column<AuditLog>[] = [
     {
@@ -170,12 +193,19 @@ export const AuditPage = () => {
           </div>
           <div className="space-y-1">
             <Label className="text-xs">Đối tượng</Label>
-            <Input
-              placeholder="Ví dụ: USER"
-              className="w-36 h-8 text-xs"
-              value={entityFilter}
-              onChange={(e) => setEntityFilter(e.target.value)}
-            />
+            <Select value={entityFilter || "all"} onValueChange={(v) => setEntityFilter(v === "all" ? "" : v)}>
+              <SelectTrigger className="w-40 h-8 text-xs">
+                <SelectValue placeholder="Tất cả" />
+              </SelectTrigger>
+              <SelectContent className="max-h-[50vh]">
+                <SelectItem value="all">Tất cả</SelectItem>
+                {entityOptions.map((e) => (
+                  <SelectItem key={e} value={e}>
+                    {e}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="space-y-1">
             <Label className="text-xs">Trạng thái</Label>
@@ -189,6 +219,62 @@ export const AuditPage = () => {
                 <SelectItem value={AUDIT_STATUS.FAILED}>Thất bại</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Người dùng</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  className="w-44 h-8 justify-between text-xs font-normal"
+                >
+                  {userIdFilter
+                    ? users.find((u) => String(u.id) === userIdFilter)?.fullName ?? "Tất cả"
+                    : "Tất cả"}
+                  <ChevronsUpDown className="size-3 ml-1 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-44 p-0">
+                <Command>
+                  <CommandInput placeholder="Tìm người dùng..." className="h-8 text-xs" />
+                  <CommandList>
+                    <CommandEmpty className="text-xs py-4">Không tìm thấy</CommandEmpty>
+                    <CommandGroup>
+                      <CommandItem
+                        value=""
+                        onSelect={() => setUserIdFilter("")}
+                        className="text-xs h-8"
+                      >
+                        <Check
+                          className={cn(
+                            "mr-2 size-3 shrink-0",
+                            !userIdFilter ? "opacity-100" : "opacity-0",
+                          )}
+                        />
+                        Tất cả
+                      </CommandItem>
+                      {users.map((u) => (
+                        <CommandItem
+                          key={u.id}
+                          value={`${u.fullName} ${u.username}`}
+                          onSelect={() => setUserIdFilter(String(u.id))}
+                          className="text-xs h-8"
+                        >
+                          <Check
+                            className={cn(
+                              "mr-2 size-3 shrink-0",
+                              userIdFilter === String(u.id) ? "opacity-100" : "opacity-0",
+                            )}
+                          />
+                          {u.fullName} ({u.username})
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
           </div>
           <div className="space-y-1">
             <Label className="text-xs">Từ ngày</Label>

@@ -398,6 +398,7 @@ export function mapWarrantyRequest(raw: unknown): WarrantyRequest {
     expectedReturnAt: r.expectedReturnAt ?? null,
     partnerNote: r.partnerNote ?? null,
     status: r.status,
+    createdByName: r.createdByName ?? null,
     handledBy: r.handledBy ?? null,
     handledByName: r.handledByName ?? null,
     completedAt: r.completedAt ?? null,

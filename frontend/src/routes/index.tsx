@@ -207,7 +207,7 @@ export const router = createBrowserRouter([
             path: "stock/imports/new",
             element: (
               <Lazy>
-                <PageGuard roles={ROLES.CAN_VIEW_INVENTORY}>
+                <PageGuard roles={ROLES.CAN_OPERATE_STOCK}>
                   <ImportCreatePage />
                 </PageGuard>
               </Lazy>
