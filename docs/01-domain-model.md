@@ -1,7 +1,5 @@
 # Domain Model — Hệ thống Quản lý Kho Linh Kiện Máy Tính
 
-> Gộp từ: `01-entity-model.md`, `07-warehouse-flow.md` (các file này đã bị xóa sau khi gộp — xem git history nếu cần tra lại quá trình phân tích gốc).
-
 ---
 
 ## 1. Entity-Relationship Diagram
@@ -88,6 +86,7 @@ erDiagram
         varchar100 name "CPU | RAM | GPU | Mainboard..."
         text description
         boolean is_active
+        varchar20 qc_level "FULL | SAMPLING | SKIP — default FULL"
         timestamp created_at
         timestamp updated_at
     }
@@ -96,7 +95,7 @@ erDiagram
     category_zones {
         bigint id PK
         bigint category_id FK
-        varchar10 zone_code "'A' | 'B' | 'C' — khớp locations.zone_code"
+        varchar10 zone_code "'A' | 'B' | 'C' | 'D' | 'E' — khớp locations.zone_code. 1 ký tự chữ hoa, quy ước A–E mặc định."
     }
     suppliers {
         bigint id PK
@@ -124,8 +123,8 @@ erDiagram
         bigint brand_id FK
         bigint category_id FK
         text description
-        varchar20 unit "piece | meter | box | set | kg"
-        varchar20 tracking_type "serialized | bulk"
+        varchar20 unit "PIECE | METER | BOX | SET | KG"
+        varchar20 tracking_type "SERIALIZED | BULK"
         decimal15_2 sell_price
         int min_stock "warn threshold"
         boolean is_active
@@ -155,24 +154,26 @@ erDiagram
     warehouses {
         bigint id PK
         varchar255 name UK "'Kho chính'"
+        varchar32 code UK "'MAIN' — unique, dùng cho API/import"
+        text address "nullable — địa chỉ kho vật lý"
+        boolean is_active "DEFAULT TRUE"
         timestamp created_at
         timestamp updated_at
     }
     locations {
         bigint id PK
         bigint warehouse_id FK "mặc định warehouse mặc định"
-        varchar10 zone_code "'A' | 'B' | 'C'"
+        varchar10 zone_code "'A' | 'B' | 'C' | 'D' | 'E' — quy ước A–E mặc định, mở rộng A–Z. 1 ký tự chữ hoa. Service layer khuyến nghị validate format."
         varchar10 shelf_code "'01' | '02' — nullable, optional khi nhập (chỉ bắt buộc zone_code)"
         varchar10 bin_code "'01A' — nullable, optional khi nhập (chỉ bắt buộc zone_code)"
         varchar50 full_code UK "'A-01-01A' — denormalized từ 3 cột trên"
+        %% UNIQUE (zone_code, shelf_code, bin_code) — composite UK song song với full_code UK, tránh 2 record trùng vị trí vật lý nhưng full_code bị nhập lệch.
         varchar255 description
         boolean is_active
-        int max_capacity "nullable — sức chứa tối đa (số đơn vị), NULL = không giới hạn. Validation mềm khi vượt, không chặn cứng (theo SOP §2.2 B4 và UX §1.1)"
+        int max_capacity "nullable — sức chứa tối đa (số đơn vị), NULL = không giới hạn. Validation mềm — xem §1.1 mục max_capacity"
         timestamp created_at
         timestamp updated_at
     }
-    %% Lưu ý: cần thêm UNIQUE constraint tổ hợp (zone_code, shelf_code, bin_code)
-    %% song song với full_code UK, tránh 2 record trùng vị trí vật lý nhưng full_code bị nhập lệch.
     warehouses ||--o{ import_receipts : "stored_in"
     warehouses ||--o{ export_receipts : "from"
     warehouses ||--o{ stock_adjustments : "at"
@@ -196,7 +197,7 @@ erDiagram
     users ||--o{ system_settings : "updated_by"
 
     system_settings {
-        varchar100 setting_key PK "tên cài đặt, snake_case — vd: 'product_max_images', 'warranty_replace_sla_days', 'dead_stock_threshold_days', 'allow_negative_stock_bulk'"
+        varchar100 setting_key PK "tên cài đặt, snake_case — vd: 'product_max_images', 'warranty_replace_sla_days', 'dead_stock_threshold_days', 'warranty_seal_enabled'"
         text setting_value "giá trị dạng JSON string — service layer tự parse"
         text description "giải thích ý nghĩa của setting"
         bigint updated_by FK "FK → users — chỉ ADMIN được phép sửa"
@@ -241,7 +242,7 @@ erDiagram
         bigint purchase_order_id FK "nullable — link PO nếu có"
         bigint warehouse_id FK
         decimal15_2 total_amount
-        varchar20 status "pending | pending_approval | completed | cancelled"
+        varchar20 status "PENDING | PENDING_APPROVAL | COMPLETED | CANCELLED"
         text note
         bigint created_by FK
         bigint approved_by FK "nullable — bắt buộc khác created_by; set khi status chuyển pending_approval→completed"
@@ -267,22 +268,23 @@ erDiagram
         bigint warehouse_id FK
         decimal15_2 total_amount
         decimal15_2 total_cogs "tổng cost_price của unit thực xuất"
-        varchar20 status "pending | pending_approval | completed | cancelled"
-        varchar50 reason "sale | internal | return_supplier | dispose"
+        varchar20 status "PENDING_APPROVAL | COMPLETED | CANCELLED | EXCEPTION"
+        varchar50 reason "SALE | INTERNAL | RETURN_SUPPLIER | DISPOSE"
         bigint source_import_receipt_id FK "nullable — chỉ dùng cho reason=return_supplier"
+        varchar30 supplier_status "nullable — SENT | CONFIRMED_RECEIVED | PROCESSING | RESOLVED; chỉ dùng cho reason=return_supplier"
+        varchar30 supplier_result "nullable — FULL_REFUND | PARTIAL_REFUND | REPLACEMENT | REJECTED; set khi supplier_status=RESOLVED"
+        timestamp supplier_status_updated_at "nullable"
         text note
         bigint created_by FK
         bigint approved_by FK "nullable — cùng nguyên tắc 4-eyes với import_receipts (ADR 7.9); bắt buộc khác created_by nếu status=completed"
         timestamp created_at
         timestamp updated_at
     }
-    %% [CHỐT — giải quyết mâu thuẫn 2 cơ chế đã nêu ở review]
     %% export_receipts là NGUỒN DUY NHẤT kích hoạt các transition sau trên product_units (không có đường tắt nào khác):
-    %%   - reason='sale'            -> product_units.status: in_stock -> sold
-    %%   - reason='internal'        -> product_units.status: in_stock -> sold (dùng nội bộ, không phát sinh doanh thu nhưng vẫn trừ tồn qua phiếu xuất)
-    %%   - reason='return_supplier' -> product_units.status: sold -> returned_to_supplier (không qua warranty, xử lý qua export_receipt riêng)
-    %%   - reason='dispose'         -> product_units.status: damaged_in_storage -> disposed
-    %% => Bỏ mọi transition "tự thân" không qua export_receipts. Mục 2 đã cập nhật lại theo đúng quy tắc này.
+    %%   - reason='SALE'            -> product_units.status: IN_STOCK -> SOLD
+    %%   - reason='INTERNAL'        -> product_units.status: IN_STOCK -> SOLD
+    %%   - reason='RETURN_SUPPLIER' -> product_units.status: SOLD -> RETURNED_TO_SUPPLIER
+    %%   - reason='DISPOSE'         -> product_units.status: DAMAGED_IN_STORAGE -> DISPOSED
     %% export_receipts đã thêm approved_by — đồng bộ 4-eyes với import_receipts/stock_checks/stock_adjustments.
     export_receipt_items ||--o{ export_receipt_item_units : "tracks"
     export_receipt_items {
@@ -303,12 +305,12 @@ erDiagram
         bigint id PK
         varchar100 serial_number UK "serial hoặc lot number cho bulk"
         bigint product_id FK
-        varchar20 tracking_type "serialized | bulk — copy từ products.tracking_type tại thời điểm tạo unit, phòng khi product đổi tracking_type sau này (giữ nguyên lịch sử của lô hàng đã nhập)"
+        varchar20 tracking_type "SERIALIZED | BULK — copy từ products.tracking_type tại thời điểm tạo unit, phòng khi product đổi tracking_type sau này (giữ nguyên lịch sử của lô hàng đã nhập)"
         decimal15_2 initial_quantity "bulk only: qty nhập"
         decimal15_2 remaining_quantity "bulk only: qty còn lại"
         bigint import_receipt_item_id FK
         bigint location_id FK
-        varchar30 status "pending_qc|in_stock|reserved|sold|defective|damaged_in_storage|lost|under_repair|sent_to_manufacturer|returned|returned_to_supplier|removed|disposed"
+        varchar30 status "PENDING_QC|IN_STOCK|RESERVED|SOLD|DEFECTIVE|DAMAGED_IN_STORAGE|LOST|UNDER_REPAIR|SENT_TO_MANUFACTURER|RETURNED|RETURNED_TO_SUPPLIER|REMOVED|DISPOSED"
         timestamp imported_at "FIFO milestone"
         int warranty_months "copy từ import_receipt_items tại thời điểm nhập — cố ý duplicate để giữ nguyên chính sách BH gốc dù products/import sau này đổi"
         date warranty_start_date "activated on sale"
@@ -336,7 +338,7 @@ erDiagram
         decimal15_2 old_unit_price
         decimal15_2 new_unit_price
         text reason
-        varchar30 status "pending_approval | approved | rejected"
+        varchar30 status "PENDING_APPROVAL | APPROVED | REJECTED"
         bigint created_by FK
         bigint approved_by FK "nullable"
         text approval_note
@@ -354,8 +356,8 @@ erDiagram
         varchar32 receipt_code UK
         bigint customer_id FK
         bigint original_export_receipt_id FK
-        varchar20 reason "change_mind | defective | wrong_item"
-        varchar20 status "pending_approval | completed | cancelled"
+        varchar20 reason "CHANGE_MIND | DEFECTIVE | WRONG_ITEM"
+        varchar20 status "PENDING_APPROVAL | COMPLETED | CANCELLED"
         bigint created_by FK
         bigint approved_by FK "nullable"
         timestamp created_at
@@ -366,23 +368,20 @@ erDiagram
         bigint return_receipt_id FK
         bigint product_unit_id FK "nullable — NULL nếu bulk"
         decimal15_2 quantity "cho bulk"
-        varchar20 condition "good | defective"
-        varchar20 resulting_action "restock | scrap | warranty_transfer"
+        varchar20 condition "GOOD | DEFECTIVE"
+        varchar20 resulting_action "RESTOCK | SCRAP | WARRANTY_TRANSFER"
     }
 
     %% warranty_requests.replacement_unit_id: khi resolution_type=replace, unit thay thế (in_stock→sold)
     %% đồng thời hệ thống tự động tạo export_receipt ngầm với reason='internal' và ghi chú 'warranty replacement'
     %% để đảm bảo giá vốn và doanh thu được ghi nhận đúng trên báo cáo tài chính.
-    %% [bổ sung] Bảng audit trail — trước đây KHÔNG có nơi nào lưu lịch sử đổi status của product_units,
-    %% dù status bị mutate từ ít nhất 5 nguồn khác nhau (export_receipts, import_receipts cancel,
-    %% stock_adjustments, warranty_requests, stock_checks). Không có bảng này thì không thể trả lời
-    %% "unit này đổi sang defective từ khi nào, do phiếu/quyết định nào".
+    %% Audit trail: ghi mọi lần product_unit đổi status, kèm source_type + source_id để trace ngược.
     product_unit_status_logs {
         bigint id PK
         bigint product_unit_id FK
         varchar30 from_status
         varchar30 to_status "NULL nếu là bản ghi tạo mới (in_stock ban đầu)"
-        varchar30 source_type "import_receipt | export_receipt | stock_adjustment | stock_check | warranty_request"
+        varchar30 source_type "IMPORT_RECEIPT | EXPORT_RECEIPT | STOCK_ADJUSTMENT | STOCK_CHECK | WARRANTY_REQUEST | RELOCATE"
         bigint source_id "id của record gây ra thay đổi (polymorphic, không đặt FK cứng)"
         bigint changed_by FK "user thực hiện thao tác"
         timestamp created_at
@@ -413,11 +412,23 @@ erDiagram
         bigint id PK
         varchar50 check_code UK "'SC-20260706-001'"
         bigint warehouse_id FK
-        varchar20 status "pending | in_progress | completed | approved | rejected"
+        varchar20 status "PENDING | IN_PROGRESS | COMPLETED | APPROVED | REJECTED"
         text note
         bigint created_by FK
         bigint approved_by FK "nullable — bắt buộc khác created_by, cùng nguyên tắc với import_receipts (ADR 7.9)"
         text approval_note
+        timestamp created_at
+        timestamp updated_at
+    }
+    warehouses ||--o{ stock_check_schedules : "schedules"
+    stock_check_schedules {
+        bigint id PK
+        bigint warehouse_id FK
+        varchar10 zone_code "'A' | 'B' | 'C' — NULL nếu toàn kho"
+        varchar50 frequency "DAILY | WEEKLY | MONTHLY | QUARTERLY"
+        date next_run_date
+        boolean is_active DEFAULT TRUE
+        bigint created_by FK
         timestamp created_at
         timestamp updated_at
     }
@@ -430,7 +441,7 @@ erDiagram
         varchar30 expected_status
         varchar30 actual_status
         decimal15_2 counted_quantity "CHỈ dùng cho bulk — số lượng đếm thực tế của lot, so với remaining_quantity kỳ vọng; NULL với serialized"
-        varchar50 difference "match | missing | unexpected | partial_shortage"
+        varchar50 difference "MATCH | MISSING | UNEXPECTED | PARTIAL_SHORTAGE"
         text note
     }
     product_units ||--o{ stock_adjustments : "adjusted_as_unit"
@@ -440,12 +451,12 @@ erDiagram
         bigint id PK
         varchar50 adjust_code UK "'ADJ-20260706-001'"
         bigint warehouse_id FK
-        varchar30 type "damaged | lost | found"
+        varchar30 type "DAMAGED | LOST | FOUND"
         bigint product_unit_id FK "BẮT BUỘC với serialized và với bulk (chọn đúng lot cần trừ/cộng remaining_quantity)"
         bigint product_id FK "dùng khi FOUND phát hiện hàng thừa nhưng chưa rõ serial cụ thể (product_unit_id NULL) — xem SOP §5.1 và US-21/RQ-36"
         decimal15_2 quantity "chỉ có giá trị khi product_unit_id NULL — xem ghi chú product_id ở trên"
         text reason
-        varchar20 status "pending | approved | rejected"
+        varchar20 status "PENDING | APPROVED | REJECTED"
         bigint created_by FK
         bigint approved_by FK "nullable — bắt buộc khác created_by, cùng nguyên tắc với import_receipts (ADR 7.9)"
         text approval_note
@@ -454,7 +465,7 @@ erDiagram
     }
 
     %% ===== WARRANTY =====
-    %% State machine: pending (SALES tạo) → received (STOCK nhận + kiểm tra) → under_evaluation (QL duyệt resolution) → resolved (terminal).
+    %% State machine: pending (SALES/STOCK tạo) → received (STOCK nhận + kiểm tra) → under_evaluation (QL duyệt resolution) → resolved (terminal).
     %% Terminal outcomes stored in resolution_type (repaired/replaced/refunded/rejected).
     %% check_result/check_note do STOCK nhập ở bước kiểm tra (state=received).
     warranty_requests {
@@ -463,7 +474,7 @@ erDiagram
         bigint product_unit_id FK
         bigint customer_id FK
         text issue_description
-        varchar30 resolution_type "replace | repair | refund | reject — xem bảng mapping sang product_units.status bên dưới mục 2"
+        varchar30 resolution_type "REPLACE | REPAIR | REFUND | REJECT — xem bảng mapping sang product_units.status bên dưới mục 2"
         bigint replacement_unit_id FK "nullable — chỉ set khi resolution_type=replace; unit này chuyển in_stock→sold — xem mục 2.1 để biết cơ chế tạo export_receipt ngầm khi replace"
         varchar20 check_result NULL "CONFIRMED | REJECTED — STOCK nhập ở bước kiểm tra (state=received)"
         text check_note NULL
@@ -471,132 +482,237 @@ erDiagram
         timestamp sent_to_partner_at
         timestamp expected_return_at
         text partner_note
-        varchar20 status "pending | received | under_evaluation | resolved"
+        varchar20 status "PENDING | RECEIVED | UNDER_EVALUATION | RESOLVED"
         bigint handled_by FK
         timestamp resolved_at
         text note
         timestamp created_at
         timestamp updated_at
     }
+
+> **Giả định / Giới hạn phạm vi — Warranty:** Bảo hành chỉ áp dụng cho sản phẩm dạng `SERIALIZED` (`tracking_type='SERIALIZED'`). Sản phẩm dạng `BULK` (cáp, vật tư tính mét/kg) không thuộc phạm vi warranty flow. Khi cần, xử lý thủ công ngoài hệ thống (đổi trả trực tiếp tại quầy, không qua warranty state machine).
+
+### 1.1 Ánh xạ kho vật lý → Locations
+
+#### Vấn đề: "Tạo vô hạn location"
+
+Model cho phép tạo không giới hạn `zone_code`/`shelf_code`/`bin_code`. Nếu không có quy ước, người dùng có thể tạo 50 zone trong khi kho thật chỉ có 3 dãy — dữ liệu trở nên vô nghĩa.
+
+**Giải pháp:** Không phải DB constraint — áp business rules tại Service layer.
+
+#### Zone convention (quy ước đặt tên zone)
+
+Zone code là **1 ký tự chữ hoa A–Z**. Khuyến nghị mapping theo mặt bằng thực tế:
+
+| Zone | Loại hàng | Vị trí kho lý tưởng | Ghi chú |
+|------|-----------|-------------------|---------|
+| A | CPU, RAM — giá trị cao, kích thước nhỏ | Gần quầy thu ngân, có tủ khóa | Dễ kiểm soát mất cắp |
+| B | Mainboard, VGA — kích thước lớn, giá trị cao | Kệ giữa kho, tầm mắt | Cần ESD handling |
+| C | Ổ cứng, PSU — kích thước vừa | Kệ giữa-dưới | |
+| D | Phụ kiện (cáp, quạt, tản nhiệt) — giá trị thấp | Kệ cuối kho, có thể không chia bin | Thường mua bulk |
+| E | Hàng lỗi/hỏng chờ xử lý (defective, chờ trả NCC) | Khu vực riêng biệt | Cách ly khỏi hàng tốt |
+
+> Service layer **không chặn** zone A-Z, nhưng UI dropdown chỉ hiển thị A–E làm gợi ý. QL vẫn có thể nhập tay nếu cần mở rộng.
+
+Nếu sau này kho mở rộng >26 zone, cần nâng cấp lên zone code 2 ký tự — chưa làm ở phase 1.
+
+#### Shelf & Bin convention
+
+| Cấp | Format | Bắt buộc? | Ví dụ |
+|-----|--------|-----------|-------|
+| `zone_code` | 1 chữ hoa `A-Z` | ✅ Luôn bắt buộc | `A` |
+| `shelf_code` | 2 số `00-99` | ❌ Có thể NULL | `01` |
+| `bin_code` | 3 ký tự `000-ZZZ` | ❌ Có thể NULL | `01A` |
+
+Khi nào cho NULL?
+- **Chỉ có zone, không chia shelf/bin:** kho nhỏ, 1 zone chỉ có 1 kệ dài. VD: Zone D (phụ kiện) — 1 kệ, không cần chia. Khi nhập, chọn `Zone D` là đủ.
+- **Có zone + shelf, không có bin:** 1 kệ không ngăn riêng. VD: Zone C có shelf 01, nhưng các hộp linh kiện xếp chung, không thể gán bin. Khi nhập, chọn `C-01`.
+- **Đầy đủ zone + shelf + bin:** kho chuẩn, mỗi ô riêng.
+
+#### `full_code` sinh thế nào
+
+| Tình huống | `full_code` |
+|-----------|-------------|
+| Chỉ zone | `A` |
+| Zone + shelf | `A-01` |
+| Zone + shelf + bin | `A-01-01A` |
+
+Công thức: `trim(zone_code) + if(shelf_code != null) then '-' + shelf_code else '' + if(bin_code != null) then '-' + bin_code else ''`
+
+#### `max_capacity` tính bằng gì?
+
+- **Serialized:** số lượng `ProductUnit` tối đa chứa được. VD: 1 bin chứa tối đa 50 hộp RAM → `max_capacity = 50`.
+- **Bulk:** số lượng lot tối đa, **không phải** số mét/kg. VD: 1 zone có thể chứa 10 cuộn cáp (10 lot) → `max_capacity = 10`.
+- `max_capacity` NULL = không giới hạn. Validation là **mềm** — vượt vẫn cho nhập nhưng warning.
+
+#### Ví dụ layout kho 100m²
+
 ```
+KHO LINH KIỆN (100m²) — mặt bằng nhìn từ trên xuống
+← Cửa vào
+
+┌──────────────────────────────────────────────────────┐
+│  KHU NHẬN HÀNG          │  ZONE A (CPU/RAM)          │
+│  (không có location)    │  ┌──────┬──────┬──────┐   │
+│                         │  │A-001 │A-002 │A-003 │   │
+│  Bàn nhập + QC          │  │50 cái│50 cái│50 cái│   │
+│                         │  └──────┴──────┴──────┘   │
+├─────────────────────────┼────────────────────────────┤
+│  ZONE B (MB/VGA)        │  ZONE C (HDD/PSU)          │
+│  ┌────────┬────────┐   │  ┌────────┬────────┐      │
+│  │B-01    │B-02    │   │  │C-01    │C-02    │      │
+│  │shelf:30│shelf:30│   │  │shelf:40│shelf:40│      │
+│  └────────┴────────┘   │  └────────┴────────┘      │
+├─────────────────────────┴────────────────────────────┤
+│  ZONE D (cáp/phụ kiện) — 1 kệ dài, không chia bin  │
+│  ┌──────────────────────────────────────────────┐   │
+│  │ D-01 (20 lot)                                │   │
+│  └──────────────────────────────────────────────┘   │
+├─────────────────────────────────────────────────────┤
+│  ZONE E (hàng lỗi/defective)                        │
+│  ┌──────────────────────────────────────────────┐   │
+│  │ E-01 — chờ xử lý (không giới hạn)            │   │
+│  └──────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────┘
+                        → Cửa sau (giao hàng)
+```
+
+#### Validation khuyến nghị (Service layer)
+
+| Rule | Mô tả |
+|------|-------|
+| Zone code `A-Z` | Chỉ 1 ký tự chữ hoa. Không số, không ký tự đặc biệt. |
+| Shelf code `NN` | 2 số. NULL được. |
+| Bin code `NNN` | 3 ký tự (số/chữ hoa). NULL được. |
+| `full_code` unique | DB đã enforce. |
+| Không vô hiệu hoá location có hàng | Service check trước khi `is_active = false`. |
+| Location phải mapping category | Gợi ý: mỗi location nên có ít nhất 1 `category_zones` mapping. Nếu không, cảnh báo khi tạo location (không chặn cứng). |
+
+#### Quy trình tạo locations lần đầu
+
+QL làm theo thứ tự:
+1. Xác định mặt bằng kho thật → vẽ sơ đồ zone (A, B, C, D, E).
+2. Trong mỗi zone, đếm shelf, bin.
+3. Ghi nhận `max_capacity` từng bin.
+4. Vào hệ thống → tạo locations theo thứ tự: tất cả zone trước → shelf/bin sau.
+
+> **Không cho phép** tạo location có shelf_code nhưng chưa tạo zone_code tương ứng. Service kiểm tra zone tồn tại trước.
 
 ---
 
 ## 2. State Machine — Trạng thái `product_units`
 
-> ⚠️ **Đã sửa so với bản trước**: (1) sơ đồ ASCII cũ và bảng transition bị lệch nhau — đã chuyển sang mermaid `stateDiagram-v2` để luôn khớp nhau; (2) bổ sung transition thiếu (`lost → in_stock`, `in_stock → reserved`); (3) tách `disposed` ra khỏi `removed` — trước đây 2 sự kiện khác nhau (hủy phiếu nhập vs. thanh lý hàng hỏng) bị gộp chung 1 status, gây khó tra cứu nguyên nhân; (4) mọi transition xuất unit ra khỏi kho (`sold`, `returned_to_supplier`, `disposed`) giờ **bắt buộc đi qua `export_receipts`** (xem ghi chú "CHỐT" ở mục 1), không còn transition "tự thân" nữa.
-
 ```mermaid
 stateDiagram-v2
-    [*] --> pending_qc
+    [*] --> PENDING_QC
 
-    pending_qc --> in_stock : QC Pass — unit vào tồn khả dụng
-    pending_qc --> defective : QC FAIL_HARDWARE — DOA, trả NCC
-    note right of pending_qc : QC FAIL_ACCESSORY → giữ pending_qc,<br/>chờ bổ sung phụ kiện rồi re-QC<br/>(không phải self-loop,<br/>cùng trạng thái nhưng ghi nhận<br/>trên audit log riêng)
+    PENDING_QC --> IN_STOCK : QC Pass — unit vào tồn khả dụng
+    PENDING_QC --> DEFECTIVE : QC FAIL_HARDWARE — DOA, trả NCC
+    note right of PENDING_QC : QC FAIL_ACCESSORY → giữ PENDING_QC,<br/>chờ bổ sung phụ kiện rồi re-QC<br/>(không phải self-loop,<br/>cùng trạng thái nhưng ghi nhận<br/>trên audit log riêng)
 
-    in_stock --> reserved : Export reserve — giữ chỗ tạm thời
-    in_stock --> sold : export_receipts.reason=sale/internal
-    in_stock --> defective : Phát hiện lỗi khi nhập/trong kho
-    in_stock --> damaged_in_storage : Hỏng trong quá trình lưu kho
-    in_stock --> lost : Mất hàng (điều chỉnh, có duyệt)
-    in_stock --> removed : Hủy phiếu nhập sau xác nhận
+    IN_STOCK --> RESERVED : Export reserve — giữ chỗ tạm thời
+    IN_STOCK --> SOLD : export_receipts.reason=SALE/INTERNAL
+    IN_STOCK --> DEFECTIVE : Phát hiện lỗi khi nhập/trong kho
+    IN_STOCK --> DAMAGED_IN_STORAGE : Hỏng trong quá trình lưu kho
+    IN_STOCK --> LOST : Mất hàng (điều chỉnh, có duyệt)
+    IN_STOCK --> REMOVED : Hủy phiếu nhập sau xác nhận
 
-    reserved --> sold : QL duyệt phiếu xuất
-    reserved --> in_stock : QL từ chối / huỷ phiếu xuất
+    RESERVED --> SOLD : QL duyệt phiếu xuất
+    RESERVED --> IN_STOCK : QL từ chối / huỷ phiếu xuất
 
-    sold --> returned : Khách trả hàng
-    sold --> under_repair : Nhận bảo hành — sửa tại chỗ
-    sold --> sent_to_manufacturer : Gửi hãng bảo hành (RMA)
-    sold --> defective : BH resolution=replace
-    sold --> returned_to_supplier : export_receipts.reason=return_supplier
+    SOLD --> RETURNED : Qua warranty_requests.resolution_type=REFUND (không trực tiếp từ return_receipts, xem SOP §7.3)
+    SOLD --> UNDER_REPAIR : Nhận bảo hành — sửa tại chỗ
+    SOLD --> DEFECTIVE : BH resolution=REPLACE
+    SOLD --> RETURNED_TO_SUPPLIER : export_receipts.reason=RETURN_SUPPLIER
 
-    under_repair --> sold : Sửa xong, trả khách
-    under_repair --> defective : Không sửa được
+    UNDER_REPAIR --> SOLD : Sửa xong, trả khách
+    UNDER_REPAIR --> DEFECTIVE : Không sửa được
+    UNDER_REPAIR --> SENT_TO_MANUFACTURER : Gửi hãng bảo hành (RMA) — quyết định của STOCK lúc thực thi
 
-    sent_to_manufacturer --> sold : Hãng trả hàng đã sửa
-    sent_to_manufacturer --> defective : Hãng từ chối bảo hành
+    SENT_TO_MANUFACTURER --> SOLD : Hãng trả hàng đã sửa
+    SENT_TO_MANUFACTURER --> DEFECTIVE : Hãng từ chối bảo hành
 
-    defective --> under_repair : warranty_requests.resolution_type=repair
-    defective --> returned : warranty_requests.resolution_type=refund
-    defective --> returned_to_supplier : export_receipts.reason=return_supplier
+    DEFECTIVE --> UNDER_REPAIR : warranty_requests.resolution_type=REPAIR
+    DEFECTIVE --> RETURNED : warranty_requests.resolution_type=REFUND
+    DEFECTIVE --> RETURNED_TO_SUPPLIER : export_receipts.reason=RETURN_SUPPLIER
 
-    returned --> in_stock : Đủ điều kiện nhập lại kho
-    returned --> defective : Hàng trả bị lỗi
+    RETURNED --> IN_STOCK : Đủ điều kiện nhập lại kho
+    RETURNED --> DEFECTIVE : Hàng trả bị lỗi
 
-    lost --> in_stock : Tìm thấy lại (adjustment type=found)
+    LOST --> IN_STOCK : Tìm thấy lại (adjustment type=FOUND)
 
-    damaged_in_storage --> disposed : export_receipts.reason=dispose
+    DAMAGED_IN_STORAGE --> DISPOSED : export_receipts.reason=DISPOSE
 
-    removed --> [*]
-    disposed --> [*]
-    returned_to_supplier --> [*]
+    REMOVED --> [*]
+    DISPOSED --> [*]
+    RETURNED_TO_SUPPLIER --> [*]
 ```
 
 **Quy tắc chuyển trạng thái:**
 | Từ | Sang | Điều kiện/Kích hoạt |
 |---|---|---|
-| `pending_qc` | `in_stock` | QC Pass — unit đủ điều kiện nhập kho, chuyển vào tồn khả dụng (SOP §2.2 B3) |
-| `pending_qc` | `defective` | QC FAIL_HARDWARE — lỗi phần cứng thật, chuyển defective ngay, ghi chú "DOA - phát hiện lúc nhập", đi nhánh trả NCC nhanh (SOP §2.2 B3) |
-| `pending_qc` | (giữ nguyên) | QC FAIL_ACCESSORY — thiếu phụ kiện, không chuyển status (vẫn `pending_qc`), ghi chú thiếu gì, chờ bổ sung rồi re-QC. Ghi audit log riêng cho lần QC này (SOP §2.2 B3) |
-| `in_stock` | `reserved` | Reserve transaction ngắn — `SELECT ... FOR UPDATE`, đổi status, commit ngay. Phiếu xuất chuyển `pending_approval` (SOP §3.2 B3) |
-| `in_stock` | `sold` | Tạo `export_receipts` với `reason='sale'` hoặc `'internal'` |
-| `in_stock` | `defective` | Phát hiện lỗi khi nhập hoặc trong kho |
-| `in_stock` | `damaged_in_storage` | Hỏng trong quá trình lưu kho (điều chỉnh) |
-| `in_stock` | `lost` | Mất hàng (điều chỉnh tồn, có duyệt) |
-| `in_stock` | `removed` | Hủy phiếu nhập sau khi đã xác nhận (unit chưa từng xuất kho — xem điều kiện chi tiết bên dưới) |
-| `reserved` | `sold` | QL duyệt phiếu xuất |
-| `reserved` | `in_stock` | QL từ chối / hủy phiếu xuất — giải phóng reserve |
-| `sold` | `returned` | Khách trả hàng |
-| `sold` | `under_repair` | `warranty_requests.resolution_type = repair` (QL duyệt ở Bước 3) |
-| `sold` | `sent_to_manufacturer` | `warranty_requests.resolution_type = repair` + gửi NCC (QL duyệt ở Bước 3) |
-| `sold` | `defective` | `warranty_requests.resolution_type = replace` (QL duyệt ở Bước 3) |
-| `under_repair` | `sold` | Sửa xong, trả lại khách |
-| `under_repair` | `defective` | Không sửa được |
-| `sent_to_manufacturer` | `sold` | Hãng trả hàng đã sửa xong |
-| `sent_to_manufacturer` | `defective` | Hãng từ chối BH |
-| `sold` | `returned_to_supplier` | `export_receipts.reason = 'return_supplier'` — không qua warranty |
-| `defective` | `under_repair` | `warranty_requests.resolution_type = repair` — nguồn từ WARRANTY_TRANSFER (return_receipt) |
-| `defective` | `returned` | `warranty_requests.resolution_type = refund` — nguồn từ WARRANTY_TRANSFER (return_receipt) |
-| `returned` | `in_stock` | Hàng trả đủ điều kiện nhập lại kho |
-| `returned` | `defective` | Hàng trả bị lỗi |
-| `lost` | `in_stock` | Tìm lại được hàng đã báo mất — qua `stock_adjustments` với `type='found'` |
-| `damaged_in_storage` | `disposed` | Tạo `export_receipts` với `reason='dispose'` — xác nhận hàng hỏng trong kho không thể sửa/trả NCC, thanh lý nội bộ |
+| `PENDING_QC` | `IN_STOCK` | QC Pass — unit đủ điều kiện nhập kho, chuyển vào tồn khả dụng (SOP §2.2 B3) |
+| `PENDING_QC` | `DEFECTIVE` | QC FAIL_HARDWARE — lỗi phần cứng thật, chuyển DEFECTIVE ngay, ghi chú "DOA - phát hiện lúc nhập", đi nhánh trả NCC nhanh (SOP §2.2 B3) |
+| `PENDING_QC` | (giữ nguyên) | QC FAIL_ACCESSORY — thiếu phụ kiện, không chuyển status (vẫn `PENDING_QC`), ghi chú thiếu gì, chờ bổ sung rồi re-QC. Ghi audit log riêng cho lần QC này (SOP §2.2 B3) |
+| `IN_STOCK` | `RESERVED` | Reserve transaction ngắn — `SELECT ... FOR UPDATE`, đổi status, commit ngay. Phiếu xuất chuyển `PENDING_APPROVAL` (SOP §3.2 B3) |
+| `IN_STOCK` | `SOLD` | Tạo `export_receipts` với `reason='SALE'` hoặc `'INTERNAL'` |
+| `IN_STOCK` | `DEFECTIVE` | Phát hiện lỗi khi nhập hoặc trong kho |
+| `IN_STOCK` | `DAMAGED_IN_STORAGE` | Hỏng trong quá trình lưu kho (điều chỉnh) |
+| `IN_STOCK` | `LOST` | Mất hàng (điều chỉnh tồn, có duyệt) |
+| `IN_STOCK` | `REMOVED` | Hủy phiếu nhập sau khi đã xác nhận (unit chưa từng xuất kho — xem điều kiện chi tiết bên dưới) |
+| `RESERVED` | `SOLD` | QL duyệt phiếu xuất |
+| `RESERVED` | `IN_STOCK` | QL từ chối / hủy phiếu xuất — giải phóng reserve |
+| `SOLD` | `RETURNED` | Khách trả hàng |
+| `SOLD` | `UNDER_REPAIR` | `warranty_requests.resolution_type = REPAIR` (QL duyệt ở Bước 3) |
+| `SOLD` | `DEFECTIVE` | `warranty_requests.resolution_type = REPLACE` (QL duyệt ở Bước 3) |
+| `UNDER_REPAIR` | `SOLD` | Sửa xong, trả lại khách |
+| `UNDER_REPAIR` | `DEFECTIVE` | Không sửa được |
+| `UNDER_REPAIR` | `SENT_TO_MANUFACTURER` | STOCK chọn "Đã gửi NCC" lúc thực thi (Bước 4) — xem `02-sop-nghiep-vu.md §6.3 Bước 4` |
+| `SENT_TO_MANUFACTURER` | `SOLD` | Hãng trả hàng đã sửa xong |
+| `SENT_TO_MANUFACTURER` | `DEFECTIVE` | Hãng từ chối BH |
+| `SOLD` | `RETURNED_TO_SUPPLIER` | `export_receipts.reason = 'RETURN_SUPPLIER'` — không qua warranty |
+| `DEFECTIVE` | `UNDER_REPAIR` | `warranty_requests.resolution_type = REPAIR` — nguồn từ WARRANTY_TRANSFER (return_receipt) |
+| `DEFECTIVE` | `RETURNED` | `warranty_requests.resolution_type = REFUND` — nguồn từ WARRANTY_TRANSFER (return_receipt) |
+| `RETURNED` | `IN_STOCK` | Hàng trả đủ điều kiện nhập lại kho |
+| `RETURNED` | `DEFECTIVE` | Hàng trả bị lỗi |
+| `LOST` | `IN_STOCK` | Tìm lại được hàng đã báo mất — qua `stock_adjustments` với `type='FOUND'` |
+| `DAMAGED_IN_STORAGE` | `DISPOSED` | Tạo `export_receipts` với `reason='DISPOSE'` — xác nhận hàng hỏng trong kho không thể sửa/trả NCC, thanh lý nội bộ |
 
-> **`removed`, `disposed`, `returned_to_supplier` là state cuối (terminal)** — không có transition đi ra.
-> - `removed` ≠ `disposed`: `removed` chỉ dành cho **hủy phiếu nhập** (unit chưa từng rời `in_stock`); `disposed` chỉ dành cho **thanh lý hàng hỏng đã xác nhận trong kho** (luôn đi qua `export_receipts`, có phiếu, có thể tính giá vốn hao hụt). Hai state này **không dùng thay thế cho nhau**.
-> - Nếu hủy phiếu nhập bị nhấn nhầm, giải pháp là tạo lại phiếu nhập mới, **không** revert `removed → in_stock`, để giữ tính một chiều của hành động hủy và không phá vỡ audit trail (xem `product_unit_status_logs` ở mục 1).
-> - **Điều kiện `in_stock → removed` hoặc `pending_qc → removed` (đầy đủ)**: chỉ cho phép hủy phiếu nhập khi **toàn bộ** `product_units` sinh ra từ phiếu đó đang ở `in_stock` (chưa xuất) **hoặc** `pending_qc` (FAIL_ACCESSORY chưa xử lý xong): (a) `serialized` — chưa từng xuất hiện trong `export_receipt_item_units`; (b) `bulk` — `remaining_quantity = initial_quantity` (chưa bị xuất dù chỉ một phần). Nếu phiếu nhập có unit đã rời một trong hai trạng thái này (dù chỉ 1 trong 50), **không cho hủy phiếu** — chỉ có thể xử lý riêng lẻ những unit còn `in_stock`/`pending_qc` qua `stock_adjustments`, giữ nguyên phiếu nhập gốc ở trạng thái `completed`.
+> **`REMOVED`, `DISPOSED`, `RETURNED_TO_SUPPLIER` là state cuối (terminal)** — không có transition đi ra.
+> - `REMOVED` ≠ `DISPOSED`: `REMOVED` chỉ dành cho **hủy phiếu nhập** (unit chưa từng rời `IN_STOCK`); `DISPOSED` chỉ dành cho **thanh lý hàng hỏng đã xác nhận trong kho** (luôn đi qua `export_receipts`, có phiếu, có thể tính giá vốn hao hụt). Hai state này **không dùng thay thế cho nhau**.
+> - Nếu hủy phiếu nhập bị nhấn nhầm, giải pháp là tạo lại phiếu nhập mới, **không** revert `REMOVED → IN_STOCK`, để giữ tính một chiều của hành động hủy và không phá vỡ audit trail (xem `product_unit_status_logs` ở mục 1).
+> - **Điều kiện `IN_STOCK → REMOVED` hoặc `PENDING_QC → REMOVED` (đầy đủ)**: chỉ cho phép hủy phiếu nhập khi **toàn bộ** `product_units` sinh ra từ phiếu đó đang ở `IN_STOCK` (chưa xuất) **hoặc** `PENDING_QC` (FAIL_ACCESSORY chưa xử lý xong): (a) `SERIALIZED` — chưa từng xuất hiện trong `export_receipt_item_units`; (b) `BULK` — `remaining_quantity = initial_quantity` (chưa bị xuất dù chỉ một phần). Nếu phiếu nhập có unit đã rời một trong hai trạng thái này (dù chỉ 1 trong 50), **không cho hủy phiếu** — chỉ có thể xử lý riêng lẻ những unit còn `IN_STOCK`/`PENDING_QC` qua `stock_adjustments`, giữ nguyên phiếu nhập gốc ở trạng thái `COMPLETED`.
 
-> `pending_qc`, `reserved`, `removed`, `disposed`, `defective`, `lost`, `damaged_in_storage`, `sent_to_manufacturer`, `under_repair`, `returned`, `returned_to_supplier` **không tính vào tồn kho khả dụng** — loại trừ khỏi công thức COUNT/SUM bên dưới, chỉ `in_stock` được tính.
+> `PENDING_QC`, `RESERVED`, `REMOVED`, `DISPOSED`, `DEFECTIVE`, `LOST`, `DAMAGED_IN_STORAGE`, `SENT_TO_MANUFACTURER`, `UNDER_REPAIR`, `RETURNED`, `RETURNED_TO_SUPPLIER` **không tính vào tồn kho khả dụng** — loại trừ khỏi công thức COUNT/SUM bên dưới, chỉ `IN_STOCK` được tính.
 
 > Tồn kho hiện tại của 1 sản phẩm:
 >
-> - `serialized`: COUNT `product_units` WHERE `product_id = ?` AND `status = 'in_stock'`
-> - `bulk`: SUM `remaining_quantity` của các `product_units` WHERE `product_id = ?` AND `status = 'in_stock'`
+> - `SERIALIZED`: COUNT `product_units` WHERE `product_id = ?` AND `status = 'IN_STOCK'`
+> - `BULK`: SUM `remaining_quantity` của các `product_units` WHERE `product_id = ?` AND `status = 'IN_STOCK'`
 >   Nếu query chậm (hàng nghìn serial), thêm cột denormalized `stock_count` trên `products` và cập nhật trigger khi nhập/xuất.
 >
-> **Quy tắc chuyển status cho `bulk`**: một `product_unit` (lot) dạng bulk giữ status `in_stock` xuyên suốt kể cả khi bị xuất một phần; chỉ chuyển sang `sold` khi `remaining_quantity` giảm về đúng `0`. Điều này cần được Service layer đảm bảo mỗi lần trừ `remaining_quantity` trong export/adjustment (kiểm tra `remaining_quantity <= 0` sau khi trừ → set `status='sold'`), nếu không tồn kho `bulk` sẽ tính sai vì unit đã hết hàng nhưng vẫn còn `status='in_stock'`.
-
-> **Khi bulk unit rời `in_stock` vì damaged/lost/defective/removed:** `remaining_quantity` phải được set về `0` tại thời điểm chuyển status. Service layer cần enforce: trước khi set `status ≠ in_stock` trên bulk unit, set `remaining_quantity = 0`. Nếu không, SUM tồn kho bulk sẽ sai vì vẫn cộng dồn quantity từ unit đã không còn `in_stock`.
+> **Quy tắc chuyển status cho `BULK`**: một `product_unit` (lot) dạng bulk giữ status `IN_STOCK` xuyên suốt kể cả khi bị xuất một phần; chỉ chuyển sang `SOLD` khi `remaining_quantity` giảm về đúng `0`. Điều này cần được Service layer đảm bảo mỗi lần trừ `remaining_quantity` trong export/adjustment (kiểm tra `remaining_quantity <= 0` sau khi trừ → set `status='SOLD'`), nếu không tồn kho `BULK` sẽ tính sai vì unit đã hết hàng nhưng vẫn còn `status='IN_STOCK'`.
+>
+> **Khi bulk unit rời `IN_STOCK` vì DAMAGED/LOST/DEFECTIVE/REMOVED:** `remaining_quantity` phải được set về `0` tại thời điểm chuyển status. Service layer cần enforce: trước khi set `status ≠ IN_STOCK` trên bulk unit, set `remaining_quantity = 0`. Nếu không, SUM tồn kho bulk sẽ sai vì vẫn cộng dồn quantity từ unit đã không còn `IN_STOCK`.
 
 ### 2.1 Mapping `warranty_requests.resolution_type` → transition của `product_units`
 
-> `resolution_type` có 4 giá trị. `rma` được hấp thụ vào `repair`. `return_supplier` không còn là resolution của warranty — xử lý qua export_receipt riêng.
+> `resolution_type` có 4 giá trị. `RMA` được hấp thụ vào `REPAIR`. `RETURN_SUPPLIER` không còn là resolution của warranty — xử lý qua export_receipt riêng.
 >
 > **Nguồn xuất phát của unit (source status) khi vào warranty flow:**
-> - Luồng thường (SALES tiếp nhận warranty trực tiếp): unit đang ở `sold`.
-> - Luồng `WARRANTY_TRANSFER` từ return_receipt (§7.2): unit đã chuyển `sold → defective` tại thời điểm tạo warranty_request (vì hàng đã được xác nhận lỗi thật trước khi chuyển sang warranty).
+> - Luồng thường (SALES tiếp nhận warranty trực tiếp): unit đang ở `SOLD`.
+> - Luồng `WARRANTY_TRANSFER` từ return_receipt (§7.2): unit đã chuyển `SOLD → DEFECTIVE` tại thời điểm tạo warranty_request (vì hàng đã được xác nhận lỗi thật trước khi chuyển sang warranty).
 >
 > Bảng dưới đây liệt kê transition cho cả 2 nguồn:
 
-| `resolution_type` | Transition — unit từ `sold` | Transition — unit từ `defective` (WARRANTY_TRANSFER) | Transition trên `replacement_unit_id` (nếu có) |
+| `resolution_type` | Transition — unit từ `SOLD` | Transition — unit từ `DEFECTIVE` (WARRANTY_TRANSFER) | Transition trên `replacement_unit_id` (nếu có) |
 |---|---|---|---|
-| `repair` | `sold → under_repair` → (`under_repair → sold` khi sửa xong) hoặc `sent_to_manufacturer` nếu gửi NCC | `defective → under_repair` → (`under_repair → sold` khi sửa xong) | — |
-| `replace` | `sold → defective` (unit lỗi coi như xử lý xong, không hoàn kho) | Giữ nguyên `defective` (đã ở defective, chỉ ghi nhận) | `in_stock → sold` (unit thay thế giao cho khách) |
-| `refund` | `sold → returned` | `defective → returned` | — |
-| `reject` | **Không đổi status** — giữ nguyên `sold` | **Không đổi status** — giữ nguyên `defective` | — |
+| `REPAIR` | `SOLD → UNDER_REPAIR`, sau đó tại Bước 4: `UNDER_REPAIR → SOLD` (sửa xong) hoặc `UNDER_REPAIR → SENT_TO_MANUFACTURER` (gửi NCC) | `DEFECTIVE → UNDER_REPAIR`, cùng nhánh Bước 4 như cột bên trái | — |
+| `REPLACE` | `SOLD → DEFECTIVE` (unit lỗi coi như xử lý xong, không hoàn kho) | Giữ nguyên `DEFECTIVE` (đã ở DEFECTIVE, chỉ ghi nhận) | `IN_STOCK → SOLD` (unit thay thế giao cho khách) |
+| `REFUND` | `SOLD → RETURNED` | `DEFECTIVE → RETURNED` | — |
+| `REJECT` | **Không đổi status** — giữ nguyên `SOLD` | **Không đổi status** — giữ nguyên `DEFECTIVE` | — |
 
-> Với `replace`: unit thay thế được chuyển `in_stock → sold` qua `warranty_requests`, đồng thời hệ thống **tự động tạo `export_receipt` ngầm** với `reason='internal'` và ghi chú `'warranty replacement for WR-xxx'` để đảm bảo giá vốn được ghi nhận.
+> Với `REPLACE`: unit thay thế được chuyển `IN_STOCK → SOLD` qua `warranty_requests`, đồng thời hệ thống **tự động tạo `export_receipt` ngầm** với `reason='INTERNAL'` và ghi chú `'warranty replacement for WR-xxx'` để đảm bảo giá vốn được ghi nhận.
 
 ### 2.2 State Machine — PurchaseOrder
 
@@ -622,15 +738,15 @@ DRAFT/PARTIAL → CANCELLED : hủy toàn bộ
 | Xuất kho                | ✅ **FIFO tự động** — hệ thống tự chọn các `product_units` có `imported_at` sớm nhất để xuất, không cần nhân viên chọn thủ công                                                                                                            |
 | Phạm vi kho             | ✅ **1 kho duy nhất ở giai đoạn đầu**, nhưng vẫn thiết kế sẵn `warehouse_id` để mở rộng sau — xem `02-sop-nghiep-vu.md` §9.1                                                                                                                                                                        |
 | Quản lý vị trí kho      | ✅ **Location-based** — mỗi `product_unit` gán 1 vị trí (`location_id`). Khi nhập: chọn vị trí. Khi xuất: FIFO trong cùng vị trí hoặc lấy gần nhau nhất                                                                                    |
-| Điều chỉnh tồn thủ công | ✅ Hỗ trợ 3 loại: `damaged`, `lost`, `found` — tất cả đều cần duyệt + lý do + audit log                                                                                                                                                    |
+| Điều chỉnh tồn thủ công | ✅ Hỗ trợ 3 loại: `DAMAGED`, `LOST`, `FOUND` — tất cả đều cần duyệt + lý do + audit log                                                                                                                                                    |
 | Ảnh sản phẩm            | ✅ **Nhiều ảnh / sản phẩm (gallery)** — tối đa 5 ảnh, đánh dấu 1 ảnh `is_primary` làm ảnh đại diện                                                                                                                                         |
-| Đơn vị tính (UOM)       | ✅ Hỗ trợ: `piece`, `meter`, `box`, `set`, `kg` — mặc định `piece`                                                                                                                                                                         |
-| Tracking type           | ✅ **`serialized`** (mỗi đơn vị có serial riêng, tồn = COUNT) hoặc **`bulk`** (tồn = SUM remaining_quantity, dùng cho meter/kg). Mapping bắt buộc: `piece`/`box`/`set` → serialized; `meter`/`kg` → bulk. Nếu sai → reject ở Service layer |
-| Tồn âm                  | ✅ **Không cho phép** — mặc định chặn, có thể bật trong cài đặt hệ thống nếu cần                                                                                                                                                           |
+| Đơn vị tính (UOM)       | ✅ Hỗ trợ: `PIECE`, `METER`, `BOX`, `SET`, `KG` — mặc định `PIECE`                                                                                                                                                                         |
+| Tracking type           | ✅ **`SERIALIZED`** (mỗi đơn vị có serial riêng, tồn = COUNT) hoặc **`BULK`** (tồn = SUM remaining_quantity, dùng cho meter/kg). Mapping bắt buộc: `PIECE`/`BOX`/`SET` → SERIALIZED; `METER`/`KG` → BULK. Nếu sai → reject ở Service layer |
+| Tồn âm                  | ✅ **Không cho phép** — SERIALIZED luôn chặn cứng (không có setting); BULK chặn cứng ở phase 1, có thể mở ở phase sau qua `system_settings` nếu cần                                                                                      |
 | Kiểm kê lệch            | ✅ Chỉ Quản lý kho/Admin mới duyệt được, **bắt buộc nhập lý do**                                                                                                                                                                           |
 
 > **Lưu ý kỹ thuật về FIFO + serial**: vì xuất kho tự động chọn theo `imported_at` sớm nhất, cần đảm bảo:
 >
 > - Cột `imported_at` trên `product_units` được set chính xác tại thời điểm tạo phiếu nhập (không phải lúc tạo record).
-> - Khi tạo phiếu xuất, query `product_units` theo `product_id`, trạng thái `in_stock`, `ORDER BY imported_at ASC LIMIT n`, sau đó cập nhật trạng thái sang `sold` trong cùng transaction để tránh race condition khi nhiều phiếu xuất tạo đồng thời (nên dùng `SELECT ... FOR UPDATE` hoặc optimistic locking).
+> - Khi tạo phiếu xuất, query `product_units` theo `product_id`, trạng thái `IN_STOCK`, `ORDER BY imported_at ASC LIMIT n`, sau đó cập nhật trạng thái sang `SOLD` trong cùng transaction để tránh race condition khi nhiều phiếu xuất tạo đồng thời (nên dùng `SELECT ... FOR UPDATE` hoặc optimistic locking).
 > - Vì nhập 1 sản phẩm có thể tạo ra nhiều `product_units` cùng lúc (vd nhập 50 RAM), cần sinh 50 serial — serial có thể do nhà sản xuất cung cấp (nhập tay/import file) hoặc hệ thống tự sinh mã nội bộ nếu sản phẩm không có serial gốc (linh kiện rời, phụ kiện...).

@@ -19,7 +19,7 @@
 |--------|-------|
 | `create` | Gen code `INIT-YYYYMMDD-NNNN`, save receipt `DRAFT`, parse items, save `ProductUnit` (serials/bulk), create status log, auto-set `PENDING_APPROVAL` |
 | `approve` | Check `created_by ≠ approved_by`, set `COMPLETED`, audit log |
-| `cancel` | Check not already completed, set `CANCELLED`, revert units → `removed` |
+| `cancel` | Check not already completed, set `CANCELLED`, revert units → `REMOVED` |
 
 ### State Machine
 

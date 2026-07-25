@@ -111,6 +111,7 @@ store/*.ts                ← Zustand stores (auth, ui)
 - POST create → form → submit → toast
 - PUT update → form → submit → toast
 - PUT toggle-active → toggle switch → toast
+- **Brand / Category**: có thêm ảnh đại diện (`image_url`). Dùng `ImageUpload` component (kéo thả) trong create/edit dialog. Ảnh hiển thị thumbnail tròn (brand) / vuông bo góc (category) trong list page và form.
 
 **Product Images:** `product-image-service` → GET/POST/DELETE
 
@@ -134,18 +135,31 @@ store/*.ts                ← Zustand stores (auth, ui)
 - PUT `/import-receipt/{id}/cancel` — cancel
 - GET `/import-receipt/{id}/units` — units
 
-**ImportCreatePage:** wizard gồm:
-1. `import-create-step-products` — chọn sản phẩm, nhập quantity + price
-2. `import-create-step-serials` — nhập serial numbers (cho serialized products)
-3. `import-create-step-qc` — QC info
-4. `import-create-sidebar` — sidebar hiển thị tổng quan
+**ImportCreatePage:** wizard 4 bước:
+
+1. **Chọn NCC/PO** (`import-create-step-supplier`): chọn supplier (ACTIVE), link PO nếu có (pre-fill items).
+2. **Thêm SP + SL** (`import-create-step-products`): thêm dòng sản phẩm (quantity, unit_price, warranty_months). Hỗ trợ nhiều dòng cùng product_id. Nếu lệch >10% so với PO → cảnh báo mềm + bắt buộc note.
+3. **Nhập serial** (`import-create-step-serials`): nhập tay / scan barcode / upload Excel. Validate file: check trùng nội bộ trước → DB sau. Ngưỡng 20% lỗi. Progress bar "12/50 serial".
+   - Preview danh sách: mỗi dòng serial có badge xanh (OK) / đỏ (lỗi). Hover đỏ → tooltip lý do ("Trùng DB", "Trùng dòng 5"). Vẫn điền/xoá sửa textarea được.
+4. **QC & xác nhận** (`import-create-step-qc`):
+   - Checklist per-serial (toggle Pass/Fail).
+   - QC level theo category (FULL/SAMPLING/SKIP), NV có thể override.
+   - Progress bar: "12/50 đã kiểm".
+   - FAIL_HARDWARE → badge đỏ + tự động DEFECTIVE.
+   - FAIL_ACCESSORY → badge vàng + giữ PENDING_QC.
+   - Location auto-assign badge (kèm link "Đổi").
+   - Nút "Gửi duyệt" → PENDING_APPROVAL (chỉ khi 100% dòng đã QC).
+
+**ImportCreateSidebar:** hiển thị tổng quan: số dòng, tổng quantity, tổng tiền, tiến độ QC.
 
 **ImportDetailPage:**
-- View thông tin receipt + danh sách items
-- Nếu status = DRAFT: nút Confirm
-- Nếu status = PENDING_APPROVAL + user có `CAN_APPROVE`: nút Approve / Cancel
-- Modal `serial-modal` — xem serial numbers
-- `view-product-unit-modal` — xem chi tiết unit
+- View thông tin receipt + danh sách items.
+- Nếu status = DRAFT: nút Confirm (chỉ người tạo).
+- Nếu status = PENDING_APPROVAL + user có `CAN_APPROVE`: nút Approve / Cancel.
+- Nếu status = COMPLETED: nút Cancel (chỉ khi 100% units chưa xuất).
+- Modal `serial-modal` — xem danh sách serial + trạng thái.
+- `view-product-unit-modal` — xem chi tiết unit (location, warranty, cost_price).
+- CSV Export nút (FileDown) — xuất danh sách SP trong phiếu.
 
 ---
 
@@ -164,14 +178,23 @@ store/*.ts                ← Zustand stores (auth, ui)
 - PUT `/export-receipt/{id}/cancel` — cancel
 
 **ExportCreatePage:**
-- Chọn customer (nếu reason = SALE) → `customer-select-modal`
-- Chọn sản phẩm + số lượng
-- Chọn serial numbers (cho serialized)
-- `location-picker` — chọn vị trí xuất
+- Chọn reason (SALE/INTERNAL/RETURN_SUPPLIER/DISPOSE).
+- Nếu SALE: `customer-select-modal` (autocomplete, bắt buộc).
+- Chọn sản phẩm + số lượng. Hệ thống hiển thị tồn khả dụng tối đa. Cho phép xuất partial.
+- **Serial picker** (cho serialized):
+  - Hệ thống tự chọn FIFO, hiển thị danh sách serial đề xuất.
+  - NV có thể đổi serial thay thế (`override-serial-modal`): chọn serial khác + bắt buộc lý do.
+  - Hỗ trợ paste multi-line, import `.txt`/`.csv`, highlight trùng lặp.
+  - Progress bar "12/50 đã chọn" khi số lượng lớn.
+  - Hiện rõ trạng thái "đang giữ chỗ" của serial (RESERVED) để NV khác không nhầm là còn trống.
+- `location-picker` — chọn vị trí xuất.
 
 **ExportDetailPage:**
-- Nếu PENDING_APPROVAL: nút Approve / Cancel
-- `view-export-modal` — xem chi tiết
+- Nếu PENDING_APPROVAL: nút Approve / Cancel.
+- Nếu COMPLETED + reason=SALE: hiển thị warranty dates.
+- Nếu reason=RETURN_SUPPLIER: supplier_status tracking (SENT → CONFIRMED_RECEIVED → PROCESSING → RESOLVED), nút cập nhật.
+- `view-export-modal` — xem chi tiết.
+- CSV Export nút (FileDown).
 
 ---
 
@@ -188,6 +211,21 @@ store/*.ts                ← Zustand stores (auth, ui)
 - POST `/return-receipts` — create
 - PUT `/return-receipts/{id}/approve` — approve
 - PUT `/return-receipts/{id}/cancel` — cancel
+
+**ReturnCreatePage:**
+- **Bắt buộc chọn export gốc trước** (autocomplete theo mã phiếu xuất hoặc serial) — tránh SALES chọn reason trước rồi mới tìm export, dễ chọn sai.
+- Chọn reason: `CHANGE_MIND` / `DEFECTIVE` / `WRONG_ITEM`.
+  - CHANGE_MIND: hiện số ngày còn lại trong hạn 7 ngày (từ `export_receipt.approved_at`). BE validate, FE không tự disable.
+- Chọn items từ export gốc.
+- **Condition picker** (STOCK):
+  - `GOOD` → `RESTOCK` (unit → IN_STOCK, `is_warranty_active=false`).
+  - `DEFECTIVE` → chọn tiếp `SCRAP` (hủy) hay `WARRANTY_TRANSFER` (chuyển BH).
+    - `WARRANTY_TRANSFER` chỉ hiện khi unit gốc là serialized; bulk chỉ hiện SCRAP.
+
+**ReturnDetailPage:**
+- Hiển thị thông tin export gốc, items, condition, resulting_action.
+- Nếu PENDING_APPROVAL: nút Approve (QL) / Cancel.
+- Sau approve: hiển thị kết quả (RESTOCK/SCRAP/WARRANTY_TRANSFER).
 
 ---
 
@@ -209,8 +247,10 @@ store/*.ts                ← Zustand stores (auth, ui)
 - PUT `/stock-check/{id}/reject` — reject
 
 **StockCheckDetailPage:**
-- `stock-check-items-table` — table ghi nhận kết quả kiểm
-- `approval-dialog` — dialog approve/reject
+- **Diff highlight**: bảng lệch nổi bật ngay đầu trang — đỏ cho `MISSING`, xanh cho `UNEXPECTED`, vàng cho `PARTIAL_SHORTAGE`. Các item khớp (MATCH) hiển thị thu gọn phía dưới.
+- `stock-check-items-table` — table ghi nhận kết quả kiểm, filter theo difference type.
+- Nút **"Tạo phiếu điều chỉnh (N)"** — batch apply cho tất cả item lệch (tạo StockAdjustment tương ứng: MISSING → LOST, UNEXPECTED → FOUND).
+- `approval-dialog` — dialog approve/reject (chỉ QL/AD). Khi approve: hiển thị diff summary trước khi xác nhận.
 
 ---
 
@@ -228,6 +268,18 @@ store/*.ts                ← Zustand stores (auth, ui)
 - POST `/stock-adjustment` — create
 - PUT `/stock-adjustment/{id}/approve` — approve
 - PUT `/stock-adjustment/{id}/reject` — reject
+
+**StockAdjustmentCreatePage:**
+- **Type selector**: `DAMAGED` / `LOST` / `FOUND` — mỗi type đổi form tương ứng.
+- Serial search (`serial-search-widget`) — nhập/gõ serial, fuzzy match, hiển thị thông tin unit.
+- DAMAGED/LOST: bắt buộc chọn unit + lý do. Upload ảnh minh chứng tùy chọn.
+- FOUND: nếu có serial → chọn unit; nếu không → nhập product + quantity (fallback).
+- Reason bắt buộc (textarea).
+
+**StockAdjustmentDetailPage:**
+- Hiển thị type, unit, reason, ảnh (nếu có).
+- Nếu PENDING + user có `CAN_APPROVE`: nút Approve / Reject.
+- Sau approve: hiển thị kết quả unit transition.
 
 ---
 
@@ -276,9 +328,81 @@ store/*.ts                ← Zustand stores (auth, ui)
 - GET `/warranty-request/my-handled` — của tôi
 - GET `/warranty-request/{id}` — detail
 - POST `/warranty-request` — create
-- PUT `/warranty-request/{id}/resolve` — resolve
-- PUT `/warranty-request/{id}/complete` — complete
+- PUT `/warranty-request/{id}/receive` — receive
+- PUT `/warranty-request/{id}/check` — check
+- PUT `/warranty-request/{id}/evaluate` — evaluate
+- PUT `/warranty-request/{id}/execute` — execute
 - PUT `/warranty-request/{id}/cancel` — cancel
+
+### WarrantyListPage (`/warranty`)
+
+**Bố cục:**
+- **Tabs** map theo 4 status + "Tất cả" + "Đang xử lý" (đã RESOLVED nhưng chưa execute xong):
+  `[Tất cả] [Chờ tiếp nhận] [Đang kiểm tra] [Chờ QL duyệt] [Đang xử lý] [Hoàn tất]`
+  - Badge số trên mỗi tab (đặc biệt "Chờ QL duyệt" cần nổi bật).
+- Search bar hỗ trợ serial / SĐT khách / mã phiếu.
+- Nút **"+ Tiếp nhận mới"** — SALES/STOCK thấy, dẫn tới `/warranty/new`.
+- Table columns: Mã phiếu | Serial | Sản phẩm | Khách | Ngày nhận | Trạng thái (WarrantyStatusBadge) | Resolution | Cảnh báo ⚠ (nếu >2 lần đổi BH).
+- `PaginationBar` chung.
+
+### WarrantyCreatePage (`/warranty/new`)
+
+Thiết kế 2 giai đoạn: **tra cứu trước, nhập tay sau**.
+
+**Giai đoạn A — Tra cứu:**
+- Input serial + nút [Tìm] (autofocus, hỗ trợ scan).
+- Kết quả: **Serial Info Card**:
+  - Ảnh SP + tên, serial, khách, ngày mua, phiếu xuất gốc.
+  - Progress bar hạn BH: xanh (>30 ngày) / vàng (≤30 ngày) / đỏ + khóa form (hết hạn).
+  - Tem BH: ✅ Đã xác thực / ⚠️ Không có / — Ẩn (nếu shop tắt tem).
+  - Lịch sử đổi BH: cam + ⚠ nếu >2 lần.
+- **Không tìm thấy serial** → thông báo rõ, không hiện form.
+- **Hết hạn BH** → card vẫn hiện (để thấy lý do), form khóa, banner đỏ + nút "Vẫn tạo phiếu (ngoài BH, tính phí)".
+
+**Giai đoạn B — Nhập lỗi** (chỉ hiện khi còn hạn):
+- Mô tả lỗi (textarea, bắt buộc).
+- Upload ảnh/video (tùy chọn, tái dùng component upload SP).
+- [Hủy] [Tiếp nhận →].
+- Submit → tạo PENDING → in **phiếu biên nhận** (nút in hiện ngay sau tạo).
+
+### WarrantyDetailPage (`/warranty/:id`)
+
+**Khung sườn chung:**
+```
+#WR-0042  RTX 4070 Super — SN: ABC123XYZ
+●───●───●───○                          ← WarrantyTimeline (4 mốc)
+Tiếp nhận  Đã nhận  Đang đánh giá  Hoàn tất
+21/07      21/07    —               —
+[Thông tin khách/SP — thu gọn được]
+[Panel động theo state]
+```
+
+- Timeline **luôn hiện đủ 4 mốc**, mốc chưa tới mờ (○), đã qua đặc + timestamp + người thực hiện.
+
+**Panel động theo state:**
+
+| State | Ai thao tác | Component |
+|-------|------------|-----------|
+| `PENDING` | STOCK | Nút "Xác nhận đã nhận hàng" |
+| `RECEIVED` | STOCK | Form CONFIRMED / REJECTED (radio) + check_note (textarea, bắt buộc nếu REJECTED). CONFIRMED → UNDER_EVALUATION. REJECTED → RESOLVED (auto) |
+| `UNDER_EVALUATION` | QL | 4 **ResolutionCard**: 🔧 REPAIR | 🔄 REPLACE | 💰 REFUND | ✕ REJECT. Mỗi card có mô tả hậu quả + cảnh báo ngữ cảnh (số tồn REPLACE, >2 lần đổi). Chọn → confirm dialog → submit |
+| `RESOLVED` | STOCK | Panel theo resolution: **REPAIR**: nút "Sửa xong" / "Đã gửi NCC". **REPLACE**: chọn serial thay thế (gợi ý FIFO). **REFUND**: nhập số tiền hoàn. **REJECT**: in biên bản từ chối |
+
+**Phân quyền action (06-ux-design §2.6):**
+- SALES: read-only mọi state, chỉ được in.
+- STOCK: xác nhận nhận (PENDING), check (RECEIVED), execute (RESOLVED).
+- QL: evaluate (UNDER_EVALUATION).
+- ADMIN (duyệt thay): thấy dòng nhắc "Đang duyệt thay QL".
+
+### Components tái sử dụng
+
+| Component | Dùng ở đâu |
+|-----------|-----------|
+| `WarrantyStatusBadge` | List, Detail header — 4 màu cố định theo state |
+| `WarrantyTimeline` | Detail (đầu trang) — vertical, 4 mốc |
+| `SerialLookupWidget` | Create (bước 1), Replace (thực thi) |
+| `ResolutionCard` | Detail (UNDER_EVALUATION) — 4 card, prop `disabled`/`warningText` |
+| `WarrantySealBadge` | Create, Detail — 3 trạng thái, ẩn nếu shop tắt tem |
 
 ---
 
@@ -291,6 +415,11 @@ store/*.ts                ← Zustand stores (auth, ui)
 - GET `/product-unit/{id}` — detail
 - GET `/product-unit/status/{status}` — filter by status
 - GET `/product-unit/product/{productId}` — filter by product
+
+**StockUnitsPage** có 3 tabs: `[Units] [Inventory] [Locations Map]`.
+- **Units tab**: danh sách ProductUnit (paged, filter theo status).
+- **Inventory tab**: tồn kho gộp theo sản phẩm.
+- **Locations Map tab**: `LocationsMapPage` (xem Flow 13).
 
 **Cùng route `/inventory` redirect về đây.**
 
@@ -309,7 +438,22 @@ store/*.ts                ← Zustand stores (auth, ui)
 - PUT `/location/{id}` — update (MANAGER)
 - PUT `/location/{id}/toggle-active` — toggle (MANAGER)
 
-**`locations-map-page.tsx`** — hiển thị map phân cấp zone/shelf/bin.
+**`LocationsMapPage`** (tab 3 của `/stock/units`):
+- Hiển thị map phân cấp zone → shelf → bin.
+- **Lối đi**: giữa các zone card render khoảng trống nền xám + label "LỐI ĐI". Cửa vào/ra đánh dấu icon.
+- **Zoom shelf**: click shelf header → view phóng to chỉ show shelf đó + tất cả bins. Nút "← Về tổng quan" để quay lại.
+- **Bin detail**: khi nhấp vào 1 bin → popup hiển thị:
+  - `Sản phẩm 15/50 đơn vị` + progress bar % capacity.
+  - Trạng thái: Đang hoạt động.
+- **Bin color theo % capacity**:
+  - 0% → Trống (blue-50)
+  - 1–49% → Ít (blue-100)
+  - 50–89% → Có hàng (blue-200)
+  - ≥90% → Đầy (blue-300)
+  - Fallback khi `max_capacity = null`: threshold cũ (0, 10, 50).
+- **Filter theo capacity**: Còn trống | Còn chỗ | Gần đầy | Đầy.
+- **Kéo thả relocate (edit mode)**: bật "Quản lý vị trí" → kéo bin tile thả vào bin khác **cùng zone** → confirm dialog → API relocate. Tắt → view-only.
+- **LocationPicker** (dùng trong import form): hiển thị `fullCode + productCount/maxCapacity`. Shelf/bin optional — nếu zone chỉ có location cấp zone, cho phép chọn dừng ở zone. Location đầy vẫn chọn được nhưng warning mềm.
 
 ---
 
@@ -346,7 +490,17 @@ store/*.ts                ← Zustand stores (auth, ui)
 **Page:** `/audit` → `AuditPage` (`CAN_VIEW_REPORTS`)
 
 **Service:** `audit-service.ts`
-- GET `/audit-logs` — search (filter action, entity, userId, date range)
+- GET `/audit-logs` — search (filter action, entity, userId, status, from, to, page, size)
+
+**Filters** (cùng hàng ngang):
+- Hành động: `<Select>` — Tất cả, LOGIN, CREATE, UPDATE, DELETE, APPROVE, REJECT, CANCEL, RESET_PASSWORD
+- Đối tượng: `<Select>` — Tất cả, USER, IMPORT_RECEIPT, EXPORT_RECEIPT, PRODUCT_UNIT, WARRANTY_REQUEST, RETURN_RECEIPT, STOCK_CHECK, STOCK_ADJUSTMENT, PRICE_ADJUSTMENT, PURCHASE_ORDER, BRAND, CATEGORY, PRODUCT, SUPPLIER, LOCATION, CUSTOMER, SYSTEM_SETTINGS
+- Trạng thái: `<Select>` — Tất cả, Thành công, Thất bại
+- Người dùng: `<Select>` searchable — load từ `GET /user`, filter theo `userId`
+- Từ ngày / Đến ngày: `<input type="date">`
+
+**Table:** Thời gian | Người dùng | Hành động | Đối tượng | ID | IP | Trạng thái (badge)
+**Detail:** click icon mắt → popup JSON format old/new values + error_msg nếu FAILED.
 
 ---
 

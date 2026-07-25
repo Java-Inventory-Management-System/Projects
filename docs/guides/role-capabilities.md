@@ -50,6 +50,7 @@
 | Approve/Reject tất cả phiếu (import, export, stock check, adjustment, price adj) | `CAN_APPROVE` |
 | CRUD Users + đổi role/status | `CAN_MANAGE_SYSTEM` |
 | Reset password user khác | `CAN_UPDATE_USER` |
+| CRUD khách hàng (Customers) | `CAN_MANAGE_SYSTEM` + `ROLE_MANAGER` |
 
 ### Không thể làm
 
@@ -62,7 +63,7 @@
 | Upload file | `CAN_OPERATE_STOCK` |
 | CRUD catalog (product, brand, category, supplier) | `CAN_MANAGE_CATALOG` |
 | Tạo/update/delete location | `ROLE_MANAGER` |
-| Update/delete customer | `ROLE_MANAGER` |
+| ~~Update/delete customer~~ | Đã chuyển lên "Có thể làm" — ADMIN full CRUD customer |
 | Resolve/complete/cancel warranty | `ROLE_MANAGER` |
 | Purchase Order (view/create/cancel) | `ROLE_MANAGER` |
 | Tạo export, warranty, return | `CAN_OPERATE` (FE guard matches) |
