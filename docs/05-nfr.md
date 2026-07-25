@@ -43,9 +43,9 @@
 
 | ID     | Requirement     | Mô tả                                                                              | Priority |
 | ------ | --------------- | ---------------------------------------------------------------------------------- | -------- |
-| NFR-18 | Audit retention | Chưa có yêu cầu — cần xác nhận với business (tối thiểu 1 năm theo luật kế toán VN) | TBD      |
+| NFR-18 | Audit retention | Tối thiểu 2 năm. Không làm archive/purge job ở phase 1. | Must |
 | NFR-19  | Warranty policy — cách làm | Kế thừa hạn BH cũ khi đổi serial — giữ nguyên `warranty_start_date` gốc, không reset (đã chốt ở SOP §6.2) | Must |
-| NFR-19b | Warranty policy — pháp lý  | Cách làm ở NFR-19 có tuân thủ Luật Bảo vệ quyền lợi người tiêu dùng VN không — chưa xác nhận, cần review pháp lý trước khi go-live | TBD  |
+| NFR-19b | Warranty policy — pháp lý  | Giả định chấp nhận trong phạm vi đồ án. Cần review pháp lý trước go-live thật (không phải blocker cho đồ án). | TBD  |
 
 ## 6. Operations
 

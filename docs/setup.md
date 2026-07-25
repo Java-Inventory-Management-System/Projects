@@ -111,7 +111,7 @@ Mỗi lần push lên `develop` / PR vào `main`, pipeline tự động chạy:
 5. Chạy E2E tests
 6. Dọn dẹp
 
-Xem file `.github/workflows/ci.yml`.
+Xem file `.github/workflows/setup.yml`.
 
 ---
 
