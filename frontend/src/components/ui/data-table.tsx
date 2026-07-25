@@ -1,4 +1,4 @@
-import type { ReactNode } from "react"
+import { memo, type ReactNode } from "react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Empty, EmptyTitle } from "@/components/ui/empty"
@@ -27,9 +27,10 @@ interface DataTableProps<T> {
   pageSize?: number
   onPageChange?: (page: number) => void
   onPageSizeChange?: (size: number) => void
+  rowKey?: (item: T) => string | number
 }
 
-export function DataTable<T>({
+function DataTableInner<T>({
   columns,
   data,
   isLoading,
@@ -43,6 +44,7 @@ export function DataTable<T>({
   pageSize,
   onPageChange,
   onPageSizeChange,
+  rowKey,
 }: DataTableProps<T>) {
   const hasPagination = page !== undefined && totalPages !== undefined && onPageChange !== undefined
 
@@ -128,7 +130,7 @@ export function DataTable<T>({
               </TableRow>
             ) : (
               data.map((item, i) => (
-                <TableRow key={i} style={{ contentVisibility: "auto" } as React.CSSProperties}>
+                <TableRow key={rowKey?.(item) ?? (item as Record<string, unknown>).id ?? i} style={{ contentVisibility: "auto" } as React.CSSProperties}>
                   {columns.map((c, j) => (
                     <TableCell key={j} className={c.className}>
                       {c.render(item)}
@@ -144,3 +146,5 @@ export function DataTable<T>({
     </div>
   )
 }
+
+export const DataTable = memo(DataTableInner) as typeof DataTableInner

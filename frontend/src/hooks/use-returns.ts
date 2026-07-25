@@ -5,5 +5,6 @@ export function useReturnReceipts(page = 0, size = 20) {
   return useQuery({
     queryKey: ["return-receipts", page, size],
     queryFn: () => getReturnReceipts(page, size),
+    placeholderData: (prev) => prev,
   })
 }

@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react"
-import { useNavigate } from "react-router-dom"
+import { useNavigate, useSearchParams } from "react-router-dom"
 import { usePermission } from "@/hooks/use-permission"
 import { useStockChecks, useMyStockChecks } from "@/hooks/use-stock-checks"
 import { Button } from "@/components/ui/button"
@@ -20,7 +20,8 @@ const statusLabel: Record<string, { label: string; variant: "default" | "seconda
 export const StockCheckListPage = () => {
   const navigate = useNavigate()
   const perm = usePermission()
-  const [page, setPage] = useState(0)
+  const [searchParams, setSearchParams] = useSearchParams()
+  const page = Number(searchParams.get("page") ?? "0")
   const [pageSize, setPageSize] = useState(10)
   const [sort, setSort] = useState<{ key: string; dir: "asc" | "desc" } | undefined>(undefined)
   const sortStr = sort ? `${sort.key},${sort.dir}` : undefined
@@ -32,6 +33,18 @@ export const StockCheckListPage = () => {
       return undefined
     })
   }, [])
+
+  const updateParams = useCallback(
+    (updates: Record<string, string | undefined>) => {
+      const next = new URLSearchParams(searchParams)
+      for (const [key, val] of Object.entries(updates)) {
+        if (val) next.set(key, val)
+        else next.delete(key)
+      }
+      setSearchParams(next, { replace: true })
+    },
+    [searchParams, setSearchParams],
+  )
 
   // STOCK → own checks only; MANAGER/ADMIN → all checks
   const isStock = perm.hasRole("STOCK")
@@ -106,10 +119,10 @@ export const StockCheckListPage = () => {
         page={page}
         totalPages={data?.pagination.totalPages}
         pageSize={pageSize}
-        onPageChange={setPage}
+        onPageChange={(p) => updateParams({ page: String(p) })}
         onPageSizeChange={(s) => {
           setPageSize(s)
-          setPage(0)
+          updateParams({ page: undefined })
         }}
       />
     </div>

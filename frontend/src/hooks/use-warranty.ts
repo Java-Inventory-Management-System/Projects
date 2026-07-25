@@ -5,6 +5,7 @@ export function useWarrantyRequests(page = 0, size = 20, status?: string, resolu
   return useQuery({
     queryKey: ["warranty-requests", page, size, status, resolutionType],
     queryFn: () => getWarrantyRequests(page, size, status, resolutionType),
+    placeholderData: (prev) => prev,
   })
 }
 
@@ -12,5 +13,6 @@ export function useMyHandledWarrantyRequests(page = 0, size = 20) {
   return useQuery({
     queryKey: ["my-handled-warranty-requests", page, size],
     queryFn: () => getMyHandledWarrantyRequests(page, size),
+    placeholderData: (prev) => prev,
   })
 }

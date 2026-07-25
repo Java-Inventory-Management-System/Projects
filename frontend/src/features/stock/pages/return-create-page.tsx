@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { useForm, useFieldArray, Controller } from "react-hook-form"
 import { useNavigate } from "react-router-dom"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createReturnReceipt } from "@/services/return-service"
@@ -24,12 +25,17 @@ import {
   PRODUCT_UNIT_STATUS,
 } from "@/utils/types"
 
-interface ReturnItemInput {
+interface ReturnItemField {
   productUnitId: number
   productId: number
   quantity: number
   condition: string
   resultingAction: string
+}
+interface ReturnFormFields {
+  reason: string
+  note: string
+  items: ReturnItemField[]
 }
 
 export const ReturnCreatePage = () => {
@@ -43,11 +49,14 @@ export const ReturnCreatePage = () => {
   const [selectedExportId, setSelectedExportId] = useState<number | null>(null)
   const [selectedExportCode, setSelectedExportCode] = useState<string | null>(null)
   const [selectedExportCreatedAt, setSelectedExportCreatedAt] = useState<string | null>(null)
-  const [reason, setReason] = useState<string>(RETURN_REASON.DEFECTIVE)
-  const [note, setNote] = useState("")
-  const [items, setItems] = useState<ReturnItemInput[]>([])
   const [serialSearch, setSerialSearch] = useState("")
   const [showSerialPicker, setShowSerialPicker] = useState(false)
+
+  const form = useForm<ReturnFormFields>({
+    defaultValues: { reason: RETURN_REASON.DEFECTIVE, note: "", items: [] },
+  })
+  const { fields, append, remove } = useFieldArray({ control: form.control, name: "items" })
+  const watchedReason = form.watch("reason")
 
   const { data: customersData } = useQuery({
     queryKey: ["customers", customerQuery],
@@ -73,25 +82,10 @@ export const ReturnCreatePage = () => {
   })
 
   const addItem = (unitId: number, productId: number) => {
-    if (items.some((i) => i.productUnitId === unitId)) return
-    setItems((prev) => [
-      ...prev,
-      {
-        productUnitId: unitId,
-        productId,
-        quantity: 1,
-        condition: RETURN_ITEM_CONDITION.GOOD,
-        resultingAction: RETURN_RESULTING_ACTION.RESTOCK,
-      },
-    ])
+    if (fields.some((f) => f.productUnitId === unitId)) return
+    append({ productUnitId: unitId, productId, quantity: 1, condition: RETURN_ITEM_CONDITION.GOOD, resultingAction: RETURN_RESULTING_ACTION.RESTOCK })
     setShowSerialPicker(false)
     setSerialSearch("")
-  }
-
-  const removeItem = (unitId: number) => setItems((prev) => prev.filter((i) => i.productUnitId !== unitId))
-
-  const updateItem = (unitId: number, field: string, value: string | number) => {
-    setItems((prev) => prev.map((i) => (i.productUnitId === unitId ? { ...i, [field]: value } : i)))
   }
 
   const createMut = useMutation({
@@ -104,21 +98,22 @@ export const ReturnCreatePage = () => {
     onError: (err: Error) => toast.error(err.message || "Có lỗi xảy ra"),
   })
 
-  const changeMindInfo = (() => {
-    if (reason !== RETURN_REASON.CHANGE_MIND || !selectedExportCreatedAt) return null
-    const daysSince = Math.floor((Date.now() - new Date(selectedExportCreatedAt).getTime()) / 86400000)
-    const remaining = 7 - daysSince
-    return { daysSince, remaining, expired: remaining <= 0 }
-  })()
+  const changeMindInfo = watchedReason === RETURN_REASON.CHANGE_MIND && selectedExportCreatedAt
+    ? (() => {
+        const daysSince = Math.floor((Date.now() - new Date(selectedExportCreatedAt).getTime()) / 86400000)
+        const remaining = 7 - daysSince
+        return { daysSince, remaining, expired: remaining <= 0 }
+      })()
+    : null
 
-  const handleSubmit = () => {
-    if (!selectedCustomerId || !selectedExportId || items.length === 0) return
+  const onSubmit = form.handleSubmit((values) => {
+    if (!selectedCustomerId || !selectedExportId || values.items.length === 0) return
     createMut.mutate({
       customerId: selectedCustomerId,
       originalExportReceiptId: selectedExportId,
-      reason,
-      note: note.trim() || undefined,
-      items: items.map((i) => ({
+      reason: values.reason,
+      note: values.note.trim() || undefined,
+      items: values.items.map((i) => ({
         productUnitId: i.productUnitId,
         productId: i.productId,
         quantity: i.quantity,
@@ -126,7 +121,7 @@ export const ReturnCreatePage = () => {
         resultingAction: i.resultingAction,
       })),
     })
-  }
+  })
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -235,16 +230,22 @@ export const ReturnCreatePage = () => {
           <Label htmlFor="reason">
             Lý do trả <span className="text-destructive">*</span>
           </Label>
-          <Select value={reason} onValueChange={setReason}>
-            <SelectTrigger className="w-48">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={RETURN_REASON.CHANGE_MIND}>Đổi ý</SelectItem>
-              <SelectItem value={RETURN_REASON.DEFECTIVE}>Hàng lỗi</SelectItem>
-              <SelectItem value={RETURN_REASON.WRONG_ITEM}>Sai hàng</SelectItem>
-            </SelectContent>
-          </Select>
+          <Controller
+            control={form.control}
+            name="reason"
+            render={({ field }) => (
+              <Select value={field.value} onValueChange={field.onChange}>
+                <SelectTrigger className="w-48">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={RETURN_REASON.CHANGE_MIND}>Đổi ý</SelectItem>
+                  <SelectItem value={RETURN_REASON.DEFECTIVE}>Hàng lỗi</SelectItem>
+                  <SelectItem value={RETURN_REASON.WRONG_ITEM}>Sai hàng</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
+          />
           {changeMindInfo && (
             <div
               className={cn(
@@ -312,39 +313,48 @@ export const ReturnCreatePage = () => {
           </div>
         )}
 
-        {items.length > 0 && (
+        {fields.length > 0 && (
           <div className="rounded-lg border divide-y text-sm">
-            {items.map((item, i) => (
-              <div key={item.productUnitId} className="flex flex-wrap items-center gap-2 px-3 py-2">
-                <span className="font-mono text-xs text-muted-foreground w-8">#{i + 1}</span>
+            {fields.map((item, index) => (
+              <div key={item.id} className="flex flex-wrap items-center gap-2 px-3 py-2">
+                <span className="font-mono text-xs text-muted-foreground w-8">#{index + 1}</span>
                 <div className="flex-1 min-w-0">
                   <span className="font-medium">Unit #{item.productUnitId}</span>
                   <span className="text-xs text-muted-foreground ml-1">(Product #{item.productId})</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Select value={item.condition} onValueChange={(v) => updateItem(item.productUnitId, "condition", v)}>
-                    <SelectTrigger className="h-7 w-24 text-xs">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={RETURN_ITEM_CONDITION.GOOD}>Còn nguyên</SelectItem>
-                      <SelectItem value={RETURN_ITEM_CONDITION.DEFECTIVE}>Lỗi</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Select
-                    value={item.resultingAction}
-                    onValueChange={(v) => updateItem(item.productUnitId, "resultingAction", v)}
-                  >
-                    <SelectTrigger className="h-7 w-32 text-xs">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={RETURN_RESULTING_ACTION.RESTOCK}>Nhập lại kho</SelectItem>
-                      <SelectItem value={RETURN_RESULTING_ACTION.SCRAP}>Hủy</SelectItem>
-                      <SelectItem value={RETURN_RESULTING_ACTION.WARRANTY_TRANSFER}>Chuyển BH</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Button variant="ghost" size="icon" className="size-6" onClick={() => removeItem(item.productUnitId)}>
+                  <Controller
+                    control={form.control}
+                    name={`items.${index}.condition`}
+                    render={({ field }) => (
+                      <Select value={field.value} onValueChange={field.onChange}>
+                        <SelectTrigger className="h-7 w-24 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value={RETURN_ITEM_CONDITION.GOOD}>Còn nguyên</SelectItem>
+                          <SelectItem value={RETURN_ITEM_CONDITION.DEFECTIVE}>Lỗi</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                  <Controller
+                    control={form.control}
+                    name={`items.${index}.resultingAction`}
+                    render={({ field }) => (
+                      <Select value={field.value} onValueChange={field.onChange}>
+                        <SelectTrigger className="h-7 w-32 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value={RETURN_RESULTING_ACTION.RESTOCK}>Nhập lại kho</SelectItem>
+                          <SelectItem value={RETURN_RESULTING_ACTION.SCRAP}>Hủy</SelectItem>
+                          <SelectItem value={RETURN_RESULTING_ACTION.WARRANTY_TRANSFER}>Chuyển BH</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                  <Button variant="ghost" size="icon" className="size-6" onClick={() => remove(index)}>
                     <X className="size-3" />
                   </Button>
                 </div>
@@ -358,8 +368,7 @@ export const ReturnCreatePage = () => {
         <Label htmlFor="note">Ghi chú</Label>
         <Textarea
           id="note"
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
+          {...form.register("note")}
           placeholder="Ghi chú (không bắt buộc)..."
           rows={2}
         />
@@ -370,8 +379,8 @@ export const ReturnCreatePage = () => {
           Hủy
         </Button>
         <Button
-          onClick={handleSubmit}
-          disabled={!selectedCustomerId || !selectedExportId || items.length === 0 || createMut.isPending}
+          onClick={onSubmit}
+          disabled={!selectedCustomerId || !selectedExportId || fields.length === 0 || createMut.isPending}
         >
           {createMut.isPending ? "Đang tạo..." : "Tạo phiếu trả hàng"}
         </Button>

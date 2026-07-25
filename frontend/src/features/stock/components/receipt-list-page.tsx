@@ -1,8 +1,7 @@
 import { useState, useCallback, type ComponentType } from "react"
-import { useNavigate } from "react-router-dom"
+import { useNavigate, useSearchParams } from "react-router-dom"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { usePermission } from "@/hooks/use-permission"
-import { useUrlState } from "@/hooks/use-url-state"
 import { Button } from "@/components/ui/button"
 import { DataTable, type Column } from "@/components/ui/data-table"
 import {
@@ -55,9 +54,10 @@ export function ReceiptListPage<R extends Receipt>({
 }: Props<R>) {
   const navigate = useNavigate()
   const qc = useQueryClient()
+  const [searchParams, setSearchParams] = useSearchParams()
   const { canCancel: hasCancelPerm, canApprove: hasApprovePerm } = usePermission()
-  const [page, setPage] = useUrlState("page", 0)
-  const [pageSize, setPageSize] = useUrlState("size", 10)
+  const page = Number(searchParams.get("page") ?? "0")
+  const pageSize = Number(searchParams.get("size") ?? "10")
   const [viewReceipt, setViewReceipt] = useState<R | null>(null)
   const [cancelTarget, setCancelTarget] = useState<R | null>(null)
   const [sort, setSort] = useState<{ key: string; dir: "asc" | "desc" } | undefined>(undefined)
@@ -70,6 +70,20 @@ export function ReceiptListPage<R extends Receipt>({
       return undefined
     })
   }, [])
+
+  const updateParams = useCallback(
+    (updates: Record<string, string | undefined>) => {
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev)
+        for (const [key, val] of Object.entries(updates)) {
+          if (val) next.set(key, val)
+          else next.delete(key)
+        }
+        return next
+      }, { replace: true })
+    },
+    [setSearchParams],
+  )
 
   const { data, isLoading } = useHook(page, pageSize, sortStr)
 
@@ -164,10 +178,9 @@ export function ReceiptListPage<R extends Receipt>({
         page={page}
         totalPages={data?.pagination.totalPages}
         pageSize={pageSize}
-        onPageChange={setPage}
+        onPageChange={(p) => updateParams({ page: String(p) })}
         onPageSizeChange={(s) => {
-          setPageSize(s)
-          setPage(0)
+          updateParams({ size: String(s), page: undefined })
         }}
       />
 

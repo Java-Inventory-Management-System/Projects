@@ -5,5 +5,7 @@ export function useCustomers(page = 0, size = 20, search?: string) {
   return useQuery({
     queryKey: ["customers", page, size, search],
     queryFn: () => getCustomers(page, size, search),
+    staleTime: 10 * 60 * 1000,
+    placeholderData: (prev) => prev,
   })
 }

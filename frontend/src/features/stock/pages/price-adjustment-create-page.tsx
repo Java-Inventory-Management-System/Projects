@@ -1,9 +1,11 @@
-import { useState, useEffect } from "react"
+import { useMemo } from "react"
+import { useForm, Controller } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { z } from "zod"
 import { useNavigate } from "react-router-dom"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { createPriceAdjustment } from "@/services/price-adjustment-service"
-import { getImportReceipts } from "@/services/import-service"
-import type { ImportReceipt, ResponsePage } from "@/utils/types"
+import { useImportReceipts } from "@/hooks/use-import-receipts"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -12,31 +14,33 @@ import { Card, CardContent } from "@/components/ui/card"
 import { ArrowLeft, ArrowRight } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "@/utils/toast"
+import { FieldError } from "@/components/ui/field"
+
+const schema = z.object({
+  receiptId: z.string().min(1, "Chọn phiếu nhập"),
+  selectedItem: z.string().min(1, "Chọn sản phẩm cần điều chỉnh"),
+  newPrice: z.coerce.number().min(0, "Giá mới không hợp lệ"),
+  reason: z.string().min(1, "Nhập lý do điều chỉnh"),
+})
 
 export function PriceAdjustmentCreatePage() {
   const navigate = useNavigate()
   const qc = useQueryClient()
-  const [receipts, setReceipts] = useState<ImportReceipt[]>([])
-  const [receiptId, setReceiptId] = useState("")
-  const [selectedItem, setSelectedItem] = useState("")
-  const [newPrice, setNewPrice] = useState("")
-  const [reason, setReason] = useState("")
+  const { data: receiptsRes } = useImportReceipts(0, 50)
 
-  useEffect(() => {
-    getImportReceipts(0, 50).then((r: ResponsePage<ImportReceipt>) => setReceipts(r.content))
-  }, [])
+  const form = useForm({ resolver: zodResolver(schema), defaultValues: { receiptId: "", selectedItem: "", newPrice: 0, reason: "" } })
+  const receiptId = form.watch("receiptId")
+  const selectedItem = form.watch("selectedItem")
+  const newPrice = form.watch("newPrice")
 
-  const currentReceipt = receipts.find((r) => r.id === Number(receiptId))
-  const selectedReceiptItem = currentReceipt?.items.find((item) => item.id === Number(selectedItem))
+  const receipts = receiptsRes?.content ?? []
+  const currentReceipt = useMemo(() => receipts.find((r) => r.id === Number(receiptId)), [receipts, receiptId])
+  const selectedReceiptItem = useMemo(() => currentReceipt?.items.find((item) => item.id === Number(selectedItem)), [currentReceipt, selectedItem])
   const oldPrice = selectedReceiptItem?.unitPrice ?? 0
 
   const save = useMutation({
-    mutationFn: () =>
-      createPriceAdjustment({
-        importReceiptItemId: Number(selectedItem),
-        newPrice: Number(newPrice),
-        reason: reason.trim(),
-      }),
+    mutationFn: (data: { importReceiptItemId: number; newPrice: number; reason: string }) =>
+      createPriceAdjustment(data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["price-adjustments"] })
       toast.success("Tạo phiếu điều chỉnh giá thành công")
@@ -45,26 +49,17 @@ export function PriceAdjustmentCreatePage() {
     onError: (e: Error) => toast.error(e.message || "Không thể tạo phiếu điều chỉnh giá"),
   })
 
-  const handleSubmit = () => {
-    if (!selectedItem) {
-      toast.error("Chọn sản phẩm cần điều chỉnh")
-      return
-    }
-    const newVal = Number(newPrice)
-    if (!newPrice || newVal < 0) {
-      toast.error("Giá mới không hợp lệ")
-      return
-    }
-    if (oldPrice > 0 && newVal === oldPrice) {
+  const onSubmit = form.handleSubmit((values) => {
+    if (oldPrice > 0 && values.newPrice === oldPrice) {
       toast.error("Giá mới phải khác giá cũ")
       return
     }
-    if (!reason.trim()) {
-      toast.error("Nhập lý do điều chỉnh")
-      return
-    }
-    save.mutate()
-  }
+    save.mutate({
+      importReceiptItemId: Number(values.selectedItem),
+      newPrice: values.newPrice,
+      reason: values.reason.trim(),
+    })
+  })
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
@@ -78,41 +73,55 @@ export function PriceAdjustmentCreatePage() {
       <div className="space-y-4">
         <div className="space-y-2">
           <Label>Phiếu nhập</Label>
-          <Select
-            value={receiptId}
-            onValueChange={(v) => {
-              setReceiptId(v)
-              setSelectedItem("")
-            }}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Chọn phiếu nhập" />
-            </SelectTrigger>
-            <SelectContent>
-              {receipts.map((r) => (
-                <SelectItem key={r.id} value={String(r.id)}>
-                  {r.receiptCode} - {r.supplierName}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Controller
+            name="receiptId"
+            control={form.control}
+            render={({ field }) => (
+              <Select
+                value={field.value}
+                onValueChange={(v) => {
+                  field.onChange(v)
+                  form.setValue("selectedItem", "")
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Chọn phiếu nhập" />
+                </SelectTrigger>
+                <SelectContent>
+                  {receipts.map((r) => (
+                    <SelectItem key={r.id} value={String(r.id)}>
+                      {r.receiptCode} - {r.supplierName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          />
+          <FieldError errors={form.formState.errors.receiptId ? [{ message: form.formState.errors.receiptId.message ?? "" }] : undefined} />
         </div>
 
         {currentReceipt && (
           <div className="space-y-2">
             <Label>Sản phẩm</Label>
-            <Select value={selectedItem} onValueChange={setSelectedItem}>
-              <SelectTrigger>
-                <SelectValue placeholder="Chọn sản phẩm" />
-              </SelectTrigger>
-              <SelectContent>
-                {currentReceipt.items.map((item) => (
-                  <SelectItem key={item.id} value={String(item.id)}>
-                    {item.productName} (giá cũ: {(item.unitPrice ?? 0).toLocaleString("vi-VN")}₫)
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Controller
+              name="selectedItem"
+              control={form.control}
+              render={({ field }) => (
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Chọn sản phẩm" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {currentReceipt.items.map((item) => (
+                      <SelectItem key={item.id} value={String(item.id)}>
+                        {item.productName} (giá cũ: {(item.unitPrice ?? 0).toLocaleString("vi-VN")}₫)
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            />
+            <FieldError errors={form.formState.errors.selectedItem ? [{ message: form.formState.errors.selectedItem.message ?? "" }] : undefined} />
           </div>
         )}
 
@@ -129,16 +138,16 @@ export function PriceAdjustmentCreatePage() {
                 <ArrowRight className="size-5 text-muted-foreground" />
                 <div className="text-center">
                   <p className="text-xs text-muted-foreground mb-1">Giá mới</p>
-                  <p className="text-lg font-semibold text-primary">{Number(newPrice || 0).toLocaleString("vi-VN")}₫</p>
+                  <p className="text-lg font-semibold text-primary">{(newPrice || 0).toLocaleString("vi-VN")}₫</p>
                 </div>
               </div>
-              {Number(newPrice) > 0 && (
+              {newPrice > 0 && (
                 <div className="mt-2 text-center">
                   <span
-                    className={`text-xs font-medium ${Number(newPrice) > oldPrice ? "text-destructive" : "text-green-600"}`}
+                    className={`text-xs font-medium ${newPrice > oldPrice ? "text-destructive" : "text-green-600"}`}
                   >
-                    {Number(newPrice) > oldPrice ? "Tăng" : "Giảm"}{" "}
-                    {Math.abs(((Number(newPrice) - oldPrice) / oldPrice) * 100).toFixed(1)}%
+                    {newPrice > oldPrice ? "Tăng" : "Giảm"}{" "}
+                    {Math.abs(((newPrice - oldPrice) / oldPrice) * 100).toFixed(1)}%
                   </span>
                 </div>
               )}
@@ -150,21 +159,16 @@ export function PriceAdjustmentCreatePage() {
           <Label htmlFor="newPrice">
             Giá mới <span className="text-destructive">*</span>
           </Label>
-          <Input
-            id="newPrice"
-            type="number"
-            min={0}
-            required
-            value={newPrice}
-            onChange={(e) => setNewPrice(e.target.value)}
-          />
+          <Input id="newPrice" type="number" min={0} {...form.register("newPrice", { valueAsNumber: true })} />
+          <FieldError errors={form.formState.errors.newPrice ? [{ message: form.formState.errors.newPrice.message ?? "" }] : undefined} />
         </div>
 
         <div className="space-y-2">
           <Label htmlFor="reason">
             Lý do <span className="text-destructive">*</span>
           </Label>
-          <Textarea id="reason" value={reason} onChange={(e) => setReason(e.target.value)} rows={3} />
+          <Textarea id="reason" {...form.register("reason")} rows={3} />
+          <FieldError errors={form.formState.errors.reason ? [{ message: form.formState.errors.reason.message ?? "" }] : undefined} />
         </div>
       </div>
 
@@ -172,7 +176,7 @@ export function PriceAdjustmentCreatePage() {
         <Button variant="outline" onClick={() => navigate("/stock/price-adjustments")}>
           Hủy
         </Button>
-        <Button onClick={handleSubmit} disabled={save.isPending}>
+        <Button onClick={onSubmit} disabled={save.isPending}>
           {save.isPending ? "Đang tạo..." : "Tạo phiếu"}
         </Button>
       </div>

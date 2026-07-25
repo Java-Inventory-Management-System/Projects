@@ -1,20 +1,19 @@
-import { useEffect, useMemo, useState } from "react"
+import { useMemo, useState } from "react"
+import { useQueryClient } from "@tanstack/react-query"
 import { useLocationMap } from "@/hooks/use-location-map"
-import { useLocationMapStore } from "@/store/location-map-store"
+import type { LocationMapData } from "@/utils/types"
 import type { DetailBin, FilterMode } from "@/features/stock/utils/location-map-utils"
 import { nextCode } from "@/features/stock/utils/location-map-utils"
 import { createLocation, deleteLocation } from "@/services/location-service"
 import { toast } from "@/utils/toast"
 
 export function useLocationMapPage() {
-  const { data: fetched, isLoading, isFetching, error, refetch } = useLocationMap()
-  const { data: local, setData, patchZones } = useLocationMapStore()
+  const qc = useQueryClient()
+  const { data, isLoading, isFetching, error, refetch } = useLocationMap()
 
-  useEffect(() => {
-    if (fetched && !local) setData(fetched)
-  }, [fetched])
-
-  const data = local ?? fetched
+  function patchZones(updater: (prev: LocationMapData) => LocationMapData) {
+    qc.setQueryData<LocationMapData>(["location-map"], (prev) => prev ? updater(prev) : prev)
+  }
 
   const totalBins = useMemo(() => {
     if (!data) return 0

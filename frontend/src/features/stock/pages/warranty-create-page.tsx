@@ -1,4 +1,5 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useForm } from "react-hook-form"
 import { useNavigate } from "react-router-dom"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { lookupWarranty, createWarrantyRequest } from "@/services/warranty-service"
@@ -11,41 +12,46 @@ import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ArrowLeft, Search, ShieldCheck, AlertTriangle, History, Printer } from "lucide-react"
 import { toast } from "@/utils/toast"
-import type { WarrantyLookup } from "@/utils/types"
+
+interface WarrantyForm {
+  serialNumber: string
+  customerId: number | null
+  issueDescription: string
+  note: string
+  allowExpired: boolean
+}
 
 export const WarrantyCreatePage = () => {
   const navigate = useNavigate()
   const qc = useQueryClient()
-  const [serialNumber, setSerialNumber] = useState("")
   const [customerQuery, setCustomerQuery] = useState("")
-  const [selectedCustomerId, setSelectedCustomerId] = useState<number | null>(null)
   const [selectedCustomerName, setSelectedCustomerName] = useState<string | null>(null)
-  const [issueDescription, setIssueDescription] = useState("")
-  const [note, setNote] = useState("")
-  const [allowExpired, setAllowExpired] = useState(false)
   const [createdId, setCreatedId] = useState<number | null>(null)
-  const [lookup, setLookup] = useState<WarrantyLookup | null>(null)
-  const [lookupLoading, setLookupLoading] = useState(false)
-  const [lookupError, setLookupError] = useState("")
+  const [lookupKey, setLookupKey] = useState(0)
 
-  const handleLookup = async () => {
+  const form = useForm<WarrantyForm>({
+    defaultValues: { serialNumber: "", customerId: null, issueDescription: "", note: "", allowExpired: false },
+  })
+
+  const serialNumber = form.watch("serialNumber")
+  const { data: lookup, isFetching: lookupLoading, isError: lookupIsError } = useQuery({
+    queryKey: ["warranty-lookup", lookupKey, serialNumber],
+    queryFn: () => lookupWarranty(serialNumber.trim()),
+    enabled: lookupKey > 0 && !!serialNumber.trim(),
+  })
+  const lookupError = lookupIsError ? "Không tìm thấy serial hoặc có lỗi xảy ra" : ""
+
+  const handleLookup = () => {
     if (!serialNumber.trim()) return
-    setLookupLoading(true)
-    setLookupError("")
-    setLookup(null)
-    try {
-      const result = await lookupWarranty(serialNumber.trim())
-      setLookup(result)
-      if (result.customerName && !selectedCustomerId) {
-        setSelectedCustomerId(result.customerId)
-        setSelectedCustomerName(result.customerName)
-      }
-    } catch {
-      setLookupError("Không tìm thấy serial hoặc có lỗi xảy ra")
-    } finally {
-      setLookupLoading(false)
-    }
+    setLookupKey((k) => k + 1)
   }
+
+  useEffect(() => {
+    if (lookup?.customerName && !form.getValues("customerId")) {
+      form.setValue("customerId", lookup.customerId)
+      setSelectedCustomerName(lookup.customerName)
+    }
+  }, [lookup])
 
   const { data: customersData } = useQuery({
     queryKey: ["customers", customerQuery],
@@ -63,19 +69,23 @@ export const WarrantyCreatePage = () => {
     onError: (err: Error) => toast.error(err.message || "Có lỗi xảy ra"),
   })
 
-  const isExpired = lookup && !lookup.eligible
-  const canSubmit = serialNumber.trim() && selectedCustomerId && issueDescription.trim() && (allowExpired || !isExpired)
+  const cid = form.watch("customerId")
+  const issueDesc = form.watch("issueDescription")
+  const allowExpired = form.watch("allowExpired")
 
-  const handleSubmit = () => {
+  const isExpired = lookup && !lookup.eligible
+  const canSubmit = serialNumber.trim() && cid && issueDesc.trim() && (allowExpired || !isExpired)
+
+  const onSubmit = form.handleSubmit((values) => {
     if (!canSubmit) return
     createMut.mutate({
-      serialNumber: serialNumber.trim(),
-      customerId: selectedCustomerId,
-      issueDescription: issueDescription.trim(),
-      note: note.trim() || undefined,
-      allowExpired: allowExpired || undefined,
+      serialNumber: values.serialNumber.trim(),
+      customerId: values.customerId!,
+      issueDescription: values.issueDescription.trim(),
+      note: values.note.trim() || undefined,
+      allowExpired: values.allowExpired || undefined,
     })
-  }
+  })
 
   const warrantyDaysLeft = lookup?.warrantyExpiresAt
     ? Math.ceil((new Date(lookup.warrantyExpiresAt).getTime() - Date.now()) / 86400000)
@@ -108,8 +118,7 @@ export const WarrantyCreatePage = () => {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
               <Input
                 id="serial"
-                value={serialNumber}
-                onChange={(e) => setSerialNumber(e.target.value)}
+                {...form.register("serialNumber")}
                 placeholder="Nhập serial sản phẩm..."
                 className="pl-9"
                 autoFocus
@@ -227,10 +236,10 @@ export const WarrantyCreatePage = () => {
           <Label>
             Khách hàng <span className="text-destructive">*</span>
           </Label>
-          {selectedCustomerId ? (
+          {cid ? (
             <div className="flex items-center gap-2 rounded-lg border px-3 py-2">
               <span className="flex-1 font-medium">{selectedCustomerName}</span>
-              <Button variant="ghost" size="icon" className="size-6" onClick={() => { setSelectedCustomerId(null); setSelectedCustomerName(null) }}>
+              <Button variant="ghost" size="icon" className="size-6" onClick={() => { form.setValue("customerId", null); setSelectedCustomerName(null) }}>
                 <span className="size-3 flex items-center justify-center">✕</span>
               </Button>
             </div>
@@ -240,13 +249,13 @@ export const WarrantyCreatePage = () => {
               <Input value={customerQuery} onChange={(e) => setCustomerQuery(e.target.value)} placeholder="Tìm khách hàng..." className="pl-9" />
             </div>
           )}
-          {!selectedCustomerId && customersData && customersData.content.length > 0 && (
+          {!cid && customersData && customersData.content.length > 0 && (
             <div className="rounded-lg border max-h-32 overflow-y-auto divide-y text-sm">
               {customersData.content.map((c) => (
                 <div
                   key={c.id}
                   className="flex cursor-pointer items-center justify-between px-3 py-1.5 hover:bg-muted/30"
-                  onClick={() => { setSelectedCustomerId(c.id); setSelectedCustomerName(c.name); setCustomerQuery("") }}
+                  onClick={() => { form.setValue("customerId", c.id); setSelectedCustomerName(c.name); setCustomerQuery("") }}
                 >
                   <span className="font-medium">{c.name}</span>
                   {c.phone && <span className="text-xs text-muted-foreground">{c.phone}</span>}
@@ -258,19 +267,19 @@ export const WarrantyCreatePage = () => {
 
         <div className="space-y-2">
           <Label htmlFor="issue">Mô tả lỗi <span className="text-destructive">*</span></Label>
-          <Textarea id="issue" value={issueDescription} onChange={(e) => setIssueDescription(e.target.value)} placeholder="Mô tả chi tiết lỗi khách báo..." rows={3} />
+          <Textarea id="issue" {...form.register("issueDescription")} placeholder="Mô tả chi tiết lỗi khách báo..." rows={3} />
         </div>
 
         <div className="space-y-2">
           <Label htmlFor="note">Ghi chú nội bộ</Label>
-          <Textarea id="note" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Ghi chú (không bắt buộc)..." rows={2} />
+          <Textarea id="note" {...form.register("note")} placeholder="Ghi chú (không bắt buộc)..." rows={2} />
         </div>
       </div>
 
       {/* Vẫn tạo phiếu khi hết BH */}
       {isExpired && (
         <div className="flex items-center gap-2 p-3 rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800">
-          <input type="checkbox" id="allowExpired" checked={allowExpired} onChange={(e) => setAllowExpired(e.target.checked)} className="accent-amber-600" />
+          <input type="checkbox" id="allowExpired" {...form.register("allowExpired")} className="accent-amber-600" />
           <Label htmlFor="allowExpired" className="text-sm text-amber-700 dark:text-amber-400 cursor-pointer">
             Vẫn tạo phiếu (ngoài BH, tính phí)
           </Label>
@@ -289,7 +298,7 @@ export const WarrantyCreatePage = () => {
       ) : (
         <div className="flex justify-end gap-3">
           <Button variant="outline" onClick={() => navigate("/warranty")}>Hủy</Button>
-          <Button onClick={handleSubmit} disabled={!canSubmit || createMut.isPending}>
+          <Button onClick={onSubmit} disabled={!canSubmit || createMut.isPending}>
             {createMut.isPending ? "Đang tạo..." : "Tiếp nhận"}
           </Button>
         </div>

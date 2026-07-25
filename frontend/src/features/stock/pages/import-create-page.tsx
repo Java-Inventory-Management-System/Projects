@@ -1,4 +1,6 @@
-import { useState, useMemo, useEffect, useReducer } from "react"
+import { useState, useMemo, useReducer, useEffect } from "react"
+import { useForm, Controller } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
 import { useNavigate, useBlocker, useSearchParams } from "react-router-dom"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { createImportReceipt } from "@/services/import-service"
@@ -86,29 +88,29 @@ export const ImportCreatePage = () => {
   const poIdParam = searchParams.get("poId")
 
   const [step, setStep] = useState(1)
-  const [supplierId, setSupplierId] = useState("")
-  const [note, setNote] = useState("")
   const [items, dispatch] = useReducer(itemReducer, [])
-  const [receiptDate, setReceiptDate] = useState(() => new Date().toISOString().slice(0, 10))
-  const [referenceDoc, setReferenceDoc] = useState("")
-  const [submitted, setSubmitted] = useState(false)
-  const [formErrors, setFormErrors] = useState<Record<string, string>>({})
   const [showDraftDialog, setShowDraftDialog] = useState(false)
   const [qcBlocked, setQcBlocked] = useState(false)
 
-  useEffect(() => {
-    if (items.length === 0) setSubmitted(false)
-  }, [items])
+  const defaultDate = useMemo(() => new Date().toISOString().slice(0, 10), [])
+  const form = useForm<ImportFormData>({
+    resolver: zodResolver(importFormSchema.omit({ items: true })),
+    defaultValues: { supplierId: "", receiptDate: defaultDate, referenceDoc: "", note: "" },
+  })
+  const watchedNote = form.watch("note")
+  const watchedSupplierId = form.watch("supplierId")
+  const watchedReceiptDate = form.watch("receiptDate")
+  const watchedReferenceDoc = form.watch("referenceDoc")
 
   const draftState = useMemo(
     () => ({
-      supplierId,
-      receiptDate,
-      referenceDoc,
-      note,
+      supplierId: watchedSupplierId,
+      receiptDate: watchedReceiptDate,
+      referenceDoc: watchedReferenceDoc,
+      note: watchedNote,
       items: items.map((i) => ({ ...i })),
     }),
-    [supplierId, receiptDate, referenceDoc, note, items],
+    [watchedSupplierId, watchedReceiptDate, watchedReferenceDoc, watchedNote, items],
   )
   const isDirty = items.length > 0
   const { draftAvailable, restore, dismiss } = useFormDraft(
@@ -117,10 +119,10 @@ export const ImportCreatePage = () => {
     isDirty,
     (data) => {
       const d = data as typeof draftState
-      setSupplierId(d.supplierId ?? "")
-      setReceiptDate(d.receiptDate ?? new Date().toISOString().slice(0, 10))
-      setReferenceDoc(d.referenceDoc ?? "")
-      setNote(d.note ?? "")
+      form.setValue("supplierId", d.supplierId ?? "")
+      form.setValue("receiptDate", d.receiptDate ?? defaultDate)
+      form.setValue("referenceDoc", d.referenceDoc ?? "")
+      form.setValue("note", d.note ?? "")
       dispatch({ type: "SET_ITEMS", payload: d.items ?? [] })
     },
   )
@@ -137,17 +139,17 @@ export const ImportCreatePage = () => {
 
   useEffect(() => {
     if (po) {
-      setSupplierId(String(po.supplierId))
-      setReferenceDoc(po.poCode)
+      form.setValue("supplierId", String(po.supplierId))
+      form.setValue("referenceDoc", po.poCode)
     }
-  }, [po])
+  }, [po, form])
 
   const products = useMemo(() => productsRes?.content ?? [], [productsRes])
   const hasUnsaved = items.length > 0
 
   useBlocker(
     ({ currentLocation, nextLocation }) =>
-      hasUnsaved && !submitted && currentLocation.pathname !== nextLocation.pathname,
+      hasUnsaved && currentLocation.pathname !== nextLocation.pathname,
   )
 
   useEffect(() => {
@@ -168,7 +170,6 @@ export const ImportCreatePage = () => {
       navigate("/stock/imports")
     },
     onError: (err: Error) => {
-      setSubmitted(true)
       toast.error(err.message || "Có lỗi xảy ra khi tạo phiếu nhập")
     },
   })
@@ -190,19 +191,7 @@ export const ImportCreatePage = () => {
   const locationIssues = items.filter((i) => !i.locationId)
   const allLocationsOk = locationIssues.length === 0
 
-  function handleSubmit() {
-    setSubmitted(true)
-    const raw: ImportFormData = { supplierId, receiptDate, referenceDoc, note, items }
-    const parsed = importFormSchema.safeParse(raw)
-    if (!parsed.success) {
-      const e: Record<string, string> = {}
-      parsed.error.issues.forEach((issue) => {
-        e[issue.path.join(".")] = issue.message
-      })
-      setFormErrors(e)
-      setStep(1)
-      return
-    }
+  const onSubmit = form.handleSubmit((values) => {
     if (!allSerialsOk) {
       toast.error(serialIssues.map((s) => `${s.name}: ${s.issue}`).join("\n"))
       setStep(3)
@@ -215,9 +204,9 @@ export const ImportCreatePage = () => {
     }
     const purchaseOrderId = poIdParam ? Number(poIdParam) : undefined
     createMut.mutate({
-      receiptCode: referenceDoc || undefined,
-      supplierId: Number(supplierId),
-      note: note || undefined,
+      receiptCode: values.referenceDoc || undefined,
+      supplierId: Number(values.supplierId),
+      note: values.note || undefined,
       purchaseOrderId,
       items: items.map((i) => ({
         productId: i.productId,
@@ -228,14 +217,14 @@ export const ImportCreatePage = () => {
         locationId: i.locationId ? Number(i.locationId) : undefined,
       })),
     })
-  }
+  })
 
   const canNext = useMemo(() => {
-    if (step === 1) return !!supplierId
+    if (step === 1) return !!watchedSupplierId
     if (step === 2) return items.length > 0
     if (step === 3) return items.length > 0 && allSerialsOk
     return true
-  }, [step, supplierId, items, allSerialsOk])
+  }, [step, watchedSupplierId, items, allSerialsOk])
 
   return (
     <div className="mx-auto w-full max-w-5xl grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-4 lg:gap-6">
@@ -268,58 +257,36 @@ export const ImportCreatePage = () => {
                 <Label htmlFor="supplier">
                   Nhà cung cấp <span className="text-destructive">*</span>
                 </Label>
-                <Select
-                  value={supplierId}
-                  onValueChange={(v) => {
-                    setSupplierId(v)
-                    setFormErrors((prev) => {
-                      const n = { ...prev }
-                      delete n.supplierId
-                      return n
-                    })
-                  }}
-                >
-                  <SelectTrigger id="supplier">
-                    <SelectValue placeholder="Chọn NCC" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {suppliers.map((s) => (
-                      <SelectItem key={s.id} value={String(s.id)}>
-                        {s.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FieldError errors={formErrors.supplierId ? [{ message: formErrors.supplierId }] : undefined} />
+                <Controller
+                  name="supplierId"
+                  control={form.control}
+                  render={({ field }) => (
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <SelectTrigger id="supplier">
+                        <SelectValue placeholder="Chọn NCC" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {suppliers.map((s) => (
+                          <SelectItem key={s.id} value={String(s.id)}>
+                            {s.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+                <FieldError errors={form.formState.errors.supplierId ? [{ message: form.formState.errors.supplierId.message ?? "" }] : undefined} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="receiptDate">
                   Ngày nhập <span className="text-destructive">*</span>
                 </Label>
-                <Input
-                  id="receiptDate"
-                  type="date"
-                  required
-                  value={receiptDate}
-                  onChange={(e) => {
-                    setReceiptDate(e.target.value)
-                    setFormErrors((prev) => {
-                      const n = { ...prev }
-                      delete n.receiptDate
-                      return n
-                    })
-                  }}
-                />
-                <FieldError errors={formErrors.receiptDate ? [{ message: formErrors.receiptDate }] : undefined} />
+                <Input id="receiptDate" type="date" {...form.register("receiptDate")} />
+                <FieldError errors={form.formState.errors.receiptDate ? [{ message: form.formState.errors.receiptDate.message ?? "" }] : undefined} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="referenceDoc">Số hóa đơn/chứng từ</Label>
-                <Input
-                  id="referenceDoc"
-                  placeholder="Không bắt buộc"
-                  value={referenceDoc}
-                  onChange={(e) => setReferenceDoc(e.target.value)}
-                />
+                <Input id="referenceDoc" placeholder="Không bắt buộc" {...form.register("referenceDoc")} />
               </div>
             </div>
           </div>
@@ -341,8 +308,8 @@ export const ImportCreatePage = () => {
         {step === 4 && (
           <ImportStepQc
             items={items}
-            note={note}
-            setNote={setNote}
+            note={watchedNote}
+            setNote={(v) => form.setValue("note", v)}
             onQcStatus={(status) => setQcBlocked(status.hasRecords && !status.done)}
           />
         )}
@@ -374,16 +341,16 @@ export const ImportCreatePage = () => {
                 <TooltipTrigger asChild>
                   <span>
                     <Button
-                      onClick={handleSubmit}
-                      disabled={!supplierId || items.length === 0 || createMut.isPending || qcBlocked}
+                      onClick={onSubmit}
+                      disabled={!watchedSupplierId || items.length === 0 || createMut.isPending || qcBlocked}
                     >
                       {createMut.isPending ? "Đang tạo..." : "Tạo phiếu nhập"}
                     </Button>
                   </span>
                 </TooltipTrigger>
-                {(!supplierId || items.length === 0) && (
+                {(!watchedSupplierId || items.length === 0) && (
                   <TooltipContent side="top" className="text-xs">
-                    {!supplierId && <p>● Chưa chọn nhà cung cấp</p>}
+                    {!watchedSupplierId && <p>● Chưa chọn nhà cung cấp</p>}
                     {items.length === 0 && <p>● Chưa có sản phẩm</p>}
                   </TooltipContent>
                 )}

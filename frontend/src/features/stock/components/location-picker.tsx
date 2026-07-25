@@ -1,6 +1,5 @@
-import { useEffect, useMemo } from "react"
+import { useMemo } from "react"
 import { useLocationMap } from "@/hooks/use-location-map"
-import { useLocationMapStore } from "@/store/location-map-store"
 import { binColor } from "@/features/stock/utils/location-map-utils"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Button } from "@/components/ui/button"
@@ -15,14 +14,7 @@ interface LocationPickerProps {
 }
 
 export function LocationPicker({ value, onSelect, suggestedLocationId }: LocationPickerProps) {
-  const { data: fetched, isLoading } = useLocationMap()
-  const { data: local, setData } = useLocationMapStore()
-
-  useEffect(() => {
-    if (fetched && !local) setData(fetched)
-  }, [fetched])
-
-  const data = local ?? fetched
+  const { data, isLoading } = useLocationMap()
 
   const selectedLocation = useMemo(() => {
     if (!data || !value) return null

@@ -11,6 +11,7 @@ export function usePurchaseOrders(page = 0, size = 20, sort?: string, status?: s
   return useQuery({
     queryKey: ["purchase-orders", page, size, sort, status],
     queryFn: () => getPurchaseOrders(page, size, sort, status),
+    placeholderData: (prev) => prev,
   })
 }
 

@@ -19,6 +19,7 @@ export function useProducts(
   return useQuery({
     queryKey: ["products", page, size, sort, search, brandId, categoryId],
     queryFn: () => getProducts(page, size, sort, search, brandId, categoryId),
+    placeholderData: (prev) => prev,
   })
 }
 

@@ -1,4 +1,6 @@
 import { useState } from "react"
+import { useForm } from "react-hook-form"
+import { useSearchParams } from "react-router-dom"
 import { useDebounce } from "@/hooks/use-debounce"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { getCustomers, createCustomer, updateCustomer, toggleCustomerActive } from "@/services/customer-service"
@@ -16,10 +18,27 @@ import { usePermission } from "@/hooks/use-permission"
 import { ROLES } from "@/utils/permissions"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 
+interface CustomerForm {
+  name: string
+  phone: string
+  email: string
+  address: string
+  note: string
+}
+
+const defaultForm: CustomerForm = {
+  name: "",
+  phone: "",
+  email: "",
+  address: "",
+  note: "",
+}
+
 export function CustomersPage() {
   const perm = usePermission()
   const qc = useQueryClient()
-  const [page, setPage] = useState(0)
+  const [searchParams, setSearchParams] = useSearchParams()
+  const page = Number(searchParams.get("page") ?? "0")
   const [search, setSearch] = useState("")
   const debounced = useDebounce(search, 300)
   const { data, isLoading } = useQuery({
@@ -27,37 +46,31 @@ export function CustomersPage() {
     queryFn: () => getCustomers(page, 20, debounced || undefined),
   })
   const [dialog, setDialog] = useState<{ open: boolean; edit?: CustomerResponse }>({ open: false })
-  const [name, setName] = useState("")
-  const [phone, setPhone] = useState("")
-  const [email, setEmail] = useState("")
-  const [address, setAddress] = useState("")
-  const [note, setNote] = useState("")
+  const form = useForm<CustomerForm>({ defaultValues: defaultForm })
 
   const openCreate = () => {
-    setName("")
-    setPhone("")
-    setEmail("")
-    setAddress("")
-    setNote("")
+    form.reset(defaultForm)
     setDialog({ open: true })
   }
   const openEdit = (c: CustomerResponse) => {
-    setName(c.name)
-    setPhone(c.phone ?? "")
-    setEmail(c.email ?? "")
-    setAddress(c.address ?? "")
-    setNote(c.note ?? "")
+    form.reset({
+      name: c.name,
+      phone: c.phone ?? "",
+      email: c.email ?? "",
+      address: c.address ?? "",
+      note: c.note ?? "",
+    })
     setDialog({ open: true, edit: c })
   }
 
   const save = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (values: CustomerForm) => {
       const data = {
-        name: name.trim(),
-        phone: phone || null,
-        email: email || null,
-        address: address || null,
-        note: note || null,
+        name: values.name.trim(),
+        phone: values.phone || null,
+        email: values.email || null,
+        address: values.address || null,
+        note: values.note || null,
       }
       if (dialog.edit) return updateCustomer(dialog.edit.id, data)
       return createCustomer(data)
@@ -77,7 +90,7 @@ export function CustomersPage() {
   })
 
   const customers = data?.content ?? []
-  const totalPages = data?.pagination.totalPages ?? 0
+  const totalPages = data?.pagination?.totalPages ?? 0
 
   const columns: Column<CustomerResponse>[] = [
     { header: "Tên", render: (c) => <span className="font-medium">{c.name}</span> },
@@ -137,14 +150,20 @@ export function CustomersPage() {
           value={search}
           onChange={(e) => {
             setSearch(e.target.value)
-            setPage(0)
+            setSearchParams((prev) => { prev.delete("page"); return prev }, { replace: true })
           }}
         />
       </div>
 
       <DataTable columns={columns} data={customers} isLoading={isLoading} emptyMessage="Chưa có khách hàng nào" />
 
-      {totalPages > 1 && <PaginationBar page={page} totalPages={totalPages} onChange={(p) => setPage(p)} />}
+      {totalPages > 1 && (
+        <PaginationBar
+          page={page}
+          totalPages={totalPages}
+          onChange={(p) => setSearchParams((prev) => { prev.set("page", String(p)); return prev }, { replace: true })}
+        />
+      )}
 
       <Dialog
         open={dialog.open}
@@ -156,38 +175,40 @@ export function CustomersPage() {
           <DialogHeader>
             <DialogTitle>{dialog.edit ? "Sửa khách hàng" : "Thêm khách hàng"}</DialogTitle>
           </DialogHeader>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2 sm:col-span-2">
-              <Label htmlFor="name">
-                Tên <span className="text-destructive">*</span>
-              </Label>
-              <Input id="name" required value={name} onChange={(e) => setName(e.target.value)} />
+          <form onSubmit={form.handleSubmit((values) => save.mutate(values))}>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2 sm:col-span-2">
+                <Label htmlFor="name">
+                  Tên <span className="text-destructive">*</span>
+                </Label>
+                <Input id="name" required {...form.register("name")} />
+              </div>
+              <div className="space-y-2">
+                <Label>SĐT</Label>
+                <Input {...form.register("phone")} />
+              </div>
+              <div className="space-y-2">
+                <Label>Email</Label>
+                <Input {...form.register("email")} />
+              </div>
+              <div className="space-y-2 sm:col-span-2">
+                <Label>Địa chỉ</Label>
+                <Input {...form.register("address")} />
+              </div>
+              <div className="space-y-2 sm:col-span-2">
+                <Label>Ghi chú</Label>
+                <Input {...form.register("note")} />
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label>SĐT</Label>
-              <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label>Email</Label>
-              <Input value={email} onChange={(e) => setEmail(e.target.value)} />
-            </div>
-            <div className="space-y-2 sm:col-span-2">
-              <Label>Địa chỉ</Label>
-              <Input value={address} onChange={(e) => setAddress(e.target.value)} />
-            </div>
-            <div className="space-y-2 sm:col-span-2">
-              <Label>Ghi chú</Label>
-              <Input value={note} onChange={(e) => setNote(e.target.value)} />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDialog({ open: false })}>
-              Hủy
-            </Button>
-            <Button onClick={() => save.mutate()} disabled={!name.trim() || save.isPending}>
-              {save.isPending ? "Đang lưu..." : "Lưu"}
-            </Button>
-          </DialogFooter>
+            <DialogFooter className="mt-4">
+              <Button variant="outline" onClick={() => setDialog({ open: false })}>
+                Hủy
+              </Button>
+              <Button type="submit" disabled={!form.watch("name").trim() || save.isPending}>
+                {save.isPending ? "Đang lưu..." : "Lưu"}
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
     </div>

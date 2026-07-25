@@ -5,6 +5,7 @@ export function useStockChecks(page = 0, size = 20, sort?: string) {
   return useQuery({
     queryKey: ["stock-checks", page, size, sort],
     queryFn: () => getStockChecks(page, size, sort),
+    placeholderData: (prev) => prev,
   })
 }
 
@@ -12,5 +13,6 @@ export function useMyStockChecks(page = 0, size = 20, sort?: string) {
   return useQuery({
     queryKey: ["my-stock-checks", page, size, sort],
     queryFn: () => getMyStockChecks(page, size, sort),
+    placeholderData: (prev) => prev,
   })
 }

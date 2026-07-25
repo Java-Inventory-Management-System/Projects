@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react"
-import { useNavigate } from "react-router-dom"
+import { useNavigate, useSearchParams } from "react-router-dom"
 import { usePurchaseOrders } from "@/hooks/use-purchase-orders"
 import { DataTable, type Column } from "@/components/ui/data-table"
 import { Button } from "@/components/ui/button"
@@ -20,7 +20,8 @@ const statusConfig: Record<string, { label: string; variant: "default" | "second
 export function POListPage() {
   const navigate = useNavigate()
   const perm = usePermission()
-  const [page, setPage] = useState(0)
+  const [searchParams, setSearchParams] = useSearchParams()
+  const page = Number(searchParams.get("page") ?? "0")
   const [pageSize, setPageSize] = useState(20)
   const [sort, setSort] = useState<{ key: string; dir: "asc" | "desc" } | undefined>(undefined)
   const sortStr = sort ? `${sort.key},${sort.dir}` : undefined
@@ -32,6 +33,18 @@ export function POListPage() {
       return undefined
     })
   }, [])
+
+  const updateParams = useCallback(
+    (updates: Record<string, string | undefined>) => {
+      const next = new URLSearchParams(searchParams)
+      for (const [key, val] of Object.entries(updates)) {
+        if (val) next.set(key, val)
+        else next.delete(key)
+      }
+      setSearchParams(next, { replace: true })
+    },
+    [searchParams, setSearchParams],
+  )
 
   const { data, isLoading } = usePurchaseOrders(page, pageSize, sortStr)
 
@@ -99,10 +112,10 @@ export function POListPage() {
         page={page}
         totalPages={data?.pagination.totalPages}
         pageSize={pageSize}
-        onPageChange={setPage}
+        onPageChange={(p) => updateParams({ page: String(p) })}
         onPageSizeChange={(s) => {
           setPageSize(s)
-          setPage(0)
+          updateParams({ page: undefined })
         }}
       />
     </div>

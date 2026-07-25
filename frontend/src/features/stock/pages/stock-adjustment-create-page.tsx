@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react"
+import { useForm, Controller } from "react-hook-form"
 import { useNavigate, useLocation } from "react-router-dom"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createStockAdjustment } from "@/services/stock-adjustment-service"
@@ -27,18 +28,20 @@ import { toast } from "@/utils/toast"
 import { mapResponsePage, mapProductUnit } from "@/utils/mappers"
 import { ADJUSTMENT_TYPE, STOCK_CHECK_DIFF } from "@/utils/types"
 
+interface AdjustmentForm {
+  type: string
+  selectedUnitId: number | null
+  selectedProductId: number | null
+  quantity: number
+  reason: string
+  imageUrl: string
+}
+
 const typeOptions = [
   { value: ADJUSTMENT_TYPE.DAMAGED, label: "Hư hỏng", desc: "Sản phẩm bị hư hỏng trong kho" },
   { value: ADJUSTMENT_TYPE.LOST, label: "Mất", desc: "Sản phẩm bị mất / thất lạc" },
   { value: ADJUSTMENT_TYPE.FOUND, label: "Thừa", desc: "Phát hiện hàng thừa ngoài kiểm kê" },
 ]
-
-interface FormErrors {
-  type?: string
-  reason?: string
-  productUnit?: string
-  product?: string
-}
 
 export const StockAdjustmentCreatePage = () => {
   const navigate = useNavigate()
@@ -57,28 +60,28 @@ export const StockAdjustmentCreatePage = () => {
   } | null
   const initialReason = locationState?.reason ?? ""
 
-  const [type, setType] = useState("")
   const [searchUnit, setSearchUnit] = useState("")
   const [searchProduct, setSearchProduct] = useState("")
-  const [selectedUnitId, setSelectedUnitId] = useState<number | null>(null)
-  const [selectedProductId, setSelectedProductId] = useState<number | null>(null)
-  const [quantity, setQuantity] = useState(1)
-  const [reason, setReason] = useState(initialReason)
-  const [imageUrl, setImageUrl] = useState("")
   const [showConfirm, setShowConfirm] = useState(false)
   const [showDraftDialog, setShowDraftDialog] = useState(false)
-  const [errors, setErrors] = useState<FormErrors>({})
 
-  const draftState = useMemo(() => ({ type, reason }), [type, reason])
-  const isDirty = !!type || !!reason.trim()
+  const form = useForm<AdjustmentForm>({
+    defaultValues: { type: "", selectedUnitId: null, selectedProductId: null, quantity: 1, reason: initialReason, imageUrl: "" },
+  })
+  const { formState } = form
+  const watchedType = form.watch("type")
+  const watchedReason = form.watch("reason")
+
+  const draftState = useMemo(() => ({ type: watchedType, reason: watchedReason }), [watchedType, watchedReason])
+  const isDirty = !!watchedType || !!watchedReason.trim()
   const { draftAvailable, restore, dismiss } = useFormDraft(
     "/stock/adjustments/new",
     draftState as unknown as Record<string, unknown>,
     isDirty,
     (data) => {
       const d = data as { type?: string; reason?: string }
-      if (d.type) setType(d.type)
-      if (d.reason) setReason(d.reason)
+      if (d.type) form.setValue("type", d.type)
+      if (d.reason) form.setValue("reason", d.reason)
     },
   )
   useEffect(() => {
@@ -133,17 +136,18 @@ export const StockAdjustmentCreatePage = () => {
   })
 
   const validate = (): boolean => {
-    const errs: FormErrors = {}
-    if (!type) errs.type = "Vui lòng chọn loại điều chỉnh"
-    if (!reason.trim()) errs.reason = "Vui lòng nhập lý do"
-    if ((type === ADJUSTMENT_TYPE.DAMAGED || type === ADJUSTMENT_TYPE.LOST) && !selectedUnitId) {
-      errs.productUnit = "Vui lòng chọn sản phẩm"
+    form.clearErrors()
+    const values = form.getValues()
+    let valid = true
+    if (!values.type) { form.setError("type", { message: "Vui lòng chọn loại điều chỉnh" }); valid = false }
+    if (!values.reason.trim()) { form.setError("reason", { message: "Vui lòng nhập lý do" }); valid = false }
+    if ((values.type === ADJUSTMENT_TYPE.DAMAGED || values.type === ADJUSTMENT_TYPE.LOST) && !values.selectedUnitId) {
+      form.setError("selectedUnitId", { message: "Vui lòng chọn sản phẩm" }); valid = false
     }
-    if (type === ADJUSTMENT_TYPE.FOUND && !selectedUnitId && !selectedProductId) {
-      errs.product = "Vui lòng chọn sản phẩm"
+    if (values.type === ADJUSTMENT_TYPE.FOUND && !values.selectedUnitId && !values.selectedProductId) {
+      form.setError("selectedProductId", { message: "Vui lòng chọn sản phẩm" }); valid = false
     }
-    setErrors(errs)
-    return Object.keys(errs).length === 0
+    return valid
   }
 
   const handleSubmit = () => {
@@ -166,6 +170,7 @@ export const StockAdjustmentCreatePage = () => {
       )
       return
     }
+    const values = form.getValues()
     const data: {
       type: string
       productUnitId?: number
@@ -174,29 +179,29 @@ export const StockAdjustmentCreatePage = () => {
       reason: string
       imageUrl?: string
     } = {
-      type,
-      reason: reason.trim(),
+      type: values.type,
+      reason: values.reason.trim(),
     }
 
-    if (type === ADJUSTMENT_TYPE.DAMAGED || type === ADJUSTMENT_TYPE.LOST) {
-      data.productUnitId = selectedUnitId!
+    if (values.type === ADJUSTMENT_TYPE.DAMAGED || values.type === ADJUSTMENT_TYPE.LOST) {
+      data.productUnitId = values.selectedUnitId!
     }
 
-    if (type === ADJUSTMENT_TYPE.FOUND && !selectedUnitId) {
-      data.productId = selectedProductId!
-      data.quantity = quantity
+    if (values.type === ADJUSTMENT_TYPE.FOUND && !values.selectedUnitId) {
+      data.productId = values.selectedProductId!
+      data.quantity = values.quantity
     }
-    if (type === ADJUSTMENT_TYPE.FOUND && selectedUnitId) {
-      data.productUnitId = selectedUnitId
+    if (values.type === ADJUSTMENT_TYPE.FOUND && values.selectedUnitId) {
+      data.productUnitId = values.selectedUnitId
     }
 
-    if (imageUrl.trim()) data.imageUrl = imageUrl.trim()
+    if (values.imageUrl.trim()) data.imageUrl = values.imageUrl.trim()
 
     createMut.mutate(data)
   }
 
-  const needsUnit = type === ADJUSTMENT_TYPE.DAMAGED || type === ADJUSTMENT_TYPE.LOST
-  const needsProduct = type === ADJUSTMENT_TYPE.FOUND
+  const needsUnit = watchedType === ADJUSTMENT_TYPE.DAMAGED || watchedType === ADJUSTMENT_TYPE.LOST
+  const needsProduct = watchedType === ADJUSTMENT_TYPE.FOUND
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -211,32 +216,38 @@ export const StockAdjustmentCreatePage = () => {
         <Label>
           Loại điều chỉnh <span className="text-destructive">*</span>
         </Label>
-        <RadioGroup
-          value={type}
-          onValueChange={(v) => {
-            setType(v)
-            setSelectedUnitId(null)
-            setSelectedProductId(null)
-            setErrors({})
-          }}
-        >
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {typeOptions.map((opt) => (
-              <Label
-                key={opt.value}
-                htmlFor={opt.value}
-                className={`flex flex-col gap-1 rounded-lg border p-3 cursor-pointer transition-colors has-[:checked]:border-primary has-[:checked]:bg-primary/5 ${
-                  type === opt.value ? "border-primary bg-primary/5" : ""
-                }`}
-              >
-                <RadioGroupItem value={opt.value} id={opt.value} className="sr-only" />
-                <span className="font-medium text-sm">{opt.label}</span>
-                <span className="text-xs text-muted-foreground">{opt.desc}</span>
-              </Label>
-            ))}
-          </div>
-        </RadioGroup>
-        {errors.type && <p className="text-xs text-destructive">{errors.type}</p>}
+        <Controller
+          control={form.control}
+          name="type"
+          render={({ field }) => (
+            <RadioGroup
+              value={field.value}
+              onValueChange={(v) => {
+                field.onChange(v)
+                form.setValue("selectedUnitId", null)
+                form.setValue("selectedProductId", null)
+                form.clearErrors()
+              }}
+            >
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {typeOptions.map((opt) => (
+                  <Label
+                    key={opt.value}
+                    htmlFor={opt.value}
+                    className={`flex flex-col gap-1 rounded-lg border p-3 cursor-pointer transition-colors has-[:checked]:border-primary has-[:checked]:bg-primary/5 ${
+                      watchedType === opt.value ? "border-primary bg-primary/5" : ""
+                    }`}
+                  >
+                    <RadioGroupItem value={opt.value} id={opt.value} className="sr-only" />
+                    <span className="font-medium text-sm">{opt.label}</span>
+                    <span className="text-xs text-muted-foreground">{opt.desc}</span>
+                  </Label>
+                ))}
+              </div>
+            </RadioGroup>
+          )}
+        />
+        {formState.errors.type?.message && <p className="text-xs text-destructive">{formState.errors.type.message}</p>}
       </div>
 
       {type && (
@@ -285,15 +296,17 @@ export const StockAdjustmentCreatePage = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {unitsData.content.map((u) => (
+                      {unitsData.content.map((u) => {
+                        const selectedUnitId = form.watch("selectedUnitId")
+                        return (
                         <tr
                           key={u.id}
                           className={`border-b last:border-0 cursor-pointer hover:bg-muted/30 ${
                             selectedUnitId === u.id ? "bg-primary/5" : ""
                           }`}
                           onClick={() => {
-                            setSelectedUnitId(u.id)
-                            setErrors((p) => ({ ...p, productUnit: undefined }))
+                            form.setValue("selectedUnitId", u.id)
+                            form.clearErrors("selectedUnitId")
                           }}
                         >
                           <td className="px-2 py-1">
@@ -306,14 +319,15 @@ export const StockAdjustmentCreatePage = () => {
                           </td>
                           <td className="px-2 py-1 text-xs text-muted-foreground">{u.status}</td>
                         </tr>
-                      ))}
+                      )
+                    })}
                     </tbody>
                   </table>
                 )
               ) : null}
 
               {needsProduct &&
-                !selectedUnitId &&
+                !form.watch("selectedUnitId") &&
                 (productsLoading ? (
                   <div className="p-3 space-y-2">
                     {Array.from({ length: 3 }).map((_, i) => (
@@ -334,15 +348,17 @@ export const StockAdjustmentCreatePage = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {productsData.content.map((p) => (
+                      {productsData.content.map((p) => {
+                        const selectedProductId = form.watch("selectedProductId")
+                        return (
                         <tr
                           key={p.id}
                           className={`border-b last:border-0 cursor-pointer hover:bg-muted/30 ${
                             selectedProductId === p.id ? "bg-primary/5" : ""
                           }`}
                           onClick={() => {
-                            setSelectedProductId(p.id)
-                            setErrors((p_) => ({ ...p_, product: undefined }))
+                            form.setValue("selectedProductId", p.id)
+                            form.clearErrors("selectedProductId")
                           }}
                         >
                           <td className="px-2 py-1">
@@ -356,16 +372,16 @@ export const StockAdjustmentCreatePage = () => {
                           <td className="px-2 py-1 font-mono text-xs">{p.sku}</td>
                           <td className="px-2 py-1 font-medium">{p.name}</td>
                         </tr>
-                      ))}
+                      )})}
                     </tbody>
                   </table>
                 ))}
             </div>
-            {errors.productUnit && <p className="text-xs text-destructive">{errors.productUnit}</p>}
-            {errors.product && <p className="text-xs text-destructive">{errors.product}</p>}
+            {formState.errors.selectedUnitId?.message && <p className="text-xs text-destructive">{formState.errors.selectedUnitId.message}</p>}
+            {formState.errors.selectedProductId?.message && <p className="text-xs text-destructive">{formState.errors.selectedProductId.message}</p>}
           </div>
 
-          {needsProduct && !selectedUnitId && (
+          {needsProduct && !form.watch("selectedUnitId") && (
             <div className="space-y-2">
               <Label htmlFor="quantity">
                 Số lượng <span className="text-destructive">*</span>
@@ -375,8 +391,7 @@ export const StockAdjustmentCreatePage = () => {
                 type="number"
                 min={1}
                 required
-                value={quantity}
-                onChange={(e) => setQuantity(Number(e.target.value) || 1)}
+                {...form.register("quantity", { valueAsNumber: true })}
                 className="w-32"
               />
             </div>
@@ -389,20 +404,16 @@ export const StockAdjustmentCreatePage = () => {
             <Textarea
               id="reason"
               placeholder="Mô tả chi tiết lý do điều chỉnh..."
-              value={reason}
-              onChange={(e) => {
-                setReason(e.target.value)
-                setErrors((p) => ({ ...p, reason: undefined }))
-              }}
+              {...form.register("reason")}
               rows={3}
-              className={errors.reason ? "border-destructive" : ""}
+              className={formState.errors.reason ? "border-destructive" : ""}
             />
-            {errors.reason && <p className="text-xs text-destructive">{errors.reason}</p>}
+            {formState.errors.reason?.message && <p className="text-xs text-destructive">{formState.errors.reason.message}</p>}
           </div>
 
           <div className="space-y-2">
             <Label>Ảnh minh chứng (không bắt buộc)</Label>
-            <ImageUpload value={imageUrl} onChange={setImageUrl} />
+            <ImageUpload value={form.watch("imageUrl")} onChange={(v) => form.setValue("imageUrl", v)} />
           </div>
         </>
       )}
@@ -413,7 +424,7 @@ export const StockAdjustmentCreatePage = () => {
         </Button>
         <Button
           onClick={handleSubmit}
-          disabled={createMut.isPending || batchMut.isPending || (!locationState?.batch && !type)}
+          disabled={createMut.isPending || batchMut.isPending || (!locationState?.batch && !watchedType)}
         >
           {createMut.isPending || batchMut.isPending
             ? "Đang tạo..."
@@ -496,42 +507,47 @@ export const StockAdjustmentCreatePage = () => {
                   <span className="text-muted-foreground">Lý do:</span>
                   <Input
                     className="mt-1 h-8 text-sm"
-                    value={reason}
-                    onChange={(e) => setReason(e.target.value)}
+                    {...form.register("reason")}
                     placeholder="Lý do (dùng chung cho tất cả)"
                   />
                 </div>
               </>
-            ) : (
-              <>
-                <div className="flex gap-2">
-                  <span className="text-muted-foreground w-24 shrink-0">Loại:</span>
-                  <span className="font-medium">{typeOptions.find((o) => o.value === type)?.label}</span>
-                </div>
-                {selectedUnitId && (
-                  <div className="flex gap-2">
-                    <span className="text-muted-foreground w-24 shrink-0">Serial ID:</span>
-                    <span className="font-mono text-xs">{selectedUnitId}</span>
-                  </div>
-                )}
-                {selectedProductId && !selectedUnitId && (
-                  <>
+              ) : (
+                <>
+                  {(() => {
+                    const values = form.getValues()
+                    return (
+                    <div className="space-y-2 text-sm">
                     <div className="flex gap-2">
-                      <span className="text-muted-foreground w-24 shrink-0">Sản phẩm ID:</span>
-                      <span>{selectedProductId}</span>
+                      <span className="text-muted-foreground w-24 shrink-0">Loại:</span>
+                      <span className="font-medium">{typeOptions.find((o) => o.value === values.type)?.label}</span>
                     </div>
-                    <div className="flex gap-2">
-                      <span className="text-muted-foreground w-24 shrink-0">Số lượng:</span>
-                      <span>{quantity}</span>
+                    {values.selectedUnitId && (
+                      <div className="flex gap-2">
+                        <span className="text-muted-foreground w-24 shrink-0">Serial ID:</span>
+                        <span className="font-mono text-xs">{values.selectedUnitId}</span>
+                      </div>
+                    )}
+                    {values.selectedProductId && !values.selectedUnitId && (
+                      <>
+                        <div className="flex gap-2">
+                          <span className="text-muted-foreground w-24 shrink-0">Sản phẩm ID:</span>
+                          <span>{values.selectedProductId}</span>
+                        </div>
+                        <div className="flex gap-2">
+                          <span className="text-muted-foreground w-24 shrink-0">Số lượng:</span>
+                          <span>{values.quantity}</span>
+                        </div>
+                      </>
+                    )}
+                    <div>
+                      <span className="text-muted-foreground">Lý do:</span>
+                      <p className="mt-0.5 rounded-md border bg-muted/20 px-3 py-2 leading-relaxed">{values.reason}</p>
                     </div>
-                  </>
-                )}
-                <div>
-                  <span className="text-muted-foreground">Lý do:</span>
-                  <p className="mt-0.5 rounded-md border bg-muted/20 px-3 py-2 leading-relaxed">{reason}</p>
-                </div>
-              </>
-            )}
+                    </div>)
+                  })()}
+                </>
+              )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowConfirm(false)}>
