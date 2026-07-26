@@ -140,9 +140,15 @@ export function mapImportItem(raw: unknown): ImportReceiptItem {
     productName: r.productName,
     productSku: r.productSku,
     quantity: r.quantity,
+    expectedQuantity: r.expectedQuantity ?? r.quantity,
+    receivedQuantity: r.receivedQuantity ?? 0,
+    qcPassQuantity: r.qcPassQuantity ?? 0,
+    qcFailQuantity: r.qcFailQuantity ?? 0,
     unitPrice: r.unitPrice,
     warrantyMonths: r.warrantyMonths,
     createdUnits: r.createdUnits,
+    itemStatus: r.itemStatus ?? "NORMAL",
+    locationId: r.locationId ?? null,
   }
 }
 
@@ -163,8 +169,10 @@ export function mapImportReceipt(raw: unknown): ImportReceipt {
     approvedByName: r.approvedByName ?? null,
     purchaseOrderId: r.purchaseOrderId ?? null,
     poCode: r.poCode ?? null,
+    rejectReason: r.rejectReason ?? null,
     updatedAt: r.updatedAt ?? r.createdAt,
     items: (r.items ?? []).map(mapImportItem),
+    discrepancyNotes: r.discrepancyNotes ?? [],
   }
 }
 

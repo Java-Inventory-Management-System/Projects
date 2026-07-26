@@ -14,7 +14,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { Plus, Eye, Check, X } from "lucide-react"
+import { Plus, Eye, Check, X, ScanLine } from "lucide-react"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 import { toast } from "@/utils/toast"
 import { IMPORT_RECEIPT_STATUS } from "@/utils/types"
@@ -118,11 +118,11 @@ export function ReceiptListPage<R extends Receipt>({
     [approveMut],
   )
 
-  const canApprove = useCallback((r: R) => hasApprovePerm(r.status), [hasApprovePerm])
+  const canApprove = useCallback((r: R) => r.status === IMPORT_RECEIPT_STATUS.PENDING_APPROVAL && hasApprovePerm(), [hasApprovePerm])
 
   const actionsCol: Column<R> = {
     header: "Thao tác",
-    className: "w-[130px]",
+    className: "w-[180px]",
     render: (r: R) => (
       <div className="flex items-center gap-1">
         <Tooltip>
@@ -133,6 +133,16 @@ export function ReceiptListPage<R extends Receipt>({
           </TooltipTrigger>
           <TooltipContent>Xem chi tiết</TooltipContent>
         </Tooltip>
+        {(r.status === IMPORT_RECEIPT_STATUS.DRAFT || r.status === IMPORT_RECEIPT_STATUS.PENDING_APPROVAL) && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" onClick={() => navigate(`${newRoute}?id=${r.id}`)}>
+                <ScanLine className="size-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Nhập serial</TooltipContent>
+          </Tooltip>
+        )}
         {canApprove(r) && (
           <Tooltip>
             <TooltipTrigger asChild>

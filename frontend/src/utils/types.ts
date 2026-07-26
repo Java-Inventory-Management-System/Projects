@@ -228,22 +228,37 @@ export interface ImportReceipt {
   createdByName: string | null
   approvedBy: number | null
   approvedByName: string | null
+  rejectReason: string | null
   createdAt: string
   updatedAt: string
   items: ImportReceiptItem[]
+  discrepancyNotes: DiscrepancyNote[]
 }
 
-export type ImportReceiptStatus = "PENDING" | "PENDING_APPROVAL" | "COMPLETED" | "CANCELLED"
+export interface DiscrepancyNote {
+  description: string
+  estimatedQuantity: number
+  reportedBy: number
+  reportedAt: string
+}
+
+export type ImportReceiptStatus = "DRAFT" | "PENDING" | "PENDING_APPROVAL" | "COMPLETED" | "CANCELLED"
 
 export interface ImportReceiptItem {
   id: number
   productId: number
   productName: string
   productSku: string | null
+  expectedQuantity: number
+  receivedQuantity: number
+  qcPassQuantity: number
+  qcFailQuantity: number
   quantity: number
   unitPrice: number
   warrantyMonths: number
   createdUnits: number
+  itemStatus: "NORMAL" | "NOT_RECEIVED"
+  locationId: number | null
 }
 
 // ============ Purchase Order ============
@@ -498,7 +513,7 @@ export interface WarrantyRequest {
 }
 
 export type WarrantyStatus =
-  "PENDING" | "RECEIVED" | "UNDER_EVALUATION" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED" | "RESOLVED"
+  "PENDING" | "COMPLETED" | "CANCELLED"
 
 export interface WarrantyLookup {
   productUnitId: number
@@ -589,6 +604,8 @@ export interface LineItem {
   warrantyMonths: number
   serials: string[]
   locationId: string
+  itemStatus: "NORMAL" | "NOT_RECEIVED"
+  notReceivedReason: string
 }
 
 export interface QcRecord {
@@ -601,7 +618,7 @@ export interface QcRecord {
 // ============ Status Constants ============
 
 export const IMPORT_RECEIPT_STATUS = {
-  PENDING: "PENDING",
+  DRAFT: "DRAFT",
   PENDING_APPROVAL: "PENDING_APPROVAL",
   COMPLETED: "COMPLETED",
   CANCELLED: "CANCELLED",
@@ -649,10 +666,6 @@ export const RETURN_RECEIPT_STATUS = {
 
 export const WARRANTY_STATUS = {
   PENDING: "PENDING",
-  RECEIVED: "RECEIVED",
-  UNDER_EVALUATION: "UNDER_EVALUATION",
-  IN_PROGRESS: "IN_PROGRESS",
-  RESOLVED: "RESOLVED",
   COMPLETED: "COMPLETED",
   CANCELLED: "CANCELLED",
 } as const
@@ -728,17 +741,17 @@ export const ADJUSTMENT_TYPE = {
 } as const
 
 export const WARRANTY_RESOLUTION_TYPE = {
-  REPAIR: "REPAIR",
   REPLACE: "REPLACE",
-  REFUND: "REFUND",
+  RMA: "RMA",
+  REPAIR: "REPAIR",
   REJECT: "REJECT",
+  RETURN_SUPPLIER: "RETURN_SUPPLIER",
 } as const
 
 export const WARRANTY_RESULT = {
   REPAIRED: "REPAIRED",
-  REPLACED: "REPLACED",
-  REFUNDED: "REFUNDED",
-  REJECTED: "REJECTED",
+  DEFECTIVE: "DEFECTIVE",
+  LOST: "LOST",
 } as const
 
 export const RETURN_REASON = {

@@ -8,24 +8,22 @@ import { ROLES } from "@/utils/permissions"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { WARRANTY_STATUS } from "@/utils/types"
-import { Plus, Eye, AlertTriangle } from "lucide-react"
+import { Plus, Eye, ShieldAlert } from "lucide-react"
 import { DataTable, type Column } from "@/components/ui/data-table"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 import type { WarrantyRequest } from "@/utils/types"
 
 const statusLabel: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline"; className?: string }> = {
-  [WARRANTY_STATUS.PENDING]: { label: "Chờ tiếp nhận", variant: "secondary" },
-  [WARRANTY_STATUS.RECEIVED]: { label: "Đang kiểm tra", variant: "outline", className: "border-blue-300 text-blue-600 dark:text-blue-400" },
-  [WARRANTY_STATUS.UNDER_EVALUATION]: { label: "Chờ QL duyệt", variant: "outline", className: "border-amber-300 text-amber-600 dark:text-amber-400" },
-  [WARRANTY_STATUS.RESOLVED]: { label: "Đã xử lý", variant: "default" },
+  [WARRANTY_STATUS.PENDING]: { label: "Chờ xử lý", variant: "secondary" },
+  [WARRANTY_STATUS.COMPLETED]: { label: "Đã xong", variant: "default" },
+  [WARRANTY_STATUS.CANCELLED]: { label: "Đã hủy", variant: "destructive" },
 }
 
 const tabs = [
   { key: "", label: "Tất cả" },
-  { key: WARRANTY_STATUS.PENDING, label: "Chờ tiếp nhận" },
-  { key: WARRANTY_STATUS.RECEIVED, label: "Đang kiểm tra" },
-  { key: WARRANTY_STATUS.UNDER_EVALUATION, label: "Chờ QL duyệt" },
-  { key: WARRANTY_STATUS.RESOLVED, label: "Đã xử lý" },
+  { key: WARRANTY_STATUS.PENDING, label: "Chờ xử lý" },
+  { key: WARRANTY_STATUS.COMPLETED, label: "Đã xong" },
+  { key: WARRANTY_STATUS.CANCELLED, label: "Đã hủy" },
 ] as const
 
 export const WarrantyListPage = () => {
@@ -92,7 +90,7 @@ export const WarrantyListPage = () => {
           {r.resolutionType === "REPLACE" && (
             <Tooltip>
               <TooltipTrigger asChild>
-                <AlertTriangle className="size-3 text-amber-500" />
+                <ShieldAlert className="size-3 text-amber-500" />
               </TooltipTrigger>
               <TooltipContent>Đã đổi BH</TooltipContent>
             </Tooltip>
@@ -167,7 +165,7 @@ export const WarrantyListPage = () => {
                     className={`text-[10px] tabular-nums ${
                       isActive
                         ? "text-primary-foreground/70"
-                        : tab.key === WARRANTY_STATUS.UNDER_EVALUATION
+                        : tab.key === WARRANTY_STATUS.PENDING
                           ? "text-amber-500 font-semibold"
                           : "text-muted-foreground/70"
                     }`}

@@ -1,8 +1,7 @@
 import { useState, useMemo } from "react"
 import type { LineItem } from "@/utils/types"
-import type { ProductResponse, LocationResponse } from "@/utils/types"
+import type { ProductResponse } from "@/utils/types"
 import type { ItemAction } from "../reducers/import-create-reducer"
-import { suggestLocation } from "@/utils/suggest-location"
 import { toast } from "@/utils/toast"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -10,24 +9,19 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
-import { LocationPicker } from "@/features/stock/components/location-picker"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
-import { Trash2, Plus, MapPin, Check, ChevronsUpDown, Circle, CircleCheckBig } from "lucide-react"
+import { Trash2, Plus, Check, ChevronsUpDown } from "lucide-react"
 
 interface Props {
   items: LineItem[]
   dispatch: React.Dispatch<ItemAction>
   products: ProductResponse[]
-  locations: LocationResponse[]
-  zoneMap: Record<number, string>
   isManager: boolean
 }
 
-export function ImportStepProducts({ items, dispatch, products, locations, zoneMap, isManager }: Props) {
+export function ImportStepProducts({ items, dispatch, products, isManager }: Props) {
   const [selectedProductIds, setSelectedProductIds] = useState<number[]>([])
   const [productPopoverOpen, setProductPopoverOpen] = useState(false)
-  const [locationPickerItem, setLocationPickerItem] = useState<number | null>(null)
 
   const nextTempId = useMemo(() => {
     let id = Date.now()
@@ -45,21 +39,20 @@ export function ImportStepProducts({ items, dispatch, products, locations, zoneM
     }
     dispatch({
       type: "ADD_ITEMS",
-      payload: toAdd.map((product) => {
-        const suggested = suggestLocation(product.categoryId, locations, zoneMap)
-        return {
-          tempId: nextTempId(),
-          productId: product.id,
-          productName: product.name,
-          productSku: product.sku ?? "",
-          categoryId: product.categoryId,
-          quantity: 1,
-          unitPrice: 0,
-          warrantyMonths: 12,
-          serials: [],
-          locationId: suggested ? String(suggested.id) : "",
-        }
-      }),
+      payload: toAdd.map((product) => ({
+        tempId: nextTempId(),
+        productId: product.id,
+        productName: product.name,
+        productSku: product.sku ?? "",
+        categoryId: product.categoryId,
+        quantity: 1,
+        unitPrice: 0,
+        warrantyMonths: 12,
+        serials: [],
+        locationId: "",
+        itemStatus: "NORMAL",
+        notReceivedReason: "",
+      })),
     })
     setSelectedProductIds([])
     setProductPopoverOpen(false)
@@ -71,10 +64,6 @@ export function ImportStepProducts({ items, dispatch, products, locations, zoneM
 
   function removeItem(tempId: number) {
     dispatch({ type: "REMOVE_ITEM", tempId })
-  }
-
-  function foundLocation(item: LineItem) {
-    return locations.find((l) => l.id === Number(item.locationId))
   }
 
   return (
@@ -165,25 +154,14 @@ export function ImportStepProducts({ items, dispatch, products, locations, zoneM
                 {isManager && <TableHead className="w-28 text-right">Đơn giá</TableHead>}
                 {isManager && <TableHead className="w-16 text-right">BH(th)</TableHead>}
                 {isManager && <TableHead className="w-28 text-right">Thành tiền</TableHead>}
-                <TableHead className="w-44">Vị trí</TableHead>
                 <TableHead className="w-10" />
               </TableRow>
             </TableHeader>
             <TableBody>
-              {items.map((item) => {
-                const loc = foundLocation(item)
-                const suggested = suggestLocation(item.categoryId, locations, zoneMap)
-                return (
+              {items.map((item) => (
                   <TableRow key={item.tempId}>
                     <TableCell className="font-medium text-sm truncate max-w-[200px]" title={item.productName}>
-                      <span className="inline-flex items-center gap-1.5">
-                        {item.locationId ? (
-                          <CircleCheckBig className="size-4 shrink-0 text-green-600" />
-                        ) : (
-                          <Circle className="size-4 shrink-0 text-muted-foreground" />
-                        )}
-                        {item.productName}
-                      </span>
+                      <span className="inline-flex items-center gap-1.5">{item.productName}</span>
                     </TableCell>
                     <TableCell>
                       <Input
@@ -222,72 +200,16 @@ export function ImportStepProducts({ items, dispatch, products, locations, zoneM
                       </TableCell>
                     )}
                     <TableCell>
-                      {loc ? (
-                        <div className="flex items-center gap-1">
-                          <Badge variant="secondary" className="text-xs font-mono gap-1">
-                            <MapPin className="size-3" />
-                            {loc.fullCode}
-                          </Badge>
-                          <Sheet
-                            open={locationPickerItem === item.tempId}
-                            onOpenChange={(v) => {
-                              if (!v) setLocationPickerItem(null)
-                            }}
-                          >
-                            <SheetTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-6 text-xs px-1"
-                                onClick={() => setLocationPickerItem(item.tempId)}
-                              >
-                                Đổi
-                              </Button>
-                            </SheetTrigger>
-                            <SheetContent side="right" className="w-[85vw] sm:w-[320px]">
-                              <SheetHeader>
-                                <SheetTitle className="text-sm">Chọn vị trí — {item.productName}</SheetTitle>
-                              </SheetHeader>
-                              <div className="mt-4">
-                                <LocationPicker
-                                  value={item.locationId}
-                                  onSelect={(v) => {
-                                    updateItem(item.tempId, "locationId", v)
-                                    setLocationPickerItem(null)
-                                  }}
-                                  suggestedLocationId={suggested?.id}
-                                />
-                              </div>
-                            </SheetContent>
-                          </Sheet>
-                        </div>
-                      ) : (
-                        <LocationPicker
-                          value={item.locationId}
-                          onSelect={(v) => updateItem(item.tempId, "locationId", v)}
-                          suggestedLocationId={suggested?.id}
-                        />
-                      )}
-                    </TableCell>
-                    <TableCell>
                       <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => removeItem(item.tempId)}>
                         <Trash2 className="size-4 text-destructive" />
                       </Button>
                     </TableCell>
                   </TableRow>
-                )
-              })}
+              ))}
             </TableBody>
           </Table>
         </div>
       )}
-
-      <div className="flex items-start gap-2 rounded-md border bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
-        <MapPin className="size-4 shrink-0 mt-0.5" />
-        <span>
-          <strong>Vị trí gợi ý theo danh mục.</strong> Kho thực tế có thể khác — cần QL kho xác nhận khi duyệt.
-        </span>
-      </div>
     </div>
   )
 }

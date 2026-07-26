@@ -31,6 +31,7 @@ interface ReturnItemField {
   quantity: number
   condition: string
   resultingAction: string
+  trackingType: string
 }
 interface ReturnFormFields {
   reason: string
@@ -81,9 +82,9 @@ export const ReturnCreatePage = () => {
     enabled: showSerialPicker && serialSearch.length > 0,
   })
 
-  const addItem = (unitId: number, productId: number) => {
+  const addItem = (unitId: number, productId: number, trackingType: string) => {
     if (fields.some((f) => f.productUnitId === unitId)) return
-    append({ productUnitId: unitId, productId, quantity: 1, condition: RETURN_ITEM_CONDITION.GOOD, resultingAction: RETURN_RESULTING_ACTION.RESTOCK })
+    append({ productUnitId: unitId, productId, quantity: 1, condition: RETURN_ITEM_CONDITION.GOOD, resultingAction: RETURN_RESULTING_ACTION.RESTOCK, trackingType })
     setShowSerialPicker(false)
     setSerialSearch("")
   }
@@ -292,7 +293,7 @@ export const ReturnCreatePage = () => {
                     <div
                       key={u.id}
                       className="flex cursor-pointer items-center justify-between px-3 py-1.5 hover:bg-muted/30"
-                      onClick={() => addItem(u.id, u.productId)}
+                      onClick={() => addItem(u.id, u.productId, u.trackingType)}
                     >
                       <div>
                         <span className="font-mono text-xs">{u.serialNumber}</span>
@@ -349,7 +350,9 @@ export const ReturnCreatePage = () => {
                         <SelectContent>
                           <SelectItem value={RETURN_RESULTING_ACTION.RESTOCK}>Nhập lại kho</SelectItem>
                           <SelectItem value={RETURN_RESULTING_ACTION.SCRAP}>Hủy</SelectItem>
-                          <SelectItem value={RETURN_RESULTING_ACTION.WARRANTY_TRANSFER}>Chuyển BH</SelectItem>
+                          {item.trackingType === "SERIALIZED" && (
+                            <SelectItem value={RETURN_RESULTING_ACTION.WARRANTY_TRANSFER}>Chuyển BH</SelectItem>
+                          )}
                         </SelectContent>
                       </Select>
                     )}

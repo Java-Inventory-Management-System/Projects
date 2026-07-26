@@ -1,9 +1,9 @@
-import { useState, useEffect, useMemo, useRef } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
-import { Textarea } from "@/components/ui/textarea"
+import { ChipInput } from "@/components/ui/chip-input"
 import { Spinner } from "@/components/ui/spinner"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
-import { AlertTriangle, CheckCircle2, XCircle, Upload, FileText } from "lucide-react"
+import { AlertTriangle, CheckCircle2, XCircle, Upload, ChevronDown, ChevronUp } from "lucide-react"
 import { toast } from "@/utils/toast"
 
 interface SerialModalProps {
@@ -16,7 +16,7 @@ interface SerialModalProps {
   onSave: (serials: string[]) => void
 }
 
-const HEADER_PATTERN = /^(serial|sku|số.serial|stt|no|s\/n)\s*$/i
+const HEADER_PATTERN = /^(serial|sku|số\.serial|stt|no|s\/n)\s*$/i
 
 function parseFileContent(content: string): string[] {
   const raw = content.replace(/^\uFEFF/, "")
@@ -31,6 +31,8 @@ function parseFileContent(content: string): string[] {
   return result
 }
 
+const VISIBLE_LIMIT = 50
+
 export const SerialModal = ({
   open,
   onOpenChange,
@@ -40,45 +42,30 @@ export const SerialModal = ({
   serials,
   onSave,
 }: SerialModalProps) => {
-  const [text, setText] = useState(serials.join("\n"))
+  const [chips, setChips] = useState<string[]>(serials)
   const [fileImporting, setFileImporting] = useState(false)
   const [lastFileCount, setLastFileCount] = useState(0)
+  const [showAll, setShowAll] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (open) {
-      setText(serials.join("\n"))
+      setChips(serials)
       setLastFileCount(0)
+      setShowAll(false)
     }
   }, [open, serials])
 
-  const rawLines = text.split("\n")
-  const lines = useMemo(() => {
-    const seen = new Set<string>()
-    return rawLines.map((line, idx) => {
-      const trimmed = line.trim()
-      const isEmpty = trimmed === ""
-      const isDuplicate = !isEmpty && seen.has(trimmed)
-      if (!isEmpty) seen.add(trimmed)
-      return { idx, trimmed, isEmpty, isDuplicate }
-    })
-  }, [rawLines])
-
-  const validSerials = lines.filter((l) => !l.isEmpty && !l.isDuplicate).map((l) => l.trimmed)
-  const count = validSerials.length
-  const duplicateCount = lines.filter((l) => l.isDuplicate).length
+  const count = chips.length
   const overCount = count > required
   const underCount = count < required
-  const hasDuplicate = duplicateCount > 0
+  const truncated = chips.length > VISIBLE_LIMIT
 
   let errorMsg = ""
   if (overCount) errorMsg = `Vượt quá ${count - required} serial so với số lượng`
   else if (underCount) errorMsg = `Còn thiếu ${required - count} serial`
-  else if (hasDuplicate) errorMsg = `Có ${duplicateCount} dòng bị trùng serial`
 
-  const showLargeText = rawLines.length > 200
-
-  const canSave = count === required && !hasDuplicate
+  const canSave = count === required
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -94,20 +81,13 @@ export const SerialModal = ({
           setFileImporting(false)
           return
         }
-        const existing = new Set(
-          text
-            .split("\n")
-            .map((s) => s.trim())
-            .filter(Boolean),
-        )
-        const newSerials = imported.filter((s) => !existing.has(s))
+        const newSerials = imported.filter((s) => !chips.includes(s))
         if (newSerials.length === 0) {
           toast.error("Tất cả serial trong file đã có trong danh sách")
           setFileImporting(false)
           return
         }
-        const appended = text.trimEnd() + (text.trimEnd() ? "\n" : "") + newSerials.join("\n")
-        setText(appended)
+        setChips((prev) => [...prev, ...newSerials])
         setLastFileCount(newSerials.length)
         setFileImporting(false)
         toast.success(`Đã thêm ${newSerials.length} serial từ file`)
@@ -119,7 +99,7 @@ export const SerialModal = ({
 
   const handleSave = () => {
     if (!canSave) return
-    onSave(validSerials)
+    onSave(chips)
     onOpenChange(false)
   }
 
@@ -174,29 +154,20 @@ export const SerialModal = ({
           />
         </div>
 
-        {hasDuplicate && (
-          <div className="rounded-md border border-destructive/20 bg-destructive/10 px-3 py-2 text-xs text-destructive mb-2">
-            <XCircle className="size-3 inline mr-1" />
-            {duplicateCount} serial bị trùng. Vui lòng sửa hoặc xoá dòng trùng trước khi lưu.
-          </div>
-        )}
-
         <div className="flex gap-2">
-          {showLargeText ? (
-            <div className="flex-1 rounded-md border bg-muted/30 px-3 py-4 text-center text-sm text-muted-foreground">
-              <FileText className="size-8 mx-auto mb-1 opacity-40" />
-              <p>{rawLines.length} dòng serial</p>
-              {lastFileCount > 0 && <p className="text-xs">Lần cuối: +{lastFileCount} serial từ file</p>}
-              <p className="text-xs mt-1">Chỉnh sửa bằng cách nhập lại số lượng hoặc import file mới</p>
-            </div>
-          ) : (
-            <Textarea
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              placeholder="Nhập serial, mỗi serial trên một dòng..."
-              className={`flex-1 h-48 font-mono text-xs ${hasDuplicate ? "border-destructive" : ""}`}
+          <div className="flex-1 space-y-2">
+            <ChipInput
+              value={chips}
+              onChange={setChips}
+              onDuplicate={(v) => toast.error(`${v} đã có trong danh sách`)}
+              placeholder="Nhập serial, Enter để thêm..."
             />
-          )}
+            {truncated && !showAll && (
+              <p className="text-xs text-muted-foreground">
+                và {chips.length - VISIBLE_LIMIT} serial khác
+              </p>
+            )}
+          </div>
           <div className="flex flex-col gap-2">
             <input ref={fileRef} type="file" accept=".txt,.csv" className="hidden" onChange={handleFile} />
             <Button
@@ -215,17 +186,35 @@ export const SerialModal = ({
           </div>
         </div>
 
-        {errorMsg && (
-          <p className={`text-xs ${hasDuplicate || overCount ? "text-destructive" : "text-muted-foreground"}`}>
-            {errorMsg}
-          </p>
+        {truncated && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="gap-1 text-xs w-full"
+            onClick={() => setShowAll(!showAll)}
+          >
+            {showAll ? (
+              <>
+                <ChevronUp className="size-3" /> Thu gọn
+              </>
+            ) : (
+              <>
+                <ChevronDown className="size-3" /> Xem tất cả {chips.length} serial
+              </>
+            )}
+          </Button>
         )}
 
         {lastFileCount > 0 && (
           <p className="text-xs text-muted-foreground">
             <CheckCircle2 className="size-3 inline mr-1 text-green-600" />
             Đã import {lastFileCount} serial từ file
-            {showLargeText && " — textarea ẩn do số lượng lớn, nhấn Xác nhận để lưu"}
+          </p>
+        )}
+
+        {errorMsg && (
+          <p className={`text-xs ${overCount ? "text-destructive" : "text-muted-foreground"}`}>
+            {errorMsg}
           </p>
         )}
 
@@ -238,9 +227,7 @@ export const SerialModal = ({
               ? "Giảm số serial"
               : underCount
                 ? `Còn thiếu ${required - count} serial`
-                : hasDuplicate
-                  ? "Xoá dòng trùng"
-                  : `Xác nhận ${count} serial`}
+                : `Xác nhận ${count} serial`}
           </Button>
         </DialogFooter>
       </DialogContent>

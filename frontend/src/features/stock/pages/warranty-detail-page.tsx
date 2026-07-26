@@ -12,7 +12,6 @@ import { ROLES } from "@/utils/permissions"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
-import { WARRANTY_STATUS, WARRANTY_RESOLUTION_TYPE, WARRANTY_RESULT } from "@/utils/types"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -27,22 +26,23 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
-import { Check, X, ShieldCheck, AlertTriangle } from "lucide-react"
+import { Check, X, ShieldCheck } from "lucide-react"
 import { toast } from "@/utils/toast"
+import { WARRANTY_STATUS, WARRANTY_RESOLUTION_TYPE, WARRANTY_RESULT } from "@/utils/types"
 import { WarrantyTimeline } from "../components/warranty-timeline"
 
-const statusLabel: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline"; className?: string }> = {
-  [WARRANTY_STATUS.PENDING]: { label: "Chờ tiếp nhận", variant: "secondary" },
-  [WARRANTY_STATUS.RECEIVED]: { label: "Đang kiểm tra", variant: "outline", className: "border-blue-300 text-blue-600 dark:text-blue-400" },
-  [WARRANTY_STATUS.UNDER_EVALUATION]: { label: "Chờ QL duyệt", variant: "outline", className: "border-amber-300 text-amber-600 dark:text-amber-400" },
-  [WARRANTY_STATUS.RESOLVED]: { label: "Đã xử lý", variant: "default" },
+const statusConfig: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline"; className?: string }> = {
+  [WARRANTY_STATUS.PENDING]: { label: "Chờ xử lý", variant: "secondary" },
+  [WARRANTY_STATUS.COMPLETED]: { label: "Đã xong", variant: "default" },
+  [WARRANTY_STATUS.CANCELLED]: { label: "Đã hủy", variant: "destructive" },
 }
 
 const resolutionMeta: Record<string, { icon: string; title: string; desc: string }> = {
-  [WARRANTY_RESOLUTION_TYPE.REPAIR]: { icon: "🔧", title: "Sửa chữa", desc: "Sửa tại kho hoặc gửi NCC. Unit giữ nguyên serial." },
   [WARRANTY_RESOLUTION_TYPE.REPLACE]: { icon: "🔄", title: "Đổi mới", desc: "Đổi serial mới, giữ nguyên hạn BH gốc." },
-  [WARRANTY_RESOLUTION_TYPE.REFUND]: { icon: "💰", title: "Hoàn tiền", desc: "Hoàn tiền cho khách, unit → returned." },
-  [WARRANTY_RESOLUTION_TYPE.REJECT]: { icon: "✕", title: "Từ chối", desc: "Từ chối yêu cầu bảo hành. Unit trả khách nguyên trạng." },
+  [WARRANTY_RESOLUTION_TYPE.RMA]: { icon: "📦", title: "Gửi NCC (RMA)", desc: "Gửi nhà cung cấp bảo hành. Cần RMA number." },
+  [WARRANTY_RESOLUTION_TYPE.REPAIR]: { icon: "🔧", title: "Sửa chữa", desc: "Sửa tại kho. Unit giữ nguyên serial." },
+  [WARRANTY_RESOLUTION_TYPE.REJECT]: { icon: "✕", title: "Từ chối", desc: "Từ chối yêu cầu. Unit trả khách nguyên trạng." },
+  [WARRANTY_RESOLUTION_TYPE.RETURN_SUPPLIER]: { icon: "📤", title: "Trả NCC", desc: "Trả lại nhà cung cấp." },
 }
 
 export const WarrantyDetailPage = () => {
@@ -53,6 +53,7 @@ export const WarrantyDetailPage = () => {
 
   const [dialog, setDialog] = useState<"resolve" | "complete" | "cancel" | null>(null)
   const [resolutionType, setResolutionType] = useState("")
+  const [replacementUnitId, setReplacementUnitId] = useState<number | undefined>()
   const [rmaNumber, setRmaNumber] = useState("")
   const [expectedReturnAt, setExpectedReturnAt] = useState("")
   const [partnerNote, setPartnerNote] = useState("")
@@ -61,8 +62,6 @@ export const WarrantyDetailPage = () => {
   const [resolveNote, setResolveNote] = useState("")
 
   const isManager = perm.hasRole(...ROLES.CAN_APPROVE)
-  const isStock = perm.hasRole("STOCK")
-  const isSales = perm.hasRole("SALES")
 
   const { data: wr, isLoading } = useQuery({
     queryKey: ["warranty-request", id],
@@ -74,6 +73,7 @@ export const WarrantyDetailPage = () => {
     mutationFn: () =>
       resolveWarrantyRequest(Number(id!), {
         resolutionType,
+        replacementUnitId,
         rmaNumber: rmaNumber.trim() || undefined,
         expectedReturnAt: expectedReturnAt || undefined,
         partnerNote: partnerNote.trim() || undefined,
@@ -116,6 +116,7 @@ export const WarrantyDetailPage = () => {
 
   const resetResolve = () => {
     setResolutionType("")
+    setReplacementUnitId(undefined)
     setRmaNumber("")
     setExpectedReturnAt("")
     setPartnerNote("")
@@ -139,18 +140,23 @@ export const WarrantyDetailPage = () => {
       </div>
     )
 
-  const st = statusLabel[wr.status] ?? { label: wr.status, variant: "secondary" as const }
+  const cfg = statusConfig[wr.status] ?? { label: wr.status, variant: "secondary" as const }
+  const hasResolution = !!wr.resolutionType
+  const isPending = wr.status === WARRANTY_STATUS.PENDING
+  const isCompleted = wr.status === WARRANTY_STATUS.COMPLETED
+
+
   const milestones = [
-    { label: "Tiếp nhận", timestamp: wr.createdAt, actor: wr.createdByName, done: true },
-    { label: "Đã nhận", timestamp: null, actor: null, done: wr.status !== WARRANTY_STATUS.PENDING },
-    { label: "Đang đánh giá", timestamp: null, actor: null, done: wr.status === WARRANTY_STATUS.UNDER_EVALUATION || wr.status === WARRANTY_STATUS.RESOLVED },
-    { label: "Hoàn tất", timestamp: wr.completedAt, actor: wr.handledByName, done: wr.status === WARRANTY_STATUS.RESOLVED },
+    { label: "Tạo phiếu", timestamp: wr.createdAt, actor: null, done: true },
+    { label: "Xử lý", timestamp: null, actor: null, done: hasResolution || !isPending },
+    { label: "Kết thúc", timestamp: wr.completedAt, actor: wr.handledByName, done: !isPending },
   ]
 
-  const canResolve = (wr.status === WARRANTY_STATUS.RECEIVED || wr.status === WARRANTY_STATUS.UNDER_EVALUATION) && isManager
-  const canComplete = wr.status === WARRANTY_STATUS.UNDER_EVALUATION && isStock
-  const canCancel = (wr.status === WARRANTY_STATUS.PENDING || wr.status === WARRANTY_STATUS.RECEIVED) && isManager
-  const isReadOnly = isSales || (!canResolve && !canComplete && !canCancel)
+  const showResolveCards = isPending && !hasResolution && isManager
+  const showRepairPanel = isPending && wr.resolutionType === WARRANTY_RESOLUTION_TYPE.REPAIR
+  const showRmaPanel = isPending && wr.resolutionType === WARRANTY_RESOLUTION_TYPE.RMA
+  const showComplete = (showRepairPanel || showRmaPanel) && isManager
+  const showCancel = isPending && isManager
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -166,19 +172,15 @@ export const WarrantyDetailPage = () => {
         </BreadcrumbList>
       </Breadcrumb>
 
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Badge variant={st.variant} className={st.className}>{st.label}</Badge>
-          <span className="font-mono text-xs text-muted-foreground">{wr.requestCode}</span>
-        </div>
+      <div className="flex items-center gap-3">
+        <Badge variant={cfg.variant} className={cfg.className}>{cfg.label}</Badge>
+        <span className="font-mono text-xs text-muted-foreground">{wr.requestCode}</span>
       </div>
 
-      {/* Timeline */}
       <div className="rounded-lg border p-6">
         <WarrantyTimeline milestones={milestones} />
       </div>
 
-      {/* Thông tin khách/SP */}
       <div className="rounded-lg border p-6 space-y-4">
         <div className="flex items-center gap-2 mb-2">
           <ShieldCheck className="size-5 text-primary" />
@@ -217,50 +219,9 @@ export const WarrantyDetailPage = () => {
         )}
       </div>
 
-      {/* Panel động theo state */}
-      {isReadOnly && wr.status !== WARRANTY_STATUS.RESOLVED && (
-        <div className="rounded-lg border border-muted bg-muted/10 p-4 text-center text-sm text-muted-foreground">
-          {wr.status === WARRANTY_STATUS.UNDER_EVALUATION
-            ? "Đang chờ QL duyệt hướng xử lý."
-            : "Phiếu đang được xử lý."}
-        </div>
-      )}
-
-      {wr.status === WARRANTY_STATUS.RESOLVED && wr.resolutionType && (
-        <div className="rounded-lg border p-6 space-y-4">
-          <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Kết quả xử lý</h3>
-          <div className="flex items-center gap-3">
-            <span className="text-2xl">{resolutionMeta[wr.resolutionType]?.icon ?? "🔧"}</span>
-            <div>
-              <p className="font-semibold">{resolutionMeta[wr.resolutionType]?.title ?? wr.resolutionType}</p>
-              <p className="text-sm text-muted-foreground">{resolutionMeta[wr.resolutionType]?.desc ?? ""}</p>
-            </div>
-          </div>
-          {wr.replacementSerialNumber && (
-            <div className="text-sm">
-              <span className="text-muted-foreground">Serial thay thế:</span>
-              <span className="ml-2 font-mono">{wr.replacementSerialNumber}</span>
-            </div>
-          )}
-          {wr.rmaNumber && (
-            <div className="text-sm">
-              <span className="text-muted-foreground">RMA:</span>
-              <span className="ml-2 font-mono">{wr.rmaNumber}</span>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* UNDER_EVALUATION — QL: 4 Resolution Cards */}
-      {canResolve && wr.status === WARRANTY_STATUS.UNDER_EVALUATION && (
+      {showResolveCards && (
         <div className="space-y-3">
           <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Chọn hướng xử lý</h3>
-          {isManager && (
-            <div className="rounded-md border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
-              <AlertTriangle className="size-3 inline mr-1 -mt-0.5" />
-              Đang duyệt thay QL
-            </div>
-          )}
           <div className="grid grid-cols-2 gap-3">
             {Object.entries(resolutionMeta).map(([key, meta]) => (
               <button
@@ -278,62 +239,94 @@ export const WarrantyDetailPage = () => {
         </div>
       )}
 
-      {/* RECEIVED — STOCK: form check (không có BE endpoint, hiện hướng dẫn) */}
-      {wr.status === WARRANTY_STATUS.RECEIVED && isStock && (
-        <div className="rounded-lg border p-4 text-sm text-muted-foreground">
-          <p>Đã nhận hàng từ khách. Vui lòng kiểm tra và chuyển sang bước đánh giá.</p>
+      {isPending && !hasResolution && !isManager && (
+        <div className="rounded-lg border border-muted bg-muted/10 p-4 text-center text-sm text-muted-foreground">
+          Đang chờ QL xử lý.
         </div>
       )}
 
-      {/* PENDING — STOCK: nút nhận hàng */}
-      {wr.status === WARRANTY_STATUS.PENDING && isStock && (
-        <div className="rounded-lg border p-4 text-sm text-muted-foreground">
-          <p>Khách đã gửi hàng chưa nhận vào kho.</p>
+      {showRepairPanel && (
+        <div className="rounded-lg border p-6 space-y-3">
+          <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Sửa chữa</h3>
+          <p className="text-sm text-muted-foreground">Đang sửa chữa tại kho. Xác nhận kết quả để hoàn tất.</p>
         </div>
       )}
 
-      {/* RESOLVED — STOCK: execute panel */}
-      {wr.status === WARRANTY_STATUS.RESOLVED && isStock && (
-        <div className="space-y-3">
-          <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Thực thi</h3>
-          <div className="rounded-lg border p-4">
-            {wr.resolutionType === WARRANTY_RESOLUTION_TYPE.REPAIR && (
-              <p className="text-sm text-muted-foreground">Xác nhận đã sửa xong để hoàn tất phiếu.</p>
+      {showRmaPanel && (
+        <div className="rounded-lg border p-6 space-y-3">
+          <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Gửi NCC</h3>
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            {wr.rmaNumber && (
+              <div>
+                <span className="text-muted-foreground">RMA number</span>
+                <p className="font-mono mt-0.5">{wr.rmaNumber}</p>
+              </div>
             )}
-            {wr.resolutionType === WARRANTY_RESOLUTION_TYPE.REPLACE && (
-              <p className="text-sm text-muted-foreground">Đã đổi hàng cho khách.</p>
+            {wr.sentToPartnerAt && (
+              <div>
+                <span className="text-muted-foreground">Ngày gửi</span>
+                <p className="mt-0.5">{new Date(wr.sentToPartnerAt).toLocaleDateString("vi-VN")}</p>
+              </div>
             )}
-            {wr.resolutionType === WARRANTY_RESOLUTION_TYPE.REFUND && (
-              <p className="text-sm text-muted-foreground">Đã hoàn tiền cho khách.</p>
+            {wr.expectedReturnAt && (
+              <div>
+                <span className="text-muted-foreground">Dự kiến trả</span>
+                <p className="mt-0.5">{new Date(wr.expectedReturnAt).toLocaleDateString("vi-VN")}</p>
+              </div>
+            )}
+            {wr.partnerNote && (
+              <div className="col-span-2">
+                <span className="text-muted-foreground">Ghi chú NCC</span>
+                <p className="mt-0.5">{wr.partnerNote}</p>
+              </div>
             )}
           </div>
-          <Button onClick={() => setDialog("complete")}>
-            <Check className="size-4 mr-1" /> Xác nhận hoàn tất
-          </Button>
         </div>
       )}
 
-      {/* Action buttons */}
+      {isCompleted && wr.resolutionType && (
+        <div className="rounded-lg border p-6 space-y-4">
+          <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Kết quả</h3>
+          <div className="flex items-center gap-3">
+            {resolutionMeta[wr.resolutionType] && (
+              <>
+                <span className="text-2xl">{resolutionMeta[wr.resolutionType]?.icon}</span>
+                <div>
+                  <p className="font-semibold">{resolutionMeta[wr.resolutionType]?.title}</p>
+                  <p className="text-sm text-muted-foreground">{resolutionMeta[wr.resolutionType]?.desc}</p>
+                </div>
+              </>
+            )}
+          </div>
+          {wr.replacementSerialNumber && (
+            <div className="text-sm">
+              <span className="text-muted-foreground">Serial thay thế:</span>
+              <span className="ml-2 font-mono">{wr.replacementSerialNumber}</span>
+            </div>
+          )}
+          {wr.rmaNumber && (
+            <div className="text-sm">
+              <span className="text-muted-foreground">RMA:</span>
+              <span className="ml-2 font-mono">{wr.rmaNumber}</span>
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="flex flex-wrap justify-end gap-2">
-        {canCancel && (
+        {showCancel && (
           <Button variant="outline" className="text-destructive" onClick={() => setDialog("cancel")}>
             <X className="size-4 mr-1" /> Hủy phiếu
           </Button>
         )}
-        {canComplete && (
+        {showComplete && (
           <Button onClick={() => setDialog("complete")}>
-            <Check className="size-4 mr-1" /> Hoàn tất
+            <Check className="size-4 mr-1" /> Xác nhận kết quả
           </Button>
         )}
       </div>
 
-      {/* Resolve dialog */}
-      <Dialog
-        open={dialog === "resolve"}
-        onOpenChange={(v) => {
-          if (!v) { setDialog(null); resetResolve() }
-        }}
-      >
+      <Dialog open={dialog === "resolve"} onOpenChange={(v) => { if (!v) { setDialog(null); resetResolve() } }}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Xác nhận hướng xử lý</DialogTitle>
@@ -348,15 +341,21 @@ export const WarrantyDetailPage = () => {
 
               {resolutionType === WARRANTY_RESOLUTION_TYPE.REPLACE && (
                 <div className="space-y-2">
-                  <Label htmlFor="rma">Serial thay thế (nếu có)</Label>
-                  <Input id="rma" value={rmaNumber} onChange={(e) => setRmaNumber(e.target.value)} placeholder="Nhập serial sản phẩm thay thế..." />
+                  <Label htmlFor="replaceSerial">Serial thay thế <span className="text-destructive">*</span></Label>
+                  <Input
+                    id="replaceSerial"
+                    value={replacementUnitId ?? ""}
+                    onChange={(e) => setReplacementUnitId(Number(e.target.value) || undefined)}
+                    placeholder="Nhập ID serial thay thế..."
+                    type="number"
+                  />
                 </div>
               )}
 
-              {resolutionType === WARRANTY_RESOLUTION_TYPE.REPAIR && (
+              {resolutionType === WARRANTY_RESOLUTION_TYPE.RMA && (
                 <>
                   <div className="space-y-2">
-                    <Label htmlFor="rma">RMA number (nếu gửi NCC)</Label>
+                    <Label htmlFor="rma">RMA number <span className="text-destructive">*</span></Label>
                     <Input id="rma" value={rmaNumber} onChange={(e) => setRmaNumber(e.target.value)} placeholder="VD: RMA-2026-001" />
                   </div>
                   <div className="space-y-2">
@@ -370,10 +369,19 @@ export const WarrantyDetailPage = () => {
                 </>
               )}
 
-              <div className="space-y-2">
-                <Label htmlFor="resolveNote">Ghi chú</Label>
-                <Textarea id="resolveNote" value={resolveNote} onChange={(e) => setResolveNote(e.target.value)} rows={2} />
-              </div>
+              {resolutionType === WARRANTY_RESOLUTION_TYPE.REJECT && (
+                <div className="space-y-2">
+                  <Label htmlFor="rejectNote">Lý do từ chối <span className="text-destructive">*</span></Label>
+                  <Textarea id="rejectNote" value={resolveNote} onChange={(e) => setResolveNote(e.target.value)} rows={2} placeholder="Bắt buộc nhập lý do từ chối" />
+                </div>
+              )}
+
+              {resolutionType !== WARRANTY_RESOLUTION_TYPE.REJECT && (
+                <div className="space-y-2">
+                  <Label htmlFor="resolveNote">Ghi chú</Label>
+                  <Textarea id="resolveNote" value={resolveNote} onChange={(e) => setResolveNote(e.target.value)} rows={2} />
+                </div>
+              )}
             </div>
           </ScrollArea>
           <DialogFooter>
@@ -388,17 +396,26 @@ export const WarrantyDetailPage = () => {
       <Dialog open={dialog === "complete"} onOpenChange={(v) => { if (!v) { setDialog(null); setResult(""); setResolveNote("") } }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Hoàn tất phiếu bảo hành</DialogTitle>
+            <DialogTitle>Kết quả thực thi</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
+            {wr?.resolutionType && (
+              <div className="rounded-lg border p-3 bg-muted/10 text-sm">
+                <span className="text-muted-foreground">Hướng xử lý:</span>{" "}
+                <span className="font-medium">{resolutionMeta[wr.resolutionType]?.title}</span>
+              </div>
+            )}
             <div className="space-y-2">
               <Label>Kết quả <span className="text-destructive">*</span></Label>
               <select value={result} onChange={(e) => setResult(e.target.value)} className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm">
                 <option value="">Chọn kết quả</option>
                 <option value={WARRANTY_RESULT.REPAIRED}>Đã sửa xong</option>
-                <option value={WARRANTY_RESULT.REPLACED}>Đã đổi hàng</option>
-                <option value={WARRANTY_RESULT.REFUNDED}>Đã hoàn tiền</option>
-                <option value={WARRANTY_RESULT.REJECTED}>Đã từ chối</option>
+                {wr?.resolutionType === WARRANTY_RESOLUTION_TYPE.RMA && (
+                  <option value={WARRANTY_RESULT.LOST}>Thất lạc / mất</option>
+                )}
+                {wr?.resolutionType === WARRANTY_RESOLUTION_TYPE.REPAIR && (
+                  <option value={WARRANTY_RESULT.DEFECTIVE}>Lỗi không sửa được</option>
+                )}
               </select>
             </div>
             <div className="space-y-2">
