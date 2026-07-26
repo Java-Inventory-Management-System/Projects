@@ -36,7 +36,6 @@ const statusLabel: Record<string, { label: string; variant: "default" | "seconda
   IN_PROGRESS: { label: "Checking", variant: "outline" },
   COMPLETED: { label: "Pending Approval", variant: "default" },
   APPROVED: { label: "Approved", variant: "default" },
-  REJECTED: { label: "Rejected", variant: "destructive" },
 }
 
 export const StockCheckDetailPage = () => {
@@ -65,7 +64,7 @@ export const StockCheckDetailPage = () => {
 
   const recordMut = useMutation({
     mutationFn: (data: {
-      items: Array<{ productUnitId: number; actualStatus?: string; countedQuantity?: number; note?: string }>
+      items: Array<{ productUnitId: number; actualStatus?: string; countedQuantity?: number; note?: string; photo?: string }>
     }) => recordStockCheckItems(Number(id!), data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["stock-check", id] })
@@ -138,7 +137,6 @@ export const StockCheckDetailPage = () => {
   const canEdit =
     (check.status === STOCK_CHECK_STATUS.PENDING || check.status === STOCK_CHECK_STATUS.IN_PROGRESS) && isStock
   const canApprove = check.status === STOCK_CHECK_STATUS.COMPLETED && isManager
-  const mismatchCount = localItems.filter((i) => i.difference && i.difference !== STOCK_CHECK_DIFF.MATCH).length
 
   const recordItems = () => {
     const items = localItems.map((i) => ({
@@ -191,29 +189,7 @@ export const StockCheckDetailPage = () => {
               </Button>
             </ButtonGroup>
           )}
-          {check.status === STOCK_CHECK_STATUS.APPROVED && mismatchCount > 0 && (
-            <Button
-              onClick={() => {
-                const mismatches = localItems.filter((i) => i.difference && i.difference !== STOCK_CHECK_DIFF.MATCH)
-                navigate("/stock/adjustments/new", {
-                  state: {
-                    reason: `From ${check.checkCode} — ${mismatchCount} items mismatch`,
-                    mismatches: mismatches.map((m) => ({
-                      productUnitId: m.productUnitId,
-                      productName: m.productName,
-                      productSku: m.productSku,
-                      serialNumber: m.serialNumber,
-                      difference: m.difference,
-                      expectedStatus: m.expectedStatus,
-                    })),
-                    batch: true,
-                  },
-                })
-              }}
-            >
-              <ClipboardCheck className="size-4 mr-1" /> Tạo phiếu điều chỉnh ({mismatchCount})
-            </Button>
-          )}
+          {/* ponytail: approve auto-creates adjustments, no manual button needed */}
         </div>
       </div>
 
@@ -279,6 +255,12 @@ export const StockCheckDetailPage = () => {
               <span className="text-muted-foreground">Date:</span>
               <p className="font-medium">{new Date(check.createdAt).toLocaleString("vi-VN")}</p>
             </div>
+            {check.scopeType && (
+              <div>
+                <span className="text-muted-foreground">Scope:</span>
+                <p className="font-medium">{check.scopeType} #{check.scopeId}</p>
+              </div>
+            )}
             {check.approvedByName && (
               <div>
                 <span className="text-muted-foreground">Approved by:</span>

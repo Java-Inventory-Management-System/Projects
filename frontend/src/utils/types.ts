@@ -340,7 +340,8 @@ export interface ExportReceiptItem {
 
 // ============ Stock Check ============
 
-export type StockCheckStatus = "PENDING" | "IN_PROGRESS" | "COMPLETED" | "APPROVED" | "REJECTED"
+export type StockCheckStatus = "PENDING" | "IN_PROGRESS" | "COMPLETED" | "APPROVED"
+export type StockCheckScopeType = "ZONE" | "CATEGORY"
 export type DifferenceType = "MATCH" | "MISSING" | "UNEXPECTED" | "PARTIAL_SHORTAGE"
 
 export interface StockCheckItem {
@@ -360,8 +361,10 @@ export interface StockCheckItem {
 export interface StockCheck {
   id: number
   checkCode: string
-  note: string | null
   status: StockCheckStatus
+  scopeType: StockCheckScopeType | null
+  scopeId: number | null
+  note: string | null
   createdBy: number | null
   createdByName: string | null
   approvedBy: number | null
@@ -379,7 +382,8 @@ export interface StockCheck {
 // ============ Stock Adjustment ============
 
 export type AdjustmentType = "DAMAGED" | "LOST" | "FOUND"
-export type AdjustmentStatus = "PENDING" | "APPROVED" | "REJECTED"
+export type AdjustmentStatus = "PENDING" | "APPROVED"
+export type AdjustmentSourceType = "MANUAL" | "STOCK_CHECK"
 
 export interface StockAdjustment {
   id: number
@@ -394,6 +398,8 @@ export interface StockAdjustment {
   reason: string
   imageUrl: string | null
   status: AdjustmentStatus
+  sourceType: AdjustmentSourceType | null
+  sourceId: number | null
   createdBy: number | null
   createdByName: string | null
   approvedBy: number | null
@@ -658,13 +664,11 @@ export const STOCK_CHECK_STATUS = {
   IN_PROGRESS: "IN_PROGRESS",
   COMPLETED: "COMPLETED",
   APPROVED: "APPROVED",
-  REJECTED: "REJECTED",
 } as const
 
 export const ADJUSTMENT_STATUS = {
   PENDING: "PENDING",
   APPROVED: "APPROVED",
-  REJECTED: "REJECTED",
 } as const
 
 export const RETURN_RECEIPT_STATUS = {

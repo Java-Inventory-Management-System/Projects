@@ -7,7 +7,8 @@ public record StockCheckItemRequest(
         Long productUnitId,
         String actualStatus,
         BigDecimal countedQuantity,
-        String note
+        String note,
+        String photo
 ) {
     public record BatchRequest(
             List<StockCheckItemRequest> items

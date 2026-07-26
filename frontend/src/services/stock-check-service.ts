@@ -1,14 +1,22 @@
 import http from "@/utils/http-client"
-import type { ResponsePage, StockCheck } from "@/utils/types"
+import type { ResponsePage, StockCheck, StockCheckScopeType } from "@/utils/types"
 import { mapResponsePage, mapStockCheck } from "@/utils/mappers"
 
-export async function getStockChecks(page = 0, size = 20, sort?: string): Promise<ResponsePage<StockCheck>> {
-  const res = await http.get("/stock-check", { params: { page, size, sort: sort ?? "createdAt,desc" } })
+export async function getStockChecks(
+  page = 0, size = 20, sort?: string, status?: string,
+): Promise<ResponsePage<StockCheck>> {
+  const params: Record<string, string | number> = { page, size, sort: sort ?? "createdAt,desc" }
+  if (status) params.status = status
+  const res = await http.get("/stock-check", { params })
   return mapResponsePage(res, mapStockCheck)
 }
 
-export async function getMyStockChecks(page = 0, size = 20, sort?: string): Promise<ResponsePage<StockCheck>> {
-  const res = await http.get("/stock-check/my", { params: { page, size, sort: sort ?? "createdAt,desc" } })
+export async function getMyStockChecks(
+  page = 0, size = 20, sort?: string, status?: string,
+): Promise<ResponsePage<StockCheck>> {
+  const params: Record<string, string | number> = { page, size, sort: sort ?? "createdAt,desc" }
+  if (status) params.status = status
+  const res = await http.get("/stock-check/my", { params })
   return mapResponsePage(res, mapStockCheck)
 }
 
@@ -17,7 +25,7 @@ export async function getStockCheckById(id: number): Promise<StockCheck> {
   return mapStockCheck(res)
 }
 
-export async function createStockCheck(data: { note?: string; productUnitIds: number[] }): Promise<StockCheck> {
+export async function createStockCheck(data: { scopeType: StockCheckScopeType; scopeId: number; note?: string }): Promise<StockCheck> {
   const res = await http.post("/stock-check", data)
   return mapStockCheck(res)
 }
@@ -30,6 +38,7 @@ export async function recordStockCheckItems(
       actualStatus?: string
       countedQuantity?: number
       note?: string
+      photo?: string
     }>
   },
 ): Promise<StockCheck> {

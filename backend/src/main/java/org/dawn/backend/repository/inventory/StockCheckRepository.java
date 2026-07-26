@@ -6,7 +6,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-import java.time.Instant;
 import java.util.List;
 
 public interface StockCheckRepository extends JpaRepository<StockCheck, Long> {
@@ -14,5 +13,9 @@ public interface StockCheckRepository extends JpaRepository<StockCheck, Long> {
 
     Page<StockCheck> findByCreatedBy(Long createdBy, Pageable pageable);
 
-    List<StockCheck> findByStatusInAndCreatedAtBefore(List<StockCheckStatus> statuses, Instant createdAt);
+    Page<StockCheck> findByCreatedByAndStatus(Long createdBy, StockCheckStatus status, Pageable pageable);
+
+    Page<StockCheck> findByStatus(StockCheckStatus status, Pageable pageable);
+
+    List<StockCheck> findByStatus(StockCheckStatus status);
 }

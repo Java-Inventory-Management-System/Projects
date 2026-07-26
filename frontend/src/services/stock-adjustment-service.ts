@@ -42,6 +42,8 @@ export async function createStockAdjustment(data: {
   quantity?: number
   reason: string
   imageUrl?: string
+  sourceType?: string
+  sourceId?: number
 }): Promise<StockAdjustment> {
   const res = await http.post("/stock-adjustment", data)
   return mapStockAdjustment(res)

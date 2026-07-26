@@ -22,14 +22,18 @@ public class StockCheckController {
 
     @GetMapping("/stock-check/my")
     @PreAuthorize(AuthorizationExpressions.CAN_VIEW_INVENTORY)
-    public ResponseObject<ResponsePage<StockCheckResponse>> getMyStockChecks(Pageable pageable) {
-        return ResponseObject.success(stockCheckService.findMyChecks(pageable));
+    public ResponseObject<ResponsePage<StockCheckResponse>> getMyStockChecks(
+            Pageable pageable,
+            @RequestParam(required = false) String status) {
+        return ResponseObject.success(stockCheckService.findMyChecks(pageable, status));
     }
 
     @GetMapping("/stock-check")
     @PreAuthorize(AuthorizationExpressions.CAN_VIEW_REPORTS)
-    public ResponseObject<ResponsePage<StockCheckResponse>> getAll(Pageable pageable) {
-        return ResponseObject.success(stockCheckService.findAll(pageable));
+    public ResponseObject<ResponsePage<StockCheckResponse>> getAll(
+            Pageable pageable,
+            @RequestParam(required = false) String status) {
+        return ResponseObject.success(stockCheckService.findAll(pageable, status));
     }
 
     @GetMapping("/stock-check/{id}")

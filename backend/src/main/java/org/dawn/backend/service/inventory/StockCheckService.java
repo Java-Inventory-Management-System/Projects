@@ -4,10 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dawn.backend.config.anno.AuditLog;
 import org.dawn.backend.config.web.response.ResponsePage;
-import org.dawn.backend.constant.inventory.DifferenceType;
-import org.dawn.backend.constant.inventory.ProductUnitStatus;
-import org.dawn.backend.constant.inventory.SourceType;
-import org.dawn.backend.constant.inventory.StockCheckStatus;
+import org.dawn.backend.constant.inventory.*;
 import org.dawn.backend.constant.shared.LogConstant;
 import org.dawn.backend.constant.shared.Message;
 import org.dawn.backend.controller.inventory.request.ApproveStockCheckRequest;
@@ -38,14 +35,19 @@ public class StockCheckService {
 
     private final StockCheckRepository stockCheckRepository;
     private final StockCheckItemRepository stockCheckItemRepository;
+    private final StockCheckItemHistoryRepository itemHistoryRepository;
+    private final StockAdjustmentRepository adjustmentRepository;
     private final ProductUnitRepository productUnitRepository;
     private final ProductUnitStatusLogRepository statusLogRepository;
+    private final LocationRepository locationRepository;
     private final ProductRepository productRepository;
     private final UserRepository userRepository;
 
     @Transactional(readOnly = true)
-    public ResponsePage<StockCheckResponse> findAll(Pageable pageable) {
-        var page = stockCheckRepository.findAll(pageable);
+    public ResponsePage<StockCheckResponse> findAll(Pageable pageable, String status) {
+        var page = status != null
+                ? stockCheckRepository.findByStatus(StockCheckStatus.valueOf(status.toUpperCase()), pageable)
+                : stockCheckRepository.findAll(pageable);
         var userMap = fetchUserNames(page.getContent());
         return ResponsePage.of(page.map(sc -> enrich(sc, userMap)));
     }
@@ -57,27 +59,49 @@ public class StockCheckService {
         return enrich(sc);
     }
 
+    @Transactional(readOnly = true)
+    public ResponsePage<StockCheckResponse> findMyChecks(Pageable pageable, String status) {
+        Long userId = SecurityUtils.getCurrentUserId();
+        var page = status != null
+                ? stockCheckRepository.findByCreatedByAndStatus(userId, StockCheckStatus.valueOf(status.toUpperCase()), pageable)
+                : stockCheckRepository.findByCreatedBy(userId, pageable);
+        var userMap = fetchUserNames(page.getContent());
+        return ResponsePage.of(page.map(sc -> enrich(sc, userMap)));
+    }
+
     @Transactional
     @AuditLog(action = LogConstant.Action.CREATE_STOCK_CHECK, entity = LogConstant.Entity.STOCK_CHECK)
     public StockCheckResponse create(CreateStockCheckRequest request) {
         Long userId = SecurityUtils.getCurrentUserId();
         if (userId == null) throw new InvalidRequestException(Message.Auth.USER_NOT_AUTHENTICATED);
 
-        if (request.productUnitIds() == null || request.productUnitIds().isEmpty()) {
+        if (request.scopeType() == null || request.scopeId() == null) {
             throw new InvalidRequestException(Message.Inventory.STOCK_CHECK_ITEMS_REQUIRED);
+        }
+
+        String scopeType = request.scopeType().toUpperCase();
+        if (!Set.of("ZONE", "CATEGORY").contains(scopeType)) {
+            throw new InvalidRequestException("Invalid scope type. Must be ZONE or CATEGORY");
+        }
+
+        List<Long> unitIds = resolveUnitIdsByScope(scopeType, request.scopeId());
+        if (unitIds.isEmpty()) {
+            throw new InvalidRequestException("No in-stock units found in the selected scope");
         }
 
         String checkCode = generateCheckCode();
         StockCheck sc = StockCheck.builder()
                 .checkCode(checkCode)
                 .status(StockCheckStatus.PENDING)
+                .scopeType(scopeType)
+                .scopeId(request.scopeId())
                 .note(request.note())
                 .createdBy(userId)
                 .build();
         sc = stockCheckRepository.save(sc);
         Long scId = sc.getId();
 
-        var units = productUnitRepository.findAllById(request.productUnitIds());
+        var units = productUnitRepository.findAllById(unitIds);
         for (var unit : units) {
             stockCheckItemRepository.save(StockCheckItem.builder()
                     .stockCheckId(scId)
@@ -91,9 +115,26 @@ public class StockCheckService {
         return enrich(sc);
     }
 
+    private List<Long> resolveUnitIdsByScope(String scopeType, Long scopeId) {
+        if ("ZONE".equals(scopeType)) {
+            var refLocation = locationRepository.findById(scopeId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Location not found"));
+            var locationIds = locationRepository.findByZoneCode(refLocation.getZoneCode())
+                    .stream().map(Location::getId).toList();
+            if (locationIds.isEmpty()) return List.of();
+            return productUnitRepository.findByLocationIdInAndStatus(
+                    locationIds, ProductUnitStatus.IN_STOCK).stream()
+                    .map(ProductUnit::getId).toList();
+        }
+        return productUnitRepository.findByProductIdInAndStatus(
+                List.of(scopeId), ProductUnitStatus.IN_STOCK).stream()
+                .map(ProductUnit::getId).toList();
+    }
+
     @Transactional
     @AuditLog(action = LogConstant.Action.RECORD_STOCK_CHECK, entity = LogConstant.Entity.STOCK_CHECK)
     public StockCheckResponse recordItems(Long stockCheckId, StockCheckItemRequest.BatchRequest request) {
+        Long userId = SecurityUtils.getCurrentUserId();
         var sc = stockCheckRepository.findById(stockCheckId)
                 .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.STOCK_CHECK_NOT_FOUND));
 
@@ -108,22 +149,39 @@ public class StockCheckService {
         for (var req : request.items()) {
             var item = itemMap.get(req.productUnitId());
             if (item == null) {
-                item = StockCheckItem.builder()
+                throw new InvalidRequestException("Product unit " + req.productUnitId() + " is not part of this stock check");
+            }
+
+            String oldActual = item.getActualStatus();
+            String newActual = req.actualStatus() != null ? req.actualStatus().toUpperCase() : ProductUnitStatus.IN_STOCK.name();
+
+            if (oldActual != null && !oldActual.equals(newActual)) {
+                itemHistoryRepository.save(StockCheckItemHistory.builder()
                         .stockCheckId(stockCheckId)
                         .productUnitId(req.productUnitId())
-                        .build();
+                        .oldActualStatus(oldActual)
+                        .newActualStatus(newActual)
+                        .oldCountedQuantity(item.getCountedQuantity())
+                        .newCountedQuantity(req.countedQuantity())
+                        .note("Recorded by user " + userId)
+                        .changedBy(userId)
+                        .build());
             }
-            String actual = req.actualStatus() != null ? req.actualStatus().toUpperCase() : ProductUnitStatus.IN_STOCK.name();
-            item.setActualStatus(actual);
+
+            if (ProductUnitStatus.DAMAGED_IN_STORAGE.name().equals(newActual) && (req.photo() == null || req.photo().isBlank())) {
+                throw new InvalidRequestException("Photo is required when reporting DAMAGED status");
+            }
+
+            item.setActualStatus(newActual);
             item.setCountedQuantity(req.countedQuantity());
             item.setNote(req.note());
 
             String expected = item.getExpectedStatus();
             if (expected == null) expected = ProductUnitStatus.IN_STOCK.name();
 
-            if (actual.equals(expected)) {
+            if (newActual.equals(expected)) {
                 item.setDifference(DifferenceType.MATCH.name());
-            } else if (ProductUnitStatus.LOST.name().equals(actual) || DifferenceType.MISSING.name().equalsIgnoreCase(actual)) {
+            } else if (ProductUnitStatus.LOST.name().equals(newActual) || DifferenceType.MISSING.name().equalsIgnoreCase(newActual)) {
                 item.setDifference(DifferenceType.MISSING.name());
             } else {
                 item.setDifference(DifferenceType.UNEXPECTED.name());
@@ -144,6 +202,13 @@ public class StockCheckService {
         if (StockCheckStatus.IN_PROGRESS != sc.getStatus()) {
             throw new InvalidRequestException(Message.Inventory.STOCK_CHECK_ALREADY_COMPLETED);
         }
+
+        var items = stockCheckItemRepository.findByStockCheckId(id);
+        boolean allRecorded = items.stream().allMatch(i -> i.getActualStatus() != null);
+        if (!allRecorded) {
+            throw new InvalidRequestException("All items must be recorded before completing");
+        }
+
         sc.setStatus(StockCheckStatus.COMPLETED);
         sc = stockCheckRepository.save(sc);
         return enrich(sc);
@@ -163,44 +228,62 @@ public class StockCheckService {
             throw new InvalidRequestException(Message.Inventory.CREATOR_CANNOT_APPROVE);
         }
 
+        var items = stockCheckItemRepository.findByStockCheckId(id);
+        for (var item : items) {
+            String diff = item.getDifference();
+            if (DifferenceType.MATCH.name().equals(diff) || item.getActualStatus() == null) continue;
+
+            AdjustmentType adjType;
+            if (DifferenceType.MISSING.name().equals(diff)) {
+                adjType = AdjustmentType.LOST;
+            } else {
+                adjType = AdjustmentType.FOUND;
+            }
+
+            StockAdjustment adj = StockAdjustment.builder()
+                    .adjustCode(generateAdjustCode())
+                    .type(adjType.name())
+                    .productUnitId(item.getProductUnitId())
+                    .reason("Auto-generated from stock check #" + sc.getCheckCode())
+                    .status(AdjustmentStatus.APPROVED)
+                    .sourceType(AdjustmentSourceType.STOCK_CHECK.name())
+                    .sourceId(id)
+                    .createdBy(userId)
+                    .approvedBy(userId)
+                    .build();
+            adj = adjustmentRepository.save(adj);
+
+            var unit = productUnitRepository.findById(item.getProductUnitId()).orElse(null);
+            if (unit == null) continue;
+
+            ProductUnitStatus oldStatus = unit.getStatus();
+            ProductUnitStatus newStatus;
+            if (DifferenceType.MISSING.name().equals(diff)) {
+                newStatus = ProductUnitStatus.LOST;
+            } else {
+                try {
+                    newStatus = ProductUnitStatus.valueOf(item.getActualStatus());
+                } catch (IllegalArgumentException e) {
+                    newStatus = ProductUnitStatus.LOST;
+                }
+            }
+
+            unit.setStatus(newStatus);
+            productUnitRepository.save(unit);
+            statusLogRepository.save(ProductUnitStatusLog.builder()
+                    .productUnitId(unit.getId())
+                    .fromStatus(oldStatus.name())
+                    .toStatus(newStatus.name())
+                    .sourceType(SourceType.STOCK_CHECK.name())
+                    .sourceId(id)
+                    .changedBy(userId)
+                    .build());
+        }
+
         sc.setStatus(StockCheckStatus.APPROVED);
         sc.setApprovedBy(userId);
         sc.setApprovalNote(request != null ? request.approvalNote() : null);
         sc = stockCheckRepository.save(sc);
-
-        var items = stockCheckItemRepository.findByStockCheckId(id);
-        for (var item : items) {
-            var unit = productUnitRepository.findById(item.getProductUnitId()).orElse(null);
-            if (unit == null) continue;
-
-            String diff = item.getDifference();
-            if (DifferenceType.MISSING.name().equals(diff)) {
-                ProductUnitStatus oldStatus = unit.getStatus();
-                unit.setStatus(ProductUnitStatus.LOST);
-                productUnitRepository.save(unit);
-                statusLogRepository.save(ProductUnitStatusLog.builder()
-                        .productUnitId(unit.getId())
-                        .fromStatus(oldStatus.name())
-                        .toStatus(ProductUnitStatus.LOST.name())
-                        .sourceType(SourceType.STOCK_CHECK.name())
-                        .sourceId(id)
-                        .changedBy(userId)
-                        .build());
-            } else if (DifferenceType.UNEXPECTED.name().equals(diff)) {
-                ProductUnitStatus oldStatus = unit.getStatus();
-                unit.setStatus(ProductUnitStatus.valueOf(item.getActualStatus()));
-                productUnitRepository.save(unit);
-                statusLogRepository.save(ProductUnitStatusLog.builder()
-                        .productUnitId(unit.getId())
-                        .fromStatus(oldStatus.name())
-                        .toStatus(unit.getStatus().name())
-                        .sourceType(SourceType.STOCK_CHECK.name())
-                        .sourceId(id)
-                        .changedBy(userId)
-                        .build());
-            }
-        }
-
         return enrich(sc);
     }
 
@@ -214,20 +297,26 @@ public class StockCheckService {
         if (StockCheckStatus.COMPLETED != sc.getStatus()) {
             throw new InvalidRequestException(Message.Inventory.ONLY_COMPLETED_CAN_REJECT);
         }
+        if (sc.getCreatedBy().equals(userId)) {
+            throw new InvalidRequestException(Message.Inventory.CREATOR_CANNOT_APPROVE);
+        }
 
-        sc.setStatus(StockCheckStatus.REJECTED);
-        sc.setApprovedBy(userId);
-        sc.setApprovalNote(request != null ? request.approvalNote() : null);
+        if (request == null || request.approvalNote() == null || request.approvalNote().isBlank()) {
+            throw new InvalidRequestException("Rejection reason is required");
+        }
+
+        sc.setStatus(StockCheckStatus.IN_PROGRESS);
+        sc.setApprovalNote(request.approvalNote());
         sc = stockCheckRepository.save(sc);
         return enrich(sc);
     }
 
     @Transactional(readOnly = true)
-    public ResponsePage<StockCheckResponse> findMyChecks(Pageable pageable) {
-        Long userId = SecurityUtils.getCurrentUserId();
-        var page = stockCheckRepository.findByCreatedBy(userId, pageable);
-        var userMap = fetchUserNames(page.getContent());
-        return ResponsePage.of(page.map(sc -> enrich(sc, userMap)));
+    public long countItemsInProgressByUnitId(Long productUnitId) {
+        var inProgressIds = stockCheckRepository.findByStatus(StockCheckStatus.IN_PROGRESS)
+                .stream().map(StockCheck::getId).toList();
+        if (inProgressIds.isEmpty()) return 0;
+        return stockCheckItemRepository.findByStockCheckIdInAndProductUnitId(inProgressIds, productUnitId).size();
     }
 
     private Map<Long, String> fetchUserNames(List<StockCheck> checks) {
@@ -272,5 +361,9 @@ public class StockCheckService {
 
     private String generateCheckCode() {
         return ReceiptCodeGenerator.generate("SC-", stockCheckRepository::existsByCheckCode);
+    }
+
+    private String generateAdjustCode() {
+        return ReceiptCodeGenerator.generate("ADJ-", adjustmentRepository::existsByAdjustCode);
     }
 }

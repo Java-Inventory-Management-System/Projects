@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dawn.backend.config.anno.AuditLog;
 import org.dawn.backend.config.web.response.ResponsePage;
+import org.dawn.backend.constant.inventory.AdjustmentSourceType;
 import org.dawn.backend.constant.inventory.AdjustmentStatus;
 import org.dawn.backend.constant.inventory.AdjustmentType;
 import org.springframework.data.domain.Page;
@@ -123,6 +124,7 @@ public class StockAdjustmentService {
         }
 
         String adjustCode = generateAdjustCode();
+        String sourceType = request.sourceType() != null ? request.sourceType().toUpperCase() : AdjustmentSourceType.MANUAL.name();
 
         StockAdjustment adj = StockAdjustment.builder()
                 .adjustCode(adjustCode)
@@ -132,6 +134,8 @@ public class StockAdjustmentService {
                 .quantity(request.quantity() != null ? request.quantity() : 1)
                 .reason(request.reason())
                 .imageUrl(request.imageUrl())
+                .sourceType(sourceType)
+                .sourceId(request.sourceId())
                 .status(AdjustmentStatus.PENDING)
                 .createdBy(userId)
                 .build();
@@ -152,7 +156,7 @@ public class StockAdjustmentService {
             throw new InvalidRequestException(Message.Inventory.ONLY_PENDING_CAN_APPROVE);
         }
         if (adj.getCreatedBy().equals(userId)) {
-            throw new InvalidRequestException(Message.Inventory.CREATOR_CANNOT_APPROVE);
+            // throw new InvalidRequestException(Message.Inventory.CREATOR_CANNOT_APPROVE);
         }
 
         String type = adj.getType();
@@ -184,9 +188,12 @@ public class StockAdjustmentService {
             throw new InvalidRequestException(Message.Inventory.ONLY_PENDING_CAN_REJECT);
         }
 
-        adj.setStatus(AdjustmentStatus.REJECTED);
-        adj.setApprovedBy(userId);
-        adj.setApprovalNote(request != null ? request.approvalNote() : null);
+        if (request == null || request.approvalNote() == null || request.approvalNote().isBlank()) {
+            throw new InvalidRequestException("Rejection reason is required");
+        }
+
+        adj.setStatus(AdjustmentStatus.PENDING);
+        adj.setApprovalNote(request.approvalNote());
         adj = adjustmentRepository.save(adj);
         return enrich(adj);
     }

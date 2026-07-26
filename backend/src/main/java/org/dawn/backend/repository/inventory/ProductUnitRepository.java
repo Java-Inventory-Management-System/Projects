@@ -59,6 +59,8 @@ public interface ProductUnitRepository extends JpaRepository<ProductUnit, Long> 
 
     List<ProductUnit> findByProductIdInAndStatus(List<Long> productIds, ProductUnitStatus status);
 
+    List<ProductUnit> findByLocationIdInAndStatus(List<Long> locationIds, ProductUnitStatus status);
+
     @Query(value = """
             SELECT pu.* FROM product_units pu
             JOIN import_receipt_items iri ON pu.import_receipt_item_id = iri.id

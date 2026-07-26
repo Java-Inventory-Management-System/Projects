@@ -28,7 +28,6 @@ const typeColor: Record<string, "destructive" | "outline" | "default"> = {
 const statusLabel: Record<string, { label: string; variant: "default" | "secondary" | "destructive" }> = {
   PENDING: { label: "Chờ duyệt", variant: "secondary" },
   APPROVED: { label: "Đã duyệt", variant: "default" },
-  REJECTED: { label: "Từ chối", variant: "destructive" },
 }
 
 export const StockAdjustmentListPage = () => {

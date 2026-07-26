@@ -47,6 +47,8 @@ public interface StockCheckMappingHelper {
                 .id(sc.getId())
                 .checkCode(sc.getCheckCode())
                 .status(sc.getStatus().name())
+                .scopeType(sc.getScopeType())
+                .scopeId(sc.getScopeId())
                 .note(sc.getNote())
                 .createdBy(sc.getCreatedBy())
                 .createdByName(createdByName)

@@ -15,4 +15,5 @@ public interface LocationRepository extends JpaRepository<Location, Long> {
     Optional<Location> findByFullCode(String fullCode);
     boolean existsByFullCode(String fullCode);
     List<Location> findAllByOrderByZoneCodeAscShelfCodeAscBinCodeAsc();
+    List<Location> findByZoneCode(String zoneCode);
 }

@@ -42,6 +42,12 @@ public class StockAdjustment extends AuditableEntity {
     @Builder.Default
     private AdjustmentStatus status = AdjustmentStatus.PENDING;
 
+    @Column(name = "source_type", length = 20)
+    private String sourceType;
+
+    @Column(name = "source_id")
+    private Long sourceId;
+
     @Column(name = "created_by", nullable = false)
     private Long createdBy;
 

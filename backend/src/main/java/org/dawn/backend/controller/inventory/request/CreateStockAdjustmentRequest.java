@@ -6,5 +6,7 @@ public record CreateStockAdjustmentRequest(
         Long productId,
         Integer quantity,
         String reason,
-        String imageUrl
+        String imageUrl,
+        String sourceType,
+        Long sourceId
 ) {}

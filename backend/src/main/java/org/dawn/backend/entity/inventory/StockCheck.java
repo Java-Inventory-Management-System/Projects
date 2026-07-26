@@ -24,6 +24,12 @@ public class StockCheck extends AuditableEntity {
     @Builder.Default
     private StockCheckStatus status = StockCheckStatus.PENDING;
 
+    @Column(name = "scope_type", length = 20)
+    private String scopeType;
+
+    @Column(name = "scope_id")
+    private Long scopeId;
+
     @Column(name = "note", columnDefinition = "TEXT")
     private String note;
 

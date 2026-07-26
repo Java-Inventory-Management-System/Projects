@@ -11,6 +11,8 @@ public record StockCheckResponse(
         Long id,
         String checkCode,
         String status,
+        String scopeType,
+        Long scopeId,
         String note,
         Long createdBy,
         String createdByName,
