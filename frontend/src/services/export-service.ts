@@ -27,6 +27,7 @@ export async function createExportReceipt(data: {
     productId: number
     quantity: number
     unitPrice: number
+    serialNumbers?: string[]
   }>
 }): Promise<ExportReceipt> {
   const res = await http.post("/export-receipt", data)

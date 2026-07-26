@@ -1,10 +1,10 @@
-import { useState, useEffect, useMemo, useCallback } from "react"
+import React, { useState, useEffect, useMemo, useCallback } from "react"
 import { useForm, useFieldArray, Controller } from "react-hook-form"
 import { useNavigate } from "react-router-dom"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { createExportReceipt } from "@/services/export-service"
 import { useProducts } from "@/hooks/use-products"
-import { getSerialsForExport } from "@/services/product-unit-service"
+import { getSerialsForExport, getAllSerialsForProduct } from "@/services/product-unit-service"
 import { CustomerSelectModal } from "@/features/stock/components/customer-select-modal"
 import { exportFormSchema } from "@/features/stock/schemas/export-schema"
 import type { ExportFormData } from "@/features/stock/schemas/export-schema"
@@ -66,6 +66,11 @@ export const ExportCreatePage = () => {
   const { fields, append, remove } = useFieldArray({ control: form.control, name: "items" })
 
   const [serials, setSerials] = useState<Record<number, ProductUnit[]>>({})
+  const [overrideDialog, setOverrideDialog] = useState<{ tempId: number; productId: number } | null>(null)
+  const [overrideSerials, setOverrideSerials] = useState<Record<number, ProductUnit[]>>({})
+  const [allProductSerials, setAllProductSerials] = useState<ProductUnit[]>([])
+  const [overrideSelectedIds, setOverrideSelectedIds] = useState<number[]>([])
+  const [overrideLoading, setOverrideLoading] = useState(false)
 
   const formValues = form.watch()
   const draftState = useMemo(
@@ -121,6 +126,23 @@ export const ExportCreatePage = () => {
     onError: (err: Error) => toast.error(err.message || "Có lỗi xảy ra"),
   })
 
+  const openOverrideDialog = useCallback(async (tempId: number, productId: number) => {
+    setOverrideDialog({ tempId, productId })
+    setOverrideLoading(true)
+    const all = await getAllSerialsForProduct(productId)
+    setAllProductSerials(all)
+    const current = overrideSerials[tempId] ?? serials[tempId] ?? []
+    setOverrideSelectedIds(current.map((s) => s.id))
+    setOverrideLoading(false)
+  }, [overrideSerials, serials])
+
+  const confirmOverride = useCallback(() => {
+    if (!overrideDialog) return
+    const selected = allProductSerials.filter((s) => overrideSelectedIds.includes(s.id))
+    setOverrideSerials((prev) => ({ ...prev, [overrideDialog.tempId]: selected }))
+    setOverrideDialog(null)
+  }, [overrideDialog, allProductSerials, overrideSelectedIds])
+
   const addItem = useCallback(() => {
     if (!selectedProductId) return
     const product = products.find((p) => p.id === Number(selectedProductId))
@@ -152,17 +174,25 @@ export const ExportCreatePage = () => {
       reason: values.reason as ExportReason,
       customerId: values.customerId ? Number(values.customerId) : null,
       note: values.note || null,
-      items: values.items.map((i) => ({
-        productId: i.productId,
-        quantity: i.quantity,
-        unitPrice: i.unitPrice,
-      })),
+      items: values.items.map((i) => {
+        const overridden = overrideSerials[i.tempId]
+        return {
+          productId: i.productId,
+          quantity: i.quantity,
+          unitPrice: i.unitPrice,
+          ...(overridden ? { serialNumbers: overridden.map((s) => s.serialNumber) } : {}),
+        }
+      }),
     })
   })
 
   const watchedReason = form.watch("reason")
   const watchedCustomerId = form.watch("customerId")
-  const hasSerials = useMemo(() => Object.values(serials).some((arr) => arr.length > 0), [serials])
+  const hasSerials = useMemo(() => {
+    const hasAuto = Object.values(serials).some((arr) => arr.length > 0)
+    const hasOverride = Object.values(overrideSerials).some((arr) => arr.length > 0)
+    return hasAuto || hasOverride
+  }, [serials, overrideSerials])
 
   return (
     <div className="mx-auto max-w-4xl space-y-4 lg:space-y-6">
@@ -300,7 +330,9 @@ export const ExportCreatePage = () => {
 
       {fields.length > 0 && hasSerials && (
         <div className="space-y-2">
-          <h3 className="text-sm font-semibold">Serial dự kiến xuất theo FIFO</h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold">Serial dự kiến xuất</h3>
+          </div>
           <div className="rounded-lg border overflow-x-auto">
             <Table>
               <TableHeader>
@@ -309,22 +341,40 @@ export const ExportCreatePage = () => {
                   <TableHead>Serial</TableHead>
                   <TableHead>Vị trí</TableHead>
                   <TableHead>Ngày nhập</TableHead>
+                  <TableHead className="w-10" />
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {fields.map((item) => {
-                  const itemSerials = serials[item.tempId] ?? []
+                  const overridden = overrideSerials[item.tempId]
+                  const itemSerials = overridden ?? serials[item.tempId] ?? []
                   if (itemSerials.length === 0) return null
-                  return itemSerials.map((s) => (
-                    <TableRow key={s.id}>
-                      <TableCell className="text-xs text-muted-foreground">{item.productName}</TableCell>
-                      <TableCell className="font-mono text-xs">{s.serialNumber}</TableCell>
-                      <TableCell className="font-mono text-xs text-muted-foreground">{s.locationCode ?? "—"}</TableCell>
-                      <TableCell className="text-xs text-muted-foreground">
-                        {new Date(s.importedAt).toLocaleDateString("vi-VN")}
-                      </TableCell>
-                    </TableRow>
-                  ))
+                  return (
+                    <React.Fragment key={item.tempId}>
+                      {itemSerials.map((s) => (
+                        <TableRow key={s.id}>
+                          <TableCell className="text-xs text-muted-foreground">{item.productName}</TableCell>
+                          <TableCell className="font-mono text-xs">{s.serialNumber}</TableCell>
+                          <TableCell className="font-mono text-xs text-muted-foreground">{s.locationCode ?? "—"}</TableCell>
+                          <TableCell className="text-xs text-muted-foreground">
+                            {new Date(s.importedAt).toLocaleDateString("vi-VN")}
+                          </TableCell>
+                          {s === itemSerials[0] && (
+                            <TableCell rowSpan={itemSerials.length}>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-[11px] h-7 px-2"
+                                onClick={() => openOverrideDialog(item.tempId, item.productId)}
+                              >
+                                {overridden ? "Sửa" : "Đổi"}
+                              </Button>
+                            </TableCell>
+                          )}
+                        </TableRow>
+                      ))}
+                    </React.Fragment>
+                  )
                 })}
               </TableBody>
             </Table>
@@ -392,6 +442,65 @@ export const ExportCreatePage = () => {
               }}
             >
               Khôi phục
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={overrideDialog != null} onOpenChange={(v) => { if (!v) setOverrideDialog(null) }}>
+        <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Chọn serial xuất kho</DialogTitle>
+            <DialogDescription>
+              Chọn serial cụ thể cho sản phẩm này. Có thể bỏ chọn serial không muốn xuất.
+            </DialogDescription>
+          </DialogHeader>
+          {overrideLoading ? (
+            <div className="py-8 text-center text-sm text-muted-foreground">Đang tải...</div>
+          ) : allProductSerials.length === 0 ? (
+            <div className="py-8 text-center text-sm text-muted-foreground">Không còn serial tồn kho</div>
+          ) : (
+            <div className="space-y-1">
+              {allProductSerials.map((s) => {
+                const checked = overrideSelectedIds.includes(s.id)
+                return (
+                  <label
+                    key={s.id}
+                    className={`flex items-center gap-3 rounded px-3 py-2 text-sm cursor-pointer transition-colors ${
+                      checked ? "bg-primary/5 ring-1 ring-primary/20" : "hover:bg-muted"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => {
+                        setOverrideSelectedIds((prev) =>
+                          checked ? prev.filter((id) => id !== s.id) : [...prev, s.id],
+                        )
+                      }}
+                      className="size-4"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-mono text-xs font-medium truncate">{s.serialNumber}</p>
+                      <p className="text-[10px] text-muted-foreground">
+                        {s.locationCode ?? "—"} · {new Date(s.importedAt).toLocaleDateString("vi-VN")}
+                      </p>
+                    </div>
+                  </label>
+                )
+              })}
+            </div>
+          )}
+          <DialogFooter className="gap-2 flex-col sm:flex-row">
+            <Button variant="outline" onClick={() => setOverrideDialog(null)} className="w-full sm:w-auto">
+              Hủy
+            </Button>
+            <Button
+              onClick={confirmOverride}
+              disabled={overrideSelectedIds.length === 0}
+              className="w-full sm:w-auto"
+            >
+              Xác nhận ({overrideSelectedIds.length} serial)
             </Button>
           </DialogFooter>
         </DialogContent>

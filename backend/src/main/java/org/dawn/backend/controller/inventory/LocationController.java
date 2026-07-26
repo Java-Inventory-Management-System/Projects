@@ -56,6 +56,13 @@ public class LocationController {
         return ResponseObject.success(locationService.getMap());
     }
 
+    @DeleteMapping("/{id}")
+    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER)
+    public ResponseObject<Void> delete(@PathVariable Long id) {
+        locationService.delete(id);
+        return ResponseObject.success(null);
+    }
+
     @PutMapping("/{id}/toggle-active")
     @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER)
     public ResponseObject<LocationResponse> toggleActive(@PathVariable Long id) {

@@ -1,7 +1,7 @@
 import { Skeleton } from "@/components/ui/skeleton"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { RefreshCw, Search, Plus, X, Settings2, Undo2 } from "lucide-react"
+import { RefreshCw, Search, Plus, X, Settings2, Undo2, ArrowLeft, DoorOpen, GripVertical } from "lucide-react"
 import { Empty, EmptyTitle } from "@/components/ui/empty"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -14,6 +14,14 @@ import {
   SheetFooter,
   SheetClose,
 } from "@/components/ui/sheet"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog"
 import type { FilterMode } from "@/features/stock/utils/location-map-utils"
 import { LEVELS, FILTERS, binColor } from "@/features/stock/utils/location-map-utils"
 import { useLocationMapPage } from "@/features/stock/hooks/use-location-map-page"
@@ -50,6 +58,17 @@ export function LocationsMapPage() {
     handleZoneDelete,
     autoAddBin,
     autoAddShelf,
+    zoomedShelf,
+    openZoom,
+    zoomStage,
+    zoomedZone,
+    zoomedShelfData,
+    dragSource,
+    handleDragStart,
+    handleDrop,
+    relocateTarget,
+    handleRelocateCancel,
+    handleRelocateConfirm,
   } = useLocationMapPage()
 
   return (
@@ -111,7 +130,306 @@ export function LocationsMapPage() {
         ))}
       </div>
 
-      {loading ? (
+      {zoomStage !== "idle" && zoomedShelfData ? (
+        <div className="space-y-3">
+          <Button variant="ghost" size="sm" onClick={() => openZoom(null)}>
+            <ArrowLeft className="size-3.5 mr-1" /> Về tổng quan
+          </Button>
+          <div className="rounded-lg border bg-card p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-semibold">
+                Khu {zoomedShelf.zoneCode} · Kệ {zoomedShelf.shelfCode}
+              </h2>
+              <span className="text-[10px] text-muted-foreground tabular-nums">
+                {zoomedShelfData.bins.length} ngăn
+              </span>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {zoomedShelfData.bins.map((bin) => {
+                const active = isBinActive({ id: bin.id, zoneCode: zoomedShelf.zoneCode, fullCode: bin.fullCode, binCode: bin.binCode, productCount: bin.productCount, maxCapacity: bin.maxCapacity })
+                const color = binColor(bin.productCount, bin.maxCapacity)
+                return (
+                  <Tooltip key={bin.id}>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        onClick={() => openDetail({ id: bin.id, zoneCode: zoomedShelf.zoneCode, fullCode: bin.fullCode, binCode: bin.binCode, productCount: bin.productCount, maxCapacity: bin.maxCapacity })}
+                        className={
+                          "flex flex-col items-center justify-center rounded-lg border transition-all hover:shadow-md hover:ring-1 hover:ring-ring " +
+                          color.bg + " " + color.border +
+                          (active ? "" : " opacity-40 saturate-0 ring-1 ring-destructive/40 border-destructive/60")
+                        }
+                        style={{ minWidth: "5rem", minHeight: "3.5rem" }}
+                      >
+                        <span className="text-xs font-mono font-semibold leading-tight">{bin.binCode}</span>
+                        <span className={"text-xs leading-tight " + color.text}>{bin.productCount}</span>
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="text-[11px]">
+                      <p className="font-mono font-semibold">{bin.fullCode}</p>
+                      <p>{bin.productCount} sản phẩm</p>
+                    </TooltipContent>
+                  </Tooltip>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      ) : zoomStage !== "idle" && zoomedZone ? (
+        <div className="space-y-4">
+          <Button variant="ghost" size="sm" onClick={() => openZoom(null)}>
+            <ArrowLeft className="size-3.5 mr-1" /> Về tổng quan
+          </Button>
+          <div className="rounded-lg border bg-card p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <DoorOpen className="size-4 text-muted-foreground/40" />
+                <h2 className="text-base font-semibold">Khu {zoomedZone.zoneCode}</h2>
+              </div>
+              <span className="text-xs text-muted-foreground tabular-nums">
+                {zoomedZone.shelves.reduce((s, sh) => s + sh.bins.length, 0)} ngăn
+              </span>
+            </div>
+            <div className="grid gap-4 grid-cols-2 lg:grid-cols-3">
+              {zoomedZone.shelves.map((shelf) => {
+                const occ = shelf.bins.filter((b) => b.productCount > 0).length
+                const pct = shelf.bins.length > 0 ? Math.round((occ / shelf.bins.length) * 100) : 0
+                return (
+                  <div key={shelf.shelfCode} className="rounded-lg border bg-muted/30 p-4 space-y-2">
+                    <p className="text-sm font-semibold">Kệ {shelf.shelfCode}</p>
+                    <div className="flex flex-wrap items-start gap-2">
+                      {shelf.bins.map((bin) => {
+                        const detail = {
+                          id: bin.id,
+                          zoneCode: zoomedZone.zoneCode,
+                          fullCode: bin.fullCode,
+                          binCode: bin.binCode,
+                          productCount: bin.productCount,
+                          maxCapacity: bin.maxCapacity,
+                        }
+                        const active = isBinActive(detail)
+                        const color = binColor(bin.productCount, bin.maxCapacity)
+                        const isDragSource = dragSource?.bin.id === bin.id
+                        return (
+                          <div
+                            key={bin.id}
+                            className="relative"
+                            draggable={managing && active && bin.productCount > 0}
+                            onDragStart={() => { handleDragStart(detail) }}
+                            onDrop={() => { handleDrop(detail) }}
+                          >
+                            {managing ? (
+                              <>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <button
+                                      type="button"
+                                      onClick={() => openDetail(detail)}
+                                      className={
+                                        "flex flex-col items-center justify-center rounded-lg border transition-all hover:shadow-sm hover:ring-1 hover:ring-ring " +
+                                        color.bg + " " + color.border +
+                                        (active ? "" : " opacity-40 saturate-0 ring-1 ring-destructive/40 border-destructive/60") +
+                                        (isDragSource ? " ring-2 ring-primary opacity-60" : "")
+                                      }
+                                      style={{ minWidth: "5.5rem", minHeight: "4rem" }}
+                                    >
+                                      <span className="text-xs font-mono font-semibold leading-tight">{bin.binCode}</span>
+                                      <span className={"text-xs leading-tight " + color.text}>{bin.productCount}</span>
+                                    </button>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top" className="text-[11px]">
+                                    <p className="font-mono font-semibold">{bin.fullCode}</p>
+                                    <p>{bin.productCount} sản phẩm</p>
+                                    <p className="text-muted-foreground">{active && bin.productCount > 0 ? "Kéo để di chuyển" : "Nhấp để quản lý"}</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                                {active && bin.productCount > 0 && (
+                                  <span className="absolute -top-1.5 -left-1.5 inline-flex items-center justify-center size-3.5 rounded bg-background border shadow-sm">
+                                    <GripVertical className="size-2 text-muted-foreground" />
+                                  </span>
+                                )}
+                                {!active && detail.productCount === 0 && (
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          handleReactivateBin(detail)
+                                        }}
+                                        className="absolute -top-1.5 -left-1.5 inline-flex items-center justify-center size-4 rounded-full bg-background border shadow-sm hover:bg-accent transition-colors"
+                                      >
+                                        <Undo2 className="size-2.5" />
+                                      </button>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="top" className="text-[11px]">
+                                      Kích hoạt lại
+                                    </TooltipContent>
+                                  </Tooltip>
+                                )}
+                                {detail.productCount > 0 ? (
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <button
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="absolute -top-1.5 -right-1.5 inline-flex items-center justify-center size-4 rounded-full bg-background border shadow-sm opacity-30 cursor-not-allowed"
+                                        disabled
+                                      >
+                                        <X className="size-2.5" />
+                                      </button>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="top" className="text-[11px]">
+                                      Có sản phẩm
+                                    </TooltipContent>
+                                  </Tooltip>
+                                ) : (
+                                  <Popover
+                                    open={confirmBinId === bin.id}
+                                    onOpenChange={(o) => setConfirmBinId(o ? bin.id : null)}
+                                  >
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <PopoverTrigger asChild>
+                                          <button
+                                            onClick={(e) => e.stopPropagation()}
+                                            className="absolute -top-1.5 -right-1.5 inline-flex items-center justify-center size-4 rounded-full bg-background border shadow-sm hover:bg-accent transition-colors"
+                                          >
+                                            <X className="size-2.5" />
+                                          </button>
+                                        </PopoverTrigger>
+                                      </TooltipTrigger>
+                                      <TooltipContent side="top" className="text-[11px]">
+                                        {isBinActive(detail) ? "Vô hiệu hóa" : "Xóa"}
+                                      </TooltipContent>
+                                    </Tooltip>
+                                    <PopoverContent side="top" className="w-auto min-w-[130px] p-2">
+                                      {isBinActive(detail) ? (
+                                        <>
+                                          <p className="text-xs mb-1.5 font-medium">
+                                            Vô hiệu hóa <span className="font-mono">{bin.binCode}</span>?
+                                          </p>
+                                          <div className="flex gap-1 justify-end">
+                                            <button
+                                              onClick={() => setConfirmBinId(null)}
+                                              className="text-[11px] px-2 py-0.5 rounded hover:bg-accent"
+                                            >
+                                              Hủy
+                                            </button>
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation()
+                                                setConfirmBinId(null)
+                                                handleDeactivateBin(detail)
+                                              }}
+                                              className="text-[11px] px-2 py-0.5 rounded bg-primary text-primary-foreground hover:bg-primary/90"
+                                            >
+                                              Vô hiệu hóa
+                                            </button>
+                                          </div>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <p className="text-xs mb-1.5 font-medium">
+                                            Xóa <span className="font-mono">{bin.binCode}</span>?
+                                          </p>
+                                          <div className="flex gap-1 justify-end">
+                                            <button
+                                              onClick={() => setConfirmBinId(null)}
+                                              className="text-[11px] px-2 py-0.5 rounded hover:bg-accent"
+                                            >
+                                              Hủy
+                                            </button>
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation()
+                                                handleBinDelete(detail)
+                                              }}
+                                              className="text-[11px] px-2 py-0.5 rounded bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                            >
+                                              Xóa
+                                            </button>
+                                          </div>
+                                        </>
+                                      )}
+                                    </PopoverContent>
+                                  </Popover>
+                                )}
+                              </>
+                            ) : (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <button
+                                    type="button"
+                                    onClick={() => openDetail(detail)}
+                                    className={
+                                      "flex flex-col items-center justify-center rounded-lg border transition-all hover:shadow-sm hover:ring-1 hover:ring-ring " +
+                                      color.bg + " " + color.border +
+                                      (active ? "" : " opacity-40 saturate-0 ring-1 ring-destructive/40 border-destructive/60")
+                                    }
+                                    style={{ minWidth: "5.5rem", minHeight: "4rem" }}
+                                  >
+                                    <span className="text-xs font-mono font-semibold leading-tight">{bin.binCode}</span>
+                                    <span className={"text-xs leading-tight " + color.text}>{bin.productCount}</span>
+                                  </button>
+                                </TooltipTrigger>
+                                <TooltipContent side="top" className="text-[11px]">
+                                  <p className="font-mono font-semibold">{bin.fullCode}</p>
+                                  <p>{bin.productCount} sản phẩm</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            )}
+                          </div>
+                        )
+                      })}
+                      {managing && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button
+                              onClick={() => autoAddBin(zoomedZone.zoneCode, shelf.shelfCode)}
+                              className="flex items-center justify-center rounded-lg border border-dashed border-blue-200 bg-blue-50/50 hover:bg-blue-100 transition-colors"
+                              style={{ width: "5.5rem", height: "4rem" }}
+                            >
+                              <Plus className="size-4 text-blue-400" />
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="text-[11px]">
+                            Thêm ngăn
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
+                    </div>
+                    <div className="pt-1">
+                      <div className="flex items-center justify-between text-[10px] text-muted-foreground mb-1">
+                        <span>{occ + "/" + shelf.bins.length} ngăn có hàng</span>
+                        <span>{pct}%</span>
+                      </div>
+                      <div className="w-full h-1 rounded-full bg-muted-foreground/15 overflow-hidden">
+                        <div className={"h-full rounded-full transition-all " + (pct >= 90 ? "bg-destructive" : pct >= 70 ? "bg-amber-500" : "bg-primary")} style={{ width: pct + "%" }}></div>
+                      </div>
+                    </div>
+                    {managing && (
+                      <div className="pt-2 border-t border-dashed border-blue-200">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button
+                              onClick={() => autoAddShelf(zoomedZone.zoneCode)}
+                              className="inline-flex items-center gap-1 text-xs text-blue-500 hover:text-blue-700 transition-colors"
+                            >
+                              <Plus className="size-3.5" /> Thêm kệ
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="text-[11px]">
+                            Thêm kệ mới
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      ) : loading ? (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 6 }).map((_, i) => (
             <div key={i} className="rounded-lg border p-3 space-y-2">
@@ -142,8 +460,28 @@ export function LocationsMapPage() {
           </Empty>
         </div>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {filteredZones.map((zone) => {
+        <div className="rounded-lg border bg-card overflow-hidden">
+          <div className="flex">
+            <div className="w-10 shrink-0 bg-muted/20 border-r border-dashed border-muted-foreground/20 flex flex-col items-center gap-2 py-4 select-none">
+              <DoorOpen className="size-4 text-muted-foreground/40" />
+              <span
+                className="text-[10px] text-muted-foreground/40 font-medium"
+                style={{ writingMode: "vertical-lr", textOrientation: "mixed", transform: "rotate(180deg)", whiteSpace: "nowrap" }}
+              >
+                CỬA VÀO
+              </span>
+            </div>
+            <div className="flex-1 p-4 space-y-4">
+              {(() => {
+                const cols = 3
+                const rows: React.ReactNode[] = []
+                for (let i = 0; i < filteredZones.length; i += cols) {
+                  const chunk = filteredZones.slice(i, i + cols)
+                  const isLast = i + cols >= filteredZones.length
+                  rows.push(
+                    <div key={`row-${i}`}>
+                      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                        {chunk.map((zone) => {
             const allBins = zone.shelves.flatMap((s) => s.bins)
             const occupied = allBins.filter((b) => b.productCount > 0).length
             const full = allBins.filter((b) =>
@@ -153,8 +491,15 @@ export function LocationsMapPage() {
             return (
               <div key={zone.zoneCode} className="rounded-lg border bg-card p-3 space-y-2">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5">
-                    <h2 className="text-xs font-semibold">Khu {zone.zoneCode}</h2>
+                  <button
+                    type="button"
+                    onClick={() => openZoom({ zoneCode: zone.zoneCode, shelfCode: null })}
+                    className="flex items-center gap-1.5 hover:text-foreground/80 transition-colors text-left"
+                  >
+                    <DoorOpen className="size-3 text-muted-foreground/40" />
+                    <h2 className="text-xs font-semibold cursor-pointer">Khu {zone.zoneCode}</h2>
+                  </button>
+                  <div className="flex items-center gap-1">
                     {managing && (
                       <>
                         <Tooltip>
@@ -208,20 +553,27 @@ export function LocationsMapPage() {
                         )}
                       </>
                     )}
+                    <span className="text-[10px] text-muted-foreground tabular-nums">
+                      {occupied}/{allBins.length} có hàng{full > 0 ? ` · ${full} đầy` : ""}
+                    </span>
                   </div>
-                  <span className="text-[10px] text-muted-foreground tabular-nums">
-                    {occupied}/{allBins.length} có hàng{full > 0 ? ` · ${full} đầy` : ""}
-                  </span>
                 </div>
 
                 <div className="space-y-2">
                   {zone.shelves.map((shelf) => (
                     <div key={shelf.shelfCode}>
-                      <p className="text-[10px] text-muted-foreground mb-1">
+                      <button
+                        type="button"
+                        onClick={() => openZoom({ zoneCode: zone.zoneCode, shelfCode: shelf.shelfCode })}
+                        className="text-[10px] text-muted-foreground mb-1 hover:text-foreground transition-colors text-left cursor-pointer"
+                      >
                         Kệ {shelf.shelfCode}
                         <span className="text-muted-foreground/50 ml-1">({shelf.bins.length} ngăn)</span>
-                      </p>
-                      <div className="flex flex-wrap items-center gap-1.5">
+                      </button>
+                      <div
+                        className="flex flex-wrap items-center gap-1.5"
+                        onDragOver={(e) => { e.preventDefault() }}
+                      >
                         {shelf.bins.map((bin) => {
                           const detail = {
                             id: bin.id,
@@ -233,8 +585,15 @@ export function LocationsMapPage() {
                           }
                           const active = isBinActive(detail)
                           const color = binColor(bin.productCount, bin.maxCapacity)
+                          const isDragSource = dragSource?.bin.id === bin.id
                           return (
-                            <div key={bin.id} className="relative">
+                            <div
+                              key={bin.id}
+                              className="relative"
+                              draggable={managing && active && bin.productCount > 0}
+                              onDragStart={() => { handleDragStart(detail) }}
+                              onDrop={() => { handleDrop(detail) }}
+                            >
                               {managing ? (
                                 <>
                                   <Tooltip>
@@ -242,7 +601,7 @@ export function LocationsMapPage() {
                                       <button
                                         type="button"
                                         onClick={() => openDetail(detail)}
-                                        className={`flex flex-col items-center justify-center rounded border px-1.5 py-1 cursor-pointer transition-all hover:shadow-sm ${color.bg} ${color.border} hover:ring-1 hover:ring-ring ${!active ? "opacity-40 saturate-0 ring-1 ring-destructive/40 border-destructive/60" : ""}`}
+                                        className={`flex flex-col items-center justify-center rounded border px-1.5 py-1 cursor-pointer transition-all hover:shadow-sm ${color.bg} ${color.border} hover:ring-1 hover:ring-ring ${!active ? "opacity-40 saturate-0 ring-1 ring-destructive/40 border-destructive/60" : ""} ${isDragSource ? "ring-2 ring-primary opacity-60" : ""}`}
                                         style={{ minWidth: "3.5rem", minHeight: "2.25rem" }}
                                       >
                                         <span className="text-[9px] font-mono font-semibold leading-tight">
@@ -256,9 +615,14 @@ export function LocationsMapPage() {
                                     <TooltipContent side="top" className="text-[11px]">
                                       <p className="font-mono font-semibold">{bin.fullCode}</p>
                                       <p>{bin.productCount} sản phẩm</p>
-                                      <p className="text-muted-foreground">Nhấp để quản lý</p>
+                                      <p className="text-muted-foreground">{active && bin.productCount > 0 ? "Kéo để di chuyển" : "Nhấp để quản lý"}</p>
                                     </TooltipContent>
                                   </Tooltip>
+                                  {active && bin.productCount > 0 && (
+                                    <span className="absolute -top-1.5 -left-1.5 inline-flex items-center justify-center size-3.5 rounded bg-background border shadow-sm">
+                                      <GripVertical className="size-2 text-muted-foreground" />
+                                    </span>
+                                  )}
                                   {!active && detail.productCount === 0 && (
                                     <Tooltip>
                                       <TooltipTrigger asChild>
@@ -434,15 +798,33 @@ export function LocationsMapPage() {
               </div>
             )
           })}
-          {managing && (
-            <button
-              onClick={handleAddZone}
-              className="rounded-lg border-2 border-dashed bg-card/50 p-3 flex items-center justify-center gap-2 text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors cursor-pointer min-h-[120px]"
-            >
-              <Plus className="size-5" />
-              <span className="text-sm font-medium">Thêm khu</span>
-            </button>
-          )}
+                        {managing && isLast && (
+                          <button
+                            onClick={handleAddZone}
+                            className="rounded-lg border-2 border-dashed bg-card/50 p-3 flex items-center justify-center gap-2 text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors cursor-pointer min-h-[120px]"
+                          >
+                            <Plus className="size-5" />
+                            <span className="text-sm font-medium">Thêm khu</span>
+                          </button>
+                        )}
+                      </div>
+                      {!isLast && (
+                        <div className="relative my-3">
+                          <div className="absolute inset-0 flex items-center">
+                            <div className="w-full border-t border-dashed border-muted-foreground/20" />
+                          </div>
+                          <div className="relative flex justify-center">
+                            <span className="bg-card px-2 text-[10px] text-muted-foreground/40 font-medium tracking-wider uppercase">LỐI ĐI</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )
+                }
+                return rows
+              })()}
+            </div>
+          </div>
         </div>
       )}
 
@@ -497,6 +879,25 @@ export function LocationsMapPage() {
           </SheetFooter>
         </SheetContent>
       </Sheet>
+
+      <Dialog
+        open={relocateTarget != null}
+        onOpenChange={(v) => { if (!v) handleRelocateCancel() }}
+      >
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Di chuyển sản phẩm</DialogTitle>
+            <DialogDescription>
+              Chuyển tất cả sản phẩm từ <span className="font-mono font-semibold">{relocateTarget?.source.fullCode}</span> sang{" "}
+              <span className="font-mono font-semibold">{relocateTarget?.dest.fullCode}</span>?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={handleRelocateCancel}>Hủy</Button>
+            <Button onClick={handleRelocateConfirm}>Xác nhận</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

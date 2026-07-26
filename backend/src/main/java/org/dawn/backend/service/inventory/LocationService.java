@@ -48,9 +48,10 @@ public class LocationService {
             Map<String, List<Location>> byShelf = entry.getValue().stream()
                 .collect(Collectors.groupingBy(Location::getShelfCode, LinkedHashMap::new, Collectors.toList()));
             List<ShelfData> shelves = byShelf.entrySet().stream().map(shelfEntry -> {
-                List<BinData> bins = shelfEntry.getValue().stream().map(loc ->
-                    new BinData(loc.getId(), loc.getBinCode(), loc.getFullCode(), counts.getOrDefault(loc.getId(), 0L))
-                ).toList();
+                List<BinData> bins = shelfEntry.getValue().stream().map(loc -> {
+                    Long mc = loc.getMaxCapacity() != null ? loc.getMaxCapacity().longValue() : null;
+                    return new BinData(loc.getId(), loc.getBinCode(), loc.getFullCode(), counts.getOrDefault(loc.getId(), 0L), mc);
+                }).toList();
                 return new ShelfData(shelfEntry.getKey(), bins);
             }).toList();
             return new ZoneData(zoneCode, shelves);

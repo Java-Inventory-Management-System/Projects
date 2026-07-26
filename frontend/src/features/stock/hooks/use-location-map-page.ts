@@ -1,10 +1,10 @@
-import { useMemo, useState } from "react"
+import { useMemo, useState, useEffect } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useLocationMap } from "@/hooks/use-location-map"
 import type { LocationMapData } from "@/utils/types"
 import type { DetailBin, FilterMode } from "@/features/stock/utils/location-map-utils"
 import { nextCode } from "@/features/stock/utils/location-map-utils"
-import { createLocation, deleteLocation } from "@/services/location-service"
+import { createLocation, deleteLocation, relocateProductUnits } from "@/services/location-service"
 import { toast } from "@/utils/toast"
 
 export function useLocationMapPage() {
@@ -28,13 +28,48 @@ export function useLocationMapPage() {
   const [confirmBinId, setConfirmBinId] = useState<number | null>(null)
   const [confirmZoneCode, setConfirmZoneCode] = useState<string | null>(null)
   const [deactivatedIds, setDeactivatedIds] = useState<Record<number, true>>({})
+  const [zoomedShelf, _setZoomedShelf] = useState<{ zoneCode: string; shelfCode: string | null } | null>(null)
+  const [zoomStage, setZoomStage] = useState<"idle" | "entering" | "visible" | "exiting">("idle")
+  const [dragSource, setDragSource] = useState<{ bin: DetailBin; zoneCode: string } | null>(null)
+  const [relocateTarget, setRelocateTarget] = useState<{ source: DetailBin; dest: DetailBin } | null>(null)
+
+  const isZoneZoomed = zoomedShelf != null && zoomedShelf.shelfCode == null
+
+  function openZoom(target: { zoneCode: string; shelfCode: string | null } | null) {
+    if (target == null) {
+      setZoomStage("exiting")
+      setTimeout(() => {
+        setZoomStage("idle")
+        _setZoomedShelf(null)
+      }, 150)
+    } else {
+      _setZoomedShelf(target)
+      setZoomStage("entering")
+      requestAnimationFrame(() => setZoomStage("visible"))
+    }
+  }
+
+  useEffect(() => {
+    if (zoomStage !== "visible") return
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") openZoom(null)
+    }
+    document.addEventListener("keydown", handler)
+    return () => document.removeEventListener("keydown", handler)
+  }, [zoomStage])
 
   const filteredZones = useMemo(() => {
     if (!data) return []
     return data.zones
       .map((zone) => {
+        if (zoomedShelf && zone.zoneCode !== zoomedShelf.zoneCode) {
+          return { ...zone, shelves: [] }
+        }
         const shelves = zone.shelves
           .map((shelf) => {
+            if (zoomedShelf?.shelfCode && shelf.shelfCode !== zoomedShelf.shelfCode) {
+              return { ...shelf, bins: [] }
+            }
             const bins = shelf.bins.filter((bin) => {
               if (search && !bin.fullCode.toLowerCase().includes(search.toLowerCase())) return false
               if (filter === "empty") return bin.productCount === 0
@@ -47,11 +82,14 @@ export function useLocationMapPage() {
             })
             return { ...shelf, bins }
           })
-          .filter((shelf) => shelf.bins.length > 0)
+          .filter((shelf) => {
+            if (zoomedShelf && zoomedShelf.shelfCode == null) return true
+            return shelf.bins.length > 0
+          })
         return { ...zone, shelves }
       })
       .filter((zone) => zone.shelves.length > 0)
-  }, [data, search, filter])
+  }, [data, search, filter, zoomedShelf])
 
   function isBinActive(bin: DetailBin) {
     return !deactivatedIds[bin.id]
@@ -113,14 +151,9 @@ export function useLocationMapPage() {
       })
   }
 
-  function canDeleteBin(bin: DetailBin) {
-    return bin.productCount === 0 && !isBinActive(bin)
-  }
-
   function handleBinDelete(target: DetailBin) {
-    if (!canDeleteBin(target)) {
-      if (target.productCount > 0) toast.error("Vị trí đang có sản phẩm, không thể xóa")
-      else toast.error("Vui lòng vô hiệu hóa trước khi xóa")
+    if (target.productCount > 0) {
+      toast.error("Vị trí đang có sản phẩm, không thể xóa")
       return
     }
     setConfirmBinId(null)
@@ -140,7 +173,10 @@ export function useLocationMapPage() {
             },
       ),
     }))
-    deleteLocation(target.id).catch(() => refetch())
+    deleteLocation(target.id).catch((err) => {
+      toast.error(err?.response?.data?.message || err?.message || "Xóa thất bại")
+      refetch()
+    })
   }
 
   function handleZoneDelete(zoneCode: string) {
@@ -256,6 +292,44 @@ export function useLocationMapPage() {
     }
   }
 
+  const zoomedZone = useMemo(() => {
+    if (!zoomedShelf || !data) return null
+    return data.zones.find((z) => z.zoneCode === zoomedShelf.zoneCode) ?? null
+  }, [zoomedShelf, data])
+
+  const zoomedShelfData = useMemo(() => {
+    if (!zoomedZone || !zoomedShelf?.shelfCode) return null
+    return zoomedZone.shelves.find((s) => s.shelfCode === zoomedShelf.shelfCode) ?? null
+  }, [zoomedZone, zoomedShelf])
+
+  function handleDragStart(bin: DetailBin) {
+    setDragSource({ bin, zoneCode: bin.zoneCode })
+  }
+
+  function handleDrop(destBin: DetailBin) {
+    if (!dragSource) return
+    if (dragSource.bin.id === destBin.id) return
+    if (dragSource.zoneCode !== destBin.zoneCode) return
+    setRelocateTarget({ source: dragSource.bin, dest: destBin })
+    setDragSource(null)
+  }
+
+  function handleRelocateCancel() {
+    setRelocateTarget(null)
+  }
+
+  function handleRelocateConfirm() {
+    const target = relocateTarget
+    setRelocateTarget(null)
+    if (!target) return
+    relocateProductUnits(target.source.id, target.dest.id)
+      .then(() => {
+        toast.success(`Đã di chuyển sản phẩm từ ${target.source.fullCode} sang ${target.dest.fullCode}`)
+        refetch()
+      })
+      .catch((err: Error) => toast.error(err.message || "Di chuyển thất bại"))
+  }
+
   return {
     data,
     loading: isLoading,
@@ -287,5 +361,17 @@ export function useLocationMapPage() {
     handleZoneDelete,
     autoAddBin,
     autoAddShelf,
+    zoomedShelf,
+    openZoom,
+    zoomStage,
+    isZoneZoomed,
+    zoomedZone,
+    zoomedShelfData,
+    dragSource,
+    handleDragStart,
+    handleDrop,
+    relocateTarget,
+    handleRelocateCancel,
+    handleRelocateConfirm,
   }
 }
