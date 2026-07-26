@@ -239,3 +239,82 @@ INSERT INTO export_receipts(id,receipt_code,reason,customer_id,total_amount,stat
 VALUES(2,'EXP-20260708-001','SALE',3,30598000,'PENDING_APPROVAL','Chờ duyệt xuất',3,'2026-07-08 11:00:00','2026-07-08 11:00:00');
 INSERT INTO export_receipt_items VALUES(3,2,5,2,15299000,30598000);
 SET FOREIGN_KEY_CHECKS=1;
+
+-- ============================================================
+-- Demo seed cho 6 flows: warranty, return, stock check,
+-- stock adjustment, price adjustment
+-- Mỗi flow có 1 record terminal + 1 PENDING để thao tác
+-- ============================================================
+
+SET @sold1 = (SELECT id FROM product_units WHERE status = 'SOLD' ORDER BY id LIMIT 1 OFFSET 0);
+SET @sold2 = (SELECT id FROM product_units WHERE status = 'SOLD' ORDER BY id LIMIT 1 OFFSET 1);
+SET @sold3 = (SELECT id FROM product_units WHERE status = 'SOLD' ORDER BY id LIMIT 1 OFFSET 2);
+SET @sold4 = (SELECT id FROM product_units WHERE status = 'SOLD' ORDER BY id LIMIT 1 OFFSET 3);
+SET @stock1 = (SELECT id FROM product_units WHERE status = 'IN_STOCK' ORDER BY id LIMIT 1 OFFSET 0);
+SET @stock2 = (SELECT id FROM product_units WHERE status = 'IN_STOCK' ORDER BY id LIMIT 1 OFFSET 1);
+SET @stock3 = (SELECT id FROM product_units WHERE status = 'IN_STOCK' ORDER BY id LIMIT 1 OFFSET 2);
+SET @stock4 = (SELECT id FROM product_units WHERE status = 'IN_STOCK' ORDER BY id LIMIT 1 OFFSET 3);
+SET @stock5 = (SELECT id FROM product_units WHERE status = 'IN_STOCK' ORDER BY id LIMIT 1 OFFSET 4);
+SET @stock6 = (SELECT id FROM product_units WHERE status = 'IN_STOCK' ORDER BY id LIMIT 1 OFFSET 5);
+SET @product1 = (SELECT product_id FROM product_units WHERE id = @sold1);
+SET @product9 = (SELECT product_id FROM product_units WHERE id = @sold2);
+
+-- Gán warranty dates cho SOLD units (seed V7 không set 2 cột này)
+UPDATE product_units
+SET warranty_start_date = imported_at,
+    warranty_expires_at = DATE_ADD(imported_at, INTERVAL warranty_months MONTH)
+WHERE status = 'SOLD' AND warranty_start_date IS NULL;
+
+-- Warranty requests
+INSERT INTO warranty_requests (request_code, product_unit_id, customer_id, issue_description, resolution_type, status, handled_by, completed_at, note, created_at)
+VALUES
+('WR-000001', @sold1, 1, 'Máy không lên nguồn, đã kiểm tra PSU và mainboard vẫn OK. Nghi ngờ CPU lỗi.', NULL, 'PENDING', NULL, NULL, NULL, '2026-07-10 09:00:00'),
+('WR-000002', @sold2, 1, 'SSD không được nhận diện trên BIOS, đã thử đổi slot vẫn không được.', 'REPAIR', 'PENDING', 2, NULL, 'Xác nhận sửa chữa tại kho', '2026-07-10 09:30:00'),
+('WR-000003', @sold3, 1, 'Nhiệt độ CPU lên 100°C ngay khi idle, tản nhiệt gắn đúng cách.', 'REPAIR', 'COMPLETED', 2, '2026-07-12 16:00:00', 'Đã thay keo tản nhiệt và kiểm tra — OK', '2026-07-09 14:00:00');
+
+-- Return receipts
+INSERT INTO return_receipts (receipt_code, customer_id, original_export_receipt_id, reason, status, note, created_by, created_at)
+VALUES ('RR-000002', 1, 1, 'CHANGE_MIND', 'PENDING_APPROVAL', 'Khách đổi ý — trả lại CPU trong 7 ngày', 4, '2026-07-14 10:00:00');
+SET @rr_pending = LAST_INSERT_ID();
+INSERT INTO return_receipt_items (return_receipt_id, product_unit_id, product_id, quantity, `condition`, resulting_action)
+VALUES (@rr_pending, @sold4, @product1, 1, 'GOOD', 'RESTOCK');
+
+INSERT INTO return_receipts (receipt_code, customer_id, original_export_receipt_id, reason, status, note, created_by, approved_by, approved_at, created_at)
+VALUES ('RR-000001', 1, 1, 'DEFECTIVE', 'COMPLETED', 'Khách trả CPU do lỗi không boot — đã kiểm tra xác nhận lỗi thật', 4, 2, '2026-07-11 10:00:00', '2026-07-11 09:00:00');
+INSERT INTO return_receipt_items (return_receipt_id, product_unit_id, product_id, quantity, `condition`, resulting_action)
+VALUES (LAST_INSERT_ID(), @sold1, @product1, 1, 'GOOD', 'RESTOCK');
+
+-- Stock checks
+INSERT INTO stock_checks (check_code, status, note, created_by, created_at)
+VALUES ('SC-000001', 'PENDING', 'Kiểm kê đột xuất khu vực A — hàng tồn lâu', 4, '2026-07-14 08:00:00');
+SET @sc_pending = LAST_INSERT_ID();
+INSERT INTO stock_check_items (stock_check_id, product_unit_id, expected_status, actual_status, counted_quantity, difference, note)
+VALUES
+(@sc_pending, @stock1, 'IN_STOCK', NULL, NULL, NULL, NULL),
+(@sc_pending, @stock2, 'IN_STOCK', NULL, NULL, NULL, NULL),
+(@sc_pending, @stock3, 'IN_STOCK', NULL, NULL, NULL, NULL);
+
+INSERT INTO stock_checks (check_code, status, note, created_by, approved_by, approval_note, created_at)
+VALUES ('SC-20260705-001', 'COMPLETED', 'Kiểm kê định kỳ khu vực A', 4, 2, 'Đã đối soát — approved', '2026-07-05 08:00:00');
+SET @sc_id = LAST_INSERT_ID();
+INSERT INTO stock_check_items (stock_check_id, product_unit_id, expected_status, actual_status, counted_quantity, difference, note)
+VALUES
+(@sc_id, @stock4, 'IN_STOCK', 'IN_STOCK', 1, 'MATCH', NULL),
+(@sc_id, @stock5, 'IN_STOCK', 'IN_STOCK', 1, 'MATCH', NULL),
+(@sc_id, @stock6, 'IN_STOCK', NULL, NULL, 'MISSING', 'Không tìm thấy tại vị trí'),
+(@sc_id, @stock1, 'IN_STOCK', 'IN_STOCK', 1, 'MATCH', NULL);
+
+-- Stock adjustments
+INSERT INTO stock_adjustments (adjust_code, type, product_unit_id, product_id, quantity, reason, status, created_by, created_at)
+VALUES ('ADJ-000001', 'LOST', @stock2, @product1, 1, 'Thất lạc trong quá trình kiểm kê — không tìm thấy tại vị trí lưu trữ', 'PENDING', 4, '2026-07-14 09:00:00');
+
+INSERT INTO stock_adjustments (adjust_code, type, product_unit_id, product_id, quantity, reason, status, created_by, approved_by, approval_note, created_at)
+VALUES ('ADJ-20260706-001', 'DAMAGED', @stock3, @product1, 1, 'Hỏng do vận chuyển — vỡ PCB', 'APPROVED', 4, 2, 'Xác nhận — chuyển quarantine', '2026-07-06 09:00:00');
+
+-- Price adjustments
+SET @import_item = (SELECT id FROM import_receipt_items WHERE product_id = @product9 ORDER BY id LIMIT 1);
+INSERT INTO price_adjustments (adjust_code, import_receipt_item_id, old_price, new_price, reason, status, created_by, created_at)
+VALUES ('PA-000001', @import_item, 3899000, 3499000, 'Giá SSD Samsung 990 Pro giảm theo thị trường — đề xuất điều chỉnh giá nhập', 'PENDING', 3, '2026-07-14 10:00:00');
+
+INSERT INTO price_adjustments (adjust_code, import_receipt_item_id, old_price, new_price, reason, status, created_by, approved_by, approval_note, created_at)
+VALUES ('PA-20260707-001', @import_item, 9499000, 8999000, 'Điều chỉnh giá nhập theo thỏa thuận NCC', 'APPROVED', 4, 2, 'OK', '2026-07-07 14:00:00');
