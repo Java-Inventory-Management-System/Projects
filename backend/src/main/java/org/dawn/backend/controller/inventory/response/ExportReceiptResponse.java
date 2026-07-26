@@ -20,6 +20,13 @@ public record ExportReceiptResponse(
         String createdByName,
         Long approvedBy,
         String approvedByName,
+        Long fulfilledBy,
+        String fulfilledByName,
+        Instant fulfilledAt,
+        Long rejectedBy,
+        String rejectedByName,
+        Instant rejectedAt,
+        String rejectReason,
         List<ExportItemResponse> items,
         Instant createdAt,
         Instant updatedAt
@@ -31,6 +38,7 @@ public record ExportReceiptResponse(
             String productName,
             String productSku,
             BigDecimal quantity,
-            BigDecimal unitPrice
+            BigDecimal unitPrice,
+            String trackingType
     ) {}
 }

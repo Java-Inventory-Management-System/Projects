@@ -5,6 +5,8 @@ import org.dawn.backend.config.web.response.ResponseObject;
 import org.dawn.backend.config.web.response.ResponsePage;
 import org.dawn.backend.constant.security.AuthorizationExpressions;
 import org.dawn.backend.controller.inventory.request.ExportReceiptRequest;
+import org.dawn.backend.controller.inventory.request.FulfillExportRequest;
+import org.dawn.backend.controller.inventory.request.RejectExportRequest;
 import org.dawn.backend.controller.inventory.response.ExportReceiptResponse;
 import org.dawn.backend.service.inventory.ExportReceiptService;
 import org.springframework.data.domain.Pageable;
@@ -40,6 +42,18 @@ public class ExportReceiptController {
     @PreAuthorize(AuthorizationExpressions.CAN_APPROVE)
     public ResponseObject<ExportReceiptResponse> approve(@PathVariable Long id) {
         return ResponseObject.success(exportReceiptService.approve(id));
+    }
+
+    @PutMapping("/export-receipt/{id}/reject")
+    @PreAuthorize(AuthorizationExpressions.CAN_APPROVE)
+    public ResponseObject<ExportReceiptResponse> reject(@PathVariable Long id, @RequestBody RejectExportRequest request) {
+        return ResponseObject.success(exportReceiptService.reject(id, request));
+    }
+
+    @PutMapping("/export-receipt/{id}/fulfill")
+    @PreAuthorize(AuthorizationExpressions.CAN_OPERATE)
+    public ResponseObject<ExportReceiptResponse> fulfill(@PathVariable Long id, @RequestBody FulfillExportRequest request) {
+        return ResponseObject.success(exportReceiptService.fulfill(id, request));
     }
 
     @PutMapping("/export-receipt/{id}/cancel")

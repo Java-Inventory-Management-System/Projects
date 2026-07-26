@@ -28,7 +28,9 @@ const ForbiddenPage = lazyPage(() => import("@/features/common/pages/forbidden-p
 const ImportListPage = lazyPage(() => import("@/features/stock/pages/import-list-page"), "ImportListPage")
 const ImportCreatePage = lazyPage(() => import("@/features/stock/pages/import-create-page"), "ImportCreatePage")
 const ExportListPage = lazyPage(() => import("@/features/stock/pages/export-list-page"), "ExportListPage")
-const ExportCreatePage = lazyPage(() => import("@/features/stock/pages/export-create-page"), "ExportCreatePage")
+const ExportProposalPage = lazyPage(() => import("@/features/stock/pages/export-proposal-page"), "ExportProposalPage")
+const ExportReviewPage = lazyPage(() => import("@/features/stock/pages/export-review-page"), "ExportReviewPage")
+const ExportFulfillPage = lazyPage(() => import("@/features/stock/pages/export-fulfill-page"), "ExportFulfillPage")
 const StockCheckListPage = lazyPage(() => import("@/features/stock/pages/stock-check-list-page"), "StockCheckListPage")
 const StockCheckCreatePage = lazyPage(
   () => import("@/features/stock/pages/stock-check-create-page"),
@@ -76,18 +78,17 @@ const PODetailPage = lazyPage(() => import("@/features/stock/pages/po-detail-pag
 const StockUnitsPage = lazyPage(() => import("@/features/stock/pages/stock-units-page"), "StockUnitsPage")
 const UsersPage = lazyPage(() => import("@/features/admin/pages/users-page"), "UsersPage")
 const AuditPage = lazyPage(() => import("@/features/admin/pages/audit-page"), "AuditPage")
-// Route-level gating: check the page is rendered only to allowed roles
 function PageGuard({ roles, children }: { roles?: URole[]; children: ReactNode }) {
   const user = useAuthStore((s) => s.user)
   if (!user) return <Navigate to="/login" replace />
-  if (roles && !roles.includes(user.role)) return <ForbiddenPage />
+  if (roles && !roles.includes(user.role as URole)) return <Navigate to="/403" replace />
   return <>{children}</>
 }
-// STOCK users land on stock-units instead of dashboard
+
 function RootRedirect() {
-  const role = useAuthStore((s) => s.user?.role)
-  if (role === "STOCK") return <Navigate to="/stock/units" replace />
-  if (role === "SALES") return <Navigate to="/stock/exports" replace />
+  const user = useAuthStore((s) => s.user)
+  if (user?.role === "STOCK") return <Navigate to="/stock/imports" replace />
+  if (user?.role === "SALES") return <Navigate to="/stock/exports" replace />
   return <DashboardPage />
 }
 
@@ -228,7 +229,27 @@ export const router = createBrowserRouter([
             element: (
               <Lazy>
                 <PageGuard roles={ROLES.CAN_OPERATE}>
-                  <ExportCreatePage />
+                  <ExportProposalPage />
+                </PageGuard>
+              </Lazy>
+            ),
+          },
+          {
+            path: "stock/exports/:id/review",
+            element: (
+              <Lazy>
+                <PageGuard roles={ROLES.CAN_APPROVE}>
+                  <ExportReviewPage />
+                </PageGuard>
+              </Lazy>
+            ),
+          },
+          {
+            path: "stock/exports/:id/fulfill",
+            element: (
+              <Lazy>
+                <PageGuard roles={ROLES.CAN_OPERATE_STOCK}>
+                  <ExportFulfillPage />
                 </PageGuard>
               </Lazy>
             ),

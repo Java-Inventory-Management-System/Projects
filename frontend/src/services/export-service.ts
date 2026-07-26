@@ -27,7 +27,6 @@ export async function createExportReceipt(data: {
     productId: number
     quantity: number
     unitPrice: number
-    serialNumbers?: string[]
   }>
 }): Promise<ExportReceipt> {
   const res = await http.post("/export-receipt", data)
@@ -36,6 +35,25 @@ export async function createExportReceipt(data: {
 
 export async function approveExportReceipt(id: number): Promise<ExportReceipt> {
   const res = await http.put(`/export-receipt/${id}/approve`)
+  return mapExportReceipt(res)
+}
+
+export async function rejectExportReceipt(id: number, data: { rejectReason: string }): Promise<ExportReceipt> {
+  const res = await http.put(`/export-receipt/${id}/reject`, data)
+  return mapExportReceipt(res)
+}
+
+export async function fulfillExportReceipt(
+  id: number,
+  data: {
+    items: Array<{
+      exportItemId: number
+      productUnitIds?: number[]
+      fulfilledQuantity?: number
+    }>
+  },
+): Promise<ExportReceipt> {
+  const res = await http.put(`/export-receipt/${id}/fulfill`, data)
   return mapExportReceipt(res)
 }
 

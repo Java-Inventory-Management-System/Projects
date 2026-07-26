@@ -185,6 +185,7 @@ export function mapExportItem(raw: unknown): ExportReceiptItem {
     productSku: r.productSku,
     quantity: r.quantity,
     unitPrice: r.unitPrice,
+    trackingType: r.trackingType,
   }
 }
 
@@ -204,6 +205,13 @@ export function mapExportReceipt(raw: unknown): ExportReceipt {
     createdAt: r.createdAt,
     approvedBy: r.approvedBy ?? null,
     approvedByName: r.approvedByName ?? null,
+    fulfilledBy: r.fulfilledBy ?? null,
+    fulfilledByName: r.fulfilledByName ?? null,
+    fulfilledAt: r.fulfilledAt ?? null,
+    rejectedBy: r.rejectedBy ?? null,
+    rejectedByName: r.rejectedByName ?? null,
+    rejectedAt: r.rejectedAt ?? null,
+    rejectReason: r.rejectReason ?? null,
     updatedAt: r.updatedAt ?? r.createdAt,
     items: (r.items ?? []).map(mapExportItem),
   }

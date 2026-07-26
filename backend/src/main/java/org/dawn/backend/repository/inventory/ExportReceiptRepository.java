@@ -5,8 +5,11 @@ import org.dawn.backend.entity.inventory.ExportReceipt;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -20,4 +23,13 @@ public interface ExportReceiptRepository extends JpaRepository<ExportReceipt, Lo
     Page<ExportReceipt> findByReceiptCodeStartingWith(String prefix, Pageable pageable);
     List<ExportReceipt> findByCreatedAtBetween(Instant from, Instant to);
     long countByCreatedAtBetween(Instant from, Instant to);
+
+    @Query("""
+            SELECT COALESCE(SUM(ei.quantity), 0) FROM ExportReceiptItem ei
+            JOIN ExportReceipt e ON e.id = ei.receiptId
+            WHERE ei.productId = :productId AND e.status IN :statuses
+            """)
+    BigDecimal sumCommittedQuantityByProductIdAndStatusIn(
+            @Param("productId") Long productId,
+            @Param("statuses") List<ExportReceiptStatus> statuses);
 }

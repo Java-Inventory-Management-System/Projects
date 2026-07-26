@@ -12,7 +12,6 @@ public record ExportReceiptRequest(
     public record ExportItemRequest(
             Long productId,
             BigDecimal quantity,
-            BigDecimal unitPrice,
-            List<Long> productUnitIds
+            BigDecimal unitPrice
     ) {}
 }

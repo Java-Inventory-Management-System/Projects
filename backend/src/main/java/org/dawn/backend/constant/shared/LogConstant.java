@@ -37,6 +37,8 @@ public class LogConstant {
         public static final String TOGGLE_CUSTOMER = "TOGGLE_CUSTOMER";
         public static final String CREATE_EXPORT = "CREATE_EXPORT";
         public static final String APPROVE_EXPORT = "APPROVE_EXPORT";
+        public static final String REJECT_EXPORT = "REJECT_EXPORT";
+        public static final String FULFILL_EXPORT = "FULFILL_EXPORT";
         public static final String CANCEL_EXPORT = "CANCEL_EXPORT";
         public static final String CREATE_STOCK_CHECK = "CREATE_STOCK_CHECK";
         public static final String COMPLETE_STOCK_CHECK = "COMPLETE_STOCK_CHECK";

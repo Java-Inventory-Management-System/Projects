@@ -6,6 +6,7 @@ import lombok.experimental.SuperBuilder;
 import org.dawn.backend.entity.base.AuditableEntity;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import org.dawn.backend.constant.inventory.ExportReceiptStatus;
 
 @Entity
@@ -33,7 +34,7 @@ public class ExportReceipt extends AuditableEntity {
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)
     @Builder.Default
-    private ExportReceiptStatus status = ExportReceiptStatus.PENDING_APPROVAL;
+    private ExportReceiptStatus status = ExportReceiptStatus.PENDING;
 
     @Column(name = "note", columnDefinition = "TEXT")
     private String note;
@@ -43,6 +44,21 @@ public class ExportReceipt extends AuditableEntity {
 
     @Column(name = "approved_by")
     private Long approvedBy;
+
+    @Column(name = "fulfilled_by")
+    private Long fulfilledBy;
+
+    @Column(name = "fulfilled_at")
+    private Instant fulfilledAt;
+
+    @Column(name = "rejected_by")
+    private Long rejectedBy;
+
+    @Column(name = "rejected_at")
+    private Instant rejectedAt;
+
+    @Column(name = "reject_reason", columnDefinition = "TEXT")
+    private String rejectReason;
 
     @Column(name = "source_import_receipt_id")
     private Long sourceImportReceiptId;

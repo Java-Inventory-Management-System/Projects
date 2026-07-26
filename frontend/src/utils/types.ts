@@ -313,13 +313,20 @@ export interface ExportReceipt {
   createdByName: string | null
   approvedBy: number | null
   approvedByName: string | null
+  fulfilledBy: number | null
+  fulfilledByName: string | null
+  fulfilledAt: string | null
+  rejectedBy: number | null
+  rejectedByName: string | null
+  rejectedAt: string | null
+  rejectReason: string | null
   createdAt: string
   updatedAt: string
   items: ExportReceiptItem[]
 }
 
 export type ExportReason = "SALE" | "INTERNAL" | "RETURN_SUPPLIER" | "DISPOSE"
-export type ExportReceiptStatus = "PENDING_APPROVAL" | "COMPLETED" | "CANCELLED"
+export type ExportReceiptStatus = "PENDING" | "APPROVED" | "COMPLETED" | "CANCELLED"
 
 export interface ExportReceiptItem {
   id: number
@@ -328,6 +335,7 @@ export interface ExportReceiptItem {
   productSku: string | null
   quantity: number
   unitPrice: number
+  trackingType?: string
 }
 
 // ============ Stock Check ============
@@ -625,7 +633,8 @@ export const IMPORT_RECEIPT_STATUS = {
 } as const
 
 export const EXPORT_RECEIPT_STATUS = {
-  PENDING_APPROVAL: "PENDING_APPROVAL",
+  PENDING: "PENDING",
+  APPROVED: "APPROVED",
   COMPLETED: "COMPLETED",
   CANCELLED: "CANCELLED",
 } as const

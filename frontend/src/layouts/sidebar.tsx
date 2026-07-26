@@ -29,14 +29,14 @@ export function Sidebar({ collapsed, onNavigate }: SidebarProps) {
       const r = await getImportReceipts(0, 1, undefined, IMPORT_RECEIPT_STATUS.PENDING_APPROVAL)
       return r.pagination.totalElements
     },
-    enabled: userRole ? ROLES.CAN_VIEW_INVENTORY.includes(userRole) : false,
+    enabled: true,
     staleTime: 60_000,
   })
 
   const { data: exportPending } = useQuery({
     queryKey: ["export-pending-count"],
     queryFn: async () => {
-      const r = await getExportReceipts(0, 1, undefined, EXPORT_RECEIPT_STATUS.PENDING_APPROVAL)
+      const r = await getExportReceipts(0, 1, undefined, EXPORT_RECEIPT_STATUS.PENDING)
       return r.pagination.totalElements
     },
     staleTime: 60_000,
