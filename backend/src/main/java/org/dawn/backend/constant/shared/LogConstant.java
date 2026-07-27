@@ -41,6 +41,7 @@ public class LogConstant {
         public static final String FULFILL_EXPORT = "FULFILL_EXPORT";
         public static final String CANCEL_EXPORT = "CANCEL_EXPORT";
         public static final String CREATE_STOCK_CHECK = "CREATE_STOCK_CHECK";
+        public static final String START_STOCK_CHECK = "START_STOCK_CHECK";
         public static final String COMPLETE_STOCK_CHECK = "COMPLETE_STOCK_CHECK";
         public static final String APPROVE_STOCK_CHECK = "APPROVE_STOCK_CHECK";
         public static final String REJECT_STOCK_CHECK = "REJECT_STOCK_CHECK";

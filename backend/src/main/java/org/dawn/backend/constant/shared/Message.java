@@ -124,6 +124,7 @@ public class Message {
         public static final String STOCK_CHECK_ALREADY_COMPLETED = "Stock check already completed";
         public static final String STOCK_CHECK_ITEMS_REQUIRED = "At least one stock check item is required";
         public static final String STOCK_CHECK_MUST_BE_IN_PROGRESS = "Stock check must be in progress to record items";
+        public static final String STOCK_CHECK_ALREADY_STARTED = "Stock check has already been started";
         public static final String ONLY_COMPLETED_CAN_APPROVE = "Only completed stock checks can be approved";
         public static final String ONLY_COMPLETED_CAN_REJECT = "Only completed stock checks can be rejected";
         public static final String ADJUSTMENT_NOT_FOUND = "Stock adjustment not found";

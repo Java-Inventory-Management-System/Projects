@@ -312,6 +312,21 @@ public class StockCheckService {
     }
 
     @Transactional
+    @AuditLog(action = LogConstant.Action.START_STOCK_CHECK, entity = LogConstant.Entity.STOCK_CHECK)
+    public StockCheckResponse start(Long id) {
+        var sc = stockCheckRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.STOCK_CHECK_NOT_FOUND));
+
+        if (StockCheckStatus.PENDING != sc.getStatus()) {
+            throw new InvalidRequestException(Message.Inventory.STOCK_CHECK_ALREADY_STARTED);
+        }
+
+        sc.setStatus(StockCheckStatus.IN_PROGRESS);
+        sc = stockCheckRepository.save(sc);
+        return enrich(sc);
+    }
+
+    @Transactional
     @AuditLog(action = LogConstant.Action.APPROVE_STOCK_CHECK, entity = LogConstant.Entity.STOCK_CHECK)
     public StockCheckResponse approve(Long id, ApproveStockCheckRequest request) {
         Long userId = SecurityUtils.getCurrentUserId();
@@ -321,9 +336,9 @@ public class StockCheckService {
         if (StockCheckStatus.COMPLETED != sc.getStatus()) {
             throw new InvalidRequestException(Message.Inventory.ONLY_COMPLETED_CAN_APPROVE);
         }
-        if (sc.getCreatedBy().equals(userId)) {
-            throw new InvalidRequestException(Message.Inventory.CREATOR_CANNOT_APPROVE);
-        }
+        // if (sc.getCreatedBy().equals(userId)) {
+        //     throw new InvalidRequestException(Message.Inventory.CREATOR_CANNOT_APPROVE);
+        // }
 
         var items = stockCheckItemRepository.findByStockCheckId(id);
         for (var item : items) {
@@ -394,9 +409,9 @@ public class StockCheckService {
         if (StockCheckStatus.COMPLETED != sc.getStatus()) {
             throw new InvalidRequestException(Message.Inventory.ONLY_COMPLETED_CAN_REJECT);
         }
-        if (sc.getCreatedBy().equals(userId)) {
-            throw new InvalidRequestException(Message.Inventory.CREATOR_CANNOT_APPROVE);
-        }
+        // if (sc.getCreatedBy().equals(userId)) {
+        //     throw new InvalidRequestException(Message.Inventory.CREATOR_CANNOT_APPROVE);
+        // }
 
         if (request == null || request.approvalNote() == null || request.approvalNote().isBlank()) {
             throw new InvalidRequestException("Rejection reason is required");

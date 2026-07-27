@@ -65,6 +65,12 @@ public class StockCheckController {
         return ResponseObject.success(stockCheckService.importSerials(id, request));
     }
 
+    @PutMapping("/stock-check/{id}/start")
+    @PreAuthorize(AuthorizationExpressions.CAN_OPERATE_STOCK)
+    public ResponseObject<StockCheckResponse> start(@PathVariable Long id) {
+        return ResponseObject.success(stockCheckService.start(id));
+    }
+
     @PutMapping("/stock-check/{id}/complete")
     @PreAuthorize(AuthorizationExpressions.CAN_OPERATE_STOCK)
     public ResponseObject<StockCheckResponse> complete(@PathVariable Long id) {
