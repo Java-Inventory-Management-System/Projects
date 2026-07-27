@@ -22,12 +22,18 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog"
 import { useFormDraft, clearDraft } from "@/hooks/use-form-draft"
-import { ArrowLeft, Search, Info, ScanLine, CheckCircle2, XCircle } from "lucide-react"
+import { ArrowLeft, Search, Info, ScanLine, CheckCircle2, XCircle, Plus, List } from "lucide-react"
 import { Empty, EmptyTitle } from "@/components/ui/empty"
 import { toast } from "@/utils/toast"
 import { mapResponsePage, mapProductUnit } from "@/utils/mappers"
 import { ADJUSTMENT_TYPE, STOCK_CHECK_DIFF, type ProductUnit } from "@/utils/types"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+
+const presetReasons: Record<string, string[]> = {
+  DAMAGED: ["Hàng bị va đập trong quá trình di chuyển", "Hàng bị ẩm mốc do điều kiện bảo quản", "Sản phẩm lỗi từ nhà cung cấp"],
+  LOST: ["Không tìm thấy hàng trong quá trình kiểm kê", "Thất lạc trong quá trình xuất nhập"],
+  FOUND: ["Kiểm kê phát hiện thừa", "Hàng trả lại không cập nhật hệ thống", "Nhập hàng quên ghi nhận"],
+}
 
 interface AdjustmentForm {
   type: string
@@ -80,6 +86,7 @@ export const StockAdjustmentCreatePage = () => {
   const [scanInput, setScanInput] = useState("")
   const [batchProgress, setBatchProgress] = useState<{ current: number; total: number } | null>(null)
   const [batchResults, setBatchResults] = useState<BatchResult[]>([])
+  const [successResult, setSuccessResult] = useState<{ adjustCode: string } | null>(null)
 
   const form = useForm<AdjustmentForm>({
     defaultValues: { type: "", selectedUnitId: null, selectedProductId: null, quantity: 1, foundSerialNumber: "", foundLocationId: "", reason: initialReason, imageUrl: "" },
@@ -151,11 +158,15 @@ export const StockAdjustmentCreatePage = () => {
 
   const createMut = useMutation({
     mutationFn: createStockAdjustment,
-    onSuccess: () => {
+    onSuccess: (data) => {
       clearDraft("/stock/adjustments/new")
       qc.invalidateQueries({ queryKey: ["stock-adjustments"] })
+      const code = (data as { adjustCode?: string }).adjustCode ?? ""
+      setSuccessResult({ adjustCode: code })
+      form.reset()
+      setFoundMode(null)
+      setScanInput("")
       toast.success("Tạo phiếu điều chỉnh thành công")
-      navigate("/stock/adjustments")
     },
     onError: (err: Error) => toast.error(err.message || "Có lỗi xảy ra"),
   })
@@ -293,6 +304,31 @@ export const StockAdjustmentCreatePage = () => {
   const needsUnit = watchedType === ADJUSTMENT_TYPE.DAMAGED || watchedType === ADJUSTMENT_TYPE.LOST
   const needsProduct = watchedType === ADJUSTMENT_TYPE.FOUND
 
+  if (successResult) {
+    return (
+      <div className="mx-auto max-w-3xl">
+        <div className="flex flex-col items-center justify-center py-16 text-center space-y-4">
+          <div className="rounded-full bg-green-100 p-3">
+            <CheckCircle2 className="size-10 text-green-600" />
+          </div>
+          <h2 className="text-xl font-semibold">Tạo phiếu điều chỉnh thành công</h2>
+          {successResult.adjustCode && (
+            <p className="font-mono text-sm text-muted-foreground">Mã phiếu: {successResult.adjustCode}</p>
+          )}
+          <p className="text-sm text-muted-foreground max-w-sm">Bạn có thể tạo phiếu mới hoặc về danh sách để xem.</p>
+          <div className="flex gap-3 pt-2">
+            <Button onClick={() => { setSuccessResult(null); form.reset(); setFoundMode(null); setScanInput("") }}>
+              <Plus className="size-4 mr-1" /> Tạo phiếu khác
+            </Button>
+            <Button variant="outline" onClick={() => navigate("/stock/adjustments")}>
+              <List className="size-4 mr-1" /> Về danh sách
+            </Button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <div className="flex items-center gap-3">
@@ -427,6 +463,7 @@ export const StockAdjustmentCreatePage = () => {
                           <th className="px-2 py-1 font-medium">Serial</th>
                           <th className="px-2 py-1 font-medium">Sản phẩm</th>
                           <th className="px-2 py-1 font-medium">Trạng thái</th>
+                          <th className="px-2 py-1 font-medium">Vị trí</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -452,7 +489,12 @@ export const StockAdjustmentCreatePage = () => {
                               <span className="font-medium">{u.productName}</span>
                               <span className="text-xs text-muted-foreground ml-1">{u.productSku}</span>
                             </td>
-                            <td className="px-2 py-1 text-xs text-muted-foreground">{u.status}</td>
+                            <td className="px-2 py-1">
+                              <Badge variant={u.status === "IN_STOCK" ? "default" : "secondary"} className="text-[10px]">
+                                {u.status}
+                              </Badge>
+                            </td>
+                            <td className="px-2 py-1 text-xs text-muted-foreground">{u.locationCode ?? "—"}</td>
                           </tr>
                         )})}
                       </tbody>
@@ -584,6 +626,18 @@ export const StockAdjustmentCreatePage = () => {
             <Label htmlFor="reason">
               Lý do <span className="text-destructive">*</span>
             </Label>
+            <div className="flex flex-wrap gap-1.5">
+              {presetReasons[watchedType]?.map((r) => (
+                <Badge
+                  key={r}
+                  variant="outline"
+                  className="cursor-pointer text-xs font-normal hover:bg-muted"
+                  onClick={() => form.setValue("reason", r)}
+                >
+                  {r}
+                </Badge>
+              ))}
+            </div>
             <Textarea
               id="reason"
               placeholder="Mô tả chi tiết lý do điều chỉnh..."
