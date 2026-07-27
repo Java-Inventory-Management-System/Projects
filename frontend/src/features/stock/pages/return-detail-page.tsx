@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/breadcrumb"
 import { Check, X } from "lucide-react"
 import { toast } from "@/utils/toast"
-import { EXPORT_RECEIPT_STATUS } from "@/utils/types"
+import { RETURN_RECEIPT_STATUS } from "@/utils/types"
 
 const reasonLabel: Record<string, string> = {
   CHANGE_MIND: "Đổi ý",
@@ -99,8 +99,8 @@ export const ReturnDetailPage = () => {
     )
 
   const st = statusLabel[receipt.status] ?? { label: receipt.status, variant: "secondary" as const }
-  const canApprove = receipt.status === EXPORT_RECEIPT_STATUS.PENDING_APPROVAL && perm.hasRole(...ROLES.CAN_APPROVE)
-  const canCancel = receipt.status === EXPORT_RECEIPT_STATUS.PENDING_APPROVAL
+  const canApprove = receipt.status === RETURN_RECEIPT_STATUS.PENDING_APPROVAL && perm.hasRole(...ROLES.CAN_APPROVE)
+  const canCancel = receipt.status === RETURN_RECEIPT_STATUS.PENDING_APPROVAL
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -166,11 +166,14 @@ export const ReturnDetailPage = () => {
           <div className="rounded-lg border divide-y text-sm">
             {receipt.items.map((item) => (
               <div key={item.id} className="flex flex-wrap items-center gap-3 px-4 py-2.5">
-                <span className="font-mono text-xs text-muted-foreground w-24">Unit #{item.productUnitId}</span>
-                <span className="flex-1">
-                  <span className="font-medium">Product #{item.productId}</span>
-                  <span className="text-xs text-muted-foreground ml-2">x{item.quantity}</span>
-                </span>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-sm">{item.productName ?? `Product #${item.productId}`}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {item.serialNumber && <span className="font-mono">{item.serialNumber}</span>}
+                    {item.productSku && <span className="ml-2">SKU: {item.productSku}</span>}
+                    <span className="ml-2">x{item.quantity}</span>
+                  </p>
+                </div>
                 <Badge variant="outline" className="text-[10px]">
                   {conditionLabel[item.condition] ?? item.condition}
                 </Badge>

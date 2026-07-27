@@ -38,3 +38,19 @@ export async function cancelReturnReceipt(id: number): Promise<ReturnReceipt> {
   const res = await http.put(`/return-receipts/${id}/cancel`)
   return mapReturnReceipt(res)
 }
+
+export interface UnitLookupResult {
+  found: boolean
+  inExport: boolean
+  productUnitId: number | null
+  productId: number | null
+  productName: string | null
+  productSku: string | null
+  serialNumber: string | null
+  status: string | null
+}
+
+export async function lookupReturnUnit(serial: string, exportReceiptId: number): Promise<UnitLookupResult> {
+  const res = await http.get("/return-receipts/lookup-unit", { params: { serial, exportReceiptId } })
+  return res.data as UnitLookupResult
+}

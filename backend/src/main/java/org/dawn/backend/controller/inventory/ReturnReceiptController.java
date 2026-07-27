@@ -11,6 +11,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Map;
+
 @RestController
 @RequestMapping("/return-receipts")
 @RequiredArgsConstructor
@@ -46,5 +48,12 @@ public class ReturnReceiptController {
     @PreAuthorize(AuthorizationExpressions.CAN_APPROVE)
     public ResponseObject<ReturnReceiptResponse> cancel(@PathVariable Long id) {
         return ResponseObject.success(returnReceiptService.cancel(id));
+    }
+
+    @GetMapping("/lookup-unit")
+    @PreAuthorize(AuthorizationExpressions.CAN_OPERATE)
+    public ResponseObject<ReturnReceiptService.ProductUnitLookup> lookupUnit(
+            @RequestParam String serial, @RequestParam Long exportReceiptId) {
+        return ResponseObject.success(returnReceiptService.lookupUnitBySerial(serial, exportReceiptId));
     }
 }

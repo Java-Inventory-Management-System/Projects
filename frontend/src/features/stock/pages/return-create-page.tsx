@@ -2,32 +2,31 @@ import { useState } from "react"
 import { useForm, useFieldArray, Controller } from "react-hook-form"
 import { useNavigate } from "react-router-dom"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { createReturnReceipt } from "@/services/return-service"
+import { createReturnReceipt, lookupReturnUnit } from "@/services/return-service"
 import { getCustomers } from "@/services/customer-service"
 import { getExportReceipts } from "@/services/export-service"
 // ponytail: getProducts unused, kept for future export detail lookup
-import http from "@/utils/http-client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, Plus, Search, X } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { cn } from "@/utils/cn"
 import { toast } from "@/utils/toast"
-import { mapResponsePage, mapProductUnit } from "@/utils/mappers"
 import {
   EXPORT_RECEIPT_STATUS,
   RETURN_REASON,
   RETURN_ITEM_CONDITION,
   RETURN_RESULTING_ACTION,
-  PRODUCT_UNIT_STATUS,
 } from "@/utils/types"
 
 interface ReturnItemField {
   productUnitId: number
   productId: number
+  productName: string
+  productSku: string
+  serialNumber: string
   quantity: number
   condition: string
   resultingAction: string
@@ -50,8 +49,19 @@ export const ReturnCreatePage = () => {
   const [selectedExportId, setSelectedExportId] = useState<number | null>(null)
   const [selectedExportCode, setSelectedExportCode] = useState<string | null>(null)
   const [selectedExportCreatedAt, setSelectedExportCreatedAt] = useState<string | null>(null)
-  const [serialSearch, setSerialSearch] = useState("")
+  const [serialInput, setSerialInput] = useState("")
   const [showSerialPicker, setShowSerialPicker] = useState(false)
+  const [lookupResult, setLookupResult] = useState<{
+    found: boolean
+    inExport: boolean
+    productUnitId: number | null
+    productId: number | null
+    productName: string | null
+    productSku: string | null
+    serialNumber: string | null
+    status: string | null
+  } | null>(null)
+  const [lookupLoading, setLookupLoading] = useState(false)
 
   const form = useForm<ReturnFormFields>({
     defaultValues: { reason: RETURN_REASON.DEFECTIVE, note: "", items: [] },
@@ -71,22 +81,40 @@ export const ReturnCreatePage = () => {
     enabled: !selectedExportId,
   })
 
-  const { data: unitsData } = useQuery({
-    queryKey: ["product-units", serialSearch],
-    queryFn: async () => {
-      const params: Record<string, unknown> = { page: 0, size: 50, sort: "importedAt,desc" }
-      if (serialSearch) params.search = serialSearch
-      const res = await http.get("/product-unit", { params })
-      return mapResponsePage(res, mapProductUnit)
-    },
-    enabled: showSerialPicker && serialSearch.length > 0,
-  })
+  const doLookup = async () => {
+    if (!serialInput.trim() || !selectedExportId) return
+    setLookupLoading(true)
+    setLookupResult(null)
+    try {
+      const res = await lookupReturnUnit(serialInput.trim(), selectedExportId)
+      setLookupResult(res)
+    } catch {
+      toast.error("Lỗi tra cứu serial")
+    } finally {
+      setLookupLoading(false)
+    }
+  }
 
-  const addItem = (unitId: number, productId: number, trackingType: string) => {
-    if (fields.some((f) => f.productUnitId === unitId)) return
-    append({ productUnitId: unitId, productId, quantity: 1, condition: RETURN_ITEM_CONDITION.GOOD, resultingAction: RETURN_RESULTING_ACTION.RESTOCK, trackingType })
+  const addLookedUpItem = () => {
+    if (!lookupResult || !lookupResult.found || !lookupResult.inExport || !lookupResult.productUnitId || !lookupResult.productId) return
+    if (fields.some((f) => f.productUnitId === lookupResult.productUnitId)) {
+      toast.error("Sản phẩm đã có trong danh sách")
+      return
+    }
+    append({
+      productUnitId: lookupResult.productUnitId,
+      productId: lookupResult.productId,
+      productName: lookupResult.productName ?? "",
+      productSku: lookupResult.productSku ?? "",
+      serialNumber: lookupResult.serialNumber ?? "",
+      quantity: 1,
+      condition: RETURN_ITEM_CONDITION.GOOD,
+      resultingAction: RETURN_RESULTING_ACTION.RESTOCK,
+      trackingType: "SERIALIZED",
+    })
     setShowSerialPicker(false)
-    setSerialSearch("")
+    setSerialInput("")
+    setLookupResult(null)
   }
 
   const createMut = useMutation({
@@ -276,38 +304,51 @@ export const ReturnCreatePage = () => {
 
         {showSerialPicker && (
           <div className="space-y-2 rounded-lg border p-3 bg-muted/10">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-              <Input
-                value={serialSearch}
-                onChange={(e) => setSerialSearch(e.target.value)}
-                placeholder="Tìm serial sản phẩm..."
-                className="pl-9"
-              />
+            <Label className="text-xs text-muted-foreground">Tra serial trong đơn xuất</Label>
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                <Input
+                  value={serialInput}
+                  onChange={(e) => { setSerialInput(e.target.value); setLookupResult(null) }}
+                  onKeyDown={(e) => e.key === "Enter" && doLookup()}
+                  placeholder="Nhập serial..."
+                  className="pl-9"
+                />
+              </div>
+              <Button size="sm" onClick={doLookup} disabled={lookupLoading || !serialInput.trim()}>
+                {lookupLoading ? "Đang tra..." : "Tra"}
+              </Button>
             </div>
-            {unitsData && unitsData.content.length > 0 && (
-              <div className="max-h-32 overflow-y-auto divide-y text-sm rounded-lg border">
-                {unitsData.content
-                  .filter((u) => u.status === PRODUCT_UNIT_STATUS.SOLD || u.status === PRODUCT_UNIT_STATUS.IN_STOCK)
-                  .map((u) => (
-                    <div
-                      key={u.id}
-                      className="flex cursor-pointer items-center justify-between px-3 py-1.5 hover:bg-muted/30"
-                      onClick={() => addItem(u.id, u.productId, u.trackingType)}
-                    >
-                      <div>
-                        <span className="font-mono text-xs">{u.serialNumber}</span>
-                        <span className="ml-2 font-medium">{u.productName}</span>
-                      </div>
-                      <Badge variant="outline" className="text-[10px]">
-                        {u.status}
-                      </Badge>
+            {lookupResult && (
+              <div className={cn(
+                "rounded-lg border px-3 py-2 text-sm",
+                lookupResult.found && lookupResult.inExport
+                  ? "border-green-200 bg-green-50 dark:bg-green-950/20 dark:border-green-800"
+                  : "border-red-200 bg-red-50 dark:bg-red-950/20 dark:border-red-800",
+              )}>
+                {lookupResult.found && lookupResult.inExport ? (
+                  <div className="flex items-center justify-between">
+                    <div className="min-w-0">
+                      <p className="font-medium">{lookupResult.productName}</p>
+                      <p className="text-xs text-muted-foreground">
+                        <span className="font-mono">{lookupResult.serialNumber}</span>
+                        {lookupResult.productSku && <span className="ml-2">SKU: {lookupResult.productSku}</span>}
+                      </p>
                     </div>
-                  ))}
+                    <Button size="sm" variant="outline" onClick={addLookedUpItem}>
+                      Thêm
+                    </Button>
+                  </div>
+                ) : lookupResult.found && !lookupResult.inExport ? (
+                  <p className="text-sm">Serial <span className="font-mono">{lookupResult.serialNumber}</span> không thuộc đơn xuất này</p>
+                ) : (
+                  <p className="text-sm">Không tìm thấy serial <span className="font-mono">{serialInput}</span></p>
+                )}
               </div>
             )}
             <div className="flex justify-end">
-              <Button variant="ghost" size="sm" onClick={() => setShowSerialPicker(false)}>
+              <Button variant="ghost" size="sm" onClick={() => { setShowSerialPicker(false); setLookupResult(null); setSerialInput("") }}>
                 Đóng
               </Button>
             </div>
@@ -320,8 +361,11 @@ export const ReturnCreatePage = () => {
               <div key={item.id} className="flex flex-wrap items-center gap-2 px-3 py-2">
                 <span className="font-mono text-xs text-muted-foreground w-8">#{index + 1}</span>
                 <div className="flex-1 min-w-0">
-                  <span className="font-medium">Unit #{item.productUnitId}</span>
-                  <span className="text-xs text-muted-foreground ml-1">(Product #{item.productId})</span>
+                  <p className="font-medium text-sm">{item.productName}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {item.serialNumber && <span className="font-mono">{item.serialNumber}</span>}
+                    {item.productSku && <span className="ml-2 text-muted-foreground">SKU: {item.productSku}</span>}
+                  </p>
                 </div>
                 <div className="flex items-center gap-2">
                   <Controller

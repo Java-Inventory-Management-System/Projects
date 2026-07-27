@@ -552,6 +552,9 @@ export interface ReturnReceiptItem {
   id: number
   productUnitId: number
   productId: number
+  productName: string | null
+  productSku: string | null
+  serialNumber: string | null
   quantity: number
   condition: string
   resultingAction: string
@@ -575,7 +578,7 @@ export interface ReturnReceipt {
   createdAt: string
 }
 
-export type ReturnReceiptStatus = "PENDING" | "PENDING_APPROVAL" | "APPROVED" | "REJECTED"
+export type ReturnReceiptStatus = "PENDING_APPROVAL" | "COMPLETED" | "CANCELLED"
 
 // ============ Product Image ============
 
@@ -638,6 +641,12 @@ export const IMPORT_RECEIPT_STATUS = {
   CANCELLED: "CANCELLED",
 } as const
 
+export const RETURN_RECEIPT_STATUS = {
+  PENDING_APPROVAL: "PENDING_APPROVAL",
+  COMPLETED: "COMPLETED",
+  CANCELLED: "CANCELLED",
+} as const
+
 export const EXPORT_RECEIPT_STATUS = {
   PENDING: "PENDING",
   APPROVED: "APPROVED",
@@ -669,12 +678,6 @@ export const STOCK_CHECK_STATUS = {
 export const ADJUSTMENT_STATUS = {
   PENDING: "PENDING",
   APPROVED: "APPROVED",
-} as const
-
-export const RETURN_RECEIPT_STATUS = {
-  PENDING: "PENDING",
-  APPROVED: "APPROVED",
-  REJECTED: "REJECTED",
 } as const
 
 export const WARRANTY_STATUS = {
