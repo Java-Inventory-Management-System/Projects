@@ -393,7 +393,7 @@ export interface StockCheck {
 // ============ Stock Adjustment ============
 
 export type AdjustmentType = "DAMAGED" | "LOST" | "FOUND"
-export type AdjustmentStatus = "PENDING" | "APPROVED"
+export type AdjustmentStatus = "PENDING" | "APPROVED" | "REJECTED"
 export type AdjustmentSourceType = "MANUAL" | "STOCK_CHECK"
 
 export interface StockAdjustment {
