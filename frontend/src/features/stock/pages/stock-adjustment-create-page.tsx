@@ -84,6 +84,7 @@ export const StockAdjustmentCreatePage = () => {
   const [searchUnit, setSearchUnit] = useState("")
   const [searchProduct, setSearchProduct] = useState("")
   const [showConfirm, setShowConfirm] = useState(false)
+  const [showManualConfirm, setShowManualConfirm] = useState(false)
   const [showResult, setShowResult] = useState(false)
   const [showDraftDialog, setShowDraftDialog] = useState(false)
   const [foundMode, setFoundMode] = useState<"existing" | "new" | null>(null)
@@ -269,6 +270,11 @@ export const StockAdjustmentCreatePage = () => {
       return
     }
     if (!validate()) return
+    setShowManualConfirm(true)
+  }
+
+  const confirmManual = () => {
+    setShowManualConfirm(false)
     submittingRef.current = true
     createMut.mutate(buildSubmitData(), {
       onSettled: () => { submittingRef.current = false },
@@ -799,6 +805,67 @@ export const StockAdjustmentCreatePage = () => {
           <DialogFooter>
             <Button onClick={() => { setShowResult(false); navigate("/stock/adjustments") }}>
               {batchResults.filter((r) => r.success).length}/{batchResults.length} thành công — Về danh sách
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showManualConfirm} onOpenChange={(v) => { if (!v) setShowManualConfirm(false) }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Xác nhận tạo phiếu điều chỉnh</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 text-sm">
+            {(() => {
+              const v = form.getValues()
+              const t = typeOptions.find(o => o.value === v.type)
+              return (
+                <>
+                  <div className="flex gap-2">
+                    <span className="text-muted-foreground w-28 shrink-0">Loại:</span>
+                    <span className="font-medium">{t?.label ?? v.type}</span>
+                  </div>
+                  {v.selectedUnitId && (() => {
+                    const u = unitsData?.content.find((x: ProductUnit) => x.id === v.selectedUnitId)
+                    return u ? (
+                      <div className="flex gap-2">
+                        <span className="text-muted-foreground w-28 shrink-0">Sản phẩm:</span>
+                        <span><span className="font-medium">{u.productName}</span><span className="text-xs text-muted-foreground ml-1 font-mono">{u.serialNumber}</span></span>
+                      </div>
+                    ) : null
+                  })()}
+                  {v.type === ADJUSTMENT_TYPE.FOUND && foundMode === "new" && (
+                    <>
+                      <div className="flex gap-2">
+                        <span className="text-muted-foreground w-28 shrink-0">Số lượng:</span>
+                        <span className="font-medium">{v.quantity}</span>
+                      </div>
+                      <div className="flex gap-2">
+                        <span className="text-muted-foreground w-28 shrink-0">Serial:</span>
+                        <span className="font-mono text-xs">{v.foundSerialNumber}</span>
+                      </div>
+                    </>
+                  )}
+                  <div className="flex gap-2">
+                    <span className="text-muted-foreground w-28 shrink-0">Lý do:</span>
+                    <span className="text-muted-foreground">{v.reason}</span>
+                  </div>
+                  {v.imageUrl && (
+                    <div className="flex gap-2">
+                      <span className="text-muted-foreground w-28 shrink-0">Ảnh:</span>
+                      <span className="text-xs text-muted-foreground">{v.imageUrl.split(",").filter(Boolean).length} ảnh</span>
+                    </div>
+                  )}
+                </>
+              )
+            })()}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowManualConfirm(false)}>
+              Quay lại
+            </Button>
+            <Button onClick={confirmManual} disabled={createMut.isPending}>
+              {createMut.isPending ? "Đang tạo..." : "Xác nhận"}
             </Button>
           </DialogFooter>
         </DialogContent>
