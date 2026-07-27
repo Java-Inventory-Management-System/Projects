@@ -39,6 +39,9 @@ interface Props<R extends Receipt> {
   approveService: (id: number) => Promise<unknown>
   ViewModal: ComponentType<{ receipt: R | null; open: boolean; onOpenChange: (v: boolean) => void }>
   columns: Column<R>[]
+  approvableStatus?: string
+  cancelledStatus?: string
+  scanStatuses?: string[]
 }
 
 export function ReceiptListPage<R extends Receipt>({
@@ -51,6 +54,9 @@ export function ReceiptListPage<R extends Receipt>({
   approveService,
   ViewModal,
   columns,
+  approvableStatus = IMPORT_RECEIPT_STATUS.PENDING_APPROVAL,
+  cancelledStatus = IMPORT_RECEIPT_STATUS.CANCELLED,
+  scanStatuses = [IMPORT_RECEIPT_STATUS.DRAFT, IMPORT_RECEIPT_STATUS.PENDING_APPROVAL],
 }: Props<R>) {
   const navigate = useNavigate()
   const qc = useQueryClient()
@@ -118,7 +124,7 @@ export function ReceiptListPage<R extends Receipt>({
     [approveMut],
   )
 
-  const canApprove = useCallback((r: R) => r.status === IMPORT_RECEIPT_STATUS.PENDING_APPROVAL && hasApprovePerm(), [hasApprovePerm])
+  const canApprove = useCallback((r: R) => r.status === approvableStatus && hasApprovePerm(), [approvableStatus, hasApprovePerm])
 
   const actionsCol: Column<R> = {
     header: "Thao tác",
@@ -133,7 +139,7 @@ export function ReceiptListPage<R extends Receipt>({
           </TooltipTrigger>
           <TooltipContent>Xem chi tiết</TooltipContent>
         </Tooltip>
-        {(r.status === IMPORT_RECEIPT_STATUS.DRAFT || r.status === IMPORT_RECEIPT_STATUS.PENDING_APPROVAL) && (
+        {scanStatuses.includes(r.status) && (
           <Tooltip>
             <TooltipTrigger asChild>
               <Button variant="ghost" size="icon" onClick={() => navigate(`${newRoute}?id=${r.id}`)}>
@@ -153,7 +159,7 @@ export function ReceiptListPage<R extends Receipt>({
             <TooltipContent>Duyệt phiếu</TooltipContent>
           </Tooltip>
         )}
-        {hasCancelPerm() && r.status !== IMPORT_RECEIPT_STATUS.CANCELLED && (
+        {hasCancelPerm() && r.status !== cancelledStatus && (
           <Tooltip>
             <TooltipTrigger asChild>
               <Button variant="ghost" size="icon" onClick={() => setCancelTarget(r)}>
