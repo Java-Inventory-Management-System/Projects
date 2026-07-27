@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query"
 import { useDebounce } from "@/hooks/use-debounce"
 import { getProductUnits } from "@/services/product-unit-service"
 import { getProducts } from "@/services/product-service"
-import { PRODUCT_UNIT_STATUS, type ProductUnit, type ProductResponse } from "@/utils/types"
+import { PRODUCT_UNIT_STATUS, type ProductUnit } from "@/utils/types"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
@@ -210,7 +210,7 @@ export const ProductUnitListPage = () => {
               </SelectTrigger>
               <SelectContent className="max-h-[50vh]">
                 <SelectItem value="all">Tất cả</SelectItem>
-                {products.map((p) => (
+                {(products ?? []).map((p) => (
                   <SelectItem key={p.id} value={String(p.id)}>
                     {p.name} ({p.sku})
                   </SelectItem>
