@@ -41,10 +41,10 @@ public class StockCheckService {
     private final StockCheckItemHistoryRepository itemHistoryRepository;
     private final StockAdjustmentRepository adjustmentRepository;
     private final ProductUnitRepository productUnitRepository;
-    private final ProductUnitStatusLogRepository statusLogRepository;
     private final LocationRepository locationRepository;
     private final ProductRepository productRepository;
     private final UserRepository userRepository;
+    private final AdjustmentUnitService adjustmentUnitService;
 
     @Transactional(readOnly = true)
     public ResponsePage<StockCheckResponse> findAll(Pageable pageable, String status) {
@@ -341,6 +341,12 @@ public class StockCheckService {
         // }
 
         var items = stockCheckItemRepository.findByStockCheckId(id);
+
+        boolean alreadyProcessed = adjustmentRepository.existsBySourceTypeAndSourceId(AdjustmentSourceType.STOCK_CHECK.name(), id);
+        if (alreadyProcessed) {
+            throw new InvalidRequestException("Adjustments already created for this stock check");
+        }
+
         for (var item : items) {
             String diff = item.getDifference();
             if (DifferenceType.MATCH.name().equals(diff) || item.getActualStatus() == null) continue;
@@ -348,6 +354,8 @@ public class StockCheckService {
             AdjustmentType adjType;
             if (DifferenceType.MISSING.name().equals(diff)) {
                 adjType = AdjustmentType.LOST;
+            } else if (ProductUnitStatus.DAMAGED_IN_STORAGE.name().equals(item.getActualStatus())) {
+                adjType = AdjustmentType.DAMAGED;
             } else {
                 adjType = AdjustmentType.FOUND;
             }
@@ -356,6 +364,7 @@ public class StockCheckService {
                     .adjustCode(generateAdjustCode())
                     .type(adjType.name())
                     .productUnitId(item.getProductUnitId())
+                    .quantity(1)
                     .reason("Auto-generated from stock check #" + sc.getCheckCode())
                     .status(AdjustmentStatus.APPROVED)
                     .sourceType(AdjustmentSourceType.STOCK_CHECK.name())
@@ -365,31 +374,17 @@ public class StockCheckService {
                     .build();
             adj = adjustmentRepository.save(adj);
 
-            var unit = productUnitRepository.findById(item.getProductUnitId()).orElse(null);
-            if (unit == null) continue;
-
-            ProductUnitStatus oldStatus = unit.getStatus();
-            ProductUnitStatus newStatus;
-            if (DifferenceType.MISSING.name().equals(diff)) {
-                newStatus = ProductUnitStatus.LOST;
-            } else {
-                try {
-                    newStatus = ProductUnitStatus.valueOf(item.getActualStatus());
-                } catch (IllegalArgumentException e) {
-                    newStatus = ProductUnitStatus.LOST;
-                }
+            switch (adjType) {
+                case DAMAGED:
+                    adjustmentUnitService.applyDamaged(item.getProductUnitId(), SourceType.STOCK_ADJUSTMENT.name(), adj.getId(), userId);
+                    break;
+                case LOST:
+                    adjustmentUnitService.applyLost(item.getProductUnitId(), SourceType.STOCK_ADJUSTMENT.name(), adj.getId(), userId);
+                    break;
+                case FOUND:
+                    adjustmentUnitService.applyFoundRestore(item.getProductUnitId(), SourceType.STOCK_ADJUSTMENT.name(), adj.getId(), userId);
+                    break;
             }
-
-            unit.setStatus(newStatus);
-            productUnitRepository.save(unit);
-            statusLogRepository.save(ProductUnitStatusLog.builder()
-                    .productUnitId(unit.getId())
-                    .fromStatus(oldStatus.name())
-                    .toStatus(newStatus.name())
-                    .sourceType(SourceType.STOCK_CHECK.name())
-                    .sourceId(id)
-                    .changedBy(userId)
-                    .build());
         }
 
         sc.setStatus(StockCheckStatus.APPROVED);
