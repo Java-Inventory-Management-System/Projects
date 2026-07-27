@@ -72,6 +72,12 @@ public class StockAdjustmentService {
         return ResponsePage.of(page.map(this::enrich));
     }
 
+    @Transactional(readOnly = true)
+    public ResponsePage<StockAdjustmentResponse> findByProductUnitId(Long productUnitId, Pageable pageable) {
+        var page = adjustmentRepository.findByProductUnitIdOrderByCreatedAtDesc(productUnitId, pageable);
+        return ResponsePage.of(page.map(this::enrich));
+    }
+
     private String normalize(String value) {
         return (value != null && !value.isBlank()) ? value.toUpperCase() : null;
     }

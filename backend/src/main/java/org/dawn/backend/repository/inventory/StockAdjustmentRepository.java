@@ -23,5 +23,7 @@ public interface StockAdjustmentRepository extends JpaRepository<StockAdjustment
 
     Page<StockAdjustment> findByCreatedByAndTypeAndStatus(Long createdBy, String type, AdjustmentStatus status, Pageable pageable);
 
+    Page<StockAdjustment> findByProductUnitIdOrderByCreatedAtDesc(Long productUnitId, Pageable pageable);
+
     boolean existsBySourceTypeAndSourceId(String sourceType, Long sourceId);
 }

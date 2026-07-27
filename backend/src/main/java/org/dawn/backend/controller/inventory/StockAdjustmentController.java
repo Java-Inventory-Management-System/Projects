@@ -37,6 +37,13 @@ public class StockAdjustmentController {
         return ResponseObject.success(adjustmentService.findAll(pageable, type, status));
     }
 
+    @GetMapping("/by-unit/{productUnitId}")
+    @PreAuthorize(AuthorizationExpressions.CAN_VIEW_INVENTORY)
+    public ResponseObject<ResponsePage<StockAdjustmentResponse>> getByUnit(
+            @PathVariable Long productUnitId, Pageable pageable) {
+        return ResponseObject.success(adjustmentService.findByProductUnitId(productUnitId, pageable));
+    }
+
     @GetMapping("/{id}")
     @PreAuthorize(AuthorizationExpressions.CAN_VIEW_INVENTORY)
     public ResponseObject<StockAdjustmentResponse> getOne(@PathVariable Long id) {
