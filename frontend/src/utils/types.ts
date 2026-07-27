@@ -678,6 +678,7 @@ export const STOCK_CHECK_STATUS = {
 export const ADJUSTMENT_STATUS = {
   PENDING: "PENDING",
   APPROVED: "APPROVED",
+  REJECTED: "REJECTED",
 } as const
 
 export const WARRANTY_STATUS = {

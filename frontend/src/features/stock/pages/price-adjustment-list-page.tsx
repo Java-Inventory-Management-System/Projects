@@ -13,9 +13,9 @@ import type { PriceAdjustment } from "@/utils/types"
 import { ADJUSTMENT_STATUS } from "@/utils/types"
 
 const statusLabel: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
-  PENDING: { label: "Chờ duyệt", variant: "outline" },
-  APPROVED: { label: "Đã duyệt", variant: "default" },
-  REJECTED: { label: "Từ chối", variant: "destructive" },
+  [ADJUSTMENT_STATUS.PENDING]: { label: "Chờ duyệt", variant: "outline" },
+  [ADJUSTMENT_STATUS.APPROVED]: { label: "Đã duyệt", variant: "default" },
+  [ADJUSTMENT_STATUS.REJECTED]: { label: "Từ chối", variant: "destructive" },
 }
 
 export function PriceAdjustmentListPage() {

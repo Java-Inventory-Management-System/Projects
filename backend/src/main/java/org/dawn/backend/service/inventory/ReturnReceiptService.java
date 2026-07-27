@@ -273,7 +273,8 @@ public class ReturnReceiptService {
                 .map(ReturnReceiptItem::getProductUnitId)
                 .filter(Objects::nonNull)
                 .collect(Collectors.toSet());
-        var productUnitMap = puIds.isEmpty() ? Map.of()
+        var productUnitMap = puIds.isEmpty()
+                ? java.util.Collections.<Long, ProductUnit>emptyMap()
                 : productUnitRepository.findAllById(puIds).stream()
                 .collect(Collectors.toMap(ProductUnit::getId, Function.identity()));
 
@@ -283,7 +284,8 @@ public class ReturnReceiptService {
                 .toList());
         productUnitMap.values().forEach(pu -> productIds.add(pu.getProductId()));
 
-        var productMap = productIds.isEmpty() ? Map.of()
+        var productMap = productIds.isEmpty()
+                ? java.util.Collections.<Long, Product>emptyMap()
                 : productRepository.findAllById(productIds).stream()
                 .collect(Collectors.toMap(Product::getId, Function.identity()));
 

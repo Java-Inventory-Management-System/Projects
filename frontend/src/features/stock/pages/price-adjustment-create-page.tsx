@@ -3,8 +3,8 @@ import { useForm, Controller } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { useNavigate } from "react-router-dom"
-import { useMutation, useQueryClient } from "@tanstack/react-query"
-import { createPriceAdjustment } from "@/services/price-adjustment-service"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { createPriceAdjustment, getPriceAdjustments } from "@/services/price-adjustment-service"
 import { useImportReceipts } from "@/hooks/use-import-receipts"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -15,23 +15,32 @@ import { ArrowLeft, ArrowRight } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "@/utils/toast"
 import { FieldError } from "@/components/ui/field"
+import { ADJUSTMENT_STATUS, IMPORT_RECEIPT_STATUS } from "@/utils/types"
 
 const schema = z.object({
   receiptId: z.string().min(1, "Chọn phiếu nhập"),
   selectedItem: z.string().min(1, "Chọn sản phẩm cần điều chỉnh"),
-  newPrice: z.coerce.number().min(0, "Giá mới không hợp lệ"),
+  newPrice: z.coerce.number().min(1, "Giá mới phải lớn hơn 0"),
   reason: z.string().min(1, "Nhập lý do điều chỉnh"),
 })
 
 export function PriceAdjustmentCreatePage() {
   const navigate = useNavigate()
   const qc = useQueryClient()
-  const { data: receiptsRes } = useImportReceipts(0, 50)
+  const { data: receiptsRes } = useImportReceipts(0, 50, undefined, IMPORT_RECEIPT_STATUS.COMPLETED)
+
+  const { data: pendingAdjustments } = useQuery({
+    queryKey: ["price-adjustments", "pending-items"],
+    queryFn: async () => {
+      const res = await getPriceAdjustments(0, 999, undefined, ADJUSTMENT_STATUS.PENDING)
+      return new Set(res.content.map((a) => a.importReceiptItemId))
+    },
+  })
 
   const form = useForm({ resolver: zodResolver(schema), defaultValues: { receiptId: "", selectedItem: "", newPrice: 0, reason: "" } })
   const receiptId = form.watch("receiptId")
   const selectedItem = form.watch("selectedItem")
-  const newPrice = form.watch("newPrice")
+  const newPrice = Number(form.watch("newPrice"))
 
   const receipts = receiptsRes?.content ?? []
   const currentReceipt = useMemo(() => receipts.find((r) => r.id === Number(receiptId)), [receipts, receiptId])
@@ -112,11 +121,21 @@ export function PriceAdjustmentCreatePage() {
                     <SelectValue placeholder="Chọn sản phẩm" />
                   </SelectTrigger>
                   <SelectContent>
-                    {currentReceipt.items.map((item) => (
-                      <SelectItem key={item.id} value={String(item.id)}>
-                        {item.productName} (giá cũ: {(item.unitPrice ?? 0).toLocaleString("vi-VN")}₫)
-                      </SelectItem>
-                    ))}
+                    {currentReceipt.items.map((item) => {
+                      const hasPending = pendingAdjustments?.has(item.id)
+                      return (
+                        <SelectItem
+                          key={item.id}
+                          value={String(item.id)}
+                          disabled={hasPending}
+                        >
+                          <span>
+                            {item.productName} (giá cũ: {(item.unitPrice ?? 0).toLocaleString("vi-VN")}₫)
+                            {hasPending && " ⛔"}
+                          </span>
+                        </SelectItem>
+                      )
+                    })}
                   </SelectContent>
                 </Select>
               )}

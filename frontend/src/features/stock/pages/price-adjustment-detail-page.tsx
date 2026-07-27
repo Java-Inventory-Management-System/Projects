@@ -109,7 +109,7 @@ export function PriceAdjustmentDetailPage() {
           <h1 className="text-xl font-semibold tracking-tight">{adj.adjustCode}</h1>
           <Badge variant={s.variant}>{s.label}</Badge>
         </div>
-        {perm.canApprove() && adj.status === ADJUSTMENT_STATUS.PENDING && (
+        {perm.canApprove() && adj.status === ADJUSTMENT_STATUS.PENDING && adj.createdBy !== perm.user?.id && (
           <div className="flex gap-2">
             <Button variant="outline" className="text-destructive" onClick={() => setConfirmAction("reject")}>
               <X className="size-4 mr-1" /> Từ chối
@@ -190,15 +190,22 @@ export function PriceAdjustmentDetailPage() {
           </AlertDialogHeader>
           <ScrollArea className="max-h-[60vh]">
             <div className="space-y-2">
-              <Label>Ghi chú (không bắt buộc)</Label>
-              <Input value={approvalNote} onChange={(e) => setApprovalNote(e.target.value)} />
+              <Label>{confirmAction === "reject" ? "Lý do từ chối *" : "Ghi chú (không bắt buộc)"}</Label>
+              <Input
+                value={approvalNote}
+                onChange={(e) => setApprovalNote(e.target.value)}
+                placeholder={confirmAction === "reject" ? "Nhập lý do từ chối" : undefined}
+              />
+              {confirmAction === "reject" && !approvalNote.trim() && (
+              <p className="text-xs text-destructive">Vui lòng nhập lý do từ chối</p>
+            )}
             </div>
           </ScrollArea>
           <AlertDialogFooter>
             <AlertDialogCancel>Không</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => confirmAction && action.mutate(confirmAction)}
-              disabled={action.isPending}
+              disabled={action.isPending || (confirmAction === "reject" && !approvalNote.trim())}
             >
               {action.isPending ? "Đang xử lý..." : "Xác nhận"}
             </AlertDialogAction>

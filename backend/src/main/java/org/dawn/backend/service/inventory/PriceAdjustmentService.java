@@ -87,17 +87,27 @@ public class PriceAdjustmentService {
         if (request.importReceiptItemId() == null) {
             throw new InvalidRequestException(Message.Inventory.PRICE_ADJ_ITEM_REQUIRED);
         }
-        if (request.newPrice() == null || request.newPrice().compareTo(java.math.BigDecimal.ZERO) < 0) {
+        if (request.newPrice() == null || request.newPrice().compareTo(java.math.BigDecimal.ONE) < 0) {
             throw new InvalidRequestException(Message.Inventory.PRICE_ADJ_NEW_PRICE_NEGATIVE);
+        }
+        if (request.newPrice().scale() > 0) {
+            throw new InvalidRequestException("New price must be a whole number (no decimals)");
         }
         if (request.reason() == null || request.reason().isBlank()) {
             throw new InvalidRequestException(Message.Inventory.PRICE_ADJ_REASON_REQUIRED);
         }
 
+        var existing = priceAdjustmentRepository.findByImportReceiptItemIdAndStatus(
+                request.importReceiptItemId(), AdjustmentStatus.PENDING);
+        if (existing.isPresent()) {
+            throw new InvalidRequestException(
+                    Message.format(Message.Inventory.PRICE_ADJ_DUPLICATE_PENDING, existing.get().getAdjustCode()));
+        }
+
         var item = importReceiptItemRepository.findById(request.importReceiptItemId())
                 .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.IMPORT_ITEM_NOT_FOUND));
 
-        java.math.BigDecimal oldPrice = item.getUnitPrice() != null ? item.getUnitPrice() : java.math.BigDecimal.ZERO;
+        var oldPrice = item.getUnitPrice() != null ? item.getUnitPrice() : java.math.BigDecimal.ZERO;
         if (oldPrice.compareTo(request.newPrice()) == 0) {
             throw new InvalidRequestException(Message.Inventory.PRICE_ADJ_SAME_PRICE);
         }
@@ -135,21 +145,29 @@ public class PriceAdjustmentService {
 
         var item = importReceiptItemRepository.findById(adj.getImportReceiptItemId())
                 .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.IMPORT_ITEM_NOT_FOUND));
+        if (item.getUnitPrice().compareTo(adj.getOldPrice()) != 0) {
+            throw new InvalidRequestException(Message.Inventory.PRICE_ADJ_PRICE_CHANGED);
+        }
         item.setUnitPrice(adj.getNewPrice());
         importReceiptItemRepository.save(item);
 
-        adj.setStatus(AdjustmentStatus.APPROVED);
-        adj.setApprovedBy(userId);
-        adj.setApprovalNote(approvalNote);
-        adj = priceAdjustmentRepository.save(adj);
+        int updated = priceAdjustmentRepository.optimisticUpdateStatus(
+                id, AdjustmentStatus.APPROVED, userId, approvalNote);
+        if (updated == 0) {
+            throw new InvalidRequestException(Message.Inventory.PRICE_ADJ_ONLY_PENDING_APPROVE);
+        }
         return enrich(adj);
     }
 
     @Transactional
     @AuditLog(action = LogConstant.Action.REJECT_PRICE_ADJUSTMENT, entity = LogConstant.Entity.PRICE_ADJUSTMENT)
-    public PriceAdjustmentResponse reject(Long id, String approvalNote) {
+    public PriceAdjustmentResponse reject(Long id, String reason) {
         Long userId = SecurityUtils.getCurrentUserId();
         if (userId == null) throw new InvalidRequestException(Message.Auth.USER_NOT_AUTHENTICATED);
+
+        if (reason == null || reason.isBlank()) {
+            throw new InvalidRequestException(Message.Inventory.PRICE_ADJ_REJECT_REASON_REQUIRED);
+        }
 
         var adj = priceAdjustmentRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.PRICE_ADJ_NOT_FOUND));
@@ -158,10 +176,11 @@ public class PriceAdjustmentService {
             throw new InvalidRequestException(Message.Inventory.PRICE_ADJ_ONLY_PENDING_REJECT);
         }
 
-        adj.setStatus(AdjustmentStatus.REJECTED);
-        adj.setApprovedBy(userId);
-        adj.setApprovalNote(approvalNote);
-        adj = priceAdjustmentRepository.save(adj);
+        int updated = priceAdjustmentRepository.optimisticUpdateStatus(
+                id, AdjustmentStatus.REJECTED, userId, reason);
+        if (updated == 0) {
+            throw new InvalidRequestException(Message.Inventory.PRICE_ADJ_ONLY_PENDING_REJECT);
+        }
         return enrich(adj);
     }
 

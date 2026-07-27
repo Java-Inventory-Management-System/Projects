@@ -18,4 +18,6 @@ public interface StockCheckRepository extends JpaRepository<StockCheck, Long> {
     Page<StockCheck> findByStatus(StockCheckStatus status, Pageable pageable);
 
     List<StockCheck> findByStatus(StockCheckStatus status);
+
+    List<StockCheck> findByStatusInAndCreatedAtBefore(List<StockCheckStatus> statuses, java.time.Instant cutoff);
 }
