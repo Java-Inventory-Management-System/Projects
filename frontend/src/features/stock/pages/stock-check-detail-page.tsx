@@ -151,12 +151,12 @@ export const StockCheckDetailPage = () => {
   }
 
   const s = statusLabel[check.status] ?? { label: check.status, variant: "secondary" }
-  // STOCK: record results, complete check
-  const isStock = perm.hasRole("STOCK")
+  // CAN_OPERATE_STOCK: record results, complete check
+  const canOperateStock = perm.hasRole(...ROLES.CAN_OPERATE_STOCK)
   // MANAGER/ADMIN: approve/reject
   const isManager = perm.hasRole(...ROLES.CAN_APPROVE)
   const canEdit =
-    (check.status === STOCK_CHECK_STATUS.PENDING || check.status === STOCK_CHECK_STATUS.IN_PROGRESS) && isStock
+    (check.status === STOCK_CHECK_STATUS.PENDING || check.status === STOCK_CHECK_STATUS.IN_PROGRESS) && canOperateStock
   const canApprove = check.status === STOCK_CHECK_STATUS.COMPLETED && isManager
 
   const recordItems = () => {
