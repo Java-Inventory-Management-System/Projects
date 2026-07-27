@@ -16,6 +16,14 @@ export async function getStockAdjustments(
   return mapResponsePage(res, mapStockAdjustment)
 }
 
+export async function getStockAdjustmentsByUnit(
+  productUnitId: number,
+  size = 5,
+): Promise<ResponsePage<StockAdjustment>> {
+  const res = await http.get(`/stock-adjustment/by-unit/${productUnitId}`, { params: { size } })
+  return mapResponsePage(res, mapStockAdjustment)
+}
+
 export async function getMyStockAdjustments(
   page = 0,
   size = 20,

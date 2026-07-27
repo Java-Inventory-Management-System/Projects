@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import { useForm, Controller } from "react-hook-form"
 import { useNavigate, useLocation } from "react-router-dom"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { createStockAdjustment } from "@/services/stock-adjustment-service"
+import { createStockAdjustment, getStockAdjustmentsByUnit } from "@/services/stock-adjustment-service"
 import { getProducts } from "@/services/product-service"
 import http from "@/utils/http-client"
 import { Badge } from "@/components/ui/badge"
@@ -29,6 +29,7 @@ import { Empty, EmptyTitle } from "@/components/ui/empty"
 import { toast } from "@/utils/toast"
 import { mapResponsePage, mapProductUnit } from "@/utils/mappers"
 import { ADJUSTMENT_TYPE, STOCK_CHECK_DIFF, type ProductUnit } from "@/utils/types"
+import { backgroundBatch } from "@/utils/background-batch"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 const presetReasons: Record<string, string[]> = {
@@ -152,6 +153,13 @@ export const StockAdjustmentCreatePage = () => {
     enabled: watchedType === ADJUSTMENT_TYPE.FOUND && foundMode === "new",
   })
 
+  const selectedUnitId = form.watch("selectedUnitId")
+  const { data: unitAdjustments } = useQuery({
+    queryKey: ["stock-adjustments", "by-unit", selectedUnitId],
+    queryFn: () => getStockAdjustmentsByUnit(selectedUnitId!),
+    enabled: !!selectedUnitId,
+  })
+
   const { data: locations } = useQuery({
     queryKey: ["locations", "active"],
     queryFn: async () => {
@@ -176,42 +184,14 @@ export const StockAdjustmentCreatePage = () => {
     onError: (err: Error) => toast.error(err.message || "Có lỗi xảy ra"),
   })
 
-  const batchMut = useMutation({
-    mutationFn: async (items: Array<{ productUnitId: number; difference: string; serialNumber: string; productName: string }>) => {
-      const results: BatchResult[] = []
-      for (let i = 0; i < items.length; i++) {
-        const item = items[i]
-        setBatchProgress({ current: i + 1, total: items.length })
-        try {
-          const type = item.difference === STOCK_CHECK_DIFF.UNEXPECTED ? ADJUSTMENT_TYPE.FOUND : ADJUSTMENT_TYPE.LOST
-          await createStockAdjustment({
-            type,
-            productUnitId: item.productUnitId,
-            reason: form.getValues("reason").trim() || `Batch from stock check`,
-          })
-          results.push({ index: i, serialNumber: item.serialNumber, productName: item.productName, success: true })
-        } catch (err) {
-          results.push({
-            index: i,
-            serialNumber: item.serialNumber,
-            productName: item.productName,
-            success: false,
-            error: err instanceof Error ? err.message : "Lỗi không xác định",
-          })
-        }
+  useEffect(() => {
+    return backgroundBatch.subscribe(() => {
+      setBatchProgress(backgroundBatch.getProgress() ? { current: backgroundBatch.getProgress()!.current, total: backgroundBatch.getProgress()!.total } : null)
+      setBatchResults(backgroundBatch.getResults())
+      if (!backgroundBatch.isRunning() && backgroundBatch.getResults().length > 0 && !showResult) {
+        setShowResult(true)
       }
-      return results
-    },
-    onSuccess: (results) => {
-      qc.invalidateQueries({ queryKey: ["stock-adjustments"] })
-      setBatchResults(results)
-      setBatchProgress(null)
-      setShowResult(true)
-    },
-    onError: () => {
-      setBatchProgress(null)
-      toast.error("Có lỗi khi tạo hàng loạt")
-    },
+    })
   })
 
   const validate = (): boolean => {
@@ -283,14 +263,17 @@ export const StockAdjustmentCreatePage = () => {
 
   const confirmBatch = () => {
     setShowConfirm(false)
-    batchMut.mutate(
+    const reason = form.getValues("reason").trim()
+    backgroundBatch.start(
       locationState!.mismatches!.map((m) => ({
         productUnitId: m.productUnitId,
         difference: m.difference,
         serialNumber: m.serialNumber,
         productName: m.productName,
       })),
+      reason,
     )
+    qc.invalidateQueries({ queryKey: ["stock-adjustments"] })
   }
 
   const handleScan = useCallback((value: string) => {
@@ -518,6 +501,20 @@ export const StockAdjustmentCreatePage = () => {
                   )}
                 </div>
                 {formState.errors.selectedUnitId?.message && <p className="text-xs text-destructive">{formState.errors.selectedUnitId.message}</p>}
+                {selectedUnitId && unitAdjustments && unitAdjustments.content.length > 0 && (
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs space-y-0.5">
+                    <p className="font-medium text-amber-800">Lịch sử điều chỉnh của unit này:</p>
+                    {unitAdjustments.content.slice(0, 3).map((a) => (
+                      <p key={a.id} className="text-amber-700">
+                        {a.type === "DAMAGED" ? "Hư hỏng" : a.type === "LOST" ? "Mất" : "Thừa"} — {a.status === "PENDING" ? "Chờ duyệt" : a.status === "APPROVED" ? "Đã duyệt" : "Từ chối"}
+                        {" · "}{new Date(a.createdAt).toLocaleDateString("vi-VN")}
+                      </p>
+                    ))}
+                    {unitAdjustments.content.some((a) => a.status === "PENDING") && (
+                      <p className="text-amber-800 font-medium mt-1">⚠ Unit này đang có phiếu chờ duyệt — cần kiểm tra tránh điều chỉnh trùng</p>
+                    )}
+                  </div>
+                )}
               </>
             )}
 
@@ -680,12 +677,12 @@ export const StockAdjustmentCreatePage = () => {
         </Button>
         <Button
           onClick={handleSubmit}
-          disabled={createMut.isPending || batchMut.isPending || (!locationState?.batch && !watchedType)}
+          disabled={createMut.isPending || backgroundBatch.isRunning() || (!locationState?.batch && !watchedType)}
         >
           {createMut.isPending
             ? "Đang tạo..."
-            : batchMut.isPending
-              ? `Đang xử lý ${batchProgress?.current ?? 0}/${batchProgress?.total ?? 0}...`
+            : backgroundBatch.isRunning()
+              ? `Đang xử lý ${batchProgress?.current ?? 0}/${batchProgress?.total ?? 0}... (chạy nền)`
               : locationState?.batch
                 ? `Tạo Adjustment (${locationState.mismatches?.length ?? 0})`
                 : "Tạo phiếu điều chỉnh"}
@@ -772,8 +769,8 @@ export const StockAdjustmentCreatePage = () => {
             <Button variant="outline" onClick={() => setShowConfirm(false)}>
               Quay lại
             </Button>
-            <Button onClick={confirmBatch} disabled={batchMut.isPending}>
-              {batchMut.isPending ? "Đang tạo..." : "Xác nhận"}
+            <Button onClick={confirmBatch} disabled={backgroundBatch.isRunning()}>
+              {backgroundBatch.isRunning() ? "Đang tạo..." : "Xác nhận"}
             </Button>
           </DialogFooter>
         </DialogContent>
