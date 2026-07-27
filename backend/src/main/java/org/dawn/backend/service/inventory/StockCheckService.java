@@ -4,11 +4,13 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dawn.backend.config.anno.AuditLog;
 import org.dawn.backend.config.web.response.ResponsePage;
+import org.dawn.backend.constant.catalog.TrackingType;
 import org.dawn.backend.constant.inventory.*;
 import org.dawn.backend.constant.shared.LogConstant;
 import org.dawn.backend.constant.shared.Message;
 import org.dawn.backend.controller.inventory.request.ApproveStockCheckRequest;
 import org.dawn.backend.controller.inventory.request.CreateStockCheckRequest;
+import org.dawn.backend.controller.inventory.request.ImportSerialsRequest;
 import org.dawn.backend.controller.inventory.request.StockCheckItemRequest;
 import org.dawn.backend.controller.inventory.response.StockCheckResponse;
 import org.dawn.backend.entity.auth.User;
@@ -25,6 +27,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -102,10 +105,19 @@ public class StockCheckService {
         Long scId = sc.getId();
 
         var units = productUnitRepository.findAllById(unitIds);
+        var productIds = units.stream().map(ProductUnit::getProductId).distinct().toList();
+        var products = productRepository.findAllById(productIds).stream()
+                .collect(Collectors.toMap(Product::getId, p -> p));
         for (var unit : units) {
+            String tt = unit.getTrackingType();
+            if (tt == null) {
+                var p = products.get(unit.getProductId());
+                tt = p != null ? p.getTrackingType() : TrackingType.SERIALIZED.name();
+            }
             stockCheckItemRepository.save(StockCheckItem.builder()
                     .stockCheckId(scId)
                     .productUnitId(unit.getId())
+                    .trackingType(tt)
                     .expectedStatus(unit.getStatus().name())
                     .build());
         }
@@ -153,41 +165,51 @@ public class StockCheckService {
             }
 
             String oldActual = item.getActualStatus();
-            String newActual = req.actualStatus() != null ? req.actualStatus().toUpperCase() : ProductUnitStatus.IN_STOCK.name();
+            String newActual = req.actualStatus();
 
-            if (oldActual != null && !oldActual.equals(newActual)) {
-                itemHistoryRepository.save(StockCheckItemHistory.builder()
-                        .stockCheckId(stockCheckId)
-                        .productUnitId(req.productUnitId())
-                        .oldActualStatus(oldActual)
-                        .newActualStatus(newActual)
-                        .oldCountedQuantity(item.getCountedQuantity())
-                        .newCountedQuantity(req.countedQuantity())
-                        .note("Recorded by user " + userId)
-                        .changedBy(userId)
-                        .build());
-            }
+            if (newActual != null) {
+                newActual = newActual.toUpperCase();
 
-            if (ProductUnitStatus.DAMAGED_IN_STORAGE.name().equals(newActual) && (req.photo() == null || req.photo().isBlank())) {
-                throw new InvalidRequestException("Photo is required when reporting DAMAGED status");
-            }
+                if (oldActual != null && !oldActual.equals(newActual)) {
+                    itemHistoryRepository.save(StockCheckItemHistory.builder()
+                            .stockCheckId(stockCheckId)
+                            .productUnitId(req.productUnitId())
+                            .oldActualStatus(oldActual)
+                            .newActualStatus(newActual)
+                            .oldCountedQuantity(item.getCountedQuantity())
+                            .newCountedQuantity(req.countedQuantity())
+                            .note("Recorded by user " + userId)
+                            .changedBy(userId)
+                            .build());
+                }
 
-            item.setActualStatus(newActual);
-            item.setCountedQuantity(req.countedQuantity());
-            item.setNote(req.note());
-            item.setPhoto(req.photo());
+                if (ProductUnitStatus.DAMAGED_IN_STORAGE.name().equals(newActual) && (req.photo() == null || req.photo().isBlank())) {
+                    throw new InvalidRequestException("Photo is required when reporting DAMAGED status");
+                }
 
-            String expected = item.getExpectedStatus();
-            if (expected == null) expected = ProductUnitStatus.IN_STOCK.name();
+                item.setActualStatus(newActual);
+                item.setCountedQuantity(req.countedQuantity());
+                item.setPhoto(req.photo());
+                item.setAutoFilled(false);
 
-            if (newActual.equals(expected)) {
-                item.setDifference(DifferenceType.MATCH.name());
-            } else if (ProductUnitStatus.LOST.name().equals(newActual) || DifferenceType.MISSING.name().equalsIgnoreCase(newActual)) {
-                item.setDifference(DifferenceType.MISSING.name());
+                String expected = item.getExpectedStatus();
+                if (expected == null) expected = ProductUnitStatus.IN_STOCK.name();
+
+                if (newActual.equals(expected)) {
+                    item.setDifference(DifferenceType.MATCH.name());
+                } else if (ProductUnitStatus.LOST.name().equals(newActual) || DifferenceType.MISSING.name().equalsIgnoreCase(newActual)) {
+                    item.setDifference(DifferenceType.MISSING.name());
+                } else {
+                    item.setDifference(DifferenceType.UNEXPECTED.name());
+                }
             } else {
-                item.setDifference(DifferenceType.UNEXPECTED.name());
+                item.setActualStatus(null);
+                item.setCountedQuantity(null);
+                item.setPhoto(null);
+                item.setDifference(null);
             }
 
+            item.setNote(req.note());
             stockCheckItemRepository.save(item);
         }
 
@@ -205,13 +227,87 @@ public class StockCheckService {
         }
 
         var items = stockCheckItemRepository.findByStockCheckId(id);
-        boolean allRecorded = items.stream().allMatch(i -> i.getActualStatus() != null);
-        if (!allRecorded) {
-            throw new InvalidRequestException("All items must be recorded before completing");
+        int autoFilledCount = 0;
+        List<String> bulkMissing = new ArrayList<>();
+
+        for (var item : items) {
+            if (item.getActualStatus() != null) continue;
+
+            String tt = item.getTrackingType();
+            boolean isBulk = tt != null && TrackingType.BULK.name().equals(tt);
+
+            if (isBulk) {
+                if (item.getCountedQuantity() == null) {
+                    bulkMissing.add("ProductUnit #" + item.getProductUnitId());
+                }
+            } else {
+                item.setActualStatus(ProductUnitStatus.IN_STOCK.name());
+                item.setCountedQuantity(BigDecimal.ONE);
+                item.setAutoFilled(true);
+                item.setDifference(DifferenceType.MATCH.name());
+                stockCheckItemRepository.save(item);
+                autoFilledCount++;
+            }
+        }
+
+        if (!bulkMissing.isEmpty()) {
+            throw new InvalidRequestException(
+                    "Cannot complete: " + bulkMissing.size() + " bulk item(s) missing counted quantity: "
+                            + String.join(", ", bulkMissing));
         }
 
         sc.setStatus(StockCheckStatus.COMPLETED);
         sc = stockCheckRepository.save(sc);
+        return enrich(sc, autoFilledCount);
+    }
+
+    @Transactional
+    @AuditLog(action = LogConstant.Action.RECORD_STOCK_CHECK, entity = LogConstant.Entity.STOCK_CHECK)
+    public StockCheckResponse importSerials(Long stockCheckId, ImportSerialsRequest request) {
+        var sc = stockCheckRepository.findById(stockCheckId)
+                .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.STOCK_CHECK_NOT_FOUND));
+
+        if (StockCheckStatus.IN_PROGRESS != sc.getStatus()) {
+            throw new InvalidRequestException(Message.Inventory.STOCK_CHECK_MUST_BE_IN_PROGRESS);
+        }
+
+        var serials = Arrays.stream(request.fileContent().split("[\\n\\r]+"))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .toList();
+
+        var items = stockCheckItemRepository.findByStockCheckId(stockCheckId);
+        var unitIds = items.stream().map(StockCheckItem::getProductUnitId).toList();
+        var units = productUnitRepository.findAllById(unitIds).stream()
+                .collect(Collectors.toMap(ProductUnit::getId, u -> u));
+
+        int matched = 0;
+        List<String> invalidSerials = new ArrayList<>();
+        var importedSet = new HashSet<>(serials);
+
+        for (var item : items) {
+            var pu = units.get(item.getProductUnitId());
+            String sn = pu != null ? pu.getSerialNumber() : null;
+            if (sn == null || !importedSet.contains(sn)) continue;
+            matched++;
+            item.setActualStatus(ProductUnitStatus.IN_STOCK.name());
+            item.setCountedQuantity(BigDecimal.ONE);
+            item.setAutoFilled(false);
+            item.setDifference(DifferenceType.MATCH.name());
+            stockCheckItemRepository.save(item);
+        }
+
+        // report invalid — serials in file not matching any item
+        var allSerials = items.stream()
+                .map(i -> units.get(i.getProductUnitId()))
+                .filter(Objects::nonNull)
+                .map(ProductUnit::getSerialNumber)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        for (var s : serials) {
+            if (!allSerials.contains(s)) invalidSerials.add(s);
+        }
+
         return enrich(sc);
     }
 
@@ -358,6 +454,22 @@ public class StockCheckService {
                 ? userRepository.findById(sc.getApprovedBy()).map(User::getFullName).orElse(null)
                 : null;
         return StockCheckMappingHelper.map(sc, createdByName, approvedByName, items, units, products);
+    }
+
+    private StockCheckResponse enrich(StockCheck sc, int autoFilledCount) {
+        var items = stockCheckItemRepository.findByStockCheckId(sc.getId());
+        var unitIds = items.stream().map(StockCheckItem::getProductUnitId).toList();
+        var units = productUnitRepository.findAllById(unitIds).stream()
+                .collect(Collectors.toMap(ProductUnit::getId, u -> u));
+        var productIds = units.values().stream().map(ProductUnit::getProductId).toList();
+        var products = productRepository.findAllById(productIds).stream()
+                .collect(Collectors.toMap(Product::getId, p -> p));
+        var createdByName = userRepository.findById(sc.getCreatedBy())
+                .map(User::getFullName).orElse(null);
+        var approvedByName = sc.getApprovedBy() != null
+                ? userRepository.findById(sc.getApprovedBy()).map(User::getFullName).orElse(null)
+                : null;
+        return StockCheckMappingHelper.map(sc, createdByName, approvedByName, items, units, products, autoFilledCount);
     }
 
     private String generateCheckCode() {

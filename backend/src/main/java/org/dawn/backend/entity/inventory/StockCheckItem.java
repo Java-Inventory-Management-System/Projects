@@ -23,6 +23,9 @@ public class StockCheckItem extends BaseEntity {
     @Column(name = "product_unit_id", nullable = false)
     private Long productUnitId;
 
+    @Column(name = "tracking_type", length = 20)
+    private String trackingType;
+
     @Column(name = "expected_status", length = 30)
     private String expectedStatus;
 
@@ -35,9 +38,12 @@ public class StockCheckItem extends BaseEntity {
     @Column(name = "difference", length = 20)
     private String difference;
 
+    @Column(name = "photo", length = 500)
+    private String photo;
+
     @Column(name = "note", columnDefinition = "TEXT")
     private String note;
 
-    @Column(name = "photo", length = 500)
-    private String photo;
+    @Column(name = "auto_filled")
+    private Boolean autoFilled;
 }

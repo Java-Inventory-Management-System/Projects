@@ -18,6 +18,14 @@ public interface StockCheckMappingHelper {
                                    List<StockCheckItem> items,
                                    Map<Long, ProductUnit> unitMap,
                                    Map<Long, Product> productMap) {
+        return map(sc, createdByName, approvedByName, items, unitMap, productMap, 0);
+    }
+
+    static StockCheckResponse map(StockCheck sc, String createdByName, String approvedByName,
+                                   List<StockCheckItem> items,
+                                   Map<Long, ProductUnit> unitMap,
+                                   Map<Long, Product> productMap,
+                                   int autoFilledCount) {
         int matchCount = 0, missingCount = 0, unexpectedCount = 0;
         List<StockCheckItemResponse> itemResponses = new ArrayList<>();
 
@@ -35,11 +43,14 @@ public interface StockCheckMappingHelper {
                     .productId(p != null ? p.getId() : null)
                     .productName(p != null ? p.getName() : null)
                     .productSku(p != null ? p.getSku() : null)
+                    .trackingType(item.getTrackingType())
                     .expectedStatus(item.getExpectedStatus())
                     .actualStatus(item.getActualStatus())
                     .countedQuantity(item.getCountedQuantity())
                     .difference(item.getDifference())
                     .note(item.getNote())
+                    .photo(item.getPhoto())
+                    .autoFilled(item.getAutoFilled())
                     .build());
         }
 
@@ -60,6 +71,7 @@ public interface StockCheckMappingHelper {
                 .matchCount(matchCount)
                 .missingCount(missingCount)
                 .unexpectedCount(unexpectedCount)
+                .autoFilledCount(autoFilledCount)
                 .createdAt(sc.getCreatedAt())
                 .updatedAt(sc.getUpdatedAt())
                 .build();

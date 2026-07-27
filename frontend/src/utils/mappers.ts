@@ -227,12 +227,15 @@ export function mapStockCheckItem(raw: unknown): StockCheckItem {
     serialNumber: r.serialNumber ?? "",
     productId: r.productId,
     productName: r.productName ?? "",
-    productSku: r.productSku ?? "",
+    productSku: r.productSku ?? null,
+    trackingType: (r.trackingType as "SERIALIZED" | "BULK") ?? null,
     expectedStatus: r.expectedStatus,
     actualStatus: r.actualStatus ?? null,
     countedQuantity: r.countedQuantity ?? null,
     difference: r.difference ?? null,
     note: r.note ?? null,
+    photo: r.photo ?? null,
+    autoFilled: r.autoFilled ?? false,
   }
 }
 
@@ -256,6 +259,7 @@ export function mapStockCheck(raw: unknown): StockCheck {
     matchCount: r.matchCount,
     missingCount: r.missingCount,
     unexpectedCount: r.unexpectedCount,
+    autoFilledCount: r.autoFilledCount ?? 0,
     updatedAt: r.updatedAt,
   }
 }

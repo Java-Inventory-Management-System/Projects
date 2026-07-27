@@ -7,6 +7,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge"
 import { Search, Upload } from "lucide-react"
 import { ButtonGroup } from "@/components/ui/button-group"
+import { cn } from "@/utils/cn"
+
 const statusOptions = [
   PRODUCT_UNIT_STATUS.IN_STOCK,
   PRODUCT_UNIT_STATUS.DEFECTIVE,
@@ -64,19 +66,21 @@ export function StockCheckItemsTable({
     )
   })
 
+  const hasBulk = filtered.some((i) => i.trackingType === "BULK")
+
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
           <Input
-            placeholder="Search by serial, product, SKU..."
+            placeholder="Tìm theo serial, sản phẩm, SKU..."
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
             className="h-9 pl-8"
           />
         </div>
-        {mismatchCount > 0 && <span className="text-xs text-destructive">{mismatchCount} mismatch</span>}
+        {mismatchCount > 0 && <span className="text-xs text-destructive">{mismatchCount} chênh lệch</span>}
         {canEdit && (
           <ButtonGroup>
             <input ref={fileRef} type="file" accept=".txt,.csv" className="hidden" onChange={onImportSerials} />
@@ -105,8 +109,8 @@ export function StockCheckItemsTable({
               <TableHead className="min-w-[120px]">Serial</TableHead>
               <TableHead className="min-w-[160px]">Product</TableHead>
               <TableHead className="w-24">Expected</TableHead>
-              <TableHead className="w-40">Actual</TableHead>
-              <TableHead className="w-20 text-right">Count</TableHead>
+              <TableHead className="w-44">Actual</TableHead>
+              {hasBulk && <TableHead className="w-20 text-right">Count</TableHead>}
               <TableHead className="w-24">Diff</TableHead>
               <TableHead className="min-w-[140px]">Note</TableHead>
             </TableRow>
@@ -114,8 +118,8 @@ export function StockCheckItemsTable({
           <TableBody>
             {filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-                  No matching items
+                <TableCell colSpan={hasBulk ? 7 : 6} className="text-center text-muted-foreground py-8">
+                  Không có kết quả
                 </TableCell>
               </TableRow>
             ) : (
@@ -126,27 +130,47 @@ export function StockCheckItemsTable({
                     ? "bg-red-50/40 dark:bg-red-950/10"
                     : diff === STOCK_CHECK_DIFF.UNEXPECTED
                       ? "bg-green-50/40 dark:bg-green-950/10"
-                      : diff === STOCK_CHECK_DIFF.MATCH
-                        ? "text-muted-foreground"
-                        : ""
+                      : item.actualStatus == null
+                        ? "bg-amber-50/60 dark:bg-amber-950/20"
+                        : diff === STOCK_CHECK_DIFF.MATCH
+                          ? "text-muted-foreground"
+                          : ""
+                const isSerialized = item.trackingType === "SERIALIZED"
                 return (
                   <TableRow key={item.id} className={rowClass}>
                     <TableCell className="font-mono text-xs">{item.serialNumber}</TableCell>
                     <TableCell>
                       <span className="font-medium">{item.productName}</span>
                       <span className="text-xs text-muted-foreground ml-1">{item.productSku}</span>
+                      {item.autoFilled && (
+                        <Badge variant="outline" className="ml-2 text-[10px] text-muted-foreground">Tự động</Badge>
+                      )}
                     </TableCell>
-                    <TableCell>{item.expectedStatus}</TableCell>
+                    <TableCell className="text-xs">{item.expectedStatus}</TableCell>
                     <TableCell>
                       {canEdit ? (
                         <Select
-                          value={item.actualStatus ?? ""}
-                          onValueChange={(v) => onUpdate(item.id, "actualStatus", v)}
+                          value={item.actualStatus ?? "__unchecked__"}
+                          onValueChange={(v) => {
+                            if (v === "__unchecked__") {
+                              onUpdate(item.id, "actualStatus", null)
+                              if (isSerialized) {
+                                onUpdate(item.id, "countedQuantity", null)
+                              }
+                            } else {
+                              onUpdate(item.id, "actualStatus", v)
+                              if (isSerialized) {
+                                const lostStatuses: string[] = [PRODUCT_UNIT_STATUS.LOST, PRODUCT_UNIT_STATUS.REMOVED, PRODUCT_UNIT_STATUS.DISPOSED]
+                                onUpdate(item.id, "countedQuantity", lostStatuses.includes(v) ? 0 : 1)
+                              }
+                            }
+                          }}
                         >
-                          <SelectTrigger className="h-8 text-xs">
-                            <SelectValue placeholder="Select..." />
+                          <SelectTrigger className={cn("h-8 text-xs", !item.actualStatus && "text-muted-foreground")}>
+                            <SelectValue placeholder="— Chưa kiểm —" />
                           </SelectTrigger>
                           <SelectContent>
+                            <SelectItem value="__unchecked__" className="text-muted-foreground italic">— Chưa kiểm —</SelectItem>
                             {statusOptions.map((st) => (
                               <SelectItem key={st} value={st} className="text-xs">
                                 {statusLabels[st]}
@@ -155,24 +179,32 @@ export function StockCheckItemsTable({
                           </SelectContent>
                         </Select>
                       ) : (
-                        (item.actualStatus ?? "—")
+                        <span className={cn(!item.actualStatus && "text-muted-foreground italic")}>
+                          {item.actualStatus ? statusLabels[item.actualStatus] ?? item.actualStatus : "— Chưa kiểm —"}
+                        </span>
                       )}
                     </TableCell>
-                    <TableCell className="text-right">
-                      {canEdit ? (
-                        <Input
-                          type="number"
-                          min={0}
-                          className="h-8 w-20 text-right"
-                          value={item.countedQuantity ?? ""}
-                          onChange={(e) =>
-                            onUpdate(item.id, "countedQuantity", e.target.value ? Number(e.target.value) : null)
-                          }
-                        />
-                      ) : (
-                        (item.countedQuantity ?? "—")
-                      )}
-                    </TableCell>
+                    {hasBulk && (
+                      <TableCell className="text-right">
+                        {isSerialized ? (
+                          <span className="text-xs text-muted-foreground">
+                            {item.countedQuantity ?? "—"}
+                          </span>
+                        ) : canEdit ? (
+                          <Input
+                            type="number"
+                            min={0}
+                            className="h-8 w-20 text-right"
+                            value={item.countedQuantity ?? ""}
+                            onChange={(e) =>
+                              onUpdate(item.id, "countedQuantity", e.target.value ? Number(e.target.value) : null)
+                            }
+                          />
+                        ) : (
+                          <span>{item.countedQuantity ?? "—"}</span>
+                        )}
+                      </TableCell>
+                    )}
                     <TableCell>
                       {item.difference ? (
                         <Badge
@@ -201,7 +233,7 @@ export function StockCheckItemsTable({
                           onChange={(e) => onUpdate(item.id, "note", e.target.value || null)}
                         />
                       ) : (
-                        (item.note ?? "—")
+                        <span className="text-xs">{item.note ?? "—"}</span>
                       )}
                     </TableCell>
                   </TableRow>

@@ -60,3 +60,8 @@ export async function rejectStockCheck(id: number, approvalNote?: string): Promi
   const res = await http.put(`/stock-check/${id}/reject`, { approvalNote })
   return mapStockCheck(res)
 }
+
+export async function importStockCheckSerials(id: number, fileContent: string): Promise<StockCheck> {
+  const res = await http.post(`/stock-check/${id}/import-serials`, { fileContent })
+  return mapStockCheck(res)
+}

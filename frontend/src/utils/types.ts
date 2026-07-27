@@ -358,11 +358,14 @@ export interface StockCheckItem {
   productId: number
   productName: string
   productSku: string | null
+  trackingType: "SERIALIZED" | "BULK" | null
   expectedStatus: string | null
   actualStatus: string | null
   countedQuantity: number | null
   difference: DifferenceType | null
   note: string | null
+  photo: string | null
+  autoFilled: boolean
 }
 
 export interface StockCheck {
@@ -382,6 +385,7 @@ export interface StockCheck {
   matchCount: number
   missingCount: number
   unexpectedCount: number
+  autoFilledCount: number
   createdAt: string
   updatedAt: string
 }

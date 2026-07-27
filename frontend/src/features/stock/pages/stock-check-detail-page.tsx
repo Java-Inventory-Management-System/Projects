@@ -24,13 +24,21 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
 import { Empty, EmptyTitle } from "@/components/ui/empty"
-import { AlertCircle, CheckCircle2, HelpCircle, Save, ClipboardCheck, Check, X, ListChecks } from "lucide-react"
+import { AlertCircle, CheckCircle2, HelpCircle, Save, ClipboardCheck, Check, X, ListChecks, AlertTriangle } from "lucide-react"
 import { Progress } from "@/components/ui/progress"
 import { ButtonGroup } from "@/components/ui/button-group"
 import { cn } from "@/utils/cn"
 import { toast } from "@/utils/toast"
 import { StockCheckItemsTable } from "../components/stock-check-items-table"
 import { ApprovalDialog } from "../components/approval-dialog"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 
 const statusLabel: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
   PENDING: { label: "Chờ xử lý", variant: "secondary" },
@@ -48,6 +56,7 @@ export const StockCheckDetailPage = () => {
   const [localItems, setLocalItems] = useState<StockCheckItem[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [approvalModal, setApprovalModal] = useState<"approve" | "reject" | null>(null)
+  const [completeModal, setCompleteModal] = useState(false)
   const dirtyRef = useRef(false)
 
   const { data: check, isLoading } = useQuery({
@@ -59,6 +68,10 @@ export const StockCheckDetailPage = () => {
   useEffect(() => {
     if (check) setLocalItems(check.items)
   }, [check])
+
+  const checkedCount = localItems.filter((i) => i.actualStatus != null).length
+  const autoFillCount = localItems.filter((i) => i.actualStatus == null && i.trackingType === "SERIALIZED").length
+  const bulkMissingCount = localItems.filter((i) => i.actualStatus == null && i.trackingType === "BULK" && i.countedQuantity == null).length
 
   const recordMut = useMutation({
     mutationFn: (data: {
@@ -72,7 +85,7 @@ export const StockCheckDetailPage = () => {
     onError: (err: Error) => toast.error(err.message || "Không thể ghi kết quả"),
   })
 
-  // ponytail: auto-save every 30s when dirty
+  // auto-save every 30s when dirty
   useEffect(() => {
     if (!id) return
     const isCheckActive = check?.status === STOCK_CHECK_STATUS.PENDING || check?.status === STOCK_CHECK_STATUS.IN_PROGRESS
@@ -104,15 +117,25 @@ export const StockCheckDetailPage = () => {
 
   const completeMut = useMutation({
     mutationFn: () => completeStockCheck(Number(id!)),
-    onSuccess: () => {
+    onSuccess: (res) => {
       invalidateAll()
-      toast.success("Kiểm hoàn tất, chờ duyệt")
+      const filled = res.autoFilledCount
+      if (filled > 0) {
+        toast.success(`Hoàn tất kiểm kê. Đã tự động đánh dấu ${filled} serial còn hàng`)
+      } else {
+        toast.success("Kiểm hoàn tất, chờ duyệt")
+      }
       navigate("/stock/checks")
     },
     onError: (err: Error) => toast.error(err.message || "Không thể hoàn tất kiểm"),
   })
 
   const handleSaveAndComplete = async () => {
+    if (bulkMissingCount > 0) {
+      toast.error(`Còn ${bulkMissingCount} sản phẩm BULK chưa đếm số lượng`)
+      setCompleteModal(false)
+      return
+    }
     const items = localItems.map((i) => ({
       productUnitId: i.productUnitId,
       actualStatus: i.actualStatus ?? undefined,
@@ -128,7 +151,16 @@ export const StockCheckDetailPage = () => {
   }
 
   const handleBulkSet = useCallback((status: string) => {
-    setLocalItems((prev) => prev.map((i) => ({ ...i, actualStatus: status })))
+    dirtyRef.current = true
+    setLocalItems((prev) =>
+      prev.map((i) => {
+        if (i.actualStatus != null) return i
+        if (status === PRODUCT_UNIT_STATUS.LOST) {
+          return { ...i, actualStatus: status, countedQuantity: 0 }
+        }
+        return { ...i, actualStatus: status, countedQuantity: i.trackingType === "SERIALIZED" ? 1 : i.countedQuantity }
+      }),
+    )
   }, [])
 
   if (isLoading) {
@@ -144,20 +176,19 @@ export const StockCheckDetailPage = () => {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
         <Empty>
-          <EmptyTitle>Stock check not found</EmptyTitle>
+          <EmptyTitle>Không tìm thấy phiếu kiểm</EmptyTitle>
         </Empty>
       </div>
     )
   }
 
   const s = statusLabel[check.status] ?? { label: check.status, variant: "secondary" }
-  // CAN_OPERATE_STOCK: record results, complete check
   const canOperateStock = perm.hasRole(...ROLES.CAN_OPERATE_STOCK)
-  // MANAGER/ADMIN: approve/reject
   const isManager = perm.hasRole(...ROLES.CAN_APPROVE)
   const canEdit =
     (check.status === STOCK_CHECK_STATUS.PENDING || check.status === STOCK_CHECK_STATUS.IN_PROGRESS) && canOperateStock
   const canApprove = check.status === STOCK_CHECK_STATUS.COMPLETED && isManager
+  const isRejected = check.status === STOCK_CHECK_STATUS.IN_PROGRESS && check.approvalNote != null
 
   const recordItems = () => {
     const items = localItems.map((i) => ({
@@ -183,15 +214,27 @@ export const StockCheckDetailPage = () => {
         </BreadcrumbList>
       </Breadcrumb>
 
+      {isRejected && (
+        <div className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 dark:bg-red-950/20 dark:border-red-800 px-4 py-3 text-sm">
+          <AlertTriangle className="size-5 text-red-500 shrink-0 mt-0.5" />
+          <div>
+            <p className="font-medium text-red-700 dark:text-red-400">Phiếu đã bị từ chối, lý do:</p>
+            <p className="text-red-600 dark:text-red-300 mt-0.5">{check.approvalNote}</p>
+          </div>
+        </div>
+      )}
+
       {(check.status === STOCK_CHECK_STATUS.IN_PROGRESS || check.status === STOCK_CHECK_STATUS.PENDING) && (
         <div className="space-y-1.5">
           <div className="flex items-center justify-between text-sm">
             <span className="text-muted-foreground flex items-center gap-1.5">
-              <ListChecks className="size-4" /> Đã kiểm: {localItems.filter(i => i.actualStatus).length}/{check.totalItems}
+              <ListChecks className="size-4" /> Đã kiểm: {checkedCount}/{check.totalItems}
             </span>
-            <span className="text-xs text-muted-foreground">{Math.round((localItems.filter(i => i.actualStatus).length / check.totalItems) * 100)}%</span>
+            <span className="text-xs text-muted-foreground">
+              {check.totalItems > 0 ? Math.round((checkedCount / check.totalItems) * 100) : 0}%
+            </span>
           </div>
-          <Progress value={(localItems.filter(i => i.actualStatus).length / check.totalItems) * 100} className="h-2" />
+          <Progress value={check.totalItems > 0 ? (checkedCount / check.totalItems) * 100 : 0} className="h-2" />
         </div>
       )}
 
@@ -206,7 +249,7 @@ export const StockCheckDetailPage = () => {
                 <Save className="size-4 mr-1" />
                 {recordMut.isPending ? "Đang lưu..." : "Lưu tạm"}
               </Button>
-              <Button onClick={handleSaveAndComplete} disabled={recordMut.isPending || completeMut.isPending}>
+              <Button onClick={() => setCompleteModal(true)} disabled={recordMut.isPending || completeMut.isPending}>
                 <ClipboardCheck className="size-4 mr-1" />
                 {completeMut.isPending ? "Đang hoàn tất..." : "Hoàn tất kiểm kê"}
               </Button>
@@ -225,7 +268,6 @@ export const StockCheckDetailPage = () => {
         </div>
       </div>
 
-      {/* ponytail: top 10 diffs shown for quick scan; full list in Results tab */}
       {localItems.some((i) => i.difference && i.difference !== STOCK_CHECK_DIFF.MATCH) && (
         <div className="space-y-2">
           <p className="text-sm font-medium text-muted-foreground">Chênh lệch phát hiện</p>
@@ -336,24 +378,18 @@ export const StockCheckDetailPage = () => {
               const file = e.target.files?.[0]
               if (!file) return
               const reader = new FileReader()
-              reader.onload = () => {
-                const imported = (reader.result as string)
-                  .split(/[\n\r]+/)
-                  .map((s) => s.trim())
-                  .filter(Boolean)
-                if (imported.length === 0) {
-                  toast.error("No valid serials in file")
-                  return
+              reader.onload = async () => {
+                const content = reader.result as string
+                try {
+                  const { importStockCheckSerials } = await import("@/services/stock-check-service")
+                  const updated = await importStockCheckSerials(Number(id!), content)
+                  setLocalItems(updated.items)
+                  qc.invalidateQueries({ queryKey: ["stock-check", id] })
+                  const lines = content.split(/[\n\r]+/).map((s: string) => s.trim()).filter(Boolean)
+                  toast.success(`Import ${lines.length} serial, ${updated.items.filter(i => i.actualStatus).length} khớp`)
+                } catch (err) {
+                  toast.error((err as Error).message || "Lỗi import serials")
                 }
-                const importedSet = new Set(imported)
-                setLocalItems((prev) =>
-                  prev.map((i) =>
-                    importedSet.has(i.serialNumber)
-                      ? { ...i, actualStatus: PRODUCT_UNIT_STATUS.IN_STOCK }
-                      : { ...i, actualStatus: PRODUCT_UNIT_STATUS.LOST },
-                  ),
-                )
-                toast.success(`Imported ${imported.length} serials`)
               }
               reader.readAsText(file)
               e.target.value = ""
@@ -375,6 +411,30 @@ export const StockCheckDetailPage = () => {
         ]}
         invalidateKeys={[["stock-check", id!], ["stock-checks"], ["inventory"], ["inventory-summary"]]}
       />
+
+      <Dialog open={completeModal} onOpenChange={setCompleteModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Hoàn tất kiểm kê</DialogTitle>
+            <DialogDescription>
+              {autoFillCount > 0 ? (
+                <span>
+                  Còn <strong>{autoFillCount}</strong> serial chưa kiểm. Hệ thống sẽ tự động đánh dấu các serial này là
+                  <strong> CÒN HÀNG (IN_STOCK)</strong>. Bạn có chắc chắn?
+                </span>
+              ) : (
+                <span>Xác nhận hoàn tất kiểm kê?</span>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCompleteModal(false)}>Huỷ</Button>
+            <Button onClick={handleSaveAndComplete} disabled={completeMut.isPending}>
+              {autoFillCount > 0 ? "Xác nhận, đánh dấu còn hàng và hoàn tất" : "Xác nhận hoàn tất"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

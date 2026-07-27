@@ -20,12 +20,14 @@ CREATE TABLE stock_check_items (
     id                BIGINT AUTO_INCREMENT PRIMARY KEY,
     stock_check_id    BIGINT        NOT NULL,
     product_unit_id   BIGINT        NOT NULL,
+    tracking_type     VARCHAR(20),
     expected_status   VARCHAR(30),
     actual_status     VARCHAR(30),
     counted_quantity  DECIMAL(15,2),
     photo             TEXT,
     difference        VARCHAR(20),
     note              TEXT,
+    auto_filled       BOOLEAN DEFAULT FALSE,
     CONSTRAINT fk_sci_check FOREIGN KEY (stock_check_id)  REFERENCES stock_checks(id),
     CONSTRAINT fk_sci_unit  FOREIGN KEY (product_unit_id) REFERENCES product_units(id)
 );
