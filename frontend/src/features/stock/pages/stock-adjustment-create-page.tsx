@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react"
+import { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import { useForm, Controller } from "react-hook-form"
 import { useNavigate, useLocation } from "react-router-dom"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
@@ -22,6 +22,8 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog"
 import { useFormDraft, clearDraft } from "@/hooks/use-form-draft"
+import { usePermission } from "@/hooks/use-permission"
+import { cn } from "@/utils/cn"
 import { ArrowLeft, Search, Info, ScanLine, CheckCircle2, XCircle, Plus, List } from "lucide-react"
 import { Empty, EmptyTitle } from "@/components/ui/empty"
 import { toast } from "@/utils/toast"
@@ -64,6 +66,8 @@ export const StockAdjustmentCreatePage = () => {
   const navigate = useNavigate()
   const qc = useQueryClient()
   const location = useLocation()
+  const perm = usePermission()
+  const submittingRef = useRef(false)
   const locationState = location.state as {
     reason?: string
     mismatches?: Array<{
@@ -259,12 +263,16 @@ export const StockAdjustmentCreatePage = () => {
   }
 
   const handleSubmit = () => {
+    if (submittingRef.current) return
     if (locationState?.batch && locationState.mismatches) {
       setShowConfirm(true)
       return
     }
     if (!validate()) return
-    createMut.mutate(buildSubmitData())
+    submittingRef.current = true
+    createMut.mutate(buildSubmitData(), {
+      onSettled: () => { submittingRef.current = false },
+    })
   }
 
   const confirmBatch = () => {
@@ -303,6 +311,8 @@ export const StockAdjustmentCreatePage = () => {
 
   const needsUnit = watchedType === ADJUSTMENT_TYPE.DAMAGED || watchedType === ADJUSTMENT_TYPE.LOST
   const needsProduct = watchedType === ADJUSTMENT_TYPE.FOUND
+  const isStockRole = perm.hasRole("STOCK")
+  const density = isStockRole ? "spacious" : "compact"
 
   if (successResult) {
     return (
@@ -330,12 +340,12 @@ export const StockAdjustmentCreatePage = () => {
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
+    <div className={cn("mx-auto space-y-6", density === "spacious" ? "max-w-4xl" : "max-w-3xl")}>
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="sm" onClick={() => navigate("/stock/adjustments")}>
+        <Button variant="ghost" size={density === "spacious" ? "default" : "sm"} onClick={() => navigate("/stock/adjustments")}>
           <ArrowLeft className="size-4" />
         </Button>
-        <h1 className="text-xl font-semibold tracking-tight">Tạo phiếu điều chỉnh tồn kho</h1>
+        <h1 className={cn("font-semibold tracking-tight", density === "spacious" ? "text-2xl" : "text-xl")}>Tạo phiếu điều chỉnh tồn kho</h1>
       </div>
 
       <div className="space-y-2">
@@ -357,7 +367,7 @@ export const StockAdjustmentCreatePage = () => {
                 form.clearErrors()
               }}
             >
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
                 {typeOptions.map((opt) => (
                   <Label
                     key={opt.value}
@@ -383,7 +393,7 @@ export const StockAdjustmentCreatePage = () => {
           {needsProduct && (
             <div className="space-y-2">
               <Label>Sản phẩm này đã có trong hệ thống chưa? <span className="text-destructive">*</span></Label>
-              <div className="flex gap-2">
+<div className="flex flex-wrap gap-2">
                 <Button
                   type="button"
                   variant={foundMode === "existing" ? "default" : "outline"}
@@ -424,7 +434,7 @@ export const StockAdjustmentCreatePage = () => {
 
             {displayUnitSearch && (
               <>
-                <div className="flex gap-2">
+<div className="flex flex-col sm:flex-row gap-2">
                   <div className="relative flex-1">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
                     <Input
@@ -434,7 +444,7 @@ export const StockAdjustmentCreatePage = () => {
                       className="pl-9"
                     />
                   </div>
-                  <div className="relative w-48">
+                  <div className="relative w-full sm:w-48">
                     <ScanLine className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
                     <Input
                       placeholder="Quét mã..."
