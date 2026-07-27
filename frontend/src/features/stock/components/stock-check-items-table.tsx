@@ -169,8 +169,8 @@ export function StockCheckItemsTable({
                       <div className="flex items-center gap-1">
                         {canEdit ? (
                           <>
-                            <Select
-                              value={item.actualStatus ?? "__unchecked__"}
+<Select key={`sel-${item.id}-${item.actualStatus ?? "null"}`}
+  value={item.actualStatus ?? "__unchecked__"}
                               onValueChange={(v) => {
                                 if (v === "__unchecked__") {
                                   onUpdate(item.id, "actualStatus", null)
