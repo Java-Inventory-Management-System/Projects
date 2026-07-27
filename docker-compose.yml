@@ -32,7 +32,7 @@ services:
       mysql:
         condition: service_healthy
     environment:
-      DB_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-inventory_db}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      DB_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-inventory_db}
       DB_USER: ${DB_USER:-root}
       DB_PASS: ${DB_PASS:-123456}
       DB_DRIVER: ${DB_DRIVER:-com.mysql.cj.jdbc.Driver}
@@ -53,7 +53,7 @@ services:
       CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}
       UPLOAD_PATH: ${UPLOAD_PATH:-./uploads}
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8888/actuator/health"]
+      test: ['CMD', 'curl', '-f', 'http://localhost:8888/actuator/health']
       interval: 30s
       timeout: 10s
       retries: 5

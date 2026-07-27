@@ -211,6 +211,13 @@ export type ProductUnitStatus =
   | "WARRANTY"
   | "WARRANTY_DONE"
   | "WARRANTY_REPLACED"
+  | "DEFECTIVE"
+  | "DAMAGED_IN_STORAGE"
+  | "LOST"
+  | "UNDER_REPAIR"
+  | "SENT_TO_MANUFACTURER"
+  | "RETURNED_TO_SUPPLIER"
+  | "REMOVED"
 
 // ============ Import Receipt ============
 
@@ -397,6 +404,7 @@ export interface StockAdjustment {
   quantity: number | null
   reason: string
   imageUrl: string | null
+  locationId: number | null
   status: AdjustmentStatus
   sourceType: AdjustmentSourceType | null
   sourceId: number | null

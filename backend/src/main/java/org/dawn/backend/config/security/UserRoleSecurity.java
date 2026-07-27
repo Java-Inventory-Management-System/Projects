@@ -18,19 +18,15 @@ public class UserRoleSecurity {
 
     public boolean canUpdate(Long userId, Authentication auth) {
         UserDetailsImpl currentUser = (UserDetailsImpl) auth.getPrincipal();
-
         //  Can not update youself
         if (currentUser.getId().equals(userId)) {
             throw new PermissionDeniedException(Message.Auth.FORBIDDEN);
         }
-
         User targetUser = userRepository
                 .findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException(Message.User.USER_NOT_FOUND));
-
         int currentUserRole = currentUser.getRole().getLevel();
         int targetUserRole = targetUser.getRole().getName().getLevel();
-
         if (currentUserRole >= targetUserRole) {
             throw new PermissionDeniedException(Message.Auth.FORBIDDEN);
         }

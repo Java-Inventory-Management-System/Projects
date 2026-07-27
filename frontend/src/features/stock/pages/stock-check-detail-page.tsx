@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import {
@@ -24,7 +24,8 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
 import { Empty, EmptyTitle } from "@/components/ui/empty"
-import { AlertCircle, CheckCircle2, HelpCircle, Save, ClipboardCheck, Check, X } from "lucide-react"
+import { AlertCircle, CheckCircle2, HelpCircle, Save, ClipboardCheck, Check, X, ListChecks } from "lucide-react"
+import { Progress } from "@/components/ui/progress"
 import { ButtonGroup } from "@/components/ui/button-group"
 import { cn } from "@/utils/cn"
 import { toast } from "@/utils/toast"
@@ -32,10 +33,10 @@ import { StockCheckItemsTable } from "../components/stock-check-items-table"
 import { ApprovalDialog } from "../components/approval-dialog"
 
 const statusLabel: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
-  PENDING: { label: "Pending", variant: "secondary" },
-  IN_PROGRESS: { label: "Checking", variant: "outline" },
-  COMPLETED: { label: "Pending Approval", variant: "default" },
-  APPROVED: { label: "Approved", variant: "default" },
+  PENDING: { label: "Chờ xử lý", variant: "secondary" },
+  IN_PROGRESS: { label: "Đang kiểm", variant: "outline" },
+  COMPLETED: { label: "Chờ duyệt", variant: "default" },
+  APPROVED: { label: "Đã duyệt", variant: "default" },
 }
 
 export const StockCheckDetailPage = () => {
@@ -47,6 +48,7 @@ export const StockCheckDetailPage = () => {
   const [localItems, setLocalItems] = useState<StockCheckItem[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [approvalModal, setApprovalModal] = useState<"approve" | "reject" | null>(null)
+  const dirtyRef = useRef(false)
 
   const { data: check, isLoading } = useQuery({
     queryKey: ["stock-check", id],
@@ -57,10 +59,6 @@ export const StockCheckDetailPage = () => {
   useEffect(() => {
     if (check) setLocalItems(check.items)
   }, [check])
-
-  const updateItem = useCallback((itemId: number, field: string, value: unknown) => {
-    setLocalItems((prev) => prev.map((i) => (i.id === itemId ? { ...i, [field]: value } : i)))
-  }, [])
 
   const recordMut = useMutation({
     mutationFn: (data: {
@@ -73,6 +71,29 @@ export const StockCheckDetailPage = () => {
     },
     onError: (err: Error) => toast.error(err.message || "Không thể ghi kết quả"),
   })
+
+  // ponytail: auto-save every 30s when dirty
+  useEffect(() => {
+    if (!id) return
+    const isCheckActive = check?.status === STOCK_CHECK_STATUS.PENDING || check?.status === STOCK_CHECK_STATUS.IN_PROGRESS
+    if (!isCheckActive) return
+    const timer = setInterval(() => {
+      if (!dirtyRef.current) return
+      const items = localItems.map((i) => ({
+        productUnitId: i.productUnitId,
+        actualStatus: i.actualStatus ?? undefined,
+        countedQuantity: i.countedQuantity ?? undefined,
+        note: i.note || undefined,
+      }))
+      recordMut.mutate({ items }, { onSettled: () => { dirtyRef.current = false } })
+    }, 30000)
+    return () => clearInterval(timer)
+  }, [id, check?.status])
+
+  const updateItem = useCallback((itemId: number, field: string, value: unknown) => {
+    dirtyRef.current = true
+    setLocalItems((prev) => prev.map((i) => (i.id === itemId ? { ...i, [field]: value } : i)))
+  }, [])
 
   const invalidateAll = () => {
     qc.invalidateQueries({ queryKey: ["stock-check", id] })
@@ -153,7 +174,7 @@ export const StockCheckDetailPage = () => {
       <Breadcrumb>
         <BreadcrumbList>
           <BreadcrumbItem>
-            <BreadcrumbLink onClick={() => navigate("/stock/checks")}>Stock Checks</BreadcrumbLink>
+            <BreadcrumbLink onClick={() => navigate("/stock/checks")}>Kiểm kho</BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator />
           <BreadcrumbItem>
@@ -161,6 +182,18 @@ export const StockCheckDetailPage = () => {
           </BreadcrumbItem>
         </BreadcrumbList>
       </Breadcrumb>
+
+      {(check.status === STOCK_CHECK_STATUS.IN_PROGRESS || check.status === STOCK_CHECK_STATUS.PENDING) && (
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground flex items-center gap-1.5">
+              <ListChecks className="size-4" /> Đã kiểm: {localItems.filter(i => i.actualStatus).length}/{check.totalItems}
+            </span>
+            <span className="text-xs text-muted-foreground">{Math.round((localItems.filter(i => i.actualStatus).length / check.totalItems) * 100)}%</span>
+          </div>
+          <Progress value={(localItems.filter(i => i.actualStatus).length / check.totalItems) * 100} className="h-2" />
+        </div>
+      )}
 
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -171,25 +204,24 @@ export const StockCheckDetailPage = () => {
             <ButtonGroup>
               <Button variant="outline" onClick={recordItems} disabled={recordMut.isPending}>
                 <Save className="size-4 mr-1" />
-                {recordMut.isPending ? "Saving..." : "Save"}
+                {recordMut.isPending ? "Đang lưu..." : "Lưu tạm"}
               </Button>
               <Button onClick={handleSaveAndComplete} disabled={recordMut.isPending || completeMut.isPending}>
                 <ClipboardCheck className="size-4 mr-1" />
-                {completeMut.isPending ? "Completing..." : "Complete"}
+                {completeMut.isPending ? "Đang hoàn tất..." : "Hoàn tất kiểm kê"}
               </Button>
             </ButtonGroup>
           )}
           {canApprove && (
             <ButtonGroup>
               <Button variant="outline" onClick={() => setApprovalModal("reject")}>
-                <X className="size-4 mr-1" /> Reject
+                <X className="size-4 mr-1" /> Từ chối
               </Button>
               <Button onClick={() => setApprovalModal("approve")}>
-                <Check className="size-4 mr-1" /> Approve
+                <Check className="size-4 mr-1" /> Duyệt toàn bộ
               </Button>
             </ButtonGroup>
           )}
-          {/* ponytail: approve auto-creates adjustments, no manual button needed */}
         </div>
       </div>
 
@@ -241,53 +273,53 @@ export const StockCheckDetailPage = () => {
 
       <Tabs defaultValue="info">
         <TabsList>
-          <TabsTrigger value="info">Info</TabsTrigger>
-          <TabsTrigger value="results">Results</TabsTrigger>
+          <TabsTrigger value="info">Thông tin</TabsTrigger>
+          <TabsTrigger value="results">Kết quả</TabsTrigger>
         </TabsList>
 
         <TabsContent value="info" className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
             <div>
-              <span className="text-muted-foreground">Created by:</span>
+              <span className="text-muted-foreground">Người tạo:</span>
               <p className="font-medium">{check.createdByName}</p>
             </div>
             <div>
-              <span className="text-muted-foreground">Date:</span>
+              <span className="text-muted-foreground">Ngày tạo:</span>
               <p className="font-medium">{new Date(check.createdAt).toLocaleString("vi-VN")}</p>
             </div>
             {check.scopeType && (
               <div>
-                <span className="text-muted-foreground">Scope:</span>
-                <p className="font-medium">{check.scopeType} #{check.scopeId}</p>
+                <span className="text-muted-foreground">Phạm vi:</span>
+                <p className="font-medium">{check.scopeType === "ZONE" ? "Khu vực" : "Danh mục"} #{check.scopeId}</p>
               </div>
             )}
             {check.approvedByName && (
               <div>
-                <span className="text-muted-foreground">Approved by:</span>
+                <span className="text-muted-foreground">Người duyệt:</span>
                 <p className="font-medium">{check.approvedByName}</p>
               </div>
             )}
             {check.approvalNote && (
               <div>
-                <span className="text-muted-foreground">Approval note:</span>
+                <span className="text-muted-foreground">Ghi chú duyệt:</span>
                 <p className="font-medium">{check.approvalNote}</p>
               </div>
             )}
             {check.note && (
               <div className="col-span-2">
-                <span className="text-muted-foreground">Note:</span>
+                <span className="text-muted-foreground">Ghi chú:</span>
                 <p className="mt-1 text-sm leading-relaxed rounded-md border bg-muted/20 px-3 py-2">{check.note}</p>
               </div>
             )}
           </div>
           <div className="flex gap-3 text-sm">
-            <Badge variant="outline">Total: {check.totalItems}</Badge>
-            <Badge variant="secondary">Match: {check.matchCount}</Badge>
+            <Badge variant="outline">Tổng: {check.totalItems}</Badge>
+            <Badge variant="secondary">Khớp: {check.matchCount}</Badge>
             <Badge variant="outline" className="text-destructive">
-              Missing: {check.missingCount}
+              Thiếu: {check.missingCount}
             </Badge>
             <Badge variant="outline" className="text-destructive">
-              Error: {check.unexpectedCount}
+              Lỗi: {check.unexpectedCount}
             </Badge>
           </div>
         </TabsContent>
@@ -336,10 +368,10 @@ export const StockCheckDetailPage = () => {
           if (!v) setApprovalModal(null)
         }}
         id={Number(id)}
-        title={approvalModal === "approve" ? "Approve Stock Check" : "Reject Stock Check"}
+        title={approvalModal === "approve" ? "Duyệt phiếu kiểm kho" : "Từ chối phiếu kiểm kho"}
         actions={[
-          { label: "Reject", confirmLabel: "Confirm Reject", variant: "destructive", service: rejectStockCheck },
-          { label: "Approve", confirmLabel: "Confirm Approve", service: approveStockCheck },
+          { label: "Từ chối", confirmLabel: "Xác nhận từ chối", variant: "destructive", service: rejectStockCheck },
+          { label: "Duyệt", confirmLabel: "Xác nhận duyệt", service: approveStockCheck },
         ]}
         invalidateKeys={[["stock-check", id!], ["stock-checks"], ["inventory"], ["inventory-summary"]]}
       />

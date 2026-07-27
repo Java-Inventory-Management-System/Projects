@@ -1,11 +1,3 @@
-ALTER TABLE stock_checks ADD COLUMN scope_type VARCHAR(20)  AFTER status;
-ALTER TABLE stock_checks ADD COLUMN scope_id   BIGINT       AFTER scope_type;
-CREATE INDEX idx_stock_checks_scope ON stock_checks(scope_type, scope_id);
-
-ALTER TABLE stock_adjustments ADD COLUMN source_type VARCHAR(20) AFTER status;
-ALTER TABLE stock_adjustments ADD COLUMN source_id   BIGINT       AFTER source_type;
-CREATE INDEX idx_sa_source ON stock_adjustments(source_type, source_id);
-
 CREATE TABLE stock_check_item_histories (
     id                  BIGINT AUTO_INCREMENT PRIMARY KEY,
     stock_check_id      BIGINT        NOT NULL,

@@ -25,6 +25,7 @@ public interface StockAdjustmentMappingHelper {
                 .quantity(adj.getQuantity())
                 .reason(adj.getReason())
                 .imageUrl(adj.getImageUrl())
+                .locationId(adj.getLocationId())
                 .status(adj.getStatus().name())
                 .createdBy(adj.getCreatedBy())
                 .createdByName(createdByName)

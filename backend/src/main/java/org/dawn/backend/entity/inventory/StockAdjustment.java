@@ -37,6 +37,12 @@ public class StockAdjustment extends AuditableEntity {
     @Column(name = "image_url", length = 500)
     private String imageUrl;
 
+    @Column(name = "serial_number", length = 100)
+    private String serialNumber;
+
+    @Column(name = "location_id")
+    private Long locationId;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)
     @Builder.Default

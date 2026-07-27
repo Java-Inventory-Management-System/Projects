@@ -42,7 +42,7 @@ export function PriceAdjustmentCreatePage() {
   const selectedItem = form.watch("selectedItem")
   const newPrice = Number(form.watch("newPrice"))
 
-  const receipts = receiptsRes?.content ?? []
+  const receipts = useMemo(() => receiptsRes?.content ?? [], [receiptsRes])
   const currentReceipt = useMemo(() => receipts.find((r) => r.id === Number(receiptId)), [receipts, receiptId])
   const selectedReceiptItem = useMemo(() => currentReceipt?.items.find((item) => item.id === Number(selectedItem)), [currentReceipt, selectedItem])
   const oldPrice = selectedReceiptItem?.unitPrice ?? 0

@@ -59,15 +59,7 @@ export const WarrantyCreatePage = () => {
     enabled: customerQuery.length > 0,
   })
 
-  const createMut = useMutation({
-    mutationFn: createWarrantyRequest,
-    onSuccess: (data) => {
-      qc.invalidateQueries({ queryKey: ["warranty-requests"] })
-      toast.success("Tiếp nhận bảo hành thành công")
-      setCreatedId(data.id)
-    },
-    onError: (err: Error) => toast.error(err.message || "Có lỗi xảy ra"),
-  })
+  const createMut = useMutation({ mutationFn: createWarrantyRequest })
 
   const cid = form.watch("customerId")
   const issueDesc = form.watch("issueDescription")
@@ -84,6 +76,13 @@ export const WarrantyCreatePage = () => {
       issueDescription: values.issueDescription.trim(),
       note: values.note.trim() || undefined,
       allowExpired: values.allowExpired || undefined,
+    }, {
+      onSuccess: (data) => {
+        qc.invalidateQueries({ queryKey: ["warranty-requests"] })
+        toast.success("Tiếp nhận bảo hành thành công")
+        setCreatedId(data.id)
+      },
+      onError: (err: Error) => toast.error(err.message || "Có lỗi xảy ra"),
     })
   })
 

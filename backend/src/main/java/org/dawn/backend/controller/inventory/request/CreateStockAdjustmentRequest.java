@@ -8,5 +8,7 @@ public record CreateStockAdjustmentRequest(
         String reason,
         String imageUrl,
         String sourceType,
-        Long sourceId
+        Long sourceId,
+        String serialNumber,
+        Long locationId
 ) {}

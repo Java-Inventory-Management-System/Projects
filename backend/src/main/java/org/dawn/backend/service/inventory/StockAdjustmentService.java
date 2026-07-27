@@ -115,11 +115,20 @@ public class StockAdjustmentService {
                 throw new InvalidRequestException(
                         Message.format(Message.Inventory.ADJUSTMENT_UNIT_REQUIRED, type.toLowerCase()));
             }
+            if (AdjustmentType.DAMAGED.name().equals(type) && (request.imageUrl() == null || request.imageUrl().isBlank())) {
+                throw new InvalidRequestException("Photo is required for DAMAGED adjustment");
+            }
         }
 
         if (AdjustmentType.FOUND.name().equals(type) && request.productUnitId() == null) {
             if (request.productId() == null) {
                 throw new InvalidRequestException(Message.Inventory.ADJUSTMENT_PRODUCT_REQUIRED);
+            }
+            if (request.serialNumber() == null || request.serialNumber().isBlank()) {
+                throw new InvalidRequestException("Serial number is required for FOUND adjustment");
+            }
+            if (request.locationId() == null) {
+                throw new InvalidRequestException("Location is required for FOUND adjustment");
             }
         }
 
@@ -134,6 +143,8 @@ public class StockAdjustmentService {
                 .quantity(request.quantity() != null ? request.quantity() : 1)
                 .reason(request.reason())
                 .imageUrl(request.imageUrl())
+                .serialNumber(request.serialNumber())
+                .locationId(request.locationId())
                 .sourceType(sourceType)
                 .sourceId(request.sourceId())
                 .status(AdjustmentStatus.PENDING)
@@ -155,9 +166,9 @@ public class StockAdjustmentService {
         if (AdjustmentStatus.PENDING != adj.getStatus()) {
             throw new InvalidRequestException(Message.Inventory.ONLY_PENDING_CAN_APPROVE);
         }
-        if (adj.getCreatedBy().equals(userId)) {
-            // throw new InvalidRequestException(Message.Inventory.CREATOR_CANNOT_APPROVE);
-        }
+if (adj.getCreatedBy().equals(userId)) {
+                throw new InvalidRequestException(Message.Inventory.CREATOR_CANNOT_APPROVE);
+            }
 
         String type = adj.getType();
         if (AdjustmentType.DAMAGED.name().equals(type)) {
@@ -260,22 +271,25 @@ public class StockAdjustmentService {
                     .orElseThrow(() -> new ResourceNotFoundException(Message.Catalog.PRODUCT_NOT_FOUND));
             String trackingType = product.getTrackingType();
 
-            String serialNumber = null;
-            if (TrackingType.SERIALIZED.name().equals(trackingType)) {
+String serialNumber = adj.getSerialNumber();
+            if (serialNumber == null && TrackingType.SERIALIZED.name().equals(trackingType)) {
                 serialNumber = "FOUND-" + adj.getAdjustCode();
             }
 
-                    ProductUnit newUnit = ProductUnit.builder()
-                            .serialNumber(serialNumber)
-                            .productId(product.getId())
-                            .trackingType(trackingType)
-                            .initialQuantity(adj.getQuantity() != null ? java.math.BigDecimal.valueOf(adj.getQuantity()) : java.math.BigDecimal.ONE)
-                            .remainingQuantity(TrackingType.BULK.name().equals(trackingType) && adj.getQuantity() != null
-                                    ? java.math.BigDecimal.valueOf(adj.getQuantity()) : java.math.BigDecimal.ZERO)
-                            .status(ProductUnitStatus.IN_STOCK)
-                            .importedAt(Instant.now())
-                            .warrantyMonths(0)
-                            .build();
+            Long locationId = adj.getLocationId();
+
+            ProductUnit newUnit = ProductUnit.builder()
+                    .serialNumber(serialNumber)
+                    .productId(product.getId())
+                    .trackingType(trackingType)
+                    .initialQuantity(adj.getQuantity() != null ? java.math.BigDecimal.valueOf(adj.getQuantity()) : java.math.BigDecimal.ONE)
+                    .remainingQuantity(TrackingType.BULK.name().equals(trackingType) && adj.getQuantity() != null
+                            ? java.math.BigDecimal.valueOf(adj.getQuantity()) : java.math.BigDecimal.ZERO)
+                    .locationId(locationId)
+                    .status(ProductUnitStatus.IN_STOCK)
+                    .importedAt(Instant.now())
+                    .warrantyMonths(0)
+                    .build();
             newUnit = productUnitRepository.save(newUnit);
 
             statusLogRepository.save(ProductUnitStatusLog.builder()

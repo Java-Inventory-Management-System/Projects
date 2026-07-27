@@ -118,13 +118,20 @@ CREATE TABLE export_receipts (
     note                    TEXT,
     created_by              BIGINT        NOT NULL,
     approved_by             BIGINT,
+    fulfilled_by            BIGINT,
+    fulfilled_at            TIMESTAMP NULL,
+    rejected_by             BIGINT,
+    rejected_at             TIMESTAMP NULL,
+    reject_reason           TEXT,
     created_at              TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at              TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_export_receipts_status (status),
     INDEX idx_export_receipts_reason (reason),
     CONSTRAINT fk_export_customer FOREIGN KEY (customer_id) REFERENCES customers(id),
     CONSTRAINT fk_export_created_by FOREIGN KEY (created_by) REFERENCES users(id),
-    CONSTRAINT fk_export_approved_by FOREIGN KEY (approved_by) REFERENCES users(id)
+    CONSTRAINT fk_export_approved_by FOREIGN KEY (approved_by) REFERENCES users(id),
+    CONSTRAINT fk_export_fulfilled_by FOREIGN KEY (fulfilled_by) REFERENCES users(id),
+    CONSTRAINT fk_export_rejected_by FOREIGN KEY (rejected_by) REFERENCES users(id)
 );
 
 CREATE TABLE export_receipt_items (

@@ -18,7 +18,7 @@ const statusLabel: Record<string, { label: string; variant: "default" | "seconda
 }
 
 const statusOptions = [
-  { value: "", label: "Tất cả" },
+  { value: "all", label: "Tất cả" },
   { value: "PENDING", label: "Chờ xử lý" },
   { value: "IN_PROGRESS", label: "Đang kiểm" },
   { value: "COMPLETED", label: "Chờ duyệt" },
@@ -57,9 +57,9 @@ export const StockCheckListPage = () => {
 
   // STOCK → own checks only; MANAGER/ADMIN → all checks
   const isStock = perm.hasRole("STOCK")
-  const { data, isLoading } = isStock
-    ? useMyStockChecks(page, pageSize, sortStr, statusFilter || undefined)
-    : useStockChecks(page, pageSize, sortStr, statusFilter || undefined)
+  const myChecks = useMyStockChecks(page, pageSize, sortStr, statusFilter || undefined)
+  const allChecks = useStockChecks(page, pageSize, sortStr, statusFilter || undefined)
+  const { data, isLoading } = isStock ? myChecks : allChecks
 
   const columns: Column<StockCheck>[] = [
     {

@@ -175,6 +175,7 @@ public class StockCheckService {
             item.setActualStatus(newActual);
             item.setCountedQuantity(req.countedQuantity());
             item.setNote(req.note());
+            item.setPhoto(req.photo());
 
             String expected = item.getExpectedStatus();
             if (expected == null) expected = ProductUnitStatus.IN_STOCK.name();

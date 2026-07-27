@@ -37,6 +37,7 @@ import org.dawn.backend.repository.inventory.ExportReceiptRepository;
 import org.dawn.backend.repository.inventory.ExportReceiptStatusHistoryRepository;
 import org.dawn.backend.repository.inventory.ProductUnitRepository;
 import org.dawn.backend.repository.inventory.ProductUnitStatusLogRepository;
+import org.dawn.backend.repository.inventory.StockCheckItemRepository;
 import org.dawn.backend.utils.ReceiptCodeGenerator;
 import org.dawn.backend.utils.SecurityUtils;
 import org.springframework.data.domain.Pageable;
@@ -60,6 +61,7 @@ public class ExportReceiptService {
     private final ExportReceiptStatusHistoryRepository statusHistoryRepository;
     private final ProductUnitRepository productUnitRepository;
     private final ProductUnitStatusLogRepository statusLogRepository;
+    private final StockCheckItemRepository stockCheckItemRepository;
     private final ProductRepository productRepository;
     private final CustomerRepository customerRepository;
     private final UserRepository userRepository;
@@ -309,6 +311,9 @@ public class ExportReceiptService {
                         }
                         if (ProductUnitStatus.IN_STOCK != pu.getStatus()) {
                             throw new InvalidRequestException("Serial " + sn + " is not available (status: " + pu.getStatus() + ")");
+                        }
+                        if (stockCheckItemRepository.existsByProductUnitIdInActiveCheck(pu.getId())) {
+                            throw new InvalidRequestException("Serial " + sn + " is currently being stock-checked");
                         }
 
                         ProductUnitStatus oldUnitStatus = pu.getStatus();

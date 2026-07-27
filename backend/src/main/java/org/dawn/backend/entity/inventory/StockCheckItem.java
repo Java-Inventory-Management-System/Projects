@@ -37,4 +37,7 @@ public class StockCheckItem extends BaseEntity {
 
     @Column(name = "note", columnDefinition = "TEXT")
     private String note;
+
+    @Column(name = "photo", length = 500)
+    private String photo;
 }

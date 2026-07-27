@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { ArrowLeft } from "lucide-react"
+import { ArrowLeft, Info } from "lucide-react"
 import { toast } from "@/utils/toast"
 import type { StockCheckScopeType } from "@/utils/types"
 
@@ -149,9 +149,11 @@ export const StockCheckCreatePage = () => {
           </div>
         )}
 
-        <p className="text-xs text-muted-foreground">
-          Hệ thống sẽ tự động lấy tất cả sản phẩm IN_STOCK trong phạm vi đã chọn.
-        </p>
+        {scopeId && (
+          <p className="text-sm flex items-center gap-1.5 text-muted-foreground">
+            <Info className="size-3.5" /> Sẽ kiểm tra tất cả sản phẩm IN_STOCK trong phạm vi đã chọn
+          </p>
+        )}
       </div>
 
       <div className="space-y-2">
@@ -170,7 +172,7 @@ export const StockCheckCreatePage = () => {
           Hủy
         </Button>
         <Button onClick={handleSubmit} disabled={createMut.isPending || !scopeType || !scopeId}>
-          {createMut.isPending ? "Đang tạo..." : "Tạo phiếu kiểm"}
+          {createMut.isPending ? "Đang tạo..." : "Bắt đầu kiểm kê"}
         </Button>
       </div>
     </div>

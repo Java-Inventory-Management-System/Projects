@@ -17,19 +17,19 @@ const statusOptions = [
 ] as const
 
 const statusLabels: Record<string, string> = {
-  [PRODUCT_UNIT_STATUS.IN_STOCK]: "In Stock",
-  [PRODUCT_UNIT_STATUS.DEFECTIVE]: "Defective",
-  [PRODUCT_UNIT_STATUS.DAMAGED_IN_STORAGE]: "Damaged",
-  [PRODUCT_UNIT_STATUS.LOST]: "Lost",
-  [PRODUCT_UNIT_STATUS.REMOVED]: "Removed",
-  [PRODUCT_UNIT_STATUS.DISPOSED]: "Disposed",
+  [PRODUCT_UNIT_STATUS.IN_STOCK]: "Còn trong kho",
+  [PRODUCT_UNIT_STATUS.DEFECTIVE]: "Lỗi sản xuất",
+  [PRODUCT_UNIT_STATUS.DAMAGED_IN_STORAGE]: "Hư hỏng",
+  [PRODUCT_UNIT_STATUS.LOST]: "Mất",
+  [PRODUCT_UNIT_STATUS.REMOVED]: "Đã loại bỏ",
+  [PRODUCT_UNIT_STATUS.DISPOSED]: "Đã huỷ",
 }
 
 const diffLabels: Record<string, string> = {
-  [STOCK_CHECK_DIFF.MATCH]: "Match",
-  [STOCK_CHECK_DIFF.MISSING]: "Missing",
-  [STOCK_CHECK_DIFF.UNEXPECTED]: "Unexpected",
-  [STOCK_CHECK_DIFF.PARTIAL_SHORTAGE]: "Partial",
+  [STOCK_CHECK_DIFF.MATCH]: "Khớp",
+  [STOCK_CHECK_DIFF.MISSING]: "Thiếu",
+  [STOCK_CHECK_DIFF.UNEXPECTED]: "Bất thường",
+  [STOCK_CHECK_DIFF.PARTIAL_SHORTAGE]: "Thiếu một phần",
 }
 
 interface Props {

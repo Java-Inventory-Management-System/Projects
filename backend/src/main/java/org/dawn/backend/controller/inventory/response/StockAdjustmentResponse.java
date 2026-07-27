@@ -17,6 +17,7 @@ public record StockAdjustmentResponse(
         Integer quantity,
         String reason,
         String imageUrl,
+        Long locationId,
         String status,
         Long createdBy,
         String createdByName,

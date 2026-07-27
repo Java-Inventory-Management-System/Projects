@@ -39,9 +39,9 @@ export function PriceAdjustmentListPage() {
     })
   }, [])
 
-  const { data, isLoading } = isAdminManager
-    ? usePriceAdjustments(page, pageSize, sortStr, statusFilter || undefined)
-    : useMyPriceAdjustments(page, pageSize, sortStr, statusFilter || undefined)
+  const allAdj = usePriceAdjustments(page, pageSize, sortStr, statusFilter || undefined)
+  const myAdj = useMyPriceAdjustments(page, pageSize, sortStr, statusFilter || undefined)
+  const { data, isLoading } = isAdminManager ? allAdj : myAdj
 
   const setPage = (p: number) => {
     const next = new URLSearchParams(searchParams)
