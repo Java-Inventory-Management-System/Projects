@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { Search, Upload } from "lucide-react"
+import { Search, Upload, Camera, Image } from "lucide-react"
 import { ButtonGroup } from "@/components/ui/button-group"
 import { cn } from "@/utils/cn"
 
@@ -54,6 +54,7 @@ export function StockCheckItemsTable({
   onImportSerials,
 }: Props) {
   const fileRef = useRef<HTMLInputElement>(null)
+  const photoTargetRef = useRef<number | null>(null)
   const mismatchCount = items.filter((i) => i.difference && i.difference !== STOCK_CHECK_DIFF.MATCH).length
 
   const filtered = items.filter((item) => {
@@ -83,8 +84,25 @@ export function StockCheckItemsTable({
         {mismatchCount > 0 && <span className="text-xs text-destructive">{mismatchCount} chênh lệch</span>}
         {canEdit && (
           <ButtonGroup>
-            <input ref={fileRef} type="file" accept=".txt,.csv" className="hidden" onChange={onImportSerials} />
-            <Button variant="outline" size="sm" className="text-xs gap-1" onClick={() => fileRef.current?.click()}>
+            <input ref={fileRef} type="file" accept=".txt,.csv,.png,.jpg,.jpeg" className="hidden"
+              onChange={(e) => {
+                const target = e.target
+                const targetId = photoTargetRef.current
+                photoTargetRef.current = null
+                if (target.files?.[0] && targetId != null) {
+                  const reader = new FileReader()
+                  reader.onload = () => onUpdate(targetId, "photo", reader.result as string)
+                  reader.readAsDataURL(target.files[0])
+                } else if (target.files?.[0]) {
+                  onImportSerials(e)
+                }
+                target.value = ""
+              }}
+            />
+            <Button variant="outline" size="sm" className="text-xs gap-1" onClick={() => {
+              photoTargetRef.current = null
+              fileRef.current?.click()
+            }}>
               <Upload className="size-3" /> Import serials
             </Button>
             <Button
@@ -148,41 +166,59 @@ export function StockCheckItemsTable({
                     </TableCell>
                     <TableCell className="text-xs">{item.expectedStatus}</TableCell>
                     <TableCell>
-                      {canEdit ? (
-                        <Select
-                          value={item.actualStatus ?? "__unchecked__"}
-                          onValueChange={(v) => {
-                            if (v === "__unchecked__") {
-                              onUpdate(item.id, "actualStatus", null)
-                              if (isSerialized) {
-                                onUpdate(item.id, "countedQuantity", null)
-                              }
-                            } else {
-                              onUpdate(item.id, "actualStatus", v)
-                              if (isSerialized) {
-                                const lostStatuses: string[] = [PRODUCT_UNIT_STATUS.LOST, PRODUCT_UNIT_STATUS.REMOVED, PRODUCT_UNIT_STATUS.DISPOSED]
-                                onUpdate(item.id, "countedQuantity", lostStatuses.includes(v) ? 0 : 1)
-                              }
-                            }
-                          }}
-                        >
-                          <SelectTrigger className={cn("h-8 text-xs", !item.actualStatus && "text-muted-foreground")}>
-                            <SelectValue placeholder="— Chưa kiểm —" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="__unchecked__" className="text-muted-foreground italic">— Chưa kiểm —</SelectItem>
-                            {statusOptions.map((st) => (
-                              <SelectItem key={st} value={st} className="text-xs">
-                                {statusLabels[st]}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      ) : (
-                        <span className={cn(!item.actualStatus && "text-muted-foreground italic")}>
-                          {item.actualStatus ? statusLabels[item.actualStatus] ?? item.actualStatus : "— Chưa kiểm —"}
-                        </span>
-                      )}
+                      <div className="flex items-center gap-1">
+                        {canEdit ? (
+                          <>
+                            <Select
+                              value={item.actualStatus ?? "__unchecked__"}
+                              onValueChange={(v) => {
+                                if (v === "__unchecked__") {
+                                  onUpdate(item.id, "actualStatus", null)
+                                  if (isSerialized) {
+                                    onUpdate(item.id, "countedQuantity", null)
+                                  }
+                                } else {
+                                  onUpdate(item.id, "actualStatus", v)
+                                  if (isSerialized) {
+                                    const lostStatuses: string[] = [PRODUCT_UNIT_STATUS.LOST, PRODUCT_UNIT_STATUS.REMOVED, PRODUCT_UNIT_STATUS.DISPOSED]
+                                    onUpdate(item.id, "countedQuantity", lostStatuses.includes(v) ? 0 : 1)
+                                  }
+                                }
+                              }}
+                            >
+                              <SelectTrigger className={cn("h-8 text-xs flex-1", !item.actualStatus && "text-muted-foreground")}>
+                                <SelectValue placeholder="— Chưa kiểm —" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="__unchecked__" className="text-muted-foreground italic">— Chưa kiểm —</SelectItem>
+                                {statusOptions.map((st) => (
+                                  <SelectItem key={st} value={st} className="text-xs">
+                                    {statusLabels[st]}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            {item.actualStatus === PRODUCT_UNIT_STATUS.DAMAGED_IN_STORAGE && (
+                              <Button
+                                type="button"
+                                variant={item.photo ? "default" : "outline"}
+                                size="icon"
+                                className="size-8 shrink-0"
+                                onClick={() => {
+                                  photoTargetRef.current = item.id
+                                  fileRef.current?.click()
+                                }}
+                              >
+                                {item.photo ? <Image className="size-3.5" /> : <Camera className="size-3.5" />}
+                              </Button>
+                            )}
+                          </>
+                        ) : (
+                          <span className={cn(!item.actualStatus && "text-muted-foreground italic")}>
+                            {item.actualStatus ? statusLabels[item.actualStatus] ?? item.actualStatus : "— Chưa kiểm —"}
+                          </span>
+                        )}
+                      </div>
                     </TableCell>
                     {hasBulk && (
                       <TableCell className="text-right">
