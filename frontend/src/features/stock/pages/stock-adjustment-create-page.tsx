@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
 import { useForm, Controller } from "react-hook-form"
 import { useNavigate, useLocation } from "react-router-dom"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
@@ -22,11 +22,11 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog"
 import { useFormDraft, clearDraft } from "@/hooks/use-form-draft"
-import { ArrowLeft, Search, Info } from "lucide-react"
+import { ArrowLeft, Search, Info, ScanLine, CheckCircle2, XCircle } from "lucide-react"
 import { Empty, EmptyTitle } from "@/components/ui/empty"
 import { toast } from "@/utils/toast"
 import { mapResponsePage, mapProductUnit } from "@/utils/mappers"
-import { ADJUSTMENT_TYPE, STOCK_CHECK_DIFF } from "@/utils/types"
+import { ADJUSTMENT_TYPE, STOCK_CHECK_DIFF, type ProductUnit } from "@/utils/types"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 interface AdjustmentForm {
@@ -38,6 +38,14 @@ interface AdjustmentForm {
   foundLocationId: string
   reason: string
   imageUrl: string
+}
+
+interface BatchResult {
+  index: number
+  serialNumber: string
+  productName: string
+  success: boolean
+  error?: string
 }
 
 const typeOptions = [
@@ -66,9 +74,12 @@ export const StockAdjustmentCreatePage = () => {
   const [searchUnit, setSearchUnit] = useState("")
   const [searchProduct, setSearchProduct] = useState("")
   const [showConfirm, setShowConfirm] = useState(false)
+  const [showResult, setShowResult] = useState(false)
   const [showDraftDialog, setShowDraftDialog] = useState(false)
-  const [selectedUnitInfo, setSelectedUnitInfo] = useState<{ serialNumber: string; productName: string; productSku: string } | null>(null)
-  const [selectedProductInfo, setSelectedProductInfo] = useState<{ name: string; sku: string } | null>(null)
+  const [foundMode, setFoundMode] = useState<"existing" | "new" | null>(null)
+  const [scanInput, setScanInput] = useState("")
+  const [batchProgress, setBatchProgress] = useState<{ current: number; total: number } | null>(null)
+  const [batchResults, setBatchResults] = useState<BatchResult[]>([])
 
   const form = useForm<AdjustmentForm>({
     defaultValues: { type: "", selectedUnitId: null, selectedProductId: null, quantity: 1, foundSerialNumber: "", foundLocationId: "", reason: initialReason, imageUrl: "" },
@@ -76,7 +87,23 @@ export const StockAdjustmentCreatePage = () => {
   const { formState } = form
   const watchedType = form.watch("type")
   const watchedReason = form.watch("reason")
-  const watchedUnitId = form.watch("selectedUnitId")
+  const watchedImageUrl = form.watch("imageUrl")
+
+  useEffect(() => {
+    if (watchedType === ADJUSTMENT_TYPE.FOUND) {
+      if (!foundMode) setFoundMode("existing")
+    } else {
+      setFoundMode(null)
+    }
+  }, [watchedType, foundMode])
+
+  useEffect(() => {
+    if (watchedType === ADJUSTMENT_TYPE.DAMAGED && !watchedImageUrl.trim()) {
+      form.setError("imageUrl", { message: "Ảnh là bắt buộc cho hàng hỏng" })
+    } else if (formState.errors.imageUrl) {
+      form.clearErrors("imageUrl")
+    }
+  }, [watchedType, watchedImageUrl, form, formState.errors.imageUrl])
 
   const draftState = useMemo(() => ({ type: watchedType, reason: watchedReason }), [watchedType, watchedReason])
   const isDirty = !!watchedType || !!watchedReason.trim()
@@ -102,13 +129,15 @@ export const StockAdjustmentCreatePage = () => {
       const res = await http.get("/product-unit", { params })
       return mapResponsePage(res, mapProductUnit)
     },
-    enabled: watchedType === ADJUSTMENT_TYPE.DAMAGED || watchedType === ADJUSTMENT_TYPE.LOST,
+    enabled: watchedType === ADJUSTMENT_TYPE.DAMAGED
+      || watchedType === ADJUSTMENT_TYPE.LOST
+      || (watchedType === ADJUSTMENT_TYPE.FOUND && foundMode === "existing"),
   })
 
   const { data: productsData, isLoading: productsLoading } = useQuery({
     queryKey: ["products", searchProduct],
     queryFn: () => getProducts(0, 100, searchProduct || undefined),
-    enabled: watchedType === ADJUSTMENT_TYPE.FOUND,
+    enabled: watchedType === ADJUSTMENT_TYPE.FOUND && foundMode === "new",
   })
 
   const { data: locations } = useQuery({
@@ -117,7 +146,7 @@ export const StockAdjustmentCreatePage = () => {
       const res = await http.get("/location", { params: { isActive: true, size: 200 } })
       return res.data?.content ?? res.data ?? []
     },
-    enabled: watchedType === ADJUSTMENT_TYPE.FOUND && !watchedUnitId,
+    enabled: watchedType === ADJUSTMENT_TYPE.FOUND && foundMode === "new",
   })
 
   const createMut = useMutation({
@@ -132,22 +161,41 @@ export const StockAdjustmentCreatePage = () => {
   })
 
   const batchMut = useMutation({
-    mutationFn: async (items: Array<{ productUnitId: number; difference: string }>) => {
-      for (const item of items) {
-        const type = item.difference === STOCK_CHECK_DIFF.UNEXPECTED ? ADJUSTMENT_TYPE.FOUND : ADJUSTMENT_TYPE.LOST
-        await createStockAdjustment({
-          type,
-          productUnitId: item.productUnitId,
-          reason: initialReason.trim() || `Batch from stock check`,
-        })
+    mutationFn: async (items: Array<{ productUnitId: number; difference: string; serialNumber: string; productName: string }>) => {
+      const results: BatchResult[] = []
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i]
+        setBatchProgress({ current: i + 1, total: items.length })
+        try {
+          const type = item.difference === STOCK_CHECK_DIFF.UNEXPECTED ? ADJUSTMENT_TYPE.FOUND : ADJUSTMENT_TYPE.LOST
+          await createStockAdjustment({
+            type,
+            productUnitId: item.productUnitId,
+            reason: form.getValues("reason").trim() || `Batch from stock check`,
+          })
+          results.push({ index: i, serialNumber: item.serialNumber, productName: item.productName, success: true })
+        } catch (err) {
+          results.push({
+            index: i,
+            serialNumber: item.serialNumber,
+            productName: item.productName,
+            success: false,
+            error: err instanceof Error ? err.message : "Lỗi không xác định",
+          })
+        }
       }
+      return results
     },
-    onSuccess: () => {
+    onSuccess: (results) => {
       qc.invalidateQueries({ queryKey: ["stock-adjustments"] })
-      toast.success(`Đã tạo ${locationState?.mismatches?.length ?? 0} phiếu điều chỉnh`)
-      navigate("/stock/adjustments")
+      setBatchResults(results)
+      setBatchProgress(null)
+      setShowResult(true)
     },
-    onError: (err: Error) => toast.error(err.message || "Có lỗi khi tạo hàng loạt"),
+    onError: () => {
+      setBatchProgress(null)
+      toast.error("Có lỗi khi tạo hàng loạt")
+    },
   })
 
   const validate = (): boolean => {
@@ -162,16 +210,41 @@ export const StockAdjustmentCreatePage = () => {
     if (values.type === ADJUSTMENT_TYPE.DAMAGED && !values.imageUrl.trim()) {
       form.setError("imageUrl", { message: "Ảnh là bắt buộc cho hàng hỏng" }); valid = false
     }
-    if (values.type === ADJUSTMENT_TYPE.FOUND && !values.selectedUnitId && !values.selectedProductId) {
+    if (values.type === ADJUSTMENT_TYPE.FOUND && foundMode === "existing" && !values.selectedUnitId) {
+      form.setError("selectedUnitId", { message: "Vui lòng chọn sản phẩm" }); valid = false
+    }
+    if (values.type === ADJUSTMENT_TYPE.FOUND && foundMode === "new" && !values.selectedProductId) {
       form.setError("selectedProductId", { message: "Vui lòng chọn sản phẩm" }); valid = false
     }
-    if (values.type === ADJUSTMENT_TYPE.FOUND && !values.selectedUnitId && !values.foundSerialNumber.trim()) {
+    if (values.type === ADJUSTMENT_TYPE.FOUND && foundMode === "new" && !values.foundSerialNumber.trim()) {
       form.setError("foundSerialNumber", { message: "Vui lòng nhập serial number" }); valid = false
     }
-    if (values.type === ADJUSTMENT_TYPE.FOUND && !values.selectedUnitId && !values.foundLocationId) {
+    if (values.type === ADJUSTMENT_TYPE.FOUND && foundMode === "new" && !values.foundLocationId) {
       form.setError("foundLocationId", { message: "Vui lòng chọn vị trí" }); valid = false
     }
     return valid
+  }
+
+  const buildSubmitData = () => {
+    const values = form.getValues()
+    const data: Parameters<typeof createStockAdjustment>[0] = {
+      type: values.type,
+      reason: values.reason.trim(),
+    }
+    if (values.type === ADJUSTMENT_TYPE.DAMAGED || values.type === ADJUSTMENT_TYPE.LOST) {
+      data.productUnitId = values.selectedUnitId!
+    }
+    if (values.type === ADJUSTMENT_TYPE.FOUND && foundMode === "new") {
+      data.productId = values.selectedProductId!
+      data.quantity = values.quantity
+      data.serialNumber = values.foundSerialNumber.trim()
+      data.locationId = Number(values.foundLocationId)
+    }
+    if (values.type === ADJUSTMENT_TYPE.FOUND && foundMode === "existing" && values.selectedUnitId) {
+      data.productUnitId = values.selectedUnitId
+    }
+    if (values.imageUrl.trim()) data.imageUrl = values.imageUrl.trim()
+    return data
   }
 
   const handleSubmit = () => {
@@ -180,53 +253,42 @@ export const StockAdjustmentCreatePage = () => {
       return
     }
     if (!validate()) return
-    setShowConfirm(true)
+    createMut.mutate(buildSubmitData())
   }
 
-  const confirmSubmit = () => {
+  const confirmBatch = () => {
     setShowConfirm(false)
-    if (locationState?.batch && locationState.mismatches) {
-      batchMut.mutate(
-        locationState.mismatches.map((m) => ({
-          productUnitId: m.productUnitId,
-          difference: m.difference,
-        })),
-      )
-      return
-    }
-    const values = form.getValues()
-    const data: {
-      type: string
-      productUnitId?: number
-      productId?: number
-      quantity?: number
-      reason: string
-      imageUrl?: string
-      serialNumber?: string
-      locationId?: number
-    } = {
-      type: values.type,
-      reason: values.reason.trim(),
-    }
-
-    if (values.type === ADJUSTMENT_TYPE.DAMAGED || values.type === ADJUSTMENT_TYPE.LOST) {
-      data.productUnitId = values.selectedUnitId!
-    }
-
-    if (values.type === ADJUSTMENT_TYPE.FOUND && !values.selectedUnitId) {
-      data.productId = values.selectedProductId!
-      data.quantity = values.quantity
-      data.serialNumber = values.foundSerialNumber.trim()
-      data.locationId = Number(values.foundLocationId)
-    }
-    if (values.type === ADJUSTMENT_TYPE.FOUND && values.selectedUnitId) {
-      data.productUnitId = values.selectedUnitId
-    }
-
-    if (values.imageUrl.trim()) data.imageUrl = values.imageUrl.trim()
-
-    createMut.mutate(data)
+    batchMut.mutate(
+      locationState!.mismatches!.map((m) => ({
+        productUnitId: m.productUnitId,
+        difference: m.difference,
+        serialNumber: m.serialNumber,
+        productName: m.productName,
+      })),
+    )
   }
+
+  const handleScan = useCallback((value: string) => {
+    setScanInput(value)
+    if (!value.trim()) return
+    if (!unitsData?.content) return
+    const match = unitsData.content.find(
+      (u: ProductUnit) =>
+        u.serialNumber?.toLowerCase() === value.trim().toLowerCase()
+        || u.productSku?.toLowerCase() === value.trim().toLowerCase(),
+    )
+    if (match) {
+      form.setValue("selectedUnitId", match.id)
+      form.setValue("selectedProductId", null)
+      form.clearErrors("selectedUnitId")
+      setScanInput("")
+      toast.success(`Đã chọn: ${match.productName}`)
+    }
+  }, [unitsData, form])
+
+  const displayUnitSearch = watchedType === ADJUSTMENT_TYPE.DAMAGED
+    || watchedType === ADJUSTMENT_TYPE.LOST
+    || (watchedType === ADJUSTMENT_TYPE.FOUND && foundMode === "existing")
 
   const needsUnit = watchedType === ADJUSTMENT_TYPE.DAMAGED || watchedType === ADJUSTMENT_TYPE.LOST
   const needsProduct = watchedType === ADJUSTMENT_TYPE.FOUND
@@ -254,8 +316,8 @@ export const StockAdjustmentCreatePage = () => {
                 field.onChange(v)
                 form.setValue("selectedUnitId", null)
                 form.setValue("selectedProductId", null)
-                setSelectedUnitInfo(null)
-                setSelectedProductInfo(null)
+                setFoundMode(null)
+                setScanInput("")
                 form.clearErrors()
               }}
             >
@@ -282,140 +344,188 @@ export const StockAdjustmentCreatePage = () => {
 
       {watchedType && (
         <>
+          {needsProduct && (
+            <div className="space-y-2">
+              <Label>Sản phẩm này đã có trong hệ thống chưa? <span className="text-destructive">*</span></Label>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant={foundMode === "existing" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => {
+                    setFoundMode("existing")
+                    form.setValue("selectedUnitId", null)
+                    form.setValue("selectedProductId", null)
+                    form.setValue("foundSerialNumber", "")
+                    form.setValue("foundLocationId", "")
+                    form.clearErrors()
+                  }}
+                >
+                  Đã có trong hệ thống
+                </Button>
+                <Button
+                  type="button"
+                  variant={foundMode === "new" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => {
+                    setFoundMode("new")
+                    form.setValue("selectedUnitId", null)
+                    form.setValue("selectedProductId", null)
+                    form.clearErrors()
+                  }}
+                >
+                  Chưa có trong hệ thống
+                </Button>
+              </div>
+            </div>
+          )}
+
           <div className="space-y-2">
             <Label>
-              {needsUnit ? "Chọn sản phẩm (serial)" : needsProduct ? "Chọn sản phẩm" : ""}{" "}
+              {needsUnit ? "Chọn sản phẩm (serial)" : needsProduct && foundMode === "existing" ? "Chọn sản phẩm (serial)" : needsProduct && foundMode === "new" ? "Chọn sản phẩm" : ""}{" "}
               <span className="text-destructive">*</span>
             </Label>
 
-            {(needsUnit || (needsProduct && !watchedUnitId)) && (
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-                <Input
-                  placeholder={needsUnit ? "Tìm theo serial, tên sản phẩm hoặc SKU..." : "Tìm sản phẩm..."}
-                  value={needsUnit ? searchUnit : searchProduct}
-                  onChange={(e) => {
-                    if (needsUnit) setSearchUnit(e.target.value)
-                    else setSearchProduct(e.target.value)
-                  }}
-                  className="pl-9"
-                />
-              </div>
+            {displayUnitSearch && (
+              <>
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                    <Input
+                      placeholder={(needsUnit || foundMode === "existing") ? "Tìm theo serial, tên sản phẩm hoặc SKU..." : "Tìm sản phẩm..."}
+                      value={searchUnit}
+                      onChange={(e) => setSearchUnit(e.target.value)}
+                      className="pl-9"
+                    />
+                  </div>
+                  <div className="relative w-48">
+                    <ScanLine className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Quét mã..."
+                      value={scanInput}
+                      onChange={(e) => handleScan(e.target.value)}
+                      className="pl-9 font-mono text-xs"
+                    />
+                  </div>
+                </div>
+                <div className="rounded-lg border overflow-x-auto max-h-48">
+                  {unitsLoading ? (
+                    <div className="p-3 space-y-2">
+                      {Array.from({ length: 3 }).map((_, i) => (
+                        <Skeleton key={i} className="h-8 w-full" />
+                      ))}
+                    </div>
+                  ) : !unitsData || unitsData.content.length === 0 ? (
+                    <Empty className="py-4">
+                      <EmptyTitle>Không tìm thấy sản phẩm.</EmptyTitle>
+                    </Empty>
+                  ) : (
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b bg-muted/50 text-left">
+                          <th className="w-8 px-2 py-1"></th>
+                          <th className="px-2 py-1 font-medium">Serial</th>
+                          <th className="px-2 py-1 font-medium">Sản phẩm</th>
+                          <th className="px-2 py-1 font-medium">Trạng thái</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {unitsData.content.map((u: ProductUnit) => {
+                          const selectedUnitId = form.watch("selectedUnitId")
+                          return (
+                          <tr
+                            key={u.id}
+                            className={`border-b last:border-0 cursor-pointer hover:bg-muted/30 ${
+                              selectedUnitId === u.id ? "bg-primary/5" : ""
+                            }`}
+                            onClick={() => {
+                              form.setValue("selectedUnitId", u.id)
+                              form.setValue("selectedProductId", null)
+                              form.clearErrors("selectedUnitId")
+                            }}
+                          >
+                            <td className="px-2 py-1">
+                              <input type="radio" checked={selectedUnitId === u.id} readOnly className="accent-primary" />
+                            </td>
+                            <td className="px-2 py-1 font-mono text-xs">{u.serialNumber}</td>
+                            <td className="px-2 py-1">
+                              <span className="font-medium">{u.productName}</span>
+                              <span className="text-xs text-muted-foreground ml-1">{u.productSku}</span>
+                            </td>
+                            <td className="px-2 py-1 text-xs text-muted-foreground">{u.status}</td>
+                          </tr>
+                        )})}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+                {formState.errors.selectedUnitId?.message && <p className="text-xs text-destructive">{formState.errors.selectedUnitId.message}</p>}
+              </>
             )}
 
-            <div className="rounded-lg border overflow-x-auto max-h-48">
-              {needsUnit ? (
-                unitsLoading ? (
-                  <div className="p-3 space-y-2">
-                    {Array.from({ length: 3 }).map((_, i) => (
-                      <Skeleton key={i} className="h-8 w-full" />
-                    ))}
-                  </div>
-                ) : !unitsData || unitsData.content.length === 0 ? (
-                  <Empty className="py-4">
-                    <EmptyTitle>Không tìm thấy sản phẩm.</EmptyTitle>
-                  </Empty>
-                ) : (
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b bg-muted/50 text-left">
-                        <th className="w-8 px-2 py-1"></th>
-                        <th className="px-2 py-1 font-medium">Serial</th>
-                        <th className="px-2 py-1 font-medium">Sản phẩm</th>
-                        <th className="px-2 py-1 font-medium">Trạng thái</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {unitsData.content.map((u) => {
-                        const selectedUnitId = form.watch("selectedUnitId")
-                        return (
-                        <tr
-                          key={u.id}
-                          className={`border-b last:border-0 cursor-pointer hover:bg-muted/30 ${
-                            selectedUnitId === u.id ? "bg-primary/5" : ""
-                          }`}
-                          onClick={() => {
-                            form.setValue("selectedUnitId", u.id)
-                            form.setValue("selectedProductId", null)
-                            form.clearErrors("selectedUnitId")
-                            setSelectedUnitInfo({ serialNumber: u.serialNumber, productName: u.productName, productSku: u.productSku })
-                          }}
-                        >
-                          <td className="px-2 py-1">
-                            <input type="radio" checked={selectedUnitId === u.id} readOnly className="accent-primary" />
-                          </td>
-                          <td className="px-2 py-1 font-mono text-xs">{u.serialNumber}</td>
-                          <td className="px-2 py-1">
-                            <span className="font-medium">{u.productName}</span>
-                            <span className="text-xs text-muted-foreground ml-1">{u.productSku}</span>
-                          </td>
-                          <td className="px-2 py-1 text-xs text-muted-foreground">{u.status}</td>
+            {needsProduct && foundMode === "new" && (
+              <>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Tìm sản phẩm..."
+                    value={searchProduct}
+                    onChange={(e) => setSearchProduct(e.target.value)}
+                    className="pl-9"
+                  />
+                </div>
+                <div className="rounded-lg border overflow-x-auto max-h-48">
+                  {productsLoading ? (
+                    <div className="p-3 space-y-2">
+                      {Array.from({ length: 3 }).map((_, i) => (
+                        <Skeleton key={i} className="h-8 w-full" />
+                      ))}
+                    </div>
+                  ) : !productsData || productsData.content.length === 0 ? (
+                    <Empty className="py-4">
+                      <EmptyTitle>Không tìm thấy sản phẩm.</EmptyTitle>
+                    </Empty>
+                  ) : (
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b bg-muted/50 text-left">
+                          <th className="w-8 px-2 py-1"></th>
+                          <th className="px-2 py-1 font-medium">SKU</th>
+                          <th className="px-2 py-1 font-medium">Sản phẩm</th>
                         </tr>
-                      )
-                    })}
-                    </tbody>
-                  </table>
-                )
-              ) : null}
-
-              {needsProduct &&
-                !form.watch("selectedUnitId") &&
-                (productsLoading ? (
-                  <div className="p-3 space-y-2">
-                    {Array.from({ length: 3 }).map((_, i) => (
-                      <Skeleton key={i} className="h-8 w-full" />
-                    ))}
-                  </div>
-                ) : !productsData || productsData.content.length === 0 ? (
-                  <Empty className="py-4">
-                    <EmptyTitle>Không tìm thấy sản phẩm.</EmptyTitle>
-                  </Empty>
-                ) : (
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b bg-muted/50 text-left">
-                        <th className="w-8 px-2 py-1"></th>
-                        <th className="px-2 py-1 font-medium">SKU</th>
-                        <th className="px-2 py-1 font-medium">Sản phẩm</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {productsData.content.map((p) => {
-                        const selectedProductId = form.watch("selectedProductId")
-                        return (
-                        <tr
-                          key={p.id}
-                          className={`border-b last:border-0 cursor-pointer hover:bg-muted/30 ${
-                            selectedProductId === p.id ? "bg-primary/5" : ""
-                          }`}
-                          onClick={() => {
-                            form.setValue("selectedProductId", p.id)
-                            form.setValue("selectedUnitId", null)
-                            form.clearErrors("selectedProductId")
-                            setSelectedProductInfo({ name: p.name ?? "", sku: p.sku ?? "" })
-                          }}
-                        >
-                          <td className="px-2 py-1">
-                            <input
-                              type="radio"
-                              checked={selectedProductId === p.id}
-                              readOnly
-                              className="accent-primary"
-                            />
-                          </td>
-                          <td className="px-2 py-1 font-mono text-xs">{p.sku}</td>
-                          <td className="px-2 py-1 font-medium">{p.name}</td>
-                        </tr>
-                      )})}
-                    </tbody>
-                  </table>
-                ))}
-            </div>
-            {formState.errors.selectedUnitId?.message && <p className="text-xs text-destructive">{formState.errors.selectedUnitId.message}</p>}
-            {formState.errors.selectedProductId?.message && <p className="text-xs text-destructive">{formState.errors.selectedProductId.message}</p>}
+                      </thead>
+                      <tbody>
+                        {productsData.content.map((p: { id: number; sku: string | null; name: string | null }) => {
+                          const selectedProductId = form.watch("selectedProductId")
+                          return (
+                          <tr
+                            key={p.id}
+                            className={`border-b last:border-0 cursor-pointer hover:bg-muted/30 ${
+                              selectedProductId === p.id ? "bg-primary/5" : ""
+                            }`}
+                            onClick={() => {
+                              form.setValue("selectedProductId", p.id)
+                              form.setValue("selectedUnitId", null)
+                              form.clearErrors("selectedProductId")
+                            }}
+                          >
+                            <td className="px-2 py-1">
+                              <input type="radio" checked={selectedProductId === p.id} readOnly className="accent-primary" />
+                            </td>
+                            <td className="px-2 py-1 font-mono text-xs">{p.sku}</td>
+                            <td className="px-2 py-1 font-medium">{p.name}</td>
+                          </tr>
+                        )})}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+                {formState.errors.selectedProductId?.message && <p className="text-xs text-destructive">{formState.errors.selectedProductId.message}</p>}
+              </>
+            )}
           </div>
 
-          {needsProduct && !form.watch("selectedUnitId") && (
+          {needsProduct && foundMode === "new" && (
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="quantity">
@@ -502,11 +612,13 @@ export const StockAdjustmentCreatePage = () => {
           onClick={handleSubmit}
           disabled={createMut.isPending || batchMut.isPending || (!locationState?.batch && !watchedType)}
         >
-          {createMut.isPending || batchMut.isPending
+          {createMut.isPending
             ? "Đang tạo..."
-            : locationState?.batch
-              ? `Tạo Adjustment (${locationState.mismatches?.length ?? 0})`
-              : "Tạo phiếu điều chỉnh"}
+            : batchMut.isPending
+              ? `Đang xử lý ${batchProgress?.current ?? 0}/${batchProgress?.total ?? 0}...`
+              : locationState?.batch
+                ? `Tạo Adjustment (${locationState.mismatches?.length ?? 0})`
+                : "Tạo phiếu điều chỉnh"}
         </Button>
       </div>
 
@@ -522,7 +634,9 @@ export const StockAdjustmentCreatePage = () => {
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>Khôi phục dữ liệu</DialogTitle>
-            <DialogDescription>Bạn có dữ liệu điều chỉnh chưa lưu từ lần trước. Muốn khôi phục?</DialogDescription>
+            <DialogDescription>
+              Bạn có dữ liệu điều chỉnh chưa lưu từ lần trước. Chỉ khôi phục được loại điều chỉnh và lý do (không khôi phục được sản phẩm đã chọn). Muốn khôi phục?
+            </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2">
             <Button
@@ -554,86 +668,73 @@ export const StockAdjustmentCreatePage = () => {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>
-              {locationState?.batch ? "Xác nhận tạo hàng loạt" : "Xác nhận tạo phiếu điều chỉnh"}
-            </DialogTitle>
+            <DialogTitle>Xác nhận tạo hàng loạt</DialogTitle>
           </DialogHeader>
           <div className="space-y-2 text-sm">
-            {locationState?.batch && locationState.mismatches ? (
-              <>
-                <div className="flex gap-2">
-                  <span className="text-muted-foreground w-28 shrink-0">Số lượng:</span>
-                  <span className="font-medium">{locationState.mismatches.length} phiếu</span>
+            <div className="flex gap-2">
+              <span className="text-muted-foreground w-28 shrink-0">Số lượng:</span>
+              <span className="font-medium">{locationState?.mismatches?.length ?? 0} phiếu</span>
+            </div>
+            <div className="rounded-lg border max-h-32 overflow-y-auto divide-y text-xs">
+              {locationState?.mismatches?.map((m, i) => (
+                <div key={i} className="flex items-center gap-2 px-2 py-1.5">
+                  <Badge
+                    variant={m.difference === STOCK_CHECK_DIFF.UNEXPECTED ? "default" : "destructive"}
+                    className="text-[10px]"
+                  >
+                    {m.difference}
+                  </Badge>
+                  <span className="font-mono">{m.serialNumber}</span>
+                  <span className="text-muted-foreground truncate">{m.productName}</span>
                 </div>
-                <div className="rounded-lg border max-h-32 overflow-y-auto divide-y text-xs">
-                  {locationState.mismatches.map((m, i) => (
-                    <div key={i} className="flex items-center gap-2 px-2 py-1.5">
-                      <Badge
-                        variant={m.difference === STOCK_CHECK_DIFF.UNEXPECTED ? "default" : "destructive"}
-                        className="text-[10px]"
-                      >
-                        {m.difference}
-                      </Badge>
-                      <span className="font-mono">{m.serialNumber}</span>
-                      <span className="text-muted-foreground truncate">{m.productName}</span>
-                    </div>
-                  ))}
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Lý do:</span>
-                  <Input
-                    className="mt-1 h-8 text-sm"
-                    {...form.register("reason")}
-                    placeholder="Lý do (dùng chung cho tất cả)"
-                  />
-                </div>
-              </>
-              ) : (
-                <>
-                  {(() => {
-                    const values = form.getValues()
-                    return (
-                    <div className="space-y-2 text-sm">
-                    <div className="flex gap-2">
-                      <span className="text-muted-foreground w-24 shrink-0">Loại:</span>
-                      <span className="font-medium">{typeOptions.find((o) => o.value === values.type)?.label}</span>
-                    </div>
-                    {values.selectedUnitId && selectedUnitInfo && (
-                      <div className="flex gap-2">
-                        <span className="text-muted-foreground w-24 shrink-0">Serial:</span>
-                        <div>
-                          <span className="font-mono text-xs">{selectedUnitInfo.serialNumber}</span>
-                          <span className="text-xs text-muted-foreground ml-2">{selectedUnitInfo.productName}</span>
-                        </div>
-                      </div>
-                    )}
-                    {values.selectedProductId && !values.selectedUnitId && selectedProductInfo && (
-                      <>
-                        <div className="flex gap-2">
-                          <span className="text-muted-foreground w-24 shrink-0">Sản phẩm:</span>
-                          <span>{selectedProductInfo.name}</span>
-                        </div>
-                        <div className="flex gap-2">
-                          <span className="text-muted-foreground w-24 shrink-0">Số lượng:</span>
-                          <span>{values.quantity}</span>
-                        </div>
-                      </>
-                    )}
-                    <div>
-                      <span className="text-muted-foreground">Lý do:</span>
-                      <p className="mt-0.5 rounded-md border bg-muted/20 px-3 py-2 leading-relaxed">{values.reason}</p>
-                    </div>
-                    </div>)
-                  })()}
-                </>
-              )}
+              ))}
+            </div>
+            <div>
+              <span className="text-muted-foreground">Lý do:</span>
+              <Input
+                className="mt-1 h-8 text-sm"
+                {...form.register("reason")}
+                placeholder="Lý do (dùng chung cho tất cả)"
+              />
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowConfirm(false)}>
               Quay lại
             </Button>
-            <Button onClick={confirmSubmit} disabled={createMut.isPending || batchMut.isPending}>
-              {createMut.isPending || batchMut.isPending ? "Đang tạo..." : "Xác nhận"}
+            <Button onClick={confirmBatch} disabled={batchMut.isPending}>
+              {batchMut.isPending ? "Đang tạo..." : "Xác nhận"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showResult} onOpenChange={(v) => { if (!v) { setShowResult(false); navigate("/stock/adjustments") } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Kết quả tạo hàng loạt</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2 max-h-64 overflow-y-auto">
+            {batchResults.map((r) => (
+              <div key={r.index} className="flex items-start gap-2 rounded-lg border px-3 py-2 text-sm">
+                {r.success ? (
+                  <CheckCircle2 className="size-4 mt-0.5 text-green-600 shrink-0" />
+                ) : (
+                  <XCircle className="size-4 mt-0.5 text-destructive shrink-0" />
+                )}
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-xs">{r.serialNumber}</span>
+                    <span className="text-muted-foreground truncate">{r.productName}</span>
+                  </div>
+                  {!r.success && <p className="text-xs text-destructive mt-0.5">{r.error}</p>}
+                </div>
+              </div>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button onClick={() => { setShowResult(false); navigate("/stock/adjustments") }}>
+              {batchResults.filter((r) => r.success).length}/{batchResults.length} thành công — Về danh sách
             </Button>
           </DialogFooter>
         </DialogContent>
