@@ -51,6 +51,11 @@ export async function completeStockCheck(id: number): Promise<StockCheck> {
   return mapStockCheck(res)
 }
 
+export async function startStockCheck(id: number): Promise<StockCheck> {
+  const res = await http.put(`/stock-check/${id}/start`)
+  return mapStockCheck(res)
+}
+
 export async function approveStockCheck(id: number, approvalNote?: string): Promise<StockCheck> {
   const res = await http.put(`/stock-check/${id}/approve`, { approvalNote })
   return mapStockCheck(res)

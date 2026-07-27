@@ -5,9 +5,10 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { Search, Upload, Camera, Image } from "lucide-react"
+import { Search, Upload, Camera, Image, Loader2 } from "lucide-react"
 import { ButtonGroup } from "@/components/ui/button-group"
 import { cn } from "@/utils/cn"
+import { useFileUpload } from "@/hooks/use-file-upload"
 
 const statusOptions = [
   PRODUCT_UNIT_STATUS.IN_STOCK,
@@ -56,6 +57,7 @@ export function StockCheckItemsTable({
   const fileRef = useRef<HTMLInputElement>(null)
   const photoTargetRef = useRef<number | null>(null)
   const mismatchCount = items.filter((i) => i.difference && i.difference !== STOCK_CHECK_DIFF.MATCH).length
+  const { upload, uploadingItemId } = useFileUpload()
 
   const filtered = items.filter((item) => {
     if (!searchQuery.trim()) return true
@@ -90,9 +92,10 @@ export function StockCheckItemsTable({
                 const targetId = photoTargetRef.current
                 photoTargetRef.current = null
                 if (target.files?.[0] && targetId != null) {
-                  const reader = new FileReader()
-                  reader.onload = () => onUpdate(targetId, "photo", reader.result as string)
-                  reader.readAsDataURL(target.files[0])
+                  const file = target.files[0]
+                  upload(file, targetId).then((url) => {
+                    if (url) onUpdate(targetId, "photo", url)
+                  })
                 } else if (target.files?.[0]) {
                   onImportSerials(e)
                 }
@@ -204,12 +207,19 @@ export function StockCheckItemsTable({
                                 variant={item.photo ? "default" : "outline"}
                                 size="icon"
                                 className="size-8 shrink-0"
+                                disabled={uploadingItemId === item.id}
                                 onClick={() => {
                                   photoTargetRef.current = item.id
                                   fileRef.current?.click()
                                 }}
                               >
-                                {item.photo ? <Image className="size-3.5" /> : <Camera className="size-3.5" />}
+                                {uploadingItemId === item.id ? (
+                                  <Loader2 className="size-3.5 animate-spin" />
+                                ) : item.photo ? (
+                                  <Image className="size-3.5" />
+                                ) : (
+                                  <Camera className="size-3.5" />
+                                )}
                               </Button>
                             )}
                           </>

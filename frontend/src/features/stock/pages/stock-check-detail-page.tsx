@@ -1,16 +1,17 @@
-import { useState, useEffect, useCallback, useRef } from "react"
+import { useState, useEffect, useCallback, useRef, useMemo } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import {
   getStockCheckById,
   recordStockCheckItems,
   completeStockCheck,
+  startStockCheck,
   approveStockCheck,
   rejectStockCheck,
 } from "@/services/stock-check-service"
 import { usePermission } from "@/hooks/use-permission"
 import { ROLES } from "@/utils/permissions"
-import { STOCK_CHECK_STATUS, STOCK_CHECK_DIFF, PRODUCT_UNIT_STATUS, type StockCheckItem } from "@/utils/types"
+import { STOCK_CHECK_STATUS, STOCK_CHECK_DIFF, PRODUCT_UNIT_STATUS, type StockCheckItem, type DifferenceType } from "@/utils/types"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -24,7 +25,7 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
 import { Empty, EmptyTitle } from "@/components/ui/empty"
-import { AlertCircle, CheckCircle2, HelpCircle, Save, ClipboardCheck, Check, X, ListChecks, AlertTriangle } from "lucide-react"
+import { AlertCircle, CheckCircle2, HelpCircle, Save, ClipboardCheck, Check, X, ListChecks, AlertTriangle, RotateCcw, Play } from "lucide-react"
 import { Progress } from "@/components/ui/progress"
 import { ButtonGroup } from "@/components/ui/button-group"
 import { cn } from "@/utils/cn"
@@ -39,6 +40,18 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
+import { saveDraft, loadDraft, deleteDraft } from "@/utils/indexed-db"
 
 const statusLabel: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
   PENDING: { label: "Chờ xử lý", variant: "secondary" },
@@ -57,7 +70,9 @@ export const StockCheckDetailPage = () => {
   const [searchQuery, setSearchQuery] = useState("")
   const [approvalModal, setApprovalModal] = useState<"approve" | "reject" | null>(null)
   const [completeModal, setCompleteModal] = useState(false)
+  const [resetDialog, setResetDialog] = useState(false)
   const dirtyRef = useRef(false)
+  const initialItemsRef = useRef<StockCheckItem[]>([])
 
   const { data: check, isLoading } = useQuery({
     queryKey: ["stock-check", id],
@@ -65,13 +80,34 @@ export const StockCheckDetailPage = () => {
     enabled: !!id,
   })
 
+  // Load from BE, then overlay IndexedDB draft if available
   useEffect(() => {
-    if (check) setLocalItems(check.items)
-  }, [check])
+    if (!check || initialItemsRef.current.length > 0) return
+    initialItemsRef.current = check.items
+    dirtyRef.current = false
+    if (check.status === STOCK_CHECK_STATUS.PENDING || check.status === STOCK_CHECK_STATUS.IN_PROGRESS) {
+      loadDraft(id!).then((draft) => {
+        setLocalItems(draft ? draft.items : check.items)
+      })
+    } else {
+      setLocalItems(check.items)
+    }
+  }, [check, id])
 
   const checkedCount = localItems.filter((i) => i.actualStatus != null).length
   const autoFillCount = localItems.filter((i) => i.actualStatus == null && i.trackingType === "SERIALIZED").length
   const bulkMissingCount = localItems.filter((i) => i.actualStatus == null && i.trackingType === "BULK" && i.countedQuantity == null).length
+
+  const itemsWithDiff = useMemo(() =>
+    localItems.map((i) => {
+      if (i.actualStatus == null) return i
+      if (i.difference != null) return i
+      if (i.trackingType !== "SERIALIZED") return i
+      if (i.expectedStatus === i.actualStatus) return { ...i, difference: "MATCH" as DifferenceType }
+      const lostLike: readonly string[] = [PRODUCT_UNIT_STATUS.LOST, PRODUCT_UNIT_STATUS.REMOVED, PRODUCT_UNIT_STATUS.DISPOSED]
+      if (lostLike.includes(i.actualStatus)) return { ...i, difference: "MISSING" as DifferenceType }
+      return { ...i, difference: "UNEXPECTED" as DifferenceType }
+    }), [localItems])
 
   const recordMut = useMutation({
     mutationFn: (data: {
@@ -85,23 +121,15 @@ export const StockCheckDetailPage = () => {
     onError: (err: Error) => toast.error(err.message || "Không thể ghi kết quả"),
   })
 
-  // auto-save every 30s when dirty
+  // Auto-save to IndexedDB when dirty (debounced 1.5s)
   useEffect(() => {
-    if (!id) return
-    const isCheckActive = check?.status === STOCK_CHECK_STATUS.PENDING || check?.status === STOCK_CHECK_STATUS.IN_PROGRESS
-    if (!isCheckActive) return
-    const timer = setInterval(() => {
-      if (!dirtyRef.current) return
-      const items = localItems.map((i) => ({
-        productUnitId: i.productUnitId,
-        actualStatus: i.actualStatus ?? undefined,
-        countedQuantity: i.countedQuantity ?? undefined,
-        note: i.note || undefined,
-      }))
-      recordMut.mutate({ items }, { onSettled: () => { dirtyRef.current = false } })
-    }, 30000)
-    return () => clearInterval(timer)
-  }, [id, check?.status])
+    if (!dirtyRef.current || !id) return
+    const timer = setTimeout(() => {
+      saveDraft(id, localItems)
+      dirtyRef.current = false
+    }, 1500)
+    return () => clearTimeout(timer)
+  }, [localItems, id])
 
   const updateItem = useCallback((itemId: number, field: string, value: unknown) => {
     dirtyRef.current = true
@@ -119,6 +147,7 @@ export const StockCheckDetailPage = () => {
     mutationFn: () => completeStockCheck(Number(id!)),
     onSuccess: (res) => {
       invalidateAll()
+      deleteDraft(id!)
       const filled = res.autoFilledCount
       if (filled > 0) {
         toast.success(`Hoàn tất kiểm kê. Đã tự động đánh dấu ${filled} serial còn hàng`)
@@ -128,6 +157,15 @@ export const StockCheckDetailPage = () => {
       navigate("/stock/checks")
     },
     onError: (err: Error) => toast.error(err.message || "Không thể hoàn tất kiểm"),
+  })
+
+  const startMut = useMutation({
+    mutationFn: () => startStockCheck(Number(id!)),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["stock-check", id] })
+      toast.success("Đã bắt đầu kiểm kê")
+    },
+    onError: (err: Error) => toast.error(err.message || "Không thể bắt đầu kiểm"),
   })
 
   const handleSaveAndComplete = async () => {
@@ -141,6 +179,7 @@ export const StockCheckDetailPage = () => {
       actualStatus: i.actualStatus ?? undefined,
       countedQuantity: i.countedQuantity ?? undefined,
       note: i.note || undefined,
+      photo: i.photo || undefined,
     }))
     try {
       await recordMut.mutateAsync({ items })
@@ -162,6 +201,21 @@ export const StockCheckDetailPage = () => {
       }),
     )
   }, [])
+
+  const handleSave = useCallback(() => {
+    if (!id) return
+    saveDraft(id, localItems)
+    dirtyRef.current = false
+    toast.success("Đã lưu tạm")
+  }, [id, localItems])
+
+  const handleReset = useCallback(() => {
+    setLocalItems(initialItemsRef.current.map((i) => ({ ...i })))
+    if (id) deleteDraft(id)
+    dirtyRef.current = false
+    setResetDialog(false)
+    toast.success("Đã reset về trạng thái ban đầu")
+  }, [id])
 
   if (isLoading) {
     return (
@@ -185,20 +239,9 @@ export const StockCheckDetailPage = () => {
   const s = statusLabel[check.status] ?? { label: check.status, variant: "secondary" }
   const canOperateStock = perm.hasRole(...ROLES.CAN_OPERATE_STOCK)
   const isManager = perm.hasRole(...ROLES.CAN_APPROVE)
-  const canEdit =
-    (check.status === STOCK_CHECK_STATUS.PENDING || check.status === STOCK_CHECK_STATUS.IN_PROGRESS) && canOperateStock
+  const canEdit = canOperateStock
   const canApprove = check.status === STOCK_CHECK_STATUS.COMPLETED && isManager
   const isRejected = check.status === STOCK_CHECK_STATUS.IN_PROGRESS && check.approvalNote != null
-
-  const recordItems = () => {
-    const items = localItems.map((i) => ({
-      productUnitId: i.productUnitId,
-      actualStatus: i.actualStatus ?? undefined,
-      countedQuantity: i.countedQuantity ?? undefined,
-      note: i.note || undefined,
-    }))
-    recordMut.mutate({ items })
-  }
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
@@ -245,14 +288,39 @@ export const StockCheckDetailPage = () => {
         <div className="flex gap-2">
           {canEdit && (
             <ButtonGroup>
-              <Button variant="outline" onClick={recordItems} disabled={recordMut.isPending}>
-                <Save className="size-4 mr-1" />
-                {recordMut.isPending ? "Đang lưu..." : "Lưu tạm"}
+              <Button variant="outline" onClick={handleSave}>
+                <Save className="size-4 mr-1" /> Lưu tạm
               </Button>
-              <Button onClick={() => setCompleteModal(true)} disabled={recordMut.isPending || completeMut.isPending}>
-                <ClipboardCheck className="size-4 mr-1" />
-                {completeMut.isPending ? "Đang hoàn tất..." : "Hoàn tất kiểm kê"}
-              </Button>
+              <AlertDialog open={resetDialog} onOpenChange={setResetDialog}>
+                <AlertDialogTrigger asChild>
+                  <Button variant="outline">
+                    <RotateCcw className="size-4 mr-1" /> Reset
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Xác nhận reset</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Thao tác này sẽ xoá tất cả trạng thái kiểm tra hiện tại và đưa về trạng thái ban đầu (lúc load từ server). Bạn có chắc chắn muốn tiếp tục?
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Huỷ</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleReset}>Xác nhận reset</AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+              {check.status === STOCK_CHECK_STATUS.PENDING ? (
+                <Button onClick={() => startMut.mutate()} disabled={startMut.isPending}>
+                  <Play className="size-4 mr-1" />
+                  {startMut.isPending ? "Đang bắt đầu..." : "Bắt đầu kiểm kê"}
+                </Button>
+              ) : (
+                <Button onClick={() => setCompleteModal(true)} disabled={recordMut.isPending || completeMut.isPending}>
+                  <ClipboardCheck className="size-4 mr-1" />
+                  {completeMut.isPending ? "Đang hoàn tất..." : "Hoàn tất kiểm kê"}
+                </Button>
+              )}
             </ButtonGroup>
           )}
           {canApprove && (
@@ -268,11 +336,11 @@ export const StockCheckDetailPage = () => {
         </div>
       </div>
 
-      {localItems.some((i) => i.difference && i.difference !== STOCK_CHECK_DIFF.MATCH) && (
+      {itemsWithDiff.some((i) => i.difference && i.difference !== STOCK_CHECK_DIFF.MATCH) && (
         <div className="space-y-2">
           <p className="text-sm font-medium text-muted-foreground">Chênh lệch phát hiện</p>
           <div className="grid gap-2">
-            {localItems
+            {itemsWithDiff
               .filter((i) => i.difference && i.difference !== STOCK_CHECK_DIFF.MATCH)
               .slice(0, 10)
               .map((i) => (
@@ -368,7 +436,7 @@ export const StockCheckDetailPage = () => {
 
         <TabsContent value="results">
           <StockCheckItemsTable
-            items={localItems}
+            items={itemsWithDiff}
             canEdit={canEdit}
             onUpdate={updateItem}
             onBulkSet={handleBulkSet}
@@ -384,6 +452,7 @@ export const StockCheckDetailPage = () => {
                   const { importStockCheckSerials } = await import("@/services/stock-check-service")
                   const updated = await importStockCheckSerials(Number(id!), content)
                   setLocalItems(updated.items)
+                  saveDraft(id!, updated.items)
                   qc.invalidateQueries({ queryKey: ["stock-check", id] })
                   const lines = content.split(/[\n\r]+/).map((s: string) => s.trim()).filter(Boolean)
                   toast.success(`Import ${lines.length} serial, ${updated.items.filter(i => i.actualStatus).length} khớp`)
