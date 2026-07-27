@@ -105,7 +105,7 @@ export function ExportDetailPage() {
           <Badge variant={s.variant}>{s.label}</Badge>
         </div>
         <div className="flex items-center gap-2">
-          {receipt.status === EXPORT_RECEIPT_STATUS.PENDING && perm.hasRole("MANAGER", "ADMIN") && (
+          {receipt.status === EXPORT_RECEIPT_STATUS.PENDING && (/* perm.hasRole("MANAGER", "ADMIN") && */
             <>
               <Button variant="outline" className="text-destructive" onClick={() => setConfirmAction("cancel")}>
                 <X className="size-4 mr-1" /> Hủy phiếu
@@ -115,12 +115,12 @@ export function ExportDetailPage() {
               </Button>
             </>
           )}
-          {receipt.status === EXPORT_RECEIPT_STATUS.APPROVED && perm.hasRole("STOCK", "MANAGER", "ADMIN") && (
+          {receipt.status === EXPORT_RECEIPT_STATUS.APPROVED && (/* perm.hasRole("STOCK", "MANAGER", "ADMIN") && */
             <Button onClick={() => navigate(`/stock/exports/${receipt.id}/fulfill`)}>
               Xuất kho
             </Button>
           )}
-          {perm.hasRole("MANAGER", "ADMIN") && receipt.status !== EXPORT_RECEIPT_STATUS.CANCELLED && receipt.status !== EXPORT_RECEIPT_STATUS.PENDING && (
+          {perm.hasRole("MANAGER", "ADMIN") && receipt.status !== EXPORT_RECEIPT_STATUS.CANCELLED && receipt.status !== EXPORT_RECEIPT_STATUS.PENDING && receipt.status !== EXPORT_RECEIPT_STATUS.COMPLETED && (
             <Button variant="outline" className="text-destructive" onClick={() => setConfirmAction("cancel")}>
               <X className="size-4 mr-1" /> Hủy phiếu
             </Button>

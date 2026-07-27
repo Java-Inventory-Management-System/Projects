@@ -183,6 +183,14 @@ export const ExportCreatePage = () => {
           ...(overridden ? { serialNumbers: overridden.map((s) => s.serialNumber) } : {}),
         }
       }),
+    }, {
+      onSuccess: (data) => {
+        clearDraft("/stock/exports/new")
+        qc.invalidateQueries({ queryKey: ["export-receipts"] })
+        toast.success("Tạo phiếu xuất thành công")
+        navigate(`/stock/exports/${data.id}`)
+      },
+      onError: (err: Error) => toast.error(err.message || "Có lỗi xảy ra"),
     })
   })
 

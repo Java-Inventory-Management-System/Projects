@@ -47,9 +47,9 @@ export async function fulfillExportReceipt(
   id: number,
   data: {
     items: Array<{
-      exportItemId: number
-      productUnitIds?: number[]
-      fulfilledQuantity?: number
+      itemId: number
+      serialNumbers?: string[]
+      actualQuantity?: number
     }>
   },
 ): Promise<ExportReceipt> {

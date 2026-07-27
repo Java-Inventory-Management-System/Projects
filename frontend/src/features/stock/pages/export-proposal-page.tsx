@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { createExportReceipt } from "@/services/export-service"
 import { useProducts } from "@/hooks/use-products"
+import { useInventory } from "@/hooks/use-inventory"
 import { CustomerSelectModal } from "@/features/stock/components/customer-select-modal"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -56,6 +57,12 @@ export const ExportProposalPage = () => {
 
   const { data: productsRes } = useProducts(0, 100)
   const products = useMemo(() => productsRes?.content ?? [], [productsRes])
+  const { data: invRes } = useInventory(0, 500)
+  const invMap = useMemo(() => {
+    const m = new Map<number, number>()
+    invRes?.content?.forEach((i: { productId: number; quantity: number }) => m.set(i.productId, i.quantity))
+    return m
+  }, [invRes])
 
   const form = useForm<ProposalFormFields>({
     defaultValues: { reason: "", customerId: "", note: "", items: [] },
@@ -89,11 +96,11 @@ export const ExportProposalPage = () => {
 
   const createMut = useMutation({
     mutationFn: createExportReceipt,
-    onSuccess: () => {
+    onSuccess: (data) => {
       clearDraft("/stock/exports/new")
       qc.invalidateQueries({ queryKey: ["export-receipts"] })
       toast.success("Tạo phiếu xuất thành công")
-      navigate("/stock/exports")
+      navigate(`/stock/exports/${data.id}/fulfill`)
     },
     onError: (err: Error) => toast.error(err.message || "Có lỗi xảy ra"),
   })
@@ -102,21 +109,31 @@ export const ExportProposalPage = () => {
     if (!selectedProductId) return
     const product = products.find((p) => p.id === Number(selectedProductId))
     if (!product) return
+    const avail = invMap.get(product.id) ?? 0
     append({
       tempId: Date.now(),
       productId: product.id,
       productName: product.name,
       productSku: product.sku ?? "",
-      quantity: 1,
+      quantity: avail > 0 ? 1 : 0,
       unitPrice: product.sellPrice ?? 0,
     })
     setSelectedProductId("")
   }
 
   const onSubmit = form.handleSubmit((values) => {
+    console.log("[submit] form submitted, values:", values)
     if (!values.reason) { toast.error("Vui lòng chọn lý do xuất"); return }
     if (values.items.length === 0) { toast.error("Chưa có sản phẩm nào"); return }
     if (values.reason === EXPORT_REASON.SALE && !values.customerId) { toast.error("Vui lòng chọn khách hàng"); return }
+    for (const item of values.items) {
+      const avail = invMap.get(item.productId) ?? 0
+      if (item.quantity > avail) {
+        toast.error(`"${item.productName}" chỉ còn ${avail} trong kho, yêu cầu ${item.quantity}`)
+        return
+      }
+    }
+    console.log("[submit] calling mutate...")
     createMut.mutate({
       reason: values.reason as ExportReason,
       customerId: values.customerId ? Number(values.customerId) : null,
@@ -127,6 +144,7 @@ export const ExportProposalPage = () => {
         unitPrice: i.unitPrice,
       })),
     })
+    console.log("[submit] mutate called")
   })
 
   const watchedReason = form.watch("reason")
@@ -201,7 +219,7 @@ export const ExportProposalPage = () => {
             <SelectContent>
               {products.map((p) => (
                 <SelectItem key={p.id} value={String(p.id)}>
-                  {p.name} ({p.sku}) &mdash; {p.sellPrice?.toLocaleString("vi-VN")}₫
+                  {p.name} ({p.sku}) &mdash; {p.sellPrice?.toLocaleString("vi-VN")}₫ &mdash; Tồn: {invMap.get(p.id) ?? 0}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -229,8 +247,16 @@ export const ExportProposalPage = () => {
                 <TableRow key={item.id}>
                   <TableCell className="font-medium">{item.productName}</TableCell>
                   <TableCell>
-                    <Input type="number" min={1} className="h-8 w-16 text-right"
-                      {...form.register(`items.${index}.quantity`, { valueAsNumber: true })} />
+                    <Input type="number" min={1} max={invMap.get(item.productId) ?? 0} className="h-8 w-16 text-right"
+                      {...form.register(`items.${index}.quantity`, { valueAsNumber: true })}
+                      onBlur={(e) => {
+                        const max = invMap.get(item.productId) ?? 0
+                        const val = Number(e.target.value)
+                        if (val > max) {
+                          form.setValue(`items.${index}.quantity`, max)
+                          toast.warning(`Số lượng xuất tối đa là ${max}`)
+                        }
+                      }} />
                   </TableCell>
                   <TableCell>
                     <Input type="number" min={0} className="h-8 w-24 text-right"

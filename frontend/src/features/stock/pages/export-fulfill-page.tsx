@@ -22,6 +22,8 @@ import {
 } from "@/components/ui/dialog"
 import { toast } from "@/utils/toast"
 import { EXPORT_RECEIPT_STATUS, type ProductUnit } from "@/utils/types"
+import { useBarcodeScanner } from "@/hooks/use-barcode-scanner"
+import { ScanLine } from "lucide-react"
 
 const statusLabel: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
   PENDING: { label: "Chờ duyệt", variant: "outline" },
@@ -39,9 +41,21 @@ export function ExportFulfillPage() {
   const [serialPicker, setSerialPicker] = useState<{ exportItemId: number; productId: number; productName: string } | null>(null)
   const [allSerials, setAllSerials] = useState<ProductUnit[]>([])
   const [selectedIds, setSelectedIds] = useState<number[]>([])
+  const [serialsPerItem, setSerialsPerItem] = useState<Record<number, string[]>>({})
   const [serialsLoading, setSerialsLoading] = useState(false)
 
   const [fulfilledQtys, setFulfilledQtys] = useState<Record<number, number>>({})
+
+  const { scanning, barcodeInput, setBarcodeInput, videoRef, stopCamera, toggleCamera } = useBarcodeScanner(
+    (rawValue) => {
+      if (!serialPicker) return
+      const match = allSerials.find((s) => s.serialNumber === rawValue)
+      if (match && !selectedIds.includes(match.id)) {
+        setSelectedIds((prev) => [...prev, match.id])
+        toast.success(`Đã quét: ${rawValue}`)
+      }
+    }
+  )
 
   const { data: receipt, isLoading } = useQuery({
     queryKey: ["export-receipt", id],
@@ -68,7 +82,13 @@ export function ExportFulfillPage() {
     setSerialsLoading(true)
     const all = await getAllSerialsForProduct(item.productId)
     setAllSerials(all)
-    setSelectedIds([])
+    const saved = serialsPerItem[item.id]
+    if (saved?.length) {
+      const ids = all.filter((s) => saved.includes(s.serialNumber)).map((s) => s.id)
+      setSelectedIds(ids)
+    } else {
+      setSelectedIds([])
+    }
     setSerialsLoading(false)
   }
 
@@ -78,9 +98,9 @@ export function ExportFulfillPage() {
       return fulfillExportReceipt(receipt.id, {
         items: receipt.items.map((item) => {
           if (isSerialized(item)) {
-            return { exportItemId: item.id, productUnitIds: selectedIds }
+            return { itemId: item.id, serialNumbers: serialsPerItem[item.id] ?? [] }
           }
-          return { exportItemId: item.id, fulfilledQuantity: fulfilledQtys[item.id] ?? 0 }
+          return { itemId: item.id, actualQuantity: fulfilledQtys[item.id] ?? 0 }
         }),
       })
     },
@@ -90,7 +110,7 @@ export function ExportFulfillPage() {
       qc.invalidateQueries({ queryKey: ["inventory"] })
       qc.invalidateQueries({ queryKey: ["inventory-summary"] })
       toast.success("Xuất kho thành công")
-      navigate("/stock/exports")
+      navigate(`/stock/exports/${receipt!.id}`)
     },
     onError: (e: Error) => toast.error(e.message),
   })
@@ -160,7 +180,7 @@ export function ExportFulfillPage() {
                   <TableCell className="text-right">
                     {isSerialized(item) ? (
                       <Button variant="outline" size="sm" onClick={() => openSerialPicker(item)}>
-                        {selectedIds.length > 0 ? `Đã chọn ${selectedIds.length} serial` : "Chọn serial"}
+                        {serialsPerItem[item.id]?.length ? `Đã chọn ${serialsPerItem[item.id].length} serial` : "Chọn serial"}
                       </Button>
                     ) : (
                       <Input
@@ -202,18 +222,53 @@ export function ExportFulfillPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <Dialog open={!!serialPicker} onOpenChange={(v) => { if (!v) setSerialPicker(null) }}>
-        <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-y-auto">
+      <Dialog open={!!serialPicker} onOpenChange={(v) => { if (!v) { setSerialPicker(null); stopCamera() } }}>
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Chọn serial xuất kho</DialogTitle>
             <DialogDescription>{serialPicker?.productName} — chọn serial cần xuất.</DialogDescription>
           </DialogHeader>
+
+          {scanning && (
+            <div className="relative rounded-lg overflow-hidden bg-muted mb-2">
+              <video ref={videoRef} className="w-full h-48 object-cover" playsInline muted />
+              <Button variant="secondary" size="sm" className="absolute top-2 right-2" onClick={stopCamera}>
+                Dừng quét
+              </Button>
+            </div>
+          )}
+
+          <div className="flex items-center gap-2 mb-2">
+            <Button variant="outline" size="sm" onClick={toggleCamera}>
+              <ScanLine className="size-4 mr-1.5" />
+              {scanning ? "Đang quét..." : "Quét mã"}
+            </Button>
+            <Input
+              placeholder="Nhập serial + Enter"
+              className="h-8 text-sm"
+              value={barcodeInput}
+              onChange={(e) => setBarcodeInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key !== "Enter" || !barcodeInput.trim()) return
+                const match = allSerials.find((s) => s.serialNumber === barcodeInput.trim())
+                if (match) {
+                  if (!selectedIds.includes(match.id)) {
+                    setSelectedIds((prev) => [...prev, match.id])
+                  }
+                  setBarcodeInput("")
+                } else {
+                  toast.error("Không tìm thấy serial này")
+                }
+              }}
+            />
+          </div>
+
           {serialsLoading ? (
             <div className="py-8 text-center text-sm text-muted-foreground">Đang tải...</div>
           ) : allSerials.length === 0 ? (
             <div className="py-8 text-center text-sm text-muted-foreground">Không còn serial tồn kho</div>
           ) : (
-            <div className="space-y-1">
+            <div className="max-h-[50vh] overflow-y-auto space-y-1 -mx-6 px-6">
               {allSerials.map((s) => {
                 const checked = selectedIds.includes(s.id)
                 return (
@@ -234,9 +289,18 @@ export function ExportFulfillPage() {
               })}
             </div>
           )}
+
           <DialogFooter className="gap-2 flex-col sm:flex-row">
-            <Button variant="outline" onClick={() => setSerialPicker(null)} className="w-full sm:w-auto">Hủy</Button>
-            <Button onClick={() => setSerialPicker(null)} disabled={selectedIds.length === 0} className="w-full sm:w-auto">
+            <Button variant="outline" onClick={() => { setSerialPicker(null); stopCamera() }} className="w-full sm:w-auto">
+              Hủy
+            </Button>
+            <Button onClick={() => {
+              if (!serialPicker) return
+              const serialNumbers = allSerials.filter((s) => selectedIds.includes(s.id)).map((s) => s.serialNumber)
+              setSerialsPerItem((prev) => ({ ...prev, [serialPicker.exportItemId]: serialNumbers }))
+              setSerialPicker(null)
+              stopCamera()
+            }} disabled={selectedIds.length === 0} className="w-full sm:w-auto">
               Xác nhận ({selectedIds.length} serial)
             </Button>
           </DialogFooter>

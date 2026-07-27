@@ -114,7 +114,7 @@ CREATE TABLE export_receipts (
     total_cogs              DECIMAL(15,2),
     supplier_status         VARCHAR(20),
     supplier_result         VARCHAR(20),
-    status                  VARCHAR(20)   NOT NULL DEFAULT 'PENDING_APPROVAL',
+    status                  VARCHAR(20)   NOT NULL DEFAULT 'PENDING',
     note                    TEXT,
     created_by              BIGINT        NOT NULL,
     approved_by             BIGINT,

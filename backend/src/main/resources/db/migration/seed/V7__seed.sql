@@ -236,7 +236,7 @@ INSERT INTO export_receipt_item_units(export_receipt_item_id,product_unit_id,qua
 INSERT INTO export_receipt_item_units(export_receipt_item_id,product_unit_id,quantity,sell_price)SELECT 2,id,1,4899000 FROM product_units WHERE product_id=9 AND status='IN_STOCK' ORDER BY imported_at LIMIT 5;
 UPDATE product_units SET status='SOLD' WHERE id IN(SELECT product_unit_id FROM export_receipt_item_units WHERE export_receipt_item_id IN(1,2));
 INSERT INTO export_receipts(id,receipt_code,reason,customer_id,total_amount,status,note,created_by,created_at,updated_at)
-VALUES(2,'EXP-20260708-001','SALE',3,30598000,'PENDING_APPROVAL','Chờ duyệt xuất',3,'2026-07-08 11:00:00','2026-07-08 11:00:00');
+VALUES(2,'EXP-20260708-001','SALE',3,30598000,'PENDING','Chờ duyệt xuất',3,'2026-07-08 11:00:00','2026-07-08 11:00:00');
 INSERT INTO export_receipt_items VALUES(3,2,5,2,15299000,30598000);
 SET FOREIGN_KEY_CHECKS=1;
 

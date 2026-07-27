@@ -145,7 +145,7 @@ export function ImportDetailPage() {
               )}
             </ButtonGroup>
           )}
-          {perm.canCancel() && receipt.status === IMPORT_RECEIPT_STATUS.COMPLETED && (
+          {perm.canCancel() && receipt.status === IMPORT_RECEIPT_STATUS.DRAFT && (
             <Button variant="outline" className="text-destructive" onClick={() => setConfirmAction("cancel")}>
               <X className="size-4 mr-1" /> Hủy phiếu
             </Button>
