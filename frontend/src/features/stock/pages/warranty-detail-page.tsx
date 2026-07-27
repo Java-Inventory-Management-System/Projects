@@ -30,6 +30,7 @@ import { Check, X, ShieldCheck } from "lucide-react"
 import { toast } from "@/utils/toast"
 import { WARRANTY_STATUS, WARRANTY_RESOLUTION_TYPE, WARRANTY_RESULT } from "@/utils/types"
 import { WarrantyTimeline } from "../components/warranty-timeline"
+import { SerialSearchPicker } from "../components/serial-search-picker"
 
 const statusConfig: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline"; className?: string }> = {
   [WARRANTY_STATUS.PENDING]: { label: "Chờ xử lý", variant: "secondary" },
@@ -340,16 +341,14 @@ export const WarrantyDetailPage = () => {
               </div>
 
               {resolutionType === WARRANTY_RESOLUTION_TYPE.REPLACE && (
-                <div className="space-y-2">
-                  <Label htmlFor="replaceSerial">Serial thay thế <span className="text-destructive">*</span></Label>
-                  <Input
-                    id="replaceSerial"
-                    value={replacementUnitId ?? ""}
-                    onChange={(e) => setReplacementUnitId(Number(e.target.value) || undefined)}
-                    placeholder="Nhập ID serial thay thế..."
-                    type="number"
-                  />
-                </div>
+                <SerialSearchPicker
+                  productName={wr.productName}
+                  productId={wr.productId}
+                  excludeUnitId={wr.productUnitId}
+                  value={replacementUnitId ?? null}
+                  onChange={(id) => setReplacementUnitId(id ?? undefined)}
+                  disabled={resolveMut.isPending}
+                />
               )}
 
               {resolutionType === WARRANTY_RESOLUTION_TYPE.RMA && (
