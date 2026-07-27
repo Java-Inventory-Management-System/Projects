@@ -32,4 +32,7 @@ public interface ExportReceiptRepository extends JpaRepository<ExportReceipt, Lo
     BigDecimal sumCommittedQuantityByProductIdAndStatusIn(
             @Param("productId") Long productId,
             @Param("statuses") List<ExportReceiptStatus> statuses);
+
+    @Query("SELECT COALESCE(SUM(r.totalAmount), 0) FROM ExportReceipt r WHERE r.status = 'COMPLETED' AND r.createdAt BETWEEN :from AND :to")
+    BigDecimal sumTotalAmountByStatusAndCreatedAtBetween(@Param("from") Instant from, @Param("to") Instant to);
 }

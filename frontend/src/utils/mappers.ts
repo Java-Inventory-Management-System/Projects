@@ -317,6 +317,8 @@ export function mapInventorySummary(raw: unknown): InventorySummary {
     totalStockValue: r.totalStockValue,
     lowStockCount: r.lowStockCount,
     outOfStockCount: r.outOfStockCount,
+    previousPeriodStockValue: r.previousPeriodStockValue ?? 0,
+    trendPercent: r.trendPercent ?? 0,
   }
 }
 export function mapLowStockItem(raw: unknown): LowStockItem {
@@ -337,6 +339,9 @@ export function mapCategoryStock(raw: unknown): CategoryStock {
     productCount: r.productCount,
     totalUnits: r.totalUnits,
     totalStockValue: r.totalStockValue,
+    healthyCount: r.healthyCount ?? 0,
+    lowStockCount: r.lowStockCount ?? 0,
+    outOfStockCount: r.outOfStockCount ?? 0,
   }
 }
 export function mapStockValueItem(raw: unknown): StockValueItem {

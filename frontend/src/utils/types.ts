@@ -449,6 +449,8 @@ export interface InventorySummary {
   totalStockValue: number
   lowStockCount: number
   outOfStockCount: number
+  previousPeriodStockValue: number
+  trendPercent: number
 }
 
 export interface CategoryStock {
@@ -457,6 +459,9 @@ export interface CategoryStock {
   productCount: number
   totalUnits: number
   totalStockValue: number
+  healthyCount: number
+  lowStockCount: number
+  outOfStockCount: number
 }
 
 export interface LowStockItem {

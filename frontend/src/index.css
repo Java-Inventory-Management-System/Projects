@@ -64,13 +64,23 @@
   --sidebar-accent: oklch(0.92 0.005 210);
   --sidebar-accent-foreground: oklch(0.5 0.14 215);
   --sidebar-border: oklch(0.9 0.003 210);
-  --chart-1: oklch(0.5 0.14 215);
-  --chart-2: oklch(0.6 0.12 215);
-  --chart-3: oklch(0.42 0.12 215);
-  --chart-4: oklch(0.55 0.08 215);
-  --chart-5: oklch(0.45 0.1 215);
-  --chart-6: oklch(0.65 0.06 215);
-  --chart-7: oklch(0.35 0.08 215);
+  --chart-1: 221 83% 53%;               /* blue — categories */
+  --chart-2: 142 71% 45%;               /* green — healthy */
+  --chart-3: 38 92% 50%;                /* amber — low-stock / cảnh báo nhẹ */
+  --chart-4: 271 81% 56%;               /* purple — categories */
+  --chart-5: 340 82% 52%;               /* red/pink — out-of-stock / cần chú ý */
+  --chart-6: 199 89% 48%;               /* cyan — categories */
+  --chart-7: 24 95% 53%;                /* orange — categories */
+}
+
+.dark {
+  --chart-1: 221 70% 65%;               /* blue */
+  --chart-2: 142 60% 55%;               /* green */
+  --chart-3: 38 85% 60%;                /* amber */
+  --chart-4: 271 70% 68%;               /* purple */
+  --chart-5: 340 70% 62%;               /* red/pink */
+  --chart-6: 199 75% 60%;               /* cyan */
+  --chart-7: 24 85% 63%;                /* orange */
 }
 
 @layer base {

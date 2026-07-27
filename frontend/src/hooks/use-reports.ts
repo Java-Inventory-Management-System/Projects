@@ -52,10 +52,10 @@ export function useActivity(from: string, to: string) {
   })
 }
 
-export function useDeadStock(daysThreshold = 90) {
+export function useDeadStock(daysThreshold = 90, keyword?: string, categoryId?: number) {
   return useQuery({
-    queryKey: ["dead-stock", daysThreshold],
-    queryFn: () => getDeadStock(daysThreshold),
+    queryKey: ["dead-stock", daysThreshold, keyword, categoryId],
+    queryFn: () => getDeadStock(daysThreshold, keyword, categoryId),
     staleTime: 1000 * 60 * 5,
     refetchOnMount: false,
   })

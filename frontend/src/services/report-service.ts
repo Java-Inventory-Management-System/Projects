@@ -43,7 +43,13 @@ export async function getActivity(from: string, to: string): Promise<ActivityIte
   return res.map(mapActivityItem)
 }
 
-export async function getDeadStock(daysThreshold = 90): Promise<DeadStockItem[]> {
-  const res = (await http.get("/report/dead-stock", { params: { daysThreshold } })) as unknown[]
+export async function getDeadStock(
+  daysThreshold = 90,
+  keyword?: string,
+  categoryId?: number,
+): Promise<DeadStockItem[]> {
+  const res = (await http.get("/report/dead-stock", {
+    params: { daysThreshold, keyword, categoryId },
+  })) as unknown[]
   return res.map(mapDeadStockItem)
 }
