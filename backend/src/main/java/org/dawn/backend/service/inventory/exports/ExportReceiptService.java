@@ -40,7 +40,7 @@ import org.dawn.backend.repository.inventory.ProductUnitRepository;
 import org.dawn.backend.repository.inventory.ProductUnitStatusLogRepository;
 import org.dawn.backend.repository.inventory.stockcheck.StockCheckItemRepository;
 import org.dawn.backend.shared.util.ReceiptCodeGenerator;
-import org.dawn.backend.shared.util.SecurityUtils;
+import org.dawn.backend.config.security.SecurityPolicy;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -67,6 +67,7 @@ public class ExportReceiptService {
     private final CustomerRepository customerRepository;
     private final UserRepository userRepository;
     private final StateMachine<ExportReceiptStatus> exportReceiptStateMachine;
+    private final SecurityPolicy securityPolicy;
 
     private static final List<String> BULK_UNITS = List.of(
             org.dawn.backend.constant.enums.catalog.ProductUnit.METER.name(),
@@ -107,8 +108,7 @@ public class ExportReceiptService {
     @Transactional
     @AuditLog(action = LogConstant.Action.CREATE_EXPORT, entity = LogConstant.Entity.EXPORT_RECEIPT)
     public ExportReceiptResponse create(ExportReceiptRequest request) {
-        Long userId = SecurityUtils.getCurrentUserId();
-        if (userId == null) throw new InvalidRequestException(Message.Auth.USER_NOT_AUTHENTICATED);
+        Long userId = securityPolicy.requireAuthenticated();
 
         if (request.items() == null || request.items().isEmpty()) {
             throw new InvalidRequestException(Message.Inventory.AT_LEAST_ONE_ITEM_REQUIRED);
@@ -191,7 +191,7 @@ public class ExportReceiptService {
     @Transactional
     @AuditLog(action = LogConstant.Action.APPROVE_EXPORT, entity = LogConstant.Entity.EXPORT_RECEIPT)
     public ExportReceiptResponse approve(Long id) {
-        Long userId = SecurityUtils.getCurrentUserId();
+        Long userId = securityPolicy.requireAuthenticated();
         ExportReceipt receipt = exportReceiptRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.EXPORT_RECEIPT_NOT_FOUND));
 
@@ -215,7 +215,7 @@ public class ExportReceiptService {
     @Transactional
     @AuditLog(action = LogConstant.Action.REJECT_EXPORT, entity = LogConstant.Entity.EXPORT_RECEIPT)
     public ExportReceiptResponse reject(Long id, RejectExportRequest request) {
-        Long userId = SecurityUtils.getCurrentUserId();
+        Long userId = securityPolicy.requireAuthenticated();
         ExportReceipt receipt = exportReceiptRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.EXPORT_RECEIPT_NOT_FOUND));
 
@@ -241,7 +241,7 @@ public class ExportReceiptService {
     @Transactional
     @AuditLog(action = LogConstant.Action.FULFILL_EXPORT, entity = LogConstant.Entity.EXPORT_RECEIPT)
     public ExportReceiptResponse fulfill(Long id, FulfillExportRequest request) {
-        Long userId = SecurityUtils.getCurrentUserId();
+        Long userId = securityPolicy.requireAuthenticated();
         ExportReceipt receipt = exportReceiptRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.EXPORT_RECEIPT_NOT_FOUND));
 
@@ -378,7 +378,7 @@ public class ExportReceiptService {
     @Transactional
     @AuditLog(action = LogConstant.Action.CANCEL_EXPORT, entity = LogConstant.Entity.EXPORT_RECEIPT)
     public ExportReceiptResponse cancel(Long id) {
-        Long userId = SecurityUtils.getCurrentUserId();
+        Long userId = securityPolicy.requireAuthenticated();
         ExportReceipt receipt = exportReceiptRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.EXPORT_RECEIPT_NOT_FOUND));
 

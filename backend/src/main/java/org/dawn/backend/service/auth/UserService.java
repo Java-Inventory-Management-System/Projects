@@ -20,7 +20,7 @@ import org.dawn.backend.exception.type.ResourceAlreadyExistedException;
 import org.dawn.backend.exception.type.ResourceNotFoundException;
 import org.dawn.backend.repository.auth.RoleRepository;
 import org.dawn.backend.repository.auth.UserRepository;
-import org.dawn.backend.shared.util.SecurityUtils;
+import org.dawn.backend.config.security.SecurityPolicy;
 import org.dawn.backend.shared.util.UserUtils;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -36,6 +36,7 @@ public class UserService {
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
+    private final SecurityPolicy securityPolicy;
 
     @Transactional(readOnly = true)
     public ResponsePage<UserResponse> findAll(Pageable pageable) {
@@ -134,7 +135,7 @@ public class UserService {
     @Transactional
     @AuditLog(action = LogConstant.Action.UPDATE_STATUS, entity = LogConstant.Entity.USER, entityClass = User.class)
     public UserResponse updateStatus(Long id, Boolean status) {
-        if (Objects.equals(id, SecurityUtils.getCurrentUserId())) {
+        if (Objects.equals(id, securityPolicy.requireAuthenticated())) {
             throw new PermissionDeniedException(Message.User.CANNOT_UPDATE_YOURSELF);
         }
 
@@ -173,7 +174,7 @@ public class UserService {
     @Transactional
     @AuditLog(action = LogConstant.Action.UPDATE_ROLE, entity = LogConstant.Entity.USER, entityClass = User.class)
     public UserResponse updateRole(Long id, URole roleName) {
-        if (Objects.equals(id, SecurityUtils.getCurrentUserId())) {
+        if (Objects.equals(id, securityPolicy.requireAuthenticated())) {
             throw new PermissionDeniedException(Message.User.CANNOT_CHANGE_OWN_ROLE);
         }
 

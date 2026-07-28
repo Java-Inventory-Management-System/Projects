@@ -25,7 +25,7 @@ import org.dawn.backend.repository.inventory.adjustments.PriceAdjustmentReposito
 import org.dawn.backend.repository.auth.UserRepository;
 import org.dawn.backend.entity.auth.User;
 import org.dawn.backend.shared.util.ReceiptCodeGenerator;
-import org.dawn.backend.shared.util.SecurityUtils;
+import org.dawn.backend.config.security.SecurityPolicy;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -46,6 +46,7 @@ public class PriceAdjustmentService {
     private final ImportReceiptRepository importReceiptRepository;
     private final ProductRepository productRepository;
     private final UserRepository userRepository;
+    private final SecurityPolicy securityPolicy;
     private final StateMachine<AdjustmentStatus> adjustmentStateMachine;
 
     @Transactional(readOnly = true)
@@ -64,25 +65,19 @@ public class PriceAdjustmentService {
 
     @Transactional(readOnly = true)
     public PriceAdjustmentResponse findOne(Long id) {
-        Long userId = SecurityUtils.getCurrentUserId();
-        if (userId == null) throw new InvalidRequestException(Message.Auth.USER_NOT_AUTHENTICATED);
+        Long userId = securityPolicy.requireAuthenticated();
 
         var adj = priceAdjustmentRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.PRICE_ADJ_NOT_FOUND));
 
-        // STOCK/SALES: only own adjustments; MANAGER/ADMIN: all
-        String role = SecurityUtils.getCurrentRole();
-        boolean isManagerOrAdmin = "MANAGER".equals(role) || "ADMIN".equals(role);
-        if (!isManagerOrAdmin && !adj.getCreatedBy().equals(userId)) {
-            throw new ResourceNotFoundException(Message.Inventory.PRICE_ADJ_NOT_FOUND);
-        }
+        securityPolicy.requireAdminOrManagerOrOwner(adj.getCreatedBy());
 
         return enrich(adj);
     }
 
     @Transactional(readOnly = true)
     public ResponsePage<PriceAdjustmentResponse> findMyAdjustments(Pageable pageable, String status) {
-        Long userId = SecurityUtils.getCurrentUserId();
+        Long userId = securityPolicy.requireAuthenticated();
         AdjustmentStatus s = safeParseAdjustmentStatus(status);
         Page<PriceAdjustment> page = s != null
                 ? priceAdjustmentRepository.findByCreatedByAndStatus(userId, s, pageable)
@@ -132,8 +127,7 @@ public class PriceAdjustmentService {
     @Transactional
     @AuditLog(action = LogConstant.Action.CREATE_PRICE_ADJUSTMENT, entity = LogConstant.Entity.PRICE_ADJUSTMENT)
     public PriceAdjustmentResponse create(CreatePriceAdjustmentRequest request) {
-        Long userId = SecurityUtils.getCurrentUserId();
-        if (userId == null) throw new InvalidRequestException(Message.Auth.USER_NOT_AUTHENTICATED);
+        Long userId = securityPolicy.requireAuthenticated();
 
         if (request.importReceiptItemId() == null) {
             throw new InvalidRequestException(Message.Inventory.PRICE_ADJ_ITEM_REQUIRED);
@@ -181,16 +175,13 @@ public class PriceAdjustmentService {
     @Transactional
     @AuditLog(action = LogConstant.Action.APPROVE_PRICE_ADJUSTMENT, entity = LogConstant.Entity.PRICE_ADJUSTMENT)
     public PriceAdjustmentResponse approve(Long id, String approvalNote) {
-        Long userId = SecurityUtils.getCurrentUserId();
-        if (userId == null) throw new InvalidRequestException(Message.Auth.USER_NOT_AUTHENTICATED);
+        Long userId = securityPolicy.requireAuthenticated();
 
         var adj = priceAdjustmentRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.PRICE_ADJ_NOT_FOUND));
 
         adjustmentStateMachine.validate(adj.getStatus(), AdjustmentStatus.APPROVED);
-        if (adj.getCreatedBy().equals(userId)) {
-            throw new InvalidRequestException(Message.Inventory.CREATOR_CANNOT_APPROVE);
-        }
+        securityPolicy.requireNotCreator(adj.getCreatedBy());
 
         var item = importReceiptItemRepository.findById(adj.getImportReceiptItemId())
                 .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.IMPORT_ITEM_NOT_FOUND));
@@ -212,16 +203,13 @@ public class PriceAdjustmentService {
     @Transactional
     @AuditLog(action = LogConstant.Action.CANCEL_PRICE_ADJUSTMENT, entity = LogConstant.Entity.PRICE_ADJUSTMENT)
     public PriceAdjustmentResponse cancel(Long id) {
-        Long userId = SecurityUtils.getCurrentUserId();
-        if (userId == null) throw new InvalidRequestException(Message.Auth.USER_NOT_AUTHENTICATED);
+        Long userId = securityPolicy.requireAuthenticated();
 
         var adj = priceAdjustmentRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.PRICE_ADJ_NOT_FOUND));
 
         adjustmentStateMachine.validate(adj.getStatus(), AdjustmentStatus.CANCELLED);
-        if (!adj.getCreatedBy().equals(userId)) {
-            throw new InvalidRequestException(Message.Auth.FORBIDDEN);
-        }
+        securityPolicy.requireOwner(adj.getCreatedBy());
 
         int updated = priceAdjustmentRepository.optimisticUpdateStatus(
                 id, AdjustmentStatus.CANCELLED, userId, null);
@@ -234,8 +222,7 @@ public class PriceAdjustmentService {
     @Transactional
     @AuditLog(action = LogConstant.Action.REJECT_PRICE_ADJUSTMENT, entity = LogConstant.Entity.PRICE_ADJUSTMENT)
     public PriceAdjustmentResponse reject(Long id, String reason) {
-        Long userId = SecurityUtils.getCurrentUserId();
-        if (userId == null) throw new InvalidRequestException(Message.Auth.USER_NOT_AUTHENTICATED);
+        Long userId = securityPolicy.requireAuthenticated();
 
         if (reason == null || reason.isBlank()) {
             throw new InvalidRequestException(Message.Inventory.PRICE_ADJ_REJECT_REASON_REQUIRED);

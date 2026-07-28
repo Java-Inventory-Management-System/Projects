@@ -40,7 +40,7 @@ import org.dawn.backend.repository.inventory.ProductUnitRepository;
 import org.dawn.backend.repository.inventory.ProductUnitStatusLogRepository;
 import org.dawn.backend.repository.inventory.warranty.WarrantyRequestRepository;
 import org.dawn.backend.shared.util.ReceiptCodeGenerator;
-import org.dawn.backend.shared.util.SecurityUtils;
+import org.dawn.backend.config.security.SecurityPolicy;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -63,6 +63,7 @@ public class WarrantyRequestService {
     private final ExportReceiptRepository exportReceiptRepository;
     private final ExportReceiptItemRepository exportReceiptItemRepository;
     private final ExportReceiptItemUnitRepository exportReceiptItemUnitRepository;
+    private final SecurityPolicy securityPolicy;
 
     @Transactional(readOnly = true)
     public ResponsePage<WarrantyRequestResponse> findAll(Pageable pageable, String status, String resolutionType) {
@@ -481,9 +482,7 @@ public class WarrantyRequestService {
     }
 
     private Long requireCurrentUserId() {
-        Long userId = SecurityUtils.getCurrentUserId();
-        if (userId == null) throw new InvalidRequestException(Message.Auth.USER_NOT_AUTHENTICATED);
-        return userId;
+        return securityPolicy.requireAuthenticated();
     }
 
     private String generateRequestCode() {

@@ -35,7 +35,7 @@ import org.dawn.backend.repository.inventory.stockcheck.StockCheckItemRepository
 import org.dawn.backend.repository.inventory.stockcheck.StockCheckRepository;
 import org.dawn.backend.service.inventory.adjustments.AdjustmentUnitService;
 import org.dawn.backend.shared.util.ReceiptCodeGenerator;
-import org.dawn.backend.shared.util.SecurityUtils;
+import org.dawn.backend.config.security.SecurityPolicy;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -59,6 +59,7 @@ public class StockCheckService {
     private final UserRepository userRepository;
     private final AdjustmentUnitService adjustmentUnitService;
     private final StateMachine<StockCheckStatus> stockCheckStateMachine;
+    private final SecurityPolicy securityPolicy;
 
     @Transactional(readOnly = true)
     public ResponsePage<StockCheckResponse> findAll(Pageable pageable, String status) {
@@ -78,7 +79,7 @@ public class StockCheckService {
 
     @Transactional(readOnly = true)
     public ResponsePage<StockCheckResponse> findMyChecks(Pageable pageable, String status) {
-        Long userId = SecurityUtils.getCurrentUserId();
+        Long userId = securityPolicy.requireAuthenticated();
         var page = status != null
                 ? stockCheckRepository.findByCreatedByAndStatus(userId, StockCheckStatus.valueOf(status.toUpperCase()), pageable)
                 : stockCheckRepository.findByCreatedBy(userId, pageable);
@@ -89,8 +90,7 @@ public class StockCheckService {
     @Transactional
     @AuditLog(action = LogConstant.Action.CREATE_STOCK_CHECK, entity = LogConstant.Entity.STOCK_CHECK)
     public StockCheckResponse create(CreateStockCheckRequest request) {
-        Long userId = SecurityUtils.getCurrentUserId();
-        if (userId == null) throw new InvalidRequestException(Message.Auth.USER_NOT_AUTHENTICATED);
+        Long userId = securityPolicy.requireAuthenticated();
 
         if (request.scopeType() == null || request.scopeId() == null) {
             throw new InvalidRequestException(Message.Inventory.STOCK_CHECK_ITEMS_REQUIRED);
@@ -160,7 +160,7 @@ public class StockCheckService {
     @Transactional
     @AuditLog(action = LogConstant.Action.RECORD_STOCK_CHECK, entity = LogConstant.Entity.STOCK_CHECK)
     public StockCheckResponse recordItems(Long stockCheckId, StockCheckItemRequest.BatchRequest request) {
-        Long userId = SecurityUtils.getCurrentUserId();
+        Long userId = securityPolicy.requireAuthenticated();
         var sc = stockCheckRepository.findById(stockCheckId)
                 .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.STOCK_CHECK_NOT_FOUND));
 
@@ -338,7 +338,7 @@ throw new InvalidRequestException(
     @Transactional
     @AuditLog(action = LogConstant.Action.APPROVE_STOCK_CHECK, entity = LogConstant.Entity.STOCK_CHECK)
     public StockCheckResponse approve(Long id, ApproveStockCheckRequest request) {
-        Long userId = SecurityUtils.getCurrentUserId();
+        Long userId = securityPolicy.requireAuthenticated();
         var sc = stockCheckRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.STOCK_CHECK_NOT_FOUND));
 
@@ -404,7 +404,7 @@ throw new InvalidRequestException(
     @Transactional
     @AuditLog(action = LogConstant.Action.REJECT_STOCK_CHECK, entity = LogConstant.Entity.STOCK_CHECK)
     public StockCheckResponse reject(Long id, ApproveStockCheckRequest request) {
-        Long userId = SecurityUtils.getCurrentUserId();
+        Long userId = securityPolicy.requireAuthenticated();
         var sc = stockCheckRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.STOCK_CHECK_NOT_FOUND));
 

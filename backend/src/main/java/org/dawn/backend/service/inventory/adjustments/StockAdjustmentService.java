@@ -25,7 +25,7 @@ import org.dawn.backend.repository.catalog.ProductRepository;
 import org.dawn.backend.repository.inventory.ProductUnitRepository;
 import org.dawn.backend.repository.inventory.adjustments.StockAdjustmentRepository;
 import org.dawn.backend.shared.util.ReceiptCodeGenerator;
-import org.dawn.backend.shared.util.SecurityUtils;
+import org.dawn.backend.config.security.SecurityPolicy;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -41,6 +41,7 @@ public class StockAdjustmentService {
     private final UserRepository userRepository;
     private final AdjustmentUnitService adjustmentUnitService;
     private final StateMachine<AdjustmentStatus> adjustmentStateMachine;
+    private final SecurityPolicy securityPolicy;
 
     @Transactional(readOnly = true)
     public ResponsePage<StockAdjustmentResponse> findAll(Pageable pageable, String type, String status) {
@@ -63,7 +64,7 @@ public class StockAdjustmentService {
 
     @Transactional(readOnly = true)
     public ResponsePage<StockAdjustmentResponse> findMyAdjustments(Pageable pageable, String type, String status) {
-        Long userId = SecurityUtils.getCurrentUserId();
+        Long userId = securityPolicy.requireAuthenticated();
         String t = normalize(type);
         AdjustmentStatus s = parseAdjustmentStatus(status);
         org.springframework.data.domain.Page<StockAdjustment> page;
@@ -93,8 +94,7 @@ public class StockAdjustmentService {
     @Transactional
     @AuditLog(action = LogConstant.Action.CREATE_ADJUSTMENT, entity = LogConstant.Entity.STOCK_ADJUSTMENT)
     public StockAdjustmentResponse create(CreateStockAdjustmentRequest request) {
-        Long userId = SecurityUtils.getCurrentUserId();
-        if (userId == null) throw new InvalidRequestException(Message.Auth.USER_NOT_AUTHENTICATED);
+        Long userId = securityPolicy.requireAuthenticated();
 
         if (request.type() == null || request.type().isBlank()) {
             throw new InvalidRequestException(Message.Inventory.ADJUSTMENT_TYPE_REQUIRED);
@@ -157,16 +157,13 @@ public class StockAdjustmentService {
     @Transactional
     @AuditLog(action = LogConstant.Action.APPROVE_ADJUSTMENT, entity = LogConstant.Entity.STOCK_ADJUSTMENT)
     public StockAdjustmentResponse approve(Long id, ApproveAdjustmentRequest request) {
-        Long userId = SecurityUtils.getCurrentUserId();
-        if (userId == null) throw new InvalidRequestException(Message.Auth.USER_NOT_AUTHENTICATED);
+        Long userId = securityPolicy.requireAuthenticated();
 
         var adj = adjustmentRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.ADJUSTMENT_NOT_FOUND));
 
         adjustmentStateMachine.validate(adj.getStatus(), AdjustmentStatus.APPROVED);
-        if (adj.getCreatedBy().equals(userId)) {
-                throw new InvalidRequestException(Message.Inventory.CREATOR_CANNOT_APPROVE);
-            }
+        securityPolicy.requireNotCreator(adj.getCreatedBy());
 
         String type = adj.getType();
         if (AdjustmentType.DAMAGED.name().equals(type)) {
@@ -191,8 +188,7 @@ public class StockAdjustmentService {
     @Transactional
     @AuditLog(action = LogConstant.Action.REJECT_ADJUSTMENT, entity = LogConstant.Entity.STOCK_ADJUSTMENT)
     public StockAdjustmentResponse reject(Long id, ApproveAdjustmentRequest request) {
-        Long userId = SecurityUtils.getCurrentUserId();
-        if (userId == null) throw new InvalidRequestException(Message.Auth.USER_NOT_AUTHENTICATED);
+        Long userId = securityPolicy.requireAuthenticated();
 
         var adj = adjustmentRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.ADJUSTMENT_NOT_FOUND));

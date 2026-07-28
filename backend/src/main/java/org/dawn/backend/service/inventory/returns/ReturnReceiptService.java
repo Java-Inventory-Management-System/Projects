@@ -31,7 +31,7 @@ import org.dawn.backend.repository.inventory.exports.ExportReceiptRepository;
 import org.dawn.backend.repository.inventory.returns.ReturnReceiptItemRepository;
 import org.dawn.backend.repository.inventory.returns.ReturnReceiptRepository;
 import org.dawn.backend.shared.util.ReceiptCodeGenerator;
-import org.dawn.backend.shared.util.SecurityUtils;
+import org.dawn.backend.config.security.SecurityPolicy;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -55,6 +55,7 @@ public class ReturnReceiptService {
     private final ProductRepository productRepository;
     private final ExportReceiptItemUnitRepository exportReceiptItemUnitRepository;
     private final StateMachine<ReturnReceiptStatus> returnReceiptStateMachine;
+    private final SecurityPolicy securityPolicy;
 
     @Transactional(readOnly = true)
     public ResponsePage<ReturnReceiptResponse> findAll(Pageable pageable) {
@@ -85,8 +86,7 @@ public class ReturnReceiptService {
     @Transactional
     @AuditLog(action = LogConstant.Action.CREATE_RETURN, entity = LogConstant.Entity.RETURN_RECEIPT)
     public ReturnReceiptResponse create(ReturnReceiptRequest request) {
-        Long userId = SecurityUtils.getCurrentUserId();
-        if (userId == null) throw new InvalidRequestException(Message.Auth.USER_NOT_AUTHENTICATED);
+        Long userId = securityPolicy.requireAuthenticated();
 
         if (request.items() == null || request.items().isEmpty()) {
             throw new InvalidRequestException(Message.Inventory.RETURN_ITEMS_REQUIRED);
@@ -190,13 +190,11 @@ public class ReturnReceiptService {
     @Transactional
     @AuditLog(action = LogConstant.Action.APPROVE_RETURN, entity = LogConstant.Entity.RETURN_RECEIPT)
     public ReturnReceiptResponse approve(Long id) {
-        Long userId = SecurityUtils.getCurrentUserId();
+        Long userId = securityPolicy.requireAuthenticated();
         var receipt = returnReceiptRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.RETURN_RECEIPT_NOT_FOUND));
 
-        if (receipt.getCreatedBy().equals(userId)) {
-            throw new InvalidRequestException(Message.Inventory.CREATOR_CANNOT_APPROVE);
-        }
+        securityPolicy.requireNotCreator(receipt.getCreatedBy());
         returnReceiptStateMachine.validate(receipt.getStatus(), ReturnReceiptStatus.COMPLETED);
 
         var items = returnReceiptItemRepository.findByReturnReceiptId(receipt.getId());

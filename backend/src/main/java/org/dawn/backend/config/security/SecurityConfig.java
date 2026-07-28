@@ -70,11 +70,15 @@ public class SecurityConfig {
         http
                 .cors(cors -> cors.configurationSource(corsConfig.configuration()))
                 .csrf(CsrfConfigurer::disable)
-                .exceptionHandling(this::configExceptionHandling)
-                .sessionManagement(this::configSession)
-                .authorizeHttpRequests(this::configAuth);
+                .sessionManagement(this::configSession);
 
-		http.addFilterBefore(authTokenFilter, UsernamePasswordAuthenticationFilter.class);
+        if (SecurityPolicy.isEnabled()) {
+            http.exceptionHandling(this::configExceptionHandling)
+                .authorizeHttpRequests(this::configAuth);
+            http.addFilterBefore(authTokenFilter, UsernamePasswordAuthenticationFilter.class);
+        } else {
+            http.authorizeHttpRequests(auth -> auth.anyRequest().permitAll());
+        }
 
         return http.build();
     }

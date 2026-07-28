@@ -26,7 +26,7 @@ import org.dawn.backend.repository.inventory.imports.ImportReceiptRepository;
 import org.dawn.backend.repository.inventory.PurchaseOrderItemRepository;
 import org.dawn.backend.repository.inventory.PurchaseOrderRepository;
 import org.dawn.backend.shared.util.ReceiptCodeGenerator;
-import org.dawn.backend.shared.util.SecurityUtils;
+import org.dawn.backend.config.security.SecurityPolicy;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -47,6 +47,7 @@ public class PurchaseOrderService {
     private final SupplierRepository supplierRepository;
     private final ProductRepository productRepository;
     private final UserRepository userRepository;
+    private final SecurityPolicy securityPolicy;
 
     @Transactional(readOnly = true)
     public ResponsePage<PurchaseOrderResponse> findAll(Pageable pageable, String status) {
@@ -69,8 +70,7 @@ public class PurchaseOrderService {
     @Transactional
     @AuditLog(action = LogConstant.Action.CREATE_PURCHASE_ORDER, entity = LogConstant.Entity.PURCHASE_ORDER)
     public PurchaseOrderResponse create(CreatePurchaseOrderRequest request) {
-        Long userId = SecurityUtils.getCurrentUserId();
-        if (userId == null) throw new InvalidRequestException(Message.Auth.USER_NOT_AUTHENTICATED);
+        Long userId = securityPolicy.requireAuthenticated();
 
         if (request.items() == null || request.items().isEmpty()) {
             throw new InvalidRequestException(Message.Inventory.AT_LEAST_ONE_ITEM_REQUIRED);

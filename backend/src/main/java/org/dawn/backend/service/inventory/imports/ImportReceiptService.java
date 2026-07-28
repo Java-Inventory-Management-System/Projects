@@ -54,7 +54,7 @@ import org.dawn.backend.repository.inventory.PurchaseOrderItemRepository;
 import org.dawn.backend.repository.inventory.PurchaseOrderRepository;
 import org.dawn.backend.service.inventory.ProductUnitMappingHelper;
 import org.dawn.backend.shared.util.ReceiptCodeGenerator;
-import org.dawn.backend.shared.util.SecurityUtils;
+import org.dawn.backend.config.security.SecurityPolicy;
 
 @Service
 @RequiredArgsConstructor
@@ -72,6 +72,7 @@ public class ImportReceiptService {
     private final PurchaseOrderRepository purchaseOrderRepository;
     private final PurchaseOrderItemRepository purchaseOrderItemRepository;
     private final StateMachine<ImportReceiptStatus> importReceiptStateMachine;
+    private final SecurityPolicy securityPolicy;
 
     private static final List<String> BULK_UNITS = List.of(
             org.dawn.backend.constant.enums.catalog.ProductUnit.METER.name(),
@@ -112,8 +113,7 @@ public class ImportReceiptService {
     @Transactional
     @AuditLog(action = LogConstant.Action.CONFIRM_IMPORT, entity = LogConstant.Entity.IMPORT_RECEIPT)
     public ImportReceiptResponse createAndConfirm(ImportReceiptRequest request) {
-        Long userId = SecurityUtils.getCurrentUserId();
-        if (userId == null) throw new InvalidRequestException(Message.Auth.USER_NOT_AUTHENTICATED);
+        Long userId = securityPolicy.requireAuthenticated();
 
         if (request.items() == null || request.items().isEmpty()) {
             throw new InvalidRequestException(Message.Inventory.AT_LEAST_ONE_ITEM_REQUIRED);
@@ -238,8 +238,7 @@ public class ImportReceiptService {
     @Transactional
     @AuditLog(action = LogConstant.Action.CREATE_IMPORT, entity = LogConstant.Entity.IMPORT_RECEIPT)
     public ImportReceiptResponse create(ImportReceiptRequest request) {
-        Long userId = SecurityUtils.getCurrentUserId();
-        if (userId == null) throw new InvalidRequestException(Message.Auth.USER_NOT_AUTHENTICATED);
+        Long userId = securityPolicy.requireAuthenticated();
         if (request.supplierId() == null) throw new InvalidRequestException(Message.Inventory.SUPPLIER_REQUIRED);
 
         String receiptCode = request.receiptCode() != null ? request.receiptCode() : generateReceiptCode();
@@ -295,8 +294,7 @@ public class ImportReceiptService {
     @Transactional
     @AuditLog(action = LogConstant.Action.CONFIRM_IMPORT, entity = LogConstant.Entity.IMPORT_RECEIPT)
     public ImportReceiptResponse confirm(Long id, ConfirmImportRequest request) {
-        Long userId = SecurityUtils.getCurrentUserId();
-        if (userId == null) throw new InvalidRequestException(Message.Auth.USER_NOT_AUTHENTICATED);
+        Long userId = securityPolicy.requireAuthenticated();
 
         ImportReceipt receipt = importReceiptRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.IMPORT_RECEIPT_NOT_FOUND));
@@ -354,13 +352,11 @@ public class ImportReceiptService {
     @Transactional
     @AuditLog(action = LogConstant.Action.APPROVE_IMPORT, entity = LogConstant.Entity.IMPORT_RECEIPT)
     public ImportReceiptResponse approve(Long id) {
-        Long userId = SecurityUtils.getCurrentUserId();
+        Long userId = securityPolicy.requireAuthenticated();
         ImportReceipt receipt = importReceiptRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.IMPORT_RECEIPT_NOT_FOUND));
 
-        if (receipt.getCreatedBy().equals(userId)) {
-            throw new InvalidRequestException(Message.Inventory.CREATOR_CANNOT_APPROVE);
-        }
+        securityPolicy.requireNotCreator(receipt.getCreatedBy());
         importReceiptStateMachine.validate(receipt.getStatus(), ImportReceiptStatus.COMPLETED);
 
         receipt.setStatus(ImportReceiptStatus.COMPLETED);
@@ -432,7 +428,7 @@ public class ImportReceiptService {
             }
         }
 
-        Long userId = SecurityUtils.getCurrentUserId();
+        Long userId = securityPolicy.requireAuthenticated();
         for (var item : items) {
             var units = productUnitRepository.findByImportReceiptItemId(item.getId());
             for (var unit : units) {
