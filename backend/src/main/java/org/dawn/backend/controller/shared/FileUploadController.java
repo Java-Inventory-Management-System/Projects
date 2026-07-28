@@ -3,7 +3,7 @@ package org.dawn.backend.controller.shared;
 import lombok.RequiredArgsConstructor;
 import org.dawn.backend.config.web.response.ResponseObject;
 import org.dawn.backend.constant.security.AuthorizationExpressions;
-import org.dawn.backend.service.shared.CloudinaryService;
+import org.dawn.backend.service.system.CloudinaryService;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.PostMapping;

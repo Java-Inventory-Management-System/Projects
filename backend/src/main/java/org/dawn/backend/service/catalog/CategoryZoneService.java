@@ -3,7 +3,7 @@ package org.dawn.backend.service.catalog;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dawn.backend.controller.catalog.response.CategoryZoneResponse;
-import org.dawn.backend.exception.wrapper.ResourceNotFoundException;
+import org.dawn.backend.exception.type.ResourceNotFoundException;
 import org.dawn.backend.repository.catalog.CategoryZoneRepository;
 import org.springframework.stereotype.Service;
 

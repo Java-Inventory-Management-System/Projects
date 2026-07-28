@@ -29,11 +29,11 @@ build/
 !**/src/main/**/build/
 !**/src/test/**/build/
 
-### VS Code ###
-.vscode/
-
 *.log
 matcher_bytecode.txt
+
+### VS Code ###
+.vscode/
 
 ### vibecode ###
 opencode.jsonc

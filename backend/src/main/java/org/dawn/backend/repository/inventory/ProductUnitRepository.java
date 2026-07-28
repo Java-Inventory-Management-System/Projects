@@ -1,7 +1,7 @@
 package org.dawn.backend.repository.inventory;
 
 import jakarta.persistence.LockModeType;
-import org.dawn.backend.constant.inventory.ProductUnitStatus;
+import org.dawn.backend.constant.enums.inventory.ProductUnitStatus;
 import org.dawn.backend.entity.inventory.ProductUnit;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;

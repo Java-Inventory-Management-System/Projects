@@ -10,7 +10,7 @@ import org.dawn.backend.controller.inventory.request.CreateWarrantyRequest;
 import org.dawn.backend.controller.inventory.request.ResolveWarrantyRequest;
 import org.dawn.backend.controller.inventory.response.WarrantyLookupResponse;
 import org.dawn.backend.controller.inventory.response.WarrantyRequestResponse;
-import org.dawn.backend.service.inventory.WarrantyRequestService;
+import org.dawn.backend.service.inventory.warranty.WarrantyRequestService;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;

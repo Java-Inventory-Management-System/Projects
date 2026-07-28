@@ -1,10 +1,10 @@
 package org.dawn.backend.service.inventory;
 
 import org.dawn.backend.config.web.response.ResponsePage;
-import org.dawn.backend.constant.inventory.ExportReason;
-import org.dawn.backend.constant.inventory.ExportReceiptStatus;
-import org.dawn.backend.constant.inventory.ProductUnitStatus;
-import org.dawn.backend.constant.inventory.SourceType;
+import org.dawn.backend.constant.enums.inventory.exports.ExportReason;
+import org.dawn.backend.constant.enums.inventory.exports.ExportReceiptStatus;
+import org.dawn.backend.constant.enums.inventory.ProductUnitStatus;
+import org.dawn.backend.constant.enums.inventory.SourceType;
 import org.dawn.backend.controller.inventory.request.ExportReceiptRequest;
 import org.dawn.backend.controller.inventory.request.ExportReceiptRequest.ExportItemRequest;
 import org.dawn.backend.entity.catalog.Product;
@@ -12,17 +12,18 @@ import org.dawn.backend.entity.inventory.ExportReceipt;
 import org.dawn.backend.entity.inventory.ExportReceiptItem;
 import org.dawn.backend.entity.inventory.ExportReceiptItemUnit;
 import org.dawn.backend.entity.inventory.ProductUnit;
-import org.dawn.backend.exception.wrapper.InvalidRequestException;
-import org.dawn.backend.exception.wrapper.ResourceNotFoundException;
+import org.dawn.backend.exception.type.InvalidRequestException;
+import org.dawn.backend.exception.type.ResourceNotFoundException;
 import org.dawn.backend.repository.auth.UserRepository;
 import org.dawn.backend.repository.catalog.ProductRepository;
 import org.dawn.backend.repository.inventory.CustomerRepository;
-import org.dawn.backend.repository.inventory.ExportReceiptItemRepository;
-import org.dawn.backend.repository.inventory.ExportReceiptItemUnitRepository;
-import org.dawn.backend.repository.inventory.ExportReceiptRepository;
+import org.dawn.backend.repository.inventory.exports.ExportReceiptItemRepository;
+import org.dawn.backend.repository.inventory.exports.ExportReceiptItemUnitRepository;
+import org.dawn.backend.repository.inventory.exports.ExportReceiptRepository;
+import org.dawn.backend.service.inventory.exports.ExportReceiptService;
 import org.dawn.backend.repository.inventory.ProductUnitRepository;
 import org.dawn.backend.repository.inventory.ProductUnitStatusLogRepository;
-import org.dawn.backend.utils.SecurityUtils;
+import org.dawn.backend.shared.util.SecurityUtils;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -250,7 +251,7 @@ class ExportReceiptServiceTests {
                 .id(receiptId)
                 .receiptCode("EXP-TEST")
                 .reason(reason)
-                .status(ExportReceiptStatus.PENDING_APPROVAL)
+                .status(ExportReceiptStatus.PENDING)
                 .createdBy(createdBy)
                 .build();
     }

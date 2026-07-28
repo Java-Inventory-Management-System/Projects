@@ -13,8 +13,8 @@ import org.dawn.backend.controller.auth.response.JwtResponse;
 import org.dawn.backend.controller.auth.response.TokenRefreshResponse;
 import org.dawn.backend.entity.auth.UserDetailsImpl;
 import org.dawn.backend.service.auth.AuthService;
-import org.dawn.backend.utils.JWTUtils;
-import org.dawn.backend.utils.SecurityUtils;
+import org.dawn.backend.shared.util.JWTUtils;
+import org.dawn.backend.shared.util.SecurityUtils;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 

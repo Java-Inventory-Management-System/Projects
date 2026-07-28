@@ -5,7 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.dawn.backend.constant.shared.Message;
 import org.dawn.backend.entity.auth.RefreshToken;
 import org.dawn.backend.entity.auth.User;
-import org.dawn.backend.exception.wrapper.ResourceNotFoundException;
+import org.dawn.backend.exception.type.ResourceNotFoundException;
 import org.dawn.backend.repository.auth.RefreshTokenRepository;
 import org.dawn.backend.repository.auth.UserRepository;
 import org.springframework.beans.factory.annotation.Value;

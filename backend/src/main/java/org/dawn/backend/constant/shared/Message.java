@@ -52,11 +52,15 @@ public class Message {
         public static final String ENDPOINT_NOT_FOUND = "API endpoint not found";
         public static final String INTERNAL_ERROR = "An unexpected error occurred";
         public static final String IMAGE_UPLOAD_FAILED = "Image upload failed";
+        public static final String CLOUDINARY_UPLOAD_FAILED = "Failed to upload file to Cloudinary";
+        public static final String FILE_UPLOAD_DIR_CREATE_FAILED = "Could not create upload directory: {0}";
+        public static final String FILE_UPLOAD_SAVE_FAILED = "Failed to save file: {0}";
         public static final String EMAIL_SEND_FAILED = "Failed to send email, please contact support";
         public static final String METHOD_NOT_IMPLEMENTED = "This feature is not yet implemented";
         public static final String INVALID_TOKEN = "Invalid token";
         public static final String PASSWORD_NOT_MATCH = "Passwords do not match";
         public static final String PASSWORD_TOO_SHORT = "Password must be at least 6 characters";
+        public static final String INVALID_STATE_TRANSITION = "Invalid transition: {0} -> {1}";
     }
 
     // Catalog
@@ -138,6 +142,10 @@ public class Message {
         public static final String ONLY_PENDING_CAN_APPROVE = "Only pending adjustments can be approved";
         public static final String ONLY_PENDING_CAN_REJECT = "Only pending adjustments can be rejected";
         public static final String ADJUSTMENT_UNIT_NOT_RESTORABLE = "Product unit is in status {0} and cannot be restored via found adjustment";
+        public static final String ADJUSTMENT_PHOTO_REQUIRED_DAMAGED = "Photo is required for DAMAGED adjustment";
+        public static final String ADJUSTMENT_SERIAL_REQUIRED_FOUND = "Serial number is required for FOUND adjustment";
+        public static final String ADJUSTMENT_LOCATION_REQUIRED_FOUND = "Location is required for FOUND adjustment";
+        public static final String REJECTION_REASON_REQUIRED = "Rejection reason is required";
 
         public static final String PO_NOT_FOUND = "Purchase order not found";
         public static final String PO_CODE_EXISTS = "Purchase order code already exists";
@@ -169,10 +177,19 @@ public class Message {
         public static final String WARRANTY_INVALID_UNIT_STATE = "Product unit cannot transition from {0} for this warranty action";
         public static final String WARRANTY_CANCEL_REASON_REQUIRED = "A cancellation reason is required";
 
+        // Export fulfillment
+        public static final String EXPORT_ITEM_NOT_FOUND = "Export item not found: {0}";
+        public static final String EXPORT_ACTUAL_QTY_REQUIRED_BULK = "Actual quantity required for bulk item";
+        public static final String EXPORT_SERIALS_REQUIRED = "Serial numbers required for serialized item";
+        public static final String EXPORT_SERIAL_WRONG_PRODUCT = "Serial {0} does not belong to product {1}";
+        public static final String EXPORT_SERIAL_NOT_AVAILABLE = "Serial {0} is not available (status: {1})";
+        public static final String EXPORT_SERIAL_IN_STOCK_CHECK = "Serial {0} is currently being stock-checked";
+
         // Price adjustment
         public static final String PRICE_ADJ_NOT_FOUND = "Price adjustment not found";
         public static final String PRICE_ADJ_ITEM_REQUIRED = "Import receipt item is required";
         public static final String PRICE_ADJ_NEW_PRICE_NEGATIVE = "New price must be a non-negative value";
+        public static final String PRICE_ADJ_WHOLE_NUMBER = "New price must be a whole number (no decimals)";
         public static final String PRICE_ADJ_SAME_PRICE = "New price is the same as the current price";
         public static final String PRICE_ADJ_REASON_REQUIRED = "Reason is required for price adjustment";
         public static final String PRICE_ADJ_ONLY_PENDING_APPROVE = "Only pending price adjustments can be approved";
@@ -196,6 +213,14 @@ public class Message {
         public static final String RETURN_INVALID_CONDITION = "Invalid return condition: {0}";
         public static final String RETURN_INVALID_ACTION = "Invalid resulting action: {0}";
         public static final String RETURN_UNIT_NOT_SOLD = "Product unit is not in sold status";
+
+        // Stock check
+        public static final String STOCK_CHECK_INVALID_SCOPE = "Invalid scope type. Must be ZONE or CATEGORY";
+        public static final String STOCK_CHECK_NO_UNITS_IN_SCOPE = "No in-stock units found in the selected scope";
+        public static final String STOCK_CHECK_ITEM_NOT_IN_CHECK = "Product unit {0} is not part of this stock check";
+        public static final String STOCK_CHECK_PHOTO_REQUIRED_DAMAGED = "Photo is required when reporting DAMAGED status";
+        public static final String STOCK_CHECK_BULK_MISSING_QTY = "Cannot complete: {0} bulk item(s) missing counted quantity: {1}";
+        public static final String STOCK_CHECK_ADJUSTMENTS_EXIST = "Adjustments already created for this stock check";
     }
 
     // User

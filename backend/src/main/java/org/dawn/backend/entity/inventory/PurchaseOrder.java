@@ -7,7 +7,7 @@ import org.dawn.backend.entity.base.AuditableEntity;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import org.dawn.backend.constant.inventory.PurchaseOrderStatus;
+import org.dawn.backend.constant.enums.inventory.PurchaseOrderStatus;
 
 @Entity
 @Table(name = "purchase_orders")

@@ -6,7 +6,7 @@ import org.dawn.backend.config.web.response.ResponsePage;
 import org.dawn.backend.constant.security.AuthorizationExpressions;
 import org.dawn.backend.controller.inventory.request.ReturnReceiptRequest;
 import org.dawn.backend.controller.inventory.response.ReturnReceiptResponse;
-import org.dawn.backend.service.inventory.ReturnReceiptService;
+import org.dawn.backend.service.inventory.returns.ReturnReceiptService;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;

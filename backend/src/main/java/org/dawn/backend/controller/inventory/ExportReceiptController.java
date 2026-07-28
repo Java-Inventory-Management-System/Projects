@@ -8,7 +8,7 @@ import org.dawn.backend.controller.inventory.request.ExportReceiptRequest;
 import org.dawn.backend.controller.inventory.request.FulfillExportRequest;
 import org.dawn.backend.controller.inventory.request.RejectExportRequest;
 import org.dawn.backend.controller.inventory.response.ExportReceiptResponse;
-import org.dawn.backend.service.inventory.ExportReceiptService;
+import org.dawn.backend.service.inventory.exports.ExportReceiptService;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;

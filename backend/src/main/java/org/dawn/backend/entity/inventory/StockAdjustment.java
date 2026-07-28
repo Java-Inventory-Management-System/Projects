@@ -4,7 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
 import org.dawn.backend.entity.base.AuditableEntity;
-import org.dawn.backend.constant.inventory.AdjustmentStatus;
+import org.dawn.backend.constant.enums.inventory.adjustments.AdjustmentStatus;
 
 @Entity
 @Table(name = "stock_adjustments")

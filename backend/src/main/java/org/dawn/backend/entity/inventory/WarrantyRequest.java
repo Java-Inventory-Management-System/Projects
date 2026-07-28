@@ -15,7 +15,7 @@ import lombok.experimental.SuperBuilder;
 import org.dawn.backend.entity.base.AuditableEntity;
 
 import java.time.Instant;
-import org.dawn.backend.constant.inventory.WarrantyRequestStatus;
+import org.dawn.backend.constant.enums.inventory.warranty.WarrantyRequestStatus;
 
 @Entity
 @Table(name = "warranty_requests")

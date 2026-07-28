@@ -2,14 +2,14 @@ package org.dawn.backend.service.catalog;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.dawn.backend.config.anno.AuditLog;
+import org.dawn.backend.aspect.AuditLog;
 import org.dawn.backend.config.web.response.ResponsePage;
 import org.dawn.backend.constant.shared.LogConstant;
 import org.dawn.backend.constant.shared.Message;
 import org.dawn.backend.controller.catalog.request.CategoryRequest;
 import org.dawn.backend.controller.catalog.response.CategoryResponse;
 import org.dawn.backend.entity.catalog.Category;
-import org.dawn.backend.exception.wrapper.ResourceNotFoundException;
+import org.dawn.backend.exception.type.ResourceNotFoundException;
 import org.dawn.backend.repository.catalog.CategoryRepository;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;

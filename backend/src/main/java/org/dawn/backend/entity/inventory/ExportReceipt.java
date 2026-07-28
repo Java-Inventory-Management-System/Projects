@@ -7,7 +7,7 @@ import org.dawn.backend.entity.base.AuditableEntity;
 
 import java.math.BigDecimal;
 import java.time.Instant;
-import org.dawn.backend.constant.inventory.ExportReceiptStatus;
+import org.dawn.backend.constant.enums.inventory.exports.ExportReceiptStatus;
 
 @Entity
 @Table(name = "export_receipts")

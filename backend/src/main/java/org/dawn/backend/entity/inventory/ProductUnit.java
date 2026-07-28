@@ -7,7 +7,7 @@ import org.dawn.backend.entity.base.AuditableEntity;
 
 import java.math.BigDecimal;
 import java.time.Instant;
-import org.dawn.backend.constant.inventory.ProductUnitStatus;
+import org.dawn.backend.constant.enums.inventory.ProductUnitStatus;
 
 @Entity
 @Table(name = "product_units", indexes = {

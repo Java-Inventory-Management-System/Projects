@@ -4,7 +4,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.dawn.backend.config.web.response.ResponseObject;
 import org.dawn.backend.config.web.response.ResponsePage;
-import org.dawn.backend.constant.auth.URole;
+import org.dawn.backend.constant.enums.auth.URole;
 import org.dawn.backend.controller.auth.request.RegisterRequest;
 import org.dawn.backend.controller.auth.request.ToggleActiveRequest;
 import org.dawn.backend.controller.auth.request.UpdateInfoRequest;

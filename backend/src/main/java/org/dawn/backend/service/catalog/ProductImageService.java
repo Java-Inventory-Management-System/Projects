@@ -5,14 +5,14 @@ import lombok.extern.slf4j.Slf4j;
 import org.dawn.backend.controller.catalog.request.ProductImageRequest;
 import org.dawn.backend.controller.catalog.response.ProductImageResponse;
 import org.dawn.backend.entity.catalog.ProductImage;
-import org.dawn.backend.exception.wrapper.ResourceNotFoundException;
+import org.dawn.backend.exception.type.ResourceNotFoundException;
 import org.dawn.backend.repository.catalog.ProductImageRepository;
 import org.dawn.backend.constant.shared.LogConstant;
 import org.dawn.backend.constant.shared.Message;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import org.dawn.backend.config.anno.AuditLog;
+import org.dawn.backend.aspect.AuditLog;
 
 import java.util.List;
 

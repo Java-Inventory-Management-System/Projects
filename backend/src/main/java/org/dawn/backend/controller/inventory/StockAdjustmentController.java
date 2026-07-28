@@ -7,7 +7,7 @@ import org.dawn.backend.constant.security.AuthorizationExpressions;
 import org.dawn.backend.controller.inventory.request.ApproveAdjustmentRequest;
 import org.dawn.backend.controller.inventory.request.CreateStockAdjustmentRequest;
 import org.dawn.backend.controller.inventory.response.StockAdjustmentResponse;
-import org.dawn.backend.service.inventory.StockAdjustmentService;
+import org.dawn.backend.service.inventory.adjustments.StockAdjustmentService;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;

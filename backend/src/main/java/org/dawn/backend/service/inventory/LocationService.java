@@ -2,7 +2,7 @@ package org.dawn.backend.service.inventory;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.dawn.backend.config.anno.AuditLog;
+import org.dawn.backend.aspect.AuditLog;
 import org.dawn.backend.config.web.response.ResponsePage;
 import org.dawn.backend.constant.shared.LogConstant;
 import org.dawn.backend.constant.shared.Message;
@@ -13,9 +13,9 @@ import org.dawn.backend.controller.inventory.response.LocationMapResponse.ShelfD
 import org.dawn.backend.controller.inventory.response.LocationMapResponse.BinData;
 import org.dawn.backend.controller.inventory.response.LocationResponse;
 import org.dawn.backend.entity.inventory.Location;
-import org.dawn.backend.exception.wrapper.InvalidRequestException;
-import org.dawn.backend.exception.wrapper.ResourceAlreadyExistedException;
-import org.dawn.backend.exception.wrapper.ResourceNotFoundException;
+import org.dawn.backend.exception.type.InvalidRequestException;
+import org.dawn.backend.exception.type.ResourceAlreadyExistedException;
+import org.dawn.backend.exception.type.ResourceNotFoundException;
 import org.dawn.backend.repository.inventory.LocationRepository;
 import org.dawn.backend.repository.inventory.ProductUnitRepository;
 import org.springframework.data.domain.Pageable;

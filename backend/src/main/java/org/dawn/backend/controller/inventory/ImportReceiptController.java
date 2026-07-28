@@ -15,7 +15,7 @@ import org.dawn.backend.controller.inventory.request.ConfirmImportRequest;
 import org.dawn.backend.controller.inventory.request.ImportReceiptRequest;
 import org.dawn.backend.controller.inventory.response.ImportReceiptResponse;
 import org.dawn.backend.controller.inventory.response.ProductUnitResponse;
-import org.dawn.backend.service.inventory.ImportReceiptService;
+import org.dawn.backend.service.inventory.imports.ImportReceiptService;
 import org.dawn.backend.service.inventory.ProductUnitService;
 
 @RestController

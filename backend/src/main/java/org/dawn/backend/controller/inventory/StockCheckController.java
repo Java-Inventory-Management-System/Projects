@@ -9,7 +9,7 @@ import org.dawn.backend.controller.inventory.request.CreateStockCheckRequest;
 import org.dawn.backend.controller.inventory.request.ImportSerialsRequest;
 import org.dawn.backend.controller.inventory.request.StockCheckItemRequest;
 import org.dawn.backend.controller.inventory.response.StockCheckResponse;
-import org.dawn.backend.service.inventory.StockCheckService;
+import org.dawn.backend.service.inventory.stockcheck.StockCheckService;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
