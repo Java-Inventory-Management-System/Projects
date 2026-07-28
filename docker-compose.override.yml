@@ -7,6 +7,7 @@ services:
     environment:
       SPRING_PROFILES_ACTIVE: dev
       MAIL_ENABLED: "false"
+      APP_SECURITY_ENABLED: ${APP_SECURITY_ENABLED:-false}
 
   frontend:
     build:
@@ -14,5 +15,6 @@ services:
       dockerfile: Dockerfile
       args:
         VITE_BASE_API_URL: ${VITE_BASE_API_URL:-/api/v1}
+        VITE_SKIP_AUTH: ${VITE_SKIP_AUTH:-true}
     ports:
       - '5173:80'

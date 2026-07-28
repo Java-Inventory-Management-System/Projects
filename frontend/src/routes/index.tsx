@@ -6,7 +6,7 @@ import { AppShell } from "@/layouts/app-shell"
 import { ProtectedRoute } from "@/layouts/protected-route"
 import { ErrorBoundary } from "@/components/ui/error-boundary"
 import { PageSkeleton } from "@/components/ui/page-skeleton"
-import { useAuthStore } from "@/store/auth-store"
+import { useAuthStore, SKIP_AUTH } from "@/store/auth-store"
 import type { URole } from "@/utils/types"
 import { ROLES } from "@/utils/permissions"
 
@@ -79,6 +79,7 @@ const StockUnitsPage = lazyPage(() => import("@/features/stock/pages/stock-units
 const UsersPage = lazyPage(() => import("@/features/admin/pages/users-page"), "UsersPage")
 const AuditPage = lazyPage(() => import("@/features/admin/pages/audit-page"), "AuditPage")
 function PageGuard({ roles, children }: { roles?: URole[]; children: ReactNode }) {
+  if (SKIP_AUTH) return <>{children}</>
   const user = useAuthStore((s) => s.user)
   if (!user) return <Navigate to="/login" replace />
   if (roles && !roles.includes(user.role as URole)) return <Navigate to="/403" replace />
@@ -86,6 +87,7 @@ function PageGuard({ roles, children }: { roles?: URole[]; children: ReactNode }
 }
 
 function RootRedirect() {
+  if (SKIP_AUTH) return <DashboardPage />
   const user = useAuthStore((s) => s.user)
   if (user?.role === "STOCK") return <Navigate to="/stock/imports" replace />
   if (user?.role === "SALES") return <Navigate to="/stock/exports" replace />

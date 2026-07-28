@@ -1,7 +1,7 @@
 import { NavLink } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 import { cn } from "@/utils/cn"
-import { useAuthStore } from "@/store/auth-store"
+import { useAuthStore, SKIP_AUTH } from "@/store/auth-store"
 import { filterNavItems, navSections } from "@/utils/navigation"
 import { ROLES } from "@/utils/permissions"
 import { getImportReceipts } from "@/services/import-service"
@@ -17,11 +17,13 @@ interface SidebarProps {
 export function Sidebar({ collapsed, onNavigate }: SidebarProps) {
   const user = useAuthStore((s) => s.user)
   const userRole = useAuthStore((s) => s.user?.role)
-  if (!user) return null
+  if (!user && !SKIP_AUTH) return null
 
-  const visibleSections = navSections
-    .map((s) => ({ ...s, items: filterNavItems(s.items, user.role) }))
-    .filter((s) => s.items.length > 0)
+  const visibleSections = SKIP_AUTH
+    ? navSections
+    : navSections
+        .map((s) => ({ ...s, items: filterNavItems(s.items, user.role) }))
+        .filter((s) => s.items.length > 0)
 
   const { data: importPending } = useQuery({
     queryKey: ["import-pending-count"],
