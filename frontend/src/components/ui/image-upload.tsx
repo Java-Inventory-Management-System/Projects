@@ -1,6 +1,7 @@
 import { useState, useRef, type DragEvent } from "react"
 import { cn } from "@/utils/cn"
 import http from "@/utils/http-client"
+import { toast } from "@/utils/toast"
 import { Upload, X, Loader2 } from "lucide-react"
 
 interface ImageUploadProps {
@@ -28,7 +29,8 @@ export const ImageUpload = ({ value, onChange, className }: ImageUploadProps) =>
         const next = [...urls, url].join(SEP)
         onChange(next)
       }
-    } catch {
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Upload ảnh thất bại")
     } finally {
       setUploading(false)
     }

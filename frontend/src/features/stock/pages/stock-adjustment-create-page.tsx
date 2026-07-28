@@ -98,9 +98,9 @@ export const StockAdjustmentCreatePage = () => {
     defaultValues: { type: "", selectedUnitId: null, selectedProductId: null, quantity: 1, foundSerialNumber: "", foundLocationId: "", reason: initialReason, imageUrl: "" },
   })
   const { formState } = form
+  const formValues = form.getValues()
   const watchedType = form.watch("type")
   const watchedReason = form.watch("reason")
-  const watchedImageUrl = form.watch("imageUrl")
 
   useEffect(() => {
     if (watchedType === ADJUSTMENT_TYPE.FOUND) {
@@ -109,14 +109,6 @@ export const StockAdjustmentCreatePage = () => {
       setFoundMode(null)
     }
   }, [watchedType, foundMode])
-
-  useEffect(() => {
-    if (watchedType === ADJUSTMENT_TYPE.DAMAGED && !watchedImageUrl.trim()) {
-      form.setError("imageUrl", { message: "Ảnh là bắt buộc cho hàng hỏng" })
-    } else if (formState.errors.imageUrl) {
-      form.clearErrors("imageUrl")
-    }
-  }, [watchedType, watchedImageUrl, form, formState.errors.imageUrl])
 
   const draftState = useMemo(() => ({ type: watchedType, reason: watchedReason }), [watchedType, watchedReason])
   const isDirty = !!watchedType || !!watchedReason.trim()
@@ -184,15 +176,19 @@ export const StockAdjustmentCreatePage = () => {
     onError: (err: Error) => toast.error(err.message || "Có lỗi xảy ra"),
   })
 
+  const showResultRef = useRef(showResult)
+  showResultRef.current = showResult
+
   useEffect(() => {
     return backgroundBatch.subscribe(() => {
-      setBatchProgress(backgroundBatch.getProgress() ? { current: backgroundBatch.getProgress()!.current, total: backgroundBatch.getProgress()!.total } : null)
+      const p = backgroundBatch.getProgress()
+      setBatchProgress(p ? { current: p.current, total: p.total } : null)
       setBatchResults(backgroundBatch.getResults())
-      if (!backgroundBatch.isRunning() && backgroundBatch.getResults().length > 0 && !showResult) {
+      if (!backgroundBatch.isRunning() && backgroundBatch.getResults().length > 0 && !showResultRef.current) {
         setShowResult(true)
       }
     })
-  })
+  }, [])
 
   const validate = (): boolean => {
     form.clearErrors()
@@ -467,7 +463,7 @@ export const StockAdjustmentCreatePage = () => {
                       </thead>
                       <tbody>
                         {unitsData.content.map((u: ProductUnit) => {
-                          const selectedUnitId = form.watch("selectedUnitId")
+                          const selectedUnitId = formValues.selectedUnitId
                           return (
                           <tr
                             key={u.id}
@@ -551,7 +547,7 @@ export const StockAdjustmentCreatePage = () => {
                       </thead>
                       <tbody>
                         {productsData.content.map((p: { id: number; sku: string | null; name: string | null }) => {
-                          const selectedProductId = form.watch("selectedProductId")
+                          const selectedProductId = formValues.selectedProductId
                           return (
                           <tr
                             key={p.id}
