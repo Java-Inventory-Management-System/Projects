@@ -309,6 +309,7 @@ export function mapPriceAdjustment(raw: unknown): PriceAdjustment {
     approvedByName: r.approvedByName ?? null,
     approvalNote: r.approvalNote ?? null,
     createdAt: r.createdAt,
+    approvedAt: r.approvedAt ?? null,
     updatedAt: r.updatedAt,
   }
 }

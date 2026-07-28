@@ -1,35 +1,86 @@
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect, useRef } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import { usePermission } from "@/hooks/use-permission"
 import { ROLES } from "@/utils/permissions"
 import { usePriceAdjustments, useMyPriceAdjustments } from "@/hooks/use-price-adjustments"
+import { cancelPriceAdjustment } from "@/services/price-adjustment-service"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Plus, Eye } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { Plus, Eye, XCircle, Search, RefreshCw } from "lucide-react"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { DataTable, type Column } from "@/components/ui/data-table"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import type { PriceAdjustment } from "@/utils/types"
 import { ADJUSTMENT_STATUS } from "@/utils/types"
+import { toast } from "@/utils/toast"
 
 const statusLabel: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
   [ADJUSTMENT_STATUS.PENDING]: { label: "Chờ duyệt", variant: "outline" },
   [ADJUSTMENT_STATUS.APPROVED]: { label: "Đã duyệt", variant: "default" },
   [ADJUSTMENT_STATUS.REJECTED]: { label: "Từ chối", variant: "destructive" },
+  [ADJUSTMENT_STATUS.CANCELLED]: { label: "Đã huỷ", variant: "secondary" },
+}
+
+function PriceDiff({ oldPrice, newPrice }: { oldPrice: number; newPrice: number }) {
+  const diff = newPrice - oldPrice
+  const pct = oldPrice > 0 ? ((diff / oldPrice) * 100).toFixed(1) : "0.0"
+  return (
+    <span className="inline-flex items-center gap-1 tabular-nums">
+      <span className="text-muted-foreground">{(oldPrice ?? 0).toLocaleString("vi-VN")}₫</span>
+      <span className="text-muted-foreground">→</span>
+      <span className={diff >= 0 ? "text-destructive" : "text-green-600"}>
+        {(newPrice ?? 0).toLocaleString("vi-VN")}₫
+      </span>
+      <span className={`text-xs font-medium ${diff >= 0 ? "text-destructive" : "text-green-600"}`}>
+        ({diff >= 0 ? "+" : ""}{pct}%)
+      </span>
+    </span>
+  )
 }
 
 export function PriceAdjustmentListPage() {
   const navigate = useNavigate()
+  const qc = useQueryClient()
   const [searchParams, setSearchParams] = useSearchParams()
   const perm = usePermission()
   const page = Number(searchParams.get("page") ?? "0")
   const statusFilter = searchParams.get("status") ?? ""
-  // MANAGER/ADMIN → all adjustments; STOCK/SALES → own only
+  const searchTerm = searchParams.get("search") ?? ""
   const isAdminManager = perm.hasRole(...ROLES.CAN_APPROVE)
 
   const [pageSize, setPageSize] = useState(20)
   const [sort, setSort] = useState<{ key: string; dir: "asc" | "desc" } | undefined>(undefined)
   const sortStr = sort ? `${sort.key},${sort.dir}` : undefined
+  const [searchInput, setSearchInput] = useState(searchTerm)
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+
+  const [cancelTarget, setCancelTarget] = useState<PriceAdjustment | null>(null)
+
+  const handleSearch = useCallback((value: string) => {
+    setSearchInput(value)
+    clearTimeout(searchTimer.current)
+    searchTimer.current = setTimeout(() => {
+      const next = new URLSearchParams(searchParams)
+      next.set("page", "0")
+      if (value) next.set("search", value)
+      else next.delete("search")
+      setSearchParams(next)
+    }, 300)
+  }, [searchParams, setSearchParams])
+
+  useEffect(() => () => clearTimeout(searchTimer.current), [])
 
   const handleSort = useCallback((key: string) => {
     setSort((prev) => {
@@ -39,9 +90,37 @@ export function PriceAdjustmentListPage() {
     })
   }, [])
 
+  // Always fetch all for filtering on FE by search term
+  // The /my endpoint can't be searched by product name on BE, so we use the all endpoint
   const allAdj = usePriceAdjustments(page, pageSize, sortStr, statusFilter || undefined)
   const myAdj = useMyPriceAdjustments(page, pageSize, sortStr, statusFilter || undefined)
-  const { data, isLoading } = isAdminManager ? allAdj : myAdj
+  const { data, isLoading, isError, refetch } = isAdminManager ? allAdj : myAdj
+
+  const cancelMutation = useMutation({
+    mutationFn: (id: number) => cancelPriceAdjustment(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["price-adjustments"] })
+      qc.invalidateQueries({ queryKey: ["my-price-adjustments"] })
+      toast.success("Đã huỷ phiếu điều chỉnh giá")
+      setCancelTarget(null)
+    },
+    onError: (e: Error) => toast.error(e.message),
+  })
+
+  const filtered = (data?.content ?? []).filter((r) => {
+    if (!searchTerm) return true
+    const q = searchTerm.toLowerCase()
+    return (
+      r.adjustCode.toLowerCase().includes(q) ||
+      (r.productName ?? "").toLowerCase().includes(q) ||
+      (r.productSku ?? "").toLowerCase().includes(q)
+    )
+  })
+
+  const clearFilters = useCallback(() => {
+    setSearchInput("")
+    setSearchParams(new URLSearchParams())
+  }, [setSearchParams])
 
   const setPage = (p: number) => {
     const next = new URLSearchParams(searchParams)
@@ -55,43 +134,68 @@ export function PriceAdjustmentListPage() {
       sortKey: "adjustCode",
       render: (r) => <span className="font-mono text-xs">{r.adjustCode}</span>,
     },
-    { header: "Sản phẩm", render: (r) => <span className="text-sm">{r.productName ?? "—"}</span> },
     {
-      header: "Giá cũ",
-      sortKey: "oldPrice",
-      className: "w-24 text-right",
-      render: (r) => <span className="tabular-nums">{(r.oldPrice ?? 0).toLocaleString("vi-VN")}₫</span>,
+      header: "Sản phẩm",
+      render: (r) => (
+        <div className="text-sm">
+          <span>{r.productName ?? "—"}</span>
+          {r.productSku && <span className="text-muted-foreground ml-1 text-xs">({r.productSku})</span>}
+        </div>
+      ),
     },
     {
-      header: "Giá mới",
-      sortKey: "newPrice",
-      className: "w-24 text-right",
-      render: (r) => <span className="tabular-nums">{(r.newPrice ?? 0).toLocaleString("vi-VN")}₫</span>,
+      header: "Giá cũ → Giá mới",
+      className: "w-56",
+      render: (r) => <PriceDiff oldPrice={r.oldPrice ?? 0} newPrice={r.newPrice ?? 0} />,
     },
     {
-      header: "Lý do",
-      render: (r) => <span className="text-sm text-muted-foreground max-w-[200px] truncate">{r.reason}</span>,
+      header: "Người tạo",
+      render: (r) => <span className="text-sm text-muted-foreground">{r.createdByName ?? "—"}</span>,
     },
     {
       header: "Trạng thái",
-      className: "w-24 text-center",
+      className: "w-28 text-center",
       render: (r) => {
         const s = statusLabel[r.status] ?? { label: r.status, variant: "secondary" as const }
-        return <Badge variant={s.variant}>{s.label}</Badge>
+        return (
+          <div className="flex items-center gap-1 justify-center">
+            <Badge variant={s.variant}>{s.label}</Badge>
+            {isAdminManager && r.status === ADJUSTMENT_STATUS.PENDING && r.createdBy !== perm.user?.id && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="size-1.5 rounded-full bg-amber-500 inline-block animate-pulse" />
+                </TooltipTrigger>
+                <TooltipContent>Đang chờ bạn duyệt</TooltipContent>
+              </Tooltip>
+            )}
+          </div>
+        )
       },
     },
     {
       header: "Thao tác",
-      className: "w-[70px]",
+      className: "w-[120px]",
       render: (r) => (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" onClick={() => navigate(`/stock/price-adjustments/${r.id}`)}>
-              <Eye className="size-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Xem chi tiết</TooltipContent>
-        </Tooltip>
+        <div className="flex items-center gap-1">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" onClick={() => navigate(`/stock/price-adjustments/${r.id}`)}>
+                <Eye className="size-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Xem chi tiết</TooltipContent>
+          </Tooltip>
+          {r.status === ADJUSTMENT_STATUS.PENDING && r.createdBy === perm.user?.id && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" className="text-destructive" onClick={() => setCancelTarget(r)}>
+                  <XCircle className="size-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Huỷ phiếu</TooltipContent>
+            </Tooltip>
+          )}
+        </div>
       ),
     },
   ]
@@ -99,13 +203,22 @@ export function PriceAdjustmentListPage() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-xl font-semibold tracking-tight">Điều chỉnh giá</h1>
+        <h1 className="text-xl font-semibold tracking-tight">Điều chỉnh giá bán</h1>
         <Button onClick={() => navigate("/stock/price-adjustments/new")}>
           <Plus className="size-4 mr-1" /> Tạo phiếu
         </Button>
       </div>
 
       <div className="flex flex-wrap gap-2">
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+          <Input
+            className="pl-8 w-56"
+            placeholder="Tìm mã phiếu, tên sản phẩm..."
+            value={searchInput}
+            onChange={(e) => handleSearch(e.target.value)}
+          />
+        </div>
         <Select
           value={statusFilter}
           onValueChange={(v) => {
@@ -124,27 +237,79 @@ export function PriceAdjustmentListPage() {
             <SelectItem value={ADJUSTMENT_STATUS.PENDING}>Chờ duyệt</SelectItem>
             <SelectItem value={ADJUSTMENT_STATUS.APPROVED}>Đã duyệt</SelectItem>
             <SelectItem value={ADJUSTMENT_STATUS.REJECTED}>Từ chối</SelectItem>
+            <SelectItem value={ADJUSTMENT_STATUS.CANCELLED}>Đã huỷ</SelectItem>
           </SelectContent>
         </Select>
       </div>
 
-      <DataTable
-        columns={columns}
-        data={data?.content ?? []}
-        isLoading={isLoading}
-        emptyMessage="Chưa có phiếu điều chỉnh giá nào"
-        sort={sort}
-        onSort={handleSort}
-        totalElements={data?.pagination.totalElements}
-        page={page}
-        totalPages={data?.pagination.totalPages}
-        pageSize={pageSize}
-        onPageChange={(p) => setPage(p)}
-        onPageSizeChange={(s) => {
-          setPageSize(s)
-          setPage(0)
-        }}
-      />
+      {isError ? (
+        <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-6 text-center space-y-2">
+          <p className="text-sm text-destructive">Không thể tải danh sách phiếu điều chỉnh giá</p>
+          <Button variant="outline" size="sm" onClick={() => refetch()}>
+            <RefreshCw className="size-3 mr-1" /> Thử lại
+          </Button>
+        </div>
+      ) : (
+        <DataTable
+          columns={columns}
+          data={filtered}
+          isLoading={isLoading}
+          emptyMessage={
+            searchTerm || statusFilter
+              ? "Không có phiếu nào khớp bộ lọc"
+              : "Chưa có phiếu điều chỉnh giá nào"
+          }
+          sort={sort}
+          onSort={handleSort}
+          totalElements={data?.pagination.totalElements}
+          page={page}
+          totalPages={data?.pagination.totalPages}
+          pageSize={pageSize}
+          onPageChange={(p) => setPage(p)}
+          onPageSizeChange={(s) => {
+            setPageSize(s)
+            setPage(0)
+          }}
+        />
+      )}
+
+      {(searchTerm || statusFilter) && (
+        <div className="text-center">
+          <Button variant="link" size="sm" onClick={clearFilters}>
+            Xoá bộ lọc
+          </Button>
+        </div>
+      )}
+
+      {filtered.length === 0 && !isError && !isLoading && !searchTerm && !statusFilter && (
+        <div className="text-center py-8">
+          <p className="text-muted-foreground mb-3">Chưa có phiếu điều chỉnh giá nào</p>
+          <Button onClick={() => navigate("/stock/price-adjustments/new")}>
+            <Plus className="size-4 mr-1" /> Tạo phiếu đầu tiên
+          </Button>
+        </div>
+      )}
+
+      <AlertDialog open={!!cancelTarget} onOpenChange={(v) => { if (!v) setCancelTarget(null) }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Huỷ phiếu điều chỉnh giá</AlertDialogTitle>
+            <AlertDialogDescription>
+              Xác nhận huỷ phiếu <span className="font-mono font-medium">{cancelTarget?.adjustCode}</span>?
+              Hành động này không thể hoàn tác.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Không</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => cancelTarget && cancelMutation.mutate(cancelTarget.id)}
+              disabled={cancelMutation.isPending}
+            >
+              {cancelMutation.isPending ? "Đang huỷ..." : "Xác nhận huỷ"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

@@ -1,5 +1,5 @@
 package org.dawn.backend.constant.inventory;
 
 public enum AdjustmentStatus {
-    PENDING, APPROVED, REJECTED
+    PENDING, APPROVED, REJECTED, CANCELLED
 }

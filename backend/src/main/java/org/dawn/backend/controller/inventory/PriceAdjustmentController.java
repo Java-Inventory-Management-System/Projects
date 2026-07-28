@@ -5,12 +5,14 @@ import org.dawn.backend.config.web.response.ResponseObject;
 import org.dawn.backend.config.web.response.ResponsePage;
 import org.dawn.backend.constant.security.AuthorizationExpressions;
 import org.dawn.backend.controller.inventory.request.CreatePriceAdjustmentRequest;
+import org.dawn.backend.controller.inventory.response.AvailableItemResponse;
 import org.dawn.backend.controller.inventory.response.PriceAdjustmentResponse;
 import org.dawn.backend.service.inventory.PriceAdjustmentService;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -42,6 +44,12 @@ public class PriceAdjustmentController {
         return ResponseObject.success(priceAdjustmentService.findOne(id));
     }
 
+    @GetMapping("/available-items/{productId}")
+    @PreAuthorize(AuthorizationExpressions.CAN_OPERATE_STOCK)
+    public ResponseObject<List<AvailableItemResponse>> getAvailableItems(@PathVariable Long productId) {
+        return ResponseObject.success(priceAdjustmentService.findAvailableItemsByProduct(productId));
+    }
+
     @PostMapping
     @PreAuthorize(AuthorizationExpressions.CAN_OPERATE_STOCK)
     public ResponseObject<PriceAdjustmentResponse> create(@RequestBody CreatePriceAdjustmentRequest request) {
@@ -64,5 +72,11 @@ public class PriceAdjustmentController {
             @RequestBody(required = false) Map<String, String> body) {
         String note = body != null ? body.get("approvalNote") : null;
         return ResponseObject.success(priceAdjustmentService.reject(id, note));
+    }
+
+    @PutMapping("/{id}/cancel")
+    @PreAuthorize(AuthorizationExpressions.CAN_OPERATE_STOCK)
+    public ResponseObject<PriceAdjustmentResponse> cancel(@PathVariable Long id) {
+        return ResponseObject.success(priceAdjustmentService.cancel(id));
     }
 }

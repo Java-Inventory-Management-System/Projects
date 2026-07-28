@@ -180,6 +180,7 @@ public class Message {
         public static final String PRICE_ADJ_DUPLICATE_PENDING = "Another pending price adjustment ({0}) already exists for this item";
         public static final String PRICE_ADJ_REJECT_REASON_REQUIRED = "Reason is required when rejecting a price adjustment";
         public static final String PRICE_ADJ_PRICE_CHANGED = "Product price has changed since the adjustment was created, please verify";
+        public static final String PRICE_ADJ_ONLY_PENDING_CANCEL = "Only pending price adjustments can be cancelled";
 
         // Return receipt
         public static final String RETURN_RECEIPT_NOT_FOUND = "Return receipt not found";

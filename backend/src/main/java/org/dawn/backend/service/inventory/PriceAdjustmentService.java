@@ -9,14 +9,17 @@ import org.springframework.data.domain.Page;
 import org.dawn.backend.constant.shared.LogConstant;
 import org.dawn.backend.constant.shared.Message;
 import org.dawn.backend.controller.inventory.request.CreatePriceAdjustmentRequest;
+import org.dawn.backend.controller.inventory.response.AvailableItemResponse;
 import org.dawn.backend.controller.inventory.response.PriceAdjustmentResponse;
 import org.dawn.backend.entity.catalog.Product;
+import org.dawn.backend.entity.inventory.ImportReceipt;
 import org.dawn.backend.entity.inventory.ImportReceiptItem;
 import org.dawn.backend.entity.inventory.PriceAdjustment;
 import org.dawn.backend.exception.wrapper.InvalidRequestException;
 import org.dawn.backend.exception.wrapper.ResourceNotFoundException;
 import org.dawn.backend.repository.catalog.ProductRepository;
 import org.dawn.backend.repository.inventory.ImportReceiptItemRepository;
+import org.dawn.backend.repository.inventory.ImportReceiptRepository;
 import org.dawn.backend.repository.inventory.PriceAdjustmentRepository;
 import org.dawn.backend.repository.auth.UserRepository;
 import org.dawn.backend.entity.auth.User;
@@ -39,6 +42,7 @@ public class PriceAdjustmentService {
 
     private final PriceAdjustmentRepository priceAdjustmentRepository;
     private final ImportReceiptItemRepository importReceiptItemRepository;
+    private final ImportReceiptRepository importReceiptRepository;
     private final ProductRepository productRepository;
     private final UserRepository userRepository;
 
@@ -58,8 +62,19 @@ public class PriceAdjustmentService {
 
     @Transactional(readOnly = true)
     public PriceAdjustmentResponse findOne(Long id) {
+        Long userId = SecurityUtils.getCurrentUserId();
+        if (userId == null) throw new InvalidRequestException(Message.Auth.USER_NOT_AUTHENTICATED);
+
         var adj = priceAdjustmentRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.PRICE_ADJ_NOT_FOUND));
+
+        // STOCK/SALES: only own adjustments; MANAGER/ADMIN: all
+        String role = SecurityUtils.getCurrentRole();
+        boolean isManagerOrAdmin = "MANAGER".equals(role) || "ADMIN".equals(role);
+        if (!isManagerOrAdmin && !adj.getCreatedBy().equals(userId)) {
+            throw new ResourceNotFoundException(Message.Inventory.PRICE_ADJ_NOT_FOUND);
+        }
+
         return enrich(adj);
     }
 
@@ -76,6 +91,40 @@ public class PriceAdjustmentService {
         var itemProductMap = fetchItemProductMap(adjs);
         var userMap = fetchUserMap(adjs);
         return ResponsePage.of(page.map(a -> enrich(a, itemProductMap, userMap)));
+    }
+
+    @Transactional(readOnly = true)
+    public List<AvailableItemResponse> findAvailableItemsByProduct(Long productId) {
+        var items = importReceiptItemRepository.findByProductId(productId);
+        if (items.isEmpty()) return List.of();
+
+        var receiptIds = items.stream().map(ImportReceiptItem::getReceiptId).distinct().toList();
+        var receipts = importReceiptRepository.findAllById(receiptIds).stream()
+                .filter(r -> r.getStatus() == org.dawn.backend.constant.inventory.ImportReceiptStatus.COMPLETED)
+                .collect(java.util.stream.Collectors.toMap(ImportReceipt::getId, java.util.function.Function.identity()));
+
+        var product = productRepository.findById(productId).orElse(null);
+        String productName = product != null ? product.getName() : null;
+        String productSku = product != null ? product.getSku() : null;
+
+        var pendingItemIds = priceAdjustmentRepository.findAll().stream()
+                .filter(a -> a.getStatus() == AdjustmentStatus.PENDING)
+                .map(PriceAdjustment::getImportReceiptItemId)
+                .collect(java.util.stream.Collectors.toSet());
+
+        return items.stream()
+                .filter(item -> receipts.containsKey(item.getReceiptId()))
+                .map(item -> AvailableItemResponse.builder()
+                        .importReceiptItemId(item.getId())
+                        .productId(productId)
+                        .productName(productName)
+                        .productSku(productSku)
+                        .receiptCode(receipts.get(item.getReceiptId()).getReceiptCode())
+                        .receiptDate(receipts.get(item.getReceiptId()).getCreatedAt())
+                        .unitPrice(item.getUnitPrice())
+                        .hasPending(pendingItemIds.contains(item.getId()))
+                        .build())
+                .toList();
     }
 
     @Transactional
@@ -155,6 +204,30 @@ public class PriceAdjustmentService {
                 id, AdjustmentStatus.APPROVED, userId, approvalNote);
         if (updated == 0) {
             throw new InvalidRequestException(Message.Inventory.PRICE_ADJ_ONLY_PENDING_APPROVE);
+        }
+        return enrich(adj);
+    }
+
+    @Transactional
+    @AuditLog(action = LogConstant.Action.CANCEL_PRICE_ADJUSTMENT, entity = LogConstant.Entity.PRICE_ADJUSTMENT)
+    public PriceAdjustmentResponse cancel(Long id) {
+        Long userId = SecurityUtils.getCurrentUserId();
+        if (userId == null) throw new InvalidRequestException(Message.Auth.USER_NOT_AUTHENTICATED);
+
+        var adj = priceAdjustmentRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.PRICE_ADJ_NOT_FOUND));
+
+        if (AdjustmentStatus.PENDING != adj.getStatus()) {
+            throw new InvalidRequestException(Message.Inventory.PRICE_ADJ_ONLY_PENDING_CANCEL);
+        }
+        if (!adj.getCreatedBy().equals(userId)) {
+            throw new InvalidRequestException(Message.Auth.FORBIDDEN);
+        }
+
+        int updated = priceAdjustmentRepository.optimisticUpdateStatus(
+                id, AdjustmentStatus.CANCELLED, userId, null);
+        if (updated == 0) {
+            throw new InvalidRequestException(Message.Inventory.PRICE_ADJ_ONLY_PENDING_CANCEL);
         }
         return enrich(adj);
     }

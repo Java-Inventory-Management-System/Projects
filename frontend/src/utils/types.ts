@@ -439,7 +439,19 @@ export interface PriceAdjustment {
   approvedByName: string | null
   approvalNote: string | null
   createdAt: string
+  approvedAt: string | null
   updatedAt: string
+}
+
+export interface AvailableItem {
+  importReceiptItemId: number
+  productId: number
+  productName: string | null
+  productSku: string | null
+  receiptCode: string
+  receiptDate: string
+  unitPrice: number
+  hasPending: boolean
 }
 
 // ============ Inventory ============
@@ -696,6 +708,7 @@ export const ADJUSTMENT_STATUS = {
   PENDING: "PENDING",
   APPROVED: "APPROVED",
   REJECTED: "REJECTED",
+  CANCELLED: "CANCELLED",
 } as const
 
 export const WARRANTY_STATUS = {

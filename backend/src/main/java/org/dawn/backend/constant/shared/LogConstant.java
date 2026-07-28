@@ -5,6 +5,7 @@ public class LogConstant {
         public static final String CREATE_PRICE_ADJUSTMENT = "CREATE_PRICE_ADJUSTMENT";
         public static final String APPROVE_PRICE_ADJUSTMENT = "APPROVE_PRICE_ADJUSTMENT";
         public static final String REJECT_PRICE_ADJUSTMENT = "REJECT_PRICE_ADJUSTMENT";
+        public static final String CANCEL_PRICE_ADJUSTMENT = "CANCEL_PRICE_ADJUSTMENT";
         public static final String CREATE_USER = "CREATE_USER";
         public static final String UPDATE_INFO = "UPDATE_USER_INFO";
         public static final String UPDATE_STATUS = "UPDATE_USER_STATUS";

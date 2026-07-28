@@ -1,5 +1,5 @@
 import http from "@/utils/http-client"
-import type { PriceAdjustment, ResponsePage } from "@/utils/types"
+import type { PriceAdjustment, AvailableItem, ResponsePage } from "@/utils/types"
 import { mapResponsePage, mapPriceAdjustment } from "@/utils/mappers"
 
 export async function getPriceAdjustments(
@@ -48,4 +48,13 @@ export async function approvePriceAdjustment(id: number, approvalNote?: string):
 export async function rejectPriceAdjustment(id: number, approvalNote?: string): Promise<PriceAdjustment> {
   const res = await http.put(`/price-adjustment/${id}/reject`, { approvalNote })
   return mapPriceAdjustment(res)
+}
+
+export async function cancelPriceAdjustment(id: number): Promise<PriceAdjustment> {
+  const res = await http.put(`/price-adjustment/${id}/cancel`)
+  return mapPriceAdjustment(res)
+}
+
+export async function getAvailableItemsByProduct(productId: number): Promise<AvailableItem[]> {
+  return await http.get(`/price-adjustment/available-items/${productId}`) as AvailableItem[]
 }
