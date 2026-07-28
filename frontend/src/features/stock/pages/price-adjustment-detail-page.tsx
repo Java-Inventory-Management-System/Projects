@@ -71,9 +71,9 @@ export function PriceAdjustmentDetailPage() {
   })
 
   const action = useMutation({
-    mutationFn: async (action: "approve" | "reject") => {
+    mutationFn: async ({ action, reason }: { action: "approve" | "reject"; reason?: string }) => {
       if (action === "approve") return approvePriceAdjustment(Number(id), approvalNote || undefined)
-      return rejectPriceAdjustment(Number(id), rejectReason.trim())
+      return rejectPriceAdjustment(Number(id), reason ?? "")
     },
     onSuccess: (_result, actionType) => {
       qc.invalidateQueries({ queryKey: ["price-adjustment", id] })
@@ -140,8 +140,9 @@ export function PriceAdjustmentDetailPage() {
   const s = statusLabel[adj.status] ?? { label: adj.status, variant: "secondary" as const }
   const isManagerAdmin = perm.canApprove()
   const isOwn = adj.createdBy === perm.user?.id
-  const canApprove = isManagerAdmin && adj.status === ADJUSTMENT_STATUS.PENDING && !isOwn
+  const canApprove = perm.canApprove(adj)
   const canCancel = !isManagerAdmin && isOwn && adj.status === ADJUSTMENT_STATUS.PENDING
+  const showSelfBlock = !canApprove && isManagerAdmin && isOwn && adj.status === ADJUSTMENT_STATUS.PENDING
   const priceDiff = adj.newPrice - adj.oldPrice
   const priceDiffPct = adj.oldPrice > 0 ? ((priceDiff / adj.oldPrice) * 100).toFixed(1) : "0.0"
 
@@ -166,7 +167,7 @@ export function PriceAdjustmentDetailPage() {
           <Badge variant={s.variant}>{s.label}</Badge>
         </div>
         <div className="flex gap-2">
-          {canApprove && (
+          {canApprove ? (
             <>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -189,8 +190,7 @@ export function PriceAdjustmentDetailPage() {
                 <TooltipContent>Duyệt phiếu điều chỉnh này</TooltipContent>
               </Tooltip>
             </>
-          )}
-          {isManagerAdmin && isOwn && adj.status === ADJUSTMENT_STATUS.PENDING && (
+          ) : showSelfBlock ? (
             <Tooltip>
               <TooltipTrigger asChild>
                 <span tabIndex={0}>
@@ -201,7 +201,7 @@ export function PriceAdjustmentDetailPage() {
               </TooltipTrigger>
               <TooltipContent>Bạn là người tạo phiếu này, không thể tự duyệt</TooltipContent>
             </Tooltip>
-          )}
+          ) : null}
           {canCancel && (
             <Tooltip>
               <TooltipTrigger asChild>
@@ -217,7 +217,7 @@ export function PriceAdjustmentDetailPage() {
         </div>
       </div>
 
-      {isManagerAdmin && isOwn && adj.status === ADJUSTMENT_STATUS.PENDING && (
+      {showSelfBlock && (
         <Alert variant="default" className="border-blue-200 bg-blue-50">
           <Info className="size-4 text-blue-600" />
           <AlertDescription className="text-blue-800 text-sm">
@@ -301,20 +301,18 @@ export function PriceAdjustmentDetailPage() {
               Xác nhận duyệt phiếu <span className="font-mono font-medium">{adj.adjustCode}</span>?
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <ScrollArea className="max-h-[60vh]">
-            <div className="space-y-2">
-              <Label>Ghi chú (không bắt buộc)</Label>
-              <Input
-                value={approvalNote}
-                onChange={(e) => setApprovalNote(e.target.value)}
-                placeholder="Nhập ghi chú nếu cần"
-              />
-            </div>
-          </ScrollArea>
+          <div className="space-y-2">
+            <Label>Ghi chú (không bắt buộc)</Label>
+            <Input
+              value={approvalNote}
+              onChange={(e) => setApprovalNote(e.target.value)}
+              placeholder="Nhập ghi chú nếu cần"
+            />
+          </div>
           <AlertDialogFooter>
             <AlertDialogCancel>Không</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => action.mutate("approve")}
+              onClick={() => action.mutate({ action: "approve" })}
               disabled={action.isPending}
             >
               {action.isPending ? "Đang xử lý..." : "Xác nhận duyệt"}
@@ -328,32 +326,32 @@ export function PriceAdjustmentDetailPage() {
         open={confirmAction === "reject"}
         onOpenChange={(v) => { if (!v) { setConfirmAction(null); setRejectReason("") } }}
       >
-        <AlertDialogContent>
+        <AlertDialogContent onOpenAutoFocus={(e) => e.preventDefault()}>
           <AlertDialogHeader>
             <AlertDialogTitle>Từ chối điều chỉnh giá</AlertDialogTitle>
             <AlertDialogDescription>
               Xác nhận từ chối phiếu <span className="font-mono font-medium">{adj.adjustCode}</span>?
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <ScrollArea className="max-h-[60vh]">
-            <div className="space-y-2">
-              <Label>
-                Lý do từ chối <span className="text-destructive">*</span>
-              </Label>
-              <Input
-                value={rejectReason}
-                onChange={(e) => setRejectReason(e.target.value)}
-                placeholder="Nhập lý do từ chối"
-              />
-              {rejectReason.trim().length > 0 && rejectReason.trim().length < 5 && (
-                <p className="text-xs text-destructive">Lý do phải có ít nhất 5 ký tự</p>
-              )}
-            </div>
-          </ScrollArea>
+          <div className="space-y-2">
+            <Label>
+              Lý do từ chối <span className="text-destructive">*</span>
+            </Label>
+            <Input
+              id="reject-reason-input"
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              placeholder="Nhập lý do từ chối"
+              autoFocus
+            />
+            {rejectReason.trim().length > 0 && rejectReason.trim().length < 5 && (
+              <p className="text-xs text-destructive">Lý do phải có ít nhất 5 ký tự</p>
+            )}
+          </div>
           <AlertDialogFooter>
             <AlertDialogCancel>Không</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => action.mutate("reject")}
+              onClick={() => action.mutate({ action: "reject", reason: rejectReason.trim() })}
               disabled={action.isPending || rejectReason.trim().length < 5}
             >
               {action.isPending ? "Đang xử lý..." : "Xác nhận từ chối"}

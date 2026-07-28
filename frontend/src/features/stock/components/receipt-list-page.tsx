@@ -41,6 +41,7 @@ interface Props<R extends Receipt> {
   columns: Column<R>[]
   approvableStatus?: string
   cancelledStatus?: string
+  completedStatus?: string
   scanStatuses?: string[]
 }
 
@@ -56,6 +57,7 @@ export function ReceiptListPage<R extends Receipt>({
   columns,
   approvableStatus = IMPORT_RECEIPT_STATUS.PENDING_APPROVAL,
   cancelledStatus = IMPORT_RECEIPT_STATUS.CANCELLED,
+  completedStatus = IMPORT_RECEIPT_STATUS.COMPLETED,
   scanStatuses = [IMPORT_RECEIPT_STATUS.DRAFT, IMPORT_RECEIPT_STATUS.PENDING_APPROVAL],
 }: Props<R>) {
   const navigate = useNavigate()
@@ -159,7 +161,7 @@ export function ReceiptListPage<R extends Receipt>({
             <TooltipContent>Duyệt phiếu</TooltipContent>
           </Tooltip>
         )}
-        {hasCancelPerm() && r.status !== cancelledStatus && (
+        {hasCancelPerm() && r.status !== cancelledStatus && r.status !== completedStatus && (
           <Tooltip>
             <TooltipTrigger asChild>
               <Button variant="ghost" size="icon" onClick={() => setCancelTarget(r)}>
