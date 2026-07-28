@@ -2,8 +2,6 @@ services:
   mysql:
     environment:
       MYSQL_DATABASE: inventory_db_test
-    tmpfs: /var/lib/mysql
-    volumes: []
 
   backend:
     build:

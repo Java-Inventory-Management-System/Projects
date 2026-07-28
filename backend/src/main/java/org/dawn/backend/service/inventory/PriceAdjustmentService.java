@@ -205,6 +205,7 @@ public class PriceAdjustmentService {
         if (updated == 0) {
             throw new InvalidRequestException(Message.Inventory.PRICE_ADJ_ONLY_PENDING_APPROVE);
         }
+        adj.setStatus(AdjustmentStatus.APPROVED);
         return enrich(adj);
     }
 

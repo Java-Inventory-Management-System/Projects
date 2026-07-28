@@ -1,9 +1,9 @@
 import { describe, it, expect } from "vitest"
-import { api, loginAsAdmin } from "./api-client"
+import { api, loginAsManager } from "./api-client"
 
 describe("Stock Check Flow", () => {
   it("should reject stock check without scope", async () => {
-    await loginAsAdmin()
+    await loginAsManager()
     try {
       await api.post("/stock-check", { note: "E2E test" })
     } catch (err: any) {

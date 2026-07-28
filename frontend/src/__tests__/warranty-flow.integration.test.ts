@@ -1,9 +1,9 @@
 import { describe, it, expect } from "vitest"
-import { api, loginAsAdmin } from "./api-client"
+import { api, loginAsManager } from "./api-client"
 
 describe("Warranty Flow", () => {
   it("should lookup nonexistent serial", async () => {
-    await loginAsAdmin()
+    await loginAsManager()
     try {
       await api.get("/warranty-request/lookup", { params: { serialNumber: "NONEXISTENT" } })
     } catch (err: any) {

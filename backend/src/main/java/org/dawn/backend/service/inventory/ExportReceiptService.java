@@ -223,6 +223,7 @@ public class ExportReceiptService {
             throw new InvalidRequestException("Only pending export receipts can be rejected");
         }
 
+        receipt.setStatus(ExportReceiptStatus.CANCELLED);
         receipt.setRejectedBy(userId);
         receipt.setRejectedAt(Instant.now());
         receipt.setRejectReason(request.reason());
@@ -231,7 +232,7 @@ public class ExportReceiptService {
         statusHistoryRepository.save(ExportReceiptStatusHistory.builder()
                 .receiptId(receipt.getId())
                 .fromStatus(ExportReceiptStatus.PENDING.name())
-                .toStatus(ExportReceiptStatus.PENDING.name())
+                .toStatus(ExportReceiptStatus.CANCELLED.name())
                 .reason(request.reason())
                 .changedBy(userId)
                 .build());
