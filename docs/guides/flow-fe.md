@@ -41,7 +41,10 @@ store/*.ts                ← Zustand stores (auth, ui)
 | `/stock/imports/:id` | `ImportDetailPage` | `CAN_VIEW_INVENTORY` | Chi tiết phiếu nhập |
 | `/stock/exports` | `ExportListPage` | `CAN_OPERATE` | DS phiếu xuất |
 | `/stock/exports/new` | `ExportCreatePage` | `CAN_OPERATE` | Tạo phiếu xuất |
+| `/stock/exports/proposal` | `ExportProposalPage` | `CAN_OPERATE` | Tạo đề xuất xuất |
 | `/stock/exports/:id` | `ExportDetailPage` | `CAN_OPERATE` | Chi tiết phiếu xuất |
+| `/stock/exports/:id/fulfill` | `ExportFulfillPage` | `CAN_OPERATE` | Xử lý xuất kho thực tế |
+| `/stock/exports/:id/review` | `ExportReviewPage` | `CAN_OPERATE` | Duyệt phiếu đã xử lý |
 | `/stock/checks` | `StockCheckListPage` | `CAN_VIEW_INVENTORY` | DS kiểm kê |
 | `/stock/checks/new` | `StockCheckCreatePage` | `CAN_OPERATE_STOCK` | Tạo kiểm kê |
 | `/stock/checks/:id` | `StockCheckDetailPage` | `CAN_VIEW_INVENTORY` | Chi tiết kiểm kê |
@@ -55,9 +58,6 @@ store/*.ts                ← Zustand stores (auth, ui)
 | `/stock/purchase-orders/new` | `POCreatePage` | `MANAGER` | Tạo đơn đặt hàng |
 | `/stock/purchase-orders/:id` | `PODetailPage` | `MANAGER` | Chi tiết đơn đặt hàng |
 | `/stock/units` | `StockUnitsPage` | `CAN_OPERATE` | DS đơn vị sản phẩm (ProductUnit) |
-| `/warranty` | `WarrantyListPage` | `CAN_OPERATE` | DS bảo hành |
-| `/warranty/new` | `WarrantyCreatePage` | `CAN_OPERATE` | Tạo yêu cầu bảo hành |
-| `/warranty/:id` | `WarrantyDetailPage` | `CAN_OPERATE` | Chi tiết bảo hành |
 | `/returns` | `ReturnListPage` | `CAN_OPERATE` | DS trả hàng |
 | `/returns/new` | `ReturnCreatePage` | `CAN_OPERATE` | Tạo phiếu trả hàng |
 | `/returns/:id` | `ReturnDetailPage` | `CAN_OPERATE` | Chi tiết trả hàng |
@@ -158,7 +158,7 @@ store/*.ts                ← Zustand stores (auth, ui)
 - Nếu status = PENDING_APPROVAL + user có `CAN_APPROVE`: nút Approve / Cancel.
 - Nếu status = COMPLETED: nút Cancel (chỉ khi 100% units chưa xuất).
 - Modal `serial-modal` — xem danh sách serial + trạng thái.
-- `view-product-unit-modal` — xem chi tiết unit (location, warranty, cost_price).
+- `view-product-unit-modal` — xem chi tiết unit (location, warranty dates, cost_price).
 - CSV Export nút (FileDown) — xuất danh sách SP trong phiếu.
 
 ---
@@ -168,14 +168,20 @@ store/*.ts                ← Zustand stores (auth, ui)
 **Pages:**
 - `/stock/exports` → `ExportListPage`
 - `/stock/exports/new` → `ExportCreatePage`
+- `/stock/exports/proposal` → `ExportProposalPage`
 - `/stock/exports/:id` → `ExportDetailPage`
+- `/stock/exports/:id/fulfill` → `ExportFulfillPage`
+- `/stock/exports/:id/review` → `ExportReviewPage`
 
 **Service:** `export-service.ts`
-- GET `/export-receipt` — list
-- GET `/export-receipt/{id}` — detail
-- POST `/export-receipt` — create
-- PUT `/export-receipt/{id}/approve` — approve
-- PUT `/export-receipt/{id}/cancel` — cancel
+- `getExportReceipts(params)` — `GET /export-receipt` — list
+- `getExportReceiptById(id)` — `GET /export-receipt/{id}` — detail
+- `createExportReceipt(data)` — `POST /export-receipt` — create
+- `approveExportReceipt(id)` — `PUT /export-receipt/{id}/approve` — approve
+- `rejectExportReceipt(id, { rejectReason })` — `PUT /export-receipt/{id}/reject` — reject
+- `fulfillExportReceipt(id, { items })` — `PUT /export-receipt/{id}/fulfill` — fulfill
+- `cancelExportReceipt(id)` — `PUT /export-receipt/{id}/cancel` — cancel
+- `getExportUnits(id, productId?)` — `GET /export-receipt/{id}/units` — units
 
 **ExportCreatePage:**
 - Chọn reason (SALE/INTERNAL/RETURN_SUPPLIER/DISPOSE).
@@ -190,11 +196,21 @@ store/*.ts                ← Zustand stores (auth, ui)
 - `location-picker` — chọn vị trí xuất.
 
 **ExportDetailPage:**
-- Nếu PENDING_APPROVAL: nút Approve / Cancel.
+- Nếu PENDING_APPROVAL: nút Approve / Reject.
+- Nếu APPROVED: nút Fulfill.
 - Nếu COMPLETED + reason=SALE: hiển thị warranty dates.
 - Nếu reason=RETURN_SUPPLIER: supplier_status tracking (SENT → CONFIRMED_RECEIVED → PROCESSING → RESOLVED), nút cập nhật.
-- `view-export-modal` — xem chi tiết.
-- CSV Export nút (FileDown).
+- `view-export-modal` — xem chi tiết (hiển thị `externalReference`, `fulfilledBy`/`fulfilledAt`, `rejectedBy`/`rejectedAt`/`rejectReason`).
+
+**ExportFulfillPage:**
+- `/export-receipt/{id}/fulfill` — xử lý xuất kho thực tế.
+- Serialized: form chọn serial numbers cho từng item.
+- Bulk: nhập số lượng thực tế xuất.
+- Nút Submit → `fulfillExportReceipt`.
+
+**ExportReviewPage:**
+- `/export-receipt/{id}/review` — duyệt phiếu đã fulfilled.
+- Nút Approve / Reject (kèm lý do từ chối).
 
 ---
 
@@ -219,13 +235,12 @@ store/*.ts                ← Zustand stores (auth, ui)
 - Chọn items từ export gốc.
 - **Condition picker** (STOCK):
   - `GOOD` → `RESTOCK` (unit → IN_STOCK, `is_warranty_active=false`).
-  - `DEFECTIVE` → chọn tiếp `SCRAP` (hủy) hay `WARRANTY_TRANSFER` (chuyển BH).
-    - `WARRANTY_TRANSFER` chỉ hiện khi unit gốc là serialized; bulk chỉ hiện SCRAP.
+  - `DEFECTIVE` → `SCRAP` (hủy).
 
 **ReturnDetailPage:**
 - Hiển thị thông tin export gốc, items, condition, resulting_action.
 - Nếu PENDING_APPROVAL: nút Approve (QL) / Cancel.
-- Sau approve: hiển thị kết quả (RESTOCK/SCRAP/WARRANTY_TRANSFER).
+- Sau approve: hiển thị kết quả (RESTOCK/SCRAP).
 
 ---
 
@@ -314,95 +329,6 @@ store/*.ts                ← Zustand stores (auth, ui)
 - PUT `/purchase-order/{id}/cancel` — cancel
 
 ---
-
-## Flow 11: Warranty Request
-
-**Pages:**
-- `/warranty` → `WarrantyListPage`
-- `/warranty/new` → `WarrantyCreatePage`
-- `/warranty/:id` → `WarrantyDetailPage`
-
-**Service:** `warranty-service.ts`
-- GET `/warranty-request/lookup?serialNumber=` — lookup
-- GET `/warranty-request` — list
-- GET `/warranty-request/my-handled` — của tôi
-- GET `/warranty-request/{id}` — detail
-- POST `/warranty-request` — create
-- PUT `/warranty-request/{id}/receive` — receive
-- PUT `/warranty-request/{id}/check` — check
-- PUT `/warranty-request/{id}/evaluate` — evaluate
-- PUT `/warranty-request/{id}/execute` — execute
-- PUT `/warranty-request/{id}/cancel` — cancel
-
-### WarrantyListPage (`/warranty`)
-
-**Bố cục:**
-- **Tabs** map theo 4 status + "Tất cả" + "Đang xử lý" (đã RESOLVED nhưng chưa execute xong):
-  `[Tất cả] [Chờ tiếp nhận] [Đang kiểm tra] [Chờ QL duyệt] [Đang xử lý] [Hoàn tất]`
-  - Badge số trên mỗi tab (đặc biệt "Chờ QL duyệt" cần nổi bật).
-- Search bar hỗ trợ serial / SĐT khách / mã phiếu.
-- Nút **"+ Tiếp nhận mới"** — SALES/STOCK thấy, dẫn tới `/warranty/new`.
-- Table columns: Mã phiếu | Serial | Sản phẩm | Khách | Ngày nhận | Trạng thái (WarrantyStatusBadge) | Resolution | Cảnh báo ⚠ (nếu >2 lần đổi BH).
-- `PaginationBar` chung.
-
-### WarrantyCreatePage (`/warranty/new`)
-
-Thiết kế 2 giai đoạn: **tra cứu trước, nhập tay sau**.
-
-**Giai đoạn A — Tra cứu:**
-- Input serial + nút [Tìm] (autofocus, hỗ trợ scan).
-- Kết quả: **Serial Info Card**:
-  - Ảnh SP + tên, serial, khách, ngày mua, phiếu xuất gốc.
-  - Progress bar hạn BH: xanh (>30 ngày) / vàng (≤30 ngày) / đỏ + khóa form (hết hạn).
-  - Tem BH: ✅ Đã xác thực / ⚠️ Không có / — Ẩn (nếu shop tắt tem).
-  - Lịch sử đổi BH: cam + ⚠ nếu >2 lần.
-- **Không tìm thấy serial** → thông báo rõ, không hiện form.
-- **Hết hạn BH** → card vẫn hiện (để thấy lý do), form khóa, banner đỏ + nút "Vẫn tạo phiếu (ngoài BH, tính phí)".
-
-**Giai đoạn B — Nhập lỗi** (chỉ hiện khi còn hạn):
-- Mô tả lỗi (textarea, bắt buộc).
-- Upload ảnh/video (tùy chọn, tái dùng component upload SP).
-- [Hủy] [Tiếp nhận →].
-- Submit → tạo PENDING → in **phiếu biên nhận** (nút in hiện ngay sau tạo).
-
-### WarrantyDetailPage (`/warranty/:id`)
-
-**Khung sườn chung:**
-```
-#WR-0042  RTX 4070 Super — SN: ABC123XYZ
-●───●───●───○                          ← WarrantyTimeline (4 mốc)
-Tiếp nhận  Đã nhận  Đang đánh giá  Hoàn tất
-21/07      21/07    —               —
-[Thông tin khách/SP — thu gọn được]
-[Panel động theo state]
-```
-
-- Timeline **luôn hiện đủ 4 mốc**, mốc chưa tới mờ (○), đã qua đặc + timestamp + người thực hiện.
-
-**Panel động theo state:**
-
-| State | Ai thao tác | Component |
-|-------|------------|-----------|
-| `PENDING` | STOCK | Nút "Xác nhận đã nhận hàng" |
-| `RECEIVED` | STOCK | Form CONFIRMED / REJECTED (radio) + check_note (textarea, bắt buộc nếu REJECTED). CONFIRMED → UNDER_EVALUATION. REJECTED → RESOLVED (auto) |
-| `UNDER_EVALUATION` | QL | 4 **ResolutionCard**: 🔧 REPAIR | 🔄 REPLACE | 💰 REFUND | ✕ REJECT. Mỗi card có mô tả hậu quả + cảnh báo ngữ cảnh (số tồn REPLACE, >2 lần đổi). Chọn → confirm dialog → submit |
-| `RESOLVED` | STOCK | Panel theo resolution: **REPAIR**: nút "Sửa xong" / "Đã gửi NCC". **REPLACE**: chọn serial thay thế (gợi ý FIFO). **REFUND**: nhập số tiền hoàn. **REJECT**: in biên bản từ chối |
-
-**Phân quyền action (06-ux-design §2.6):**
-- SALES: read-only mọi state, chỉ được in.
-- STOCK: xác nhận nhận (PENDING), check (RECEIVED), execute (RESOLVED).
-- QL: evaluate (UNDER_EVALUATION).
-- ADMIN (duyệt thay): thấy dòng nhắc "Đang duyệt thay QL".
-
-### Components tái sử dụng
-
-| Component | Dùng ở đâu |
-|-----------|-----------|
-| `WarrantyStatusBadge` | List, Detail header — 4 màu cố định theo state |
-| `WarrantyTimeline` | Detail (đầu trang) — vertical, 4 mốc |
-| `SerialLookupWidget` | Create (bước 1), Replace (thực thi) |
-| `ResolutionCard` | Detail (UNDER_EVALUATION) — 4 card, prop `disabled`/`warningText` |
-| `WarrantySealBadge` | Create, Detail — 3 trạng thái, ẩn nếu shop tắt tem |
 
 ---
 
@@ -494,7 +420,7 @@ Tiếp nhận  Đã nhận  Đang đánh giá  Hoàn tất
 
 **Filters** (cùng hàng ngang):
 - Hành động: `<Select>` — Tất cả, LOGIN, CREATE, UPDATE, DELETE, APPROVE, REJECT, CANCEL, RESET_PASSWORD
-- Đối tượng: `<Select>` — Tất cả, USER, IMPORT_RECEIPT, EXPORT_RECEIPT, PRODUCT_UNIT, WARRANTY_REQUEST, RETURN_RECEIPT, STOCK_CHECK, STOCK_ADJUSTMENT, PRICE_ADJUSTMENT, PURCHASE_ORDER, BRAND, CATEGORY, PRODUCT, SUPPLIER, LOCATION, CUSTOMER, SYSTEM_SETTINGS
+- Đối tượng: `<Select>` — Tất cả, USER, IMPORT_RECEIPT, EXPORT_RECEIPT, PRODUCT_UNIT, RETURN_RECEIPT, STOCK_CHECK, STOCK_ADJUSTMENT, PRICE_ADJUSTMENT, PURCHASE_ORDER, BRAND, CATEGORY, PRODUCT, SUPPLIER, LOCATION, CUSTOMER, SYSTEM_SETTINGS
 - Trạng thái: `<Select>` — Tất cả, Thành công, Thất bại
 - Người dùng: `<Select>` searchable — load từ `GET /user`, filter theo `userId`
 - Từ ngày / Đến ngày: `<input type="date">`
@@ -539,7 +465,6 @@ Tiếp nhận  Đã nhận  Đang đánh giá  Hoàn tất
 | `stock-adjustment-service.ts` | `/stock-adjustment/*` | Adjustment flow |
 | `price-adjustment-service.ts` | `/price-adjustment/*` | Price adj flow |
 | `purchase-order-service.ts` | `/purchase-order/*` | PO flow |
-| `warranty-service.ts` | `/warranty-request/*` | Warranty flow |
 | `inventory-service.ts` | `/inventory` | Inventory view |
 | `location-service.ts` | `/location/*` | Location CRUD |
 | `customer-service.ts` | `/customer/*` | Customer CRUD |

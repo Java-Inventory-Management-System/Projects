@@ -17,7 +17,6 @@ erDiagram
     users ||--o{ stock_checks : "approved_by"
     users ||--o{ stock_adjustments : "created_by"
     users ||--o{ stock_adjustments : "approved_by"
-    users ||--o{ warranty_requests : "handled_by"
     users ||--o{ product_unit_status_logs : "changed_by"
     users ||--o{ export_receipts : "approved_by"
     users ||--o{ purchase_orders : "created_by"
@@ -179,8 +178,6 @@ erDiagram
     warehouses ||--o{ stock_adjustments : "at"
     warehouses ||--o{ stock_checks : "at"
     customers ||--o{ export_receipts : "buys"
-    customers ||--o{ warranty_requests : "requests"
-
     customers {
         bigint id PK
         varchar200 name
@@ -197,7 +194,7 @@ erDiagram
     users ||--o{ system_settings : "updated_by"
 
     system_settings {
-        varchar100 setting_key PK "tên cài đặt, snake_case — vd: 'product_max_images', 'warranty_replace_sla_days', 'dead_stock_threshold_days', 'warranty_seal_enabled'"
+        varchar100 setting_key PK "tên cài đặt, snake_case — vd: 'product_max_images', 'dead_stock_threshold_days'"
         text setting_value "giá trị dạng JSON string — service layer tự parse"
         text description "giải thích ý nghĩa của setting"
         bigint updated_by FK "FK → users — chỉ ADMIN được phép sửa"
@@ -296,8 +293,6 @@ erDiagram
         timestamp created_at
     }
     product_units ||--o{ export_receipt_item_units : "sold_as"
-    product_units ||--o{ warranty_requests : "warranty_for"
-    product_units ||--o| warranty_requests : "replacement_unit"
     product_units ||--o{ stock_check_items : "checked_in"
     product_units ||--o{ product_unit_status_logs : "history"
 
@@ -369,19 +364,15 @@ erDiagram
         bigint product_unit_id FK "nullable — NULL nếu bulk"
         decimal15_2 quantity "cho bulk"
         varchar20 condition "GOOD | DEFECTIVE"
-        varchar20 resulting_action "RESTOCK | SCRAP | WARRANTY_TRANSFER"
+        varchar20 resulting_action "RESTOCK | SCRAP"
     }
 
-    %% warranty_requests.replacement_unit_id: khi resolution_type=replace, unit thay thế (in_stock→sold)
-    %% đồng thời hệ thống tự động tạo export_receipt ngầm với reason='internal' và ghi chú 'warranty replacement'
-    %% để đảm bảo giá vốn và doanh thu được ghi nhận đúng trên báo cáo tài chính.
-    %% Audit trail: ghi mọi lần product_unit đổi status, kèm source_type + source_id để trace ngược.
     product_unit_status_logs {
         bigint id PK
         bigint product_unit_id FK
         varchar30 from_status
         varchar30 to_status "NULL nếu là bản ghi tạo mới (in_stock ban đầu)"
-        varchar30 source_type "IMPORT_RECEIPT | EXPORT_RECEIPT | STOCK_ADJUSTMENT | STOCK_CHECK | WARRANTY_REQUEST | RELOCATE"
+        varchar30 source_type "IMPORT_RECEIPT | EXPORT_RECEIPT | STOCK_ADJUSTMENT | STOCK_CHECK | RELOCATE"
         bigint source_id "id của record gây ra thay đổi (polymorphic, không đặt FK cứng)"
         bigint changed_by FK "user thực hiện thao tác"
         timestamp created_at
@@ -463,34 +454,6 @@ erDiagram
         timestamp created_at
         timestamp updated_at
     }
-
-    %% ===== WARRANTY =====
-    %% State machine: pending (SALES/STOCK tạo) → received (STOCK nhận + kiểm tra) → under_evaluation (QL duyệt resolution) → resolved (terminal).
-    %% Terminal outcomes stored in resolution_type (repaired/replaced/refunded/rejected).
-    %% check_result/check_note do STOCK nhập ở bước kiểm tra (state=received).
-    warranty_requests {
-        bigint id PK
-        varchar50 request_code UK "'WR-20260706-001'"
-        bigint product_unit_id FK
-        bigint customer_id FK
-        text issue_description
-        varchar30 resolution_type "REPLACE | REPAIR | REFUND | REJECT — xem bảng mapping sang product_units.status bên dưới mục 2"
-        bigint replacement_unit_id FK "nullable — chỉ set khi resolution_type=replace; unit này chuyển in_stock→sold — xem mục 2.1 để biết cơ chế tạo export_receipt ngầm khi replace"
-        varchar20 check_result NULL "CONFIRMED | REJECTED — STOCK nhập ở bước kiểm tra (state=received)"
-        text check_note NULL
-        varchar100 rma_number
-        timestamp sent_to_partner_at
-        timestamp expected_return_at
-        text partner_note
-        varchar20 status "PENDING | RECEIVED | UNDER_EVALUATION | RESOLVED"
-        bigint handled_by FK
-        timestamp resolved_at
-        text note
-        timestamp created_at
-        timestamp updated_at
-    }
-
-> **Giả định / Giới hạn phạm vi — Warranty:** Bảo hành chỉ áp dụng cho sản phẩm dạng `SERIALIZED` (`tracking_type='SERIALIZED'`). Sản phẩm dạng `BULK` (cáp, vật tư tính mét/kg) không thuộc phạm vi warranty flow. Khi cần, xử lý thủ công ngoài hệ thống (đổi trả trực tiếp tại quầy, không qua warranty state machine).
 
 ### 1.1 Ánh xạ kho vật lý → Locations
 
@@ -620,20 +583,9 @@ stateDiagram-v2
     RESERVED --> SOLD : QL duyệt phiếu xuất
     RESERVED --> IN_STOCK : QL từ chối / huỷ phiếu xuất
 
-    SOLD --> RETURNED : Qua warranty_requests.resolution_type=REFUND (không trực tiếp từ return_receipts, xem SOP §7.3)
-    SOLD --> UNDER_REPAIR : Nhận bảo hành — sửa tại chỗ
-    SOLD --> DEFECTIVE : BH resolution=REPLACE
+    SOLD --> RETURNED : Qua return_receipts với resulting_action=RESTOCK (không trực tiếp — xem SOP §7.3)
     SOLD --> RETURNED_TO_SUPPLIER : export_receipts.reason=RETURN_SUPPLIER
 
-    UNDER_REPAIR --> SOLD : Sửa xong, trả khách
-    UNDER_REPAIR --> DEFECTIVE : Không sửa được
-    UNDER_REPAIR --> SENT_TO_MANUFACTURER : Gửi hãng bảo hành (RMA) — quyết định của STOCK lúc thực thi
-
-    SENT_TO_MANUFACTURER --> SOLD : Hãng trả hàng đã sửa
-    SENT_TO_MANUFACTURER --> DEFECTIVE : Hãng từ chối bảo hành
-
-    DEFECTIVE --> UNDER_REPAIR : warranty_requests.resolution_type=REPAIR
-    DEFECTIVE --> RETURNED : warranty_requests.resolution_type=REFUND
     DEFECTIVE --> RETURNED_TO_SUPPLIER : export_receipts.reason=RETURN_SUPPLIER
 
     RETURNED --> IN_STOCK : Đủ điều kiện nhập lại kho
@@ -662,17 +614,9 @@ stateDiagram-v2
 | `IN_STOCK` | `REMOVED` | Hủy phiếu nhập sau khi đã xác nhận (unit chưa từng xuất kho — xem điều kiện chi tiết bên dưới) |
 | `RESERVED` | `SOLD` | QL duyệt phiếu xuất |
 | `RESERVED` | `IN_STOCK` | QL từ chối / hủy phiếu xuất — giải phóng reserve |
-| `SOLD` | `RETURNED` | Khách trả hàng |
-| `SOLD` | `UNDER_REPAIR` | `warranty_requests.resolution_type = REPAIR` (QL duyệt ở Bước 3) |
-| `SOLD` | `DEFECTIVE` | `warranty_requests.resolution_type = REPLACE` (QL duyệt ở Bước 3) |
-| `UNDER_REPAIR` | `SOLD` | Sửa xong, trả lại khách |
-| `UNDER_REPAIR` | `DEFECTIVE` | Không sửa được |
-| `UNDER_REPAIR` | `SENT_TO_MANUFACTURER` | STOCK chọn "Đã gửi NCC" lúc thực thi (Bước 4) — xem `02-sop-nghiep-vu.md §6.3 Bước 4` |
-| `SENT_TO_MANUFACTURER` | `SOLD` | Hãng trả hàng đã sửa xong |
-| `SENT_TO_MANUFACTURER` | `DEFECTIVE` | Hãng từ chối BH |
-| `SOLD` | `RETURNED_TO_SUPPLIER` | `export_receipts.reason = 'RETURN_SUPPLIER'` — không qua warranty |
-| `DEFECTIVE` | `UNDER_REPAIR` | `warranty_requests.resolution_type = REPAIR` — nguồn từ WARRANTY_TRANSFER (return_receipt) |
-| `DEFECTIVE` | `RETURNED` | `warranty_requests.resolution_type = REFUND` — nguồn từ WARRANTY_TRANSFER (return_receipt) |
+| `SOLD` | `RETURNED` | Trả hàng |
+| `SOLD` | `RETURNED_TO_SUPPLIER` | `export_receipts.reason = 'RETURN_SUPPLIER'` |
+| `DEFECTIVE` | `RETURNED_TO_SUPPLIER` | `export_receipts.reason = 'RETURN_SUPPLIER'` |
 | `RETURNED` | `IN_STOCK` | Hàng trả đủ điều kiện nhập lại kho |
 | `RETURNED` | `DEFECTIVE` | Hàng trả bị lỗi |
 | `LOST` | `IN_STOCK` | Tìm lại được hàng đã báo mất — qua `stock_adjustments` với `type='FOUND'` |
@@ -694,25 +638,6 @@ stateDiagram-v2
 > **Quy tắc chuyển status cho `BULK`**: một `product_unit` (lot) dạng bulk giữ status `IN_STOCK` xuyên suốt kể cả khi bị xuất một phần; chỉ chuyển sang `SOLD` khi `remaining_quantity` giảm về đúng `0`. Điều này cần được Service layer đảm bảo mỗi lần trừ `remaining_quantity` trong export/adjustment (kiểm tra `remaining_quantity <= 0` sau khi trừ → set `status='SOLD'`), nếu không tồn kho `BULK` sẽ tính sai vì unit đã hết hàng nhưng vẫn còn `status='IN_STOCK'`.
 >
 > **Khi bulk unit rời `IN_STOCK` vì DAMAGED/LOST/DEFECTIVE/REMOVED:** `remaining_quantity` phải được set về `0` tại thời điểm chuyển status. Service layer cần enforce: trước khi set `status ≠ IN_STOCK` trên bulk unit, set `remaining_quantity = 0`. Nếu không, SUM tồn kho bulk sẽ sai vì vẫn cộng dồn quantity từ unit đã không còn `IN_STOCK`.
-
-### 2.1 Mapping `warranty_requests.resolution_type` → transition của `product_units`
-
-> `resolution_type` có 4 giá trị. `RMA` được hấp thụ vào `REPAIR`. `RETURN_SUPPLIER` không còn là resolution của warranty — xử lý qua export_receipt riêng.
->
-> **Nguồn xuất phát của unit (source status) khi vào warranty flow:**
-> - Luồng thường (SALES tiếp nhận warranty trực tiếp): unit đang ở `SOLD`.
-> - Luồng `WARRANTY_TRANSFER` từ return_receipt (§7.2): unit đã chuyển `SOLD → DEFECTIVE` tại thời điểm tạo warranty_request (vì hàng đã được xác nhận lỗi thật trước khi chuyển sang warranty).
->
-> Bảng dưới đây liệt kê transition cho cả 2 nguồn:
-
-| `resolution_type` | Transition — unit từ `SOLD` | Transition — unit từ `DEFECTIVE` (WARRANTY_TRANSFER) | Transition trên `replacement_unit_id` (nếu có) |
-|---|---|---|---|
-| `REPAIR` | `SOLD → UNDER_REPAIR`, sau đó tại Bước 4: `UNDER_REPAIR → SOLD` (sửa xong) hoặc `UNDER_REPAIR → SENT_TO_MANUFACTURER` (gửi NCC) | `DEFECTIVE → UNDER_REPAIR`, cùng nhánh Bước 4 như cột bên trái | — |
-| `REPLACE` | `SOLD → DEFECTIVE` (unit lỗi coi như xử lý xong, không hoàn kho) | Giữ nguyên `DEFECTIVE` (đã ở DEFECTIVE, chỉ ghi nhận) | `IN_STOCK → SOLD` (unit thay thế giao cho khách) |
-| `REFUND` | `SOLD → RETURNED` | `DEFECTIVE → RETURNED` | — |
-| `REJECT` | **Không đổi status** — giữ nguyên `SOLD` | **Không đổi status** — giữ nguyên `DEFECTIVE` | — |
-
-> Với `REPLACE`: unit thay thế được chuyển `IN_STOCK → SOLD` qua `warranty_requests`, đồng thời hệ thống **tự động tạo `export_receipt` ngầm** với `reason='INTERNAL'` và ghi chú `'warranty replacement for WR-xxx'` để đảm bảo giá vốn được ghi nhận.
 
 ### 2.2 State Machine — PurchaseOrder
 

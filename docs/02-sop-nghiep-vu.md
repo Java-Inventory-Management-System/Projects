@@ -15,8 +15,7 @@
 3. [Xuất kho](#3-xuất-kho)
 4. [Kiểm kê](#4-kiểm-kê)
 5. [Điều chỉnh tồn kho](#5-điều-chỉnh-tồn-kho)
-6. [Bảo hành](#6-bảo-hành)
-7. [Trả hàng khách](#7-trả-hàng-khách)
+6. [Trả hàng khách](#6-trả-hàng-khách)
 8. [Điều chỉnh giá nhập](#8-điều-chỉnh-giá-nhập)
 9. [Cấu trúc dữ liệu tham chiếu](#9-cấu-trúc-dữ-liệu-tham-chiếu)
 10. [Phạm vi loại trừ](#10-phạm-vi-loại-trừ)
@@ -58,7 +57,7 @@
 
 > Bảng tóm lược ở trên là bản rút gọn theo luồng nghiệp vụ. Bảng dưới đây liệt kê đầy đủ theo từng chức năng cụ thể, bao gồm cả các chức năng ngoài 7 luồng chính (quản lý user, cấu hình hệ thống, xem audit log...).
 
-> **Cập nhật:** Admin được tách thành vai trò *giám sát + quản trị hệ thống*. Ở phạm vi **setup infra** (warehouse, location, danh mục, người dùng, cấu hình), ADMIN có toàn quyền (✅). Ở phạm vi **nghiệp vụ** (nhập/xuất/kiểm kê/BH/trả hàng...), ADMIN chỉ giám sát, không khởi tạo giao dịch (❌). Các dòng có dấu `*` áp dụng ràng buộc `created_by ≠ approved_by` — người duyệt không được là người đã tạo phiếu, bất kể role.
+> **Cập nhật:** Admin được tách thành vai trò *giám sát + quản trị hệ thống*. Ở phạm vi **setup infra** (warehouse, location, danh mục, người dùng, cấu hình), ADMIN có toàn quyền (✅). Ở phạm vi **nghiệp vụ** (nhập/xuất/kiểm kê/trả hàng...), ADMIN chỉ giám sát, không khởi tạo giao dịch (❌). Các dòng có dấu `*` áp dụng ràng buộc `created_by ≠ approved_by` — người duyệt không được là người đã tạo phiếu, bất kể role.
 
 | Chức năng | ADMIN | MANAGER | STOCK | SALES |
 |-----------|-------|---------|-------|-------|
@@ -82,8 +81,6 @@
 | Duyệt kiểm kê lệch * | ✅ (escalation) | ✅ * | ❌ | ❌ |
 | Tạo phiếu điều chỉnh tồn thủ công | ❌ | ✅ | ✅ (cần duyệt) | ❌ |
 | Duyệt phiếu điều chỉnh tồn thủ công * | ✅ (escalation) | ✅ * | ❌ | ❌ |
-| Tra cứu bảo hành | ✅ | ✅ | ✅ | ✅ |
-| Xử lý bảo hành (đổi/sửa/từ chối) | ❌ | ✅ | ✅ (tiếp nhận, kiểm tra) | ✅ (tiếp nhận) |
 | Dashboard & Báo cáo | ✅ (chỉ xem) | ✅ | ❌ | ❌ |
 | Tạo phiếu trả hàng | ❌ | ❌ | ❌ | ✅ |
 | Duyệt phiếu trả hàng * | ✅ (escalation) | ✅ * | ❌ | ❌ |
@@ -348,9 +345,6 @@ SALES/STOCK tạo phiếu xuất (reason + items)
 > - Duyệt: trừ `remaining_quantity` đi số lượng xuất, đồng thời trừ `reserved_quantity` tương ứng của giao dịch này. Cả 2 câu UPDATE nên nằm trong cùng 1 atomic SQL (tương tự Bước 3) để tránh race. Sau khi trừ, nếu `remaining_quantity <= 0` → chuyển status từ `IN_STOCK` → `SOLD` (hoặc `RETURNED_TO_SUPPLIER`/`DISPOSED`). Điều kiện chuyển status **không** phụ thuộc vào `reserved_quantity` còn lại của các phiếu khác đang chờ duyệt trên cùng lot.
 > - Từ chối: chỉ trừ `reserved_quantity` (hoàn trả lại tồn khả dụng), không đụng `remaining_quantity` và không đổi status.
 >
-> **Ngoại lệ — Warranty cho đổi hàng bảo hành (REPLACE):**
-> Nếu `reason=INTERNAL` và phiếu phát sinh từ `resolution=REPLACE` (mục 6 — đổi hàng bảo hành), vẫn phải gán `warranty_start_date` / `warranty_expires_at`, nhưng **kế thừa từ unit gốc** (không set = now). Mục đích: giữ nguyên hạn BH của khách, không reset khi đổi serial thay thế.
-
 > ⚠ **Check status trước khi approve**: Nếu unit đã chuyển sang `DAMAGED_IN_STORAGE`/`LOST`/`UNDER_REPAIR` (với SALE/INTERNAL) hoặc không còn `DAMAGED_IN_STORAGE` (với DISPOSE) giữa lúc create→approve → **chặn**, báo lỗi "Unit không còn khả dụng", không tự động set SOLD / DISPOSED ghi đè.
 
 #### Bước 5: Thực hiện xuất hàng vật lý — STOCK
@@ -383,7 +377,7 @@ STOCK phát hiện thiếu (cần A, chỉ có B)
 #### 3.4.2 Hủy phiếu xuất đã COMPLETED (hủy muộn)
 
 - **Điều kiện**: Chỉ hủy được nếu đơn vị hàng (unit) chưa đi tiếp quá trạng thái `SOLD`:
-  - Serialized: chưa chuyển sang `UNDER_REPAIR` / `SENT_TO_MANUFACTURER` / `RETURNED` / `RETURNED_TO_SUPPLIER` / `DISPOSED`.
+  - Serialized: chưa chuyển sang `RETURNED` / `RETURNED_TO_SUPPLIER` / `DISPOSED`.
   - Bulk: `remaining_quantity` đang bằng số lượng đã xuất (có thể cộng lại).
 - Nếu unit đã qua các trạng thái trên → **chặn**, báo lỗi "Unit đã qua xử lý tiếp theo, không thể revert".
 - **Với serialized:**
@@ -574,80 +568,6 @@ PENDING → APPROVED (terminal, áp dụng thay đổi)
 
 ---
 
-## 6. Bảo hành
-
-### 6.1 Flow tổng quát
-
-```
-Khách báo lỗi → SALES/STOCK tạo warranty_request
-  → STOCK nhận hàng + kiểm tra (xác nhận lỗi / từ chối)
-  → QL duyệt resolution (REPAIR / REPLACE / REFUND / REJECT)
-  → Thực thi resolution
-```
-
-### 6.2 Chính sách bảo hành
-
-- **Bảo hành kích hoạt lúc xuất/bán**: `warranty_start_date = ngày duyệt phiếu xuất (reason=sale)`, không phải lúc nhập kho.
-- **Kế thừa hạn BH khi đổi serial thay thế**: giữ nguyên `warranty_start_date` gốc, không reset.
-- **Warranty khi unit trả về rồi bán lại lần 2**:
-  - Khi `return_receipt` approved với `resulting_action=RESTOCK` → set `is_warranty_active=false` (giữ nguyên giá trị cũ để audit).
-  - Khi bán lại (export mới) → set lại `warranty_start_date` mới.
-
-### 6.3 Các bước chi tiết
-
-#### Bước 1: Tiếp nhận — SALES/STOCK
-
-- Khách mang hàng + hoá đơn (hoặc tra cứu theo serial/đơn xuất).
-- Check: serial có trong hệ thống? `status=SOLD`? Còn hạn BH (`warranty_expires_at > now`)?
-- SALES kiểm tra cả `serial_number` (ghi trên chip/board) **và tem bảo hành** (`warranty_seal_code`, dán ngoài vỏ hộp):
-  - Nếu có `warranty_seal_code` trong hệ thống → xác nhận mua tại shop, đủ điều kiện đổi mới nhanh (REPLACE).
-  - Nếu không có trong hệ thống (shop không dùng tem riêng, hoặc tem ngoài hệ thống khác) → bỏ qua bước này.
-- **Mất/rách tem bảo hành**: xử lý theo hướng (a) — mất tem vẫn tra cứu được bằng serial, chỉ mất quyền đổi mới nhanh (REPLACE) tại shop, chuyển sang REPAIR/SENT_TO_MANUFACTURER.
-- Nếu hết BH → từ chối tiếp nhận, hướng dẫn khách.
-
-#### Bước 2: Nhận hàng + kiểm tra — STOCK
-
-- STOCK nhận hàng từ khách, kiểm tra ngoại quan.
-- Nhập kết quả kiểm tra:
-  - `check_result`: CONFIRMED / REJECTED (không lỗi, không BH)
-  - `check_note`
-- **CONFIRMED**: unit GIỮ NGUYÊN trạng thái hiện tại (`SOLD`, hoặc `DEFECTIVE` nếu đến từ WARRANTY_TRANSFER của return_receipt §7.2). Chưa chuyển transition — chờ QL chọn resolution ở Bước 3.
-- Nếu kết quả `REJECTED`: auto-resolve thẳng (không cần QL duyệt lần 2), bắt buộc `check_note` chi tiết (validate chặn submit nếu để trống). Phiếu chuyển `RESOLVED` với `resolution_type=REJECT` — ghi `ProductUnitStatusLog` ghi nhận REJECTED (không đổi status unit).
-
-#### Bước 3: Đề xuất resolution + duyệt — QL
-
-| Resolution | Mô tả | Transition unit gốc | Hậu quả |
-|------------|-------|---------------------|---------|
-| `REPAIR` | Sửa tại kho (hoặc gửi NCC) | `SOLD → UNDER_REPAIR` (hoặc `DEFECTIVE → UNDER_REPAIR` nếu từ WARRANTY_TRANSFER) | Unit giữ `UNDER_REPAIR`, khi xong → `SOLD`. Nếu gửi NCC: → `SENT_TO_MANUFACTURER` |
-| `REPLACE` | Đổi serial mới | `SOLD → DEFECTIVE` (hoặc `DEFECTIVE → DEFECTIVE` nếu từ WARRANTY_TRANSFER — unit đã ở DEFECTIVE, giữ nguyên, chỉ ghi nhận) | Tạo export `reason=internal`, `sell_price=0`. Unit mới → `SOLD`. **Kế thừa `warranty_start_date` gốc** |
-| `REFUND` | Hoàn tiền | `SOLD → RETURNED` (hoặc `DEFECTIVE → RETURNED` nếu từ WARRANTY_TRANSFER) | Unit → `RETURNED`. ExportReceipt có `refund_amount`. Liên quan `return_receipts` |
-| `REJECT` | Từ chối BH | **Không đổi** — unit giữ nguyên trạng thái | Trả về khách. Ghi rõ lý do |
-
-#### Bước 4: Thực thi — STOCK
-
-- REPAIR: transition `SOLD → UNDER_REPAIR` (hoặc `DEFECTIVE → UNDER_REPAIR`) đã xảy ra ở Bước 3 khi QL duyệt resolution. Ở Bước 4 STOCK thực thi 1 trong 2 hướng: (a) sửa xong tại kho → chuyển `UNDER_REPAIR → SOLD`; (b) không tự sửa được, gửi hãng bảo hành → chuyển `UNDER_REPAIR → SENT_TO_MANUFACTURER` (lưu `rma_number`, `sent_to_partner_at`, khớp `06-ux-design.md §2.3` panel REPAIR).
-  > Unit REPAIR thuộc sở hữu khách hàng (đã bán), sửa xong trả lại khách — không quay về tồn kho. `UNDER_REPAIR` không tính vào tồn khả dụng. `SENT_TO_MANUFACTURER` cũng không tính vào tồn khả dụng (hàng đã gửi đi). Xác nhận nhất quán với `01-domain-model.md` §2.1 state machine.
-- REPLACE: lấy unit mới từ kho → xuất `internal` với `sell_price=0`, `warranty_start_date` kế thừa.
-- REFUND: unit → `RETURNED`. Khách nhận tiền.
-
-**Edge case — Chuỗi đổi BH lặp:**
-Cảnh báo (không chặn) nếu 1 serial gốc đã qua >2 lần đổi. **Đã chốt:** giữ cảnh báo, không chặn cứng.
-
-**Edge case — Hãng làm mất/hư hàng lúc vận chuyển RMA:**
-Ghi nhận trên `warranty_request`, chuyển `product_unit.status → LOST`. Cửa hàng chịu trách nhiệm đền cho khách (chính sách nội bộ, không phải lỗi hệ thống).
-
-**Edge case — Hãng trả RMA nhưng lỗi cũ vẫn còn:**
-Chấp nhận unit vẫn lỗi hoặc gửi lại lần 2 (re-RMA). Ghi chú rõ số lần gửi trên `warranty_request` để tránh vòng lặp gửi-nhận không kiểm soát.
-
-**Edge case — REPLACE hết serial tồn kho:**
-SLA: 7 ngày làm việc kể từ ngày QL duyệt resolution=REPLACE. Quá hạn → cảnh báo QL trên dashboard, không tự huỷ. QL có nút "Chuyển sang REFUND" để đổi hướng xử lý — STOCK chỉ thực thi sau khi QL đã bấm chuyển hướng. Config: số ngày SLA lưu trong `system_settings` key `warranty_replace_sla_days`.
-
-### 6.4 Sơ đồ trạng thái WarrantyRequest
-
-```
-PENDING → RECEIVED → UNDER_EVALUATION → RESOLVED (terminal: REPAIRED / REPLACED / REFUNDED / REJECTED)
-```
-
 ---
 
 ## 7. Trả hàng khách
@@ -671,11 +591,8 @@ Khách muốn trả hàng (đổi ý / lỗi / sai hàng)
 | Reason | Mô tả | Điều kiện |
 |--------|-------|-----------|
 | `CHANGE_MIND` | Khách đổi ý, không lỗi | Trong vòng 7 ngày kể từ `export_receipt.approved_at` |
-| `DEFECTIVE` | Hàng lỗi kỹ thuật | Còn hạn BH (warranty) |
+| `DEFECTIVE` | Hàng lỗi kỹ thuật | Không giới hạn thời gian |
 | `WRONG_ITEM` | Giao sai hàng | Không giới hạn thời gian |
-
-> **Case đặc thù ngành linh kiện — Test-and-return abuse:**
-> Khách mua CPU/GPU về ép xung/test rồi đòi trả vì "không như kỳ vọng" — **không phải warranty** (không lỗi kỹ thuật) và **không phải DOA** (đã dùng, không phải lỗi lúc nhận hàng). Đây là nhánh cần tách khỏi cả `warranty_requests` lẫn case DOA — xử lý theo đúng flow `CHANGE_MIND` ở mục này, với policy 7 ngày (đã chốt).
 
 - Link `original_export_receipt_id` (bắt buộc).
 - Trạng thái: `PENDING_APPROVAL`.
@@ -686,32 +603,21 @@ Khách muốn trả hàng (đổi ý / lỗi / sai hàng)
 | Condition | Mô tả | Hậu quả |
 |-----------|-------|----------|
 | `GOOD` | Hàng còn nguyên vẹn | → `RESTOCK`: unit → `IN_STOCK`. Nếu đã có `is_warranty_active=true` → set `false`. |
-| `DEFECTIVE` | Hàng có lỗi | → `SCRAP`: unit → `DISPOSED`. Hoặc `WARRANTY_TRANSFER` (**chỉ áp dụng cho serialized** — nếu `product_unit.tracking_type = 'bulk'` thì reject 400): hệ thống tự tạo 1 `warranty_request` mới, khởi tạo thẳng ở state `RECEIVED` (bỏ qua `PENDING`). Unit chuyển `SOLD → DEFECTIVE` tại thời điểm này (vì hàng đã được xác nhận lỗi thật). `check_result` copy từ kết quả kiểm tra condition (`DEFECTIVE` → `CONFIRMED`). Từ đây warranty_request đi tiếp theo SOP §6 từ bước 3 (QL duyệt resolution). **Lưu ý transition**: vì unit đã ở `DEFECTIVE`, resolution REPAIR sẽ chuyển `DEFECTIVE → UNDER_REPAIR`; REPLACE giữ nguyên `DEFECTIVE` (ghi nhận đã xử lý); REFUND chuyển `DEFECTIVE → RETURNED`. REJECT giữ nguyên `DEFECTIVE`. |
+| `DEFECTIVE` | Hàng có lỗi | → `SCRAP`: unit → `DISPOSED`. |
 
 #### Bước 3: Duyệt — QL (khác người tạo)
 
 | Hành động | Tác động |
 |-----------|----------|
-| Duyệt | Áp dụng `resulting_action` (RESTOCK / SCRAP / WARRANTY_TRANSFER). Tạo `ProductUnitStatusLog`. |
+| Duyệt | Áp dụng `resulting_action` (RESTOCK / SCRAP). Tạo `ProductUnitStatusLog`. |
 | Từ chối | `CANCELLED`. Unit giữ nguyên `SOLD`. |
 
 ### 7.3 State machine ProductUnit (liên quan trả hàng)
 
-> **Xác nhận:** KHÔNG có transition `SOLD → RETURNED` trực tiếp từ `return_receipts`. Transition `SOLD → RETURNED` chỉ xảy ra thông qua warranty flow với resolution=REFUND (xem §6.3 Bước 3).
-
 ```
 SOLD → IN_STOCK      (condition=GOOD → RESTOCK)
 SOLD → DISPOSED      (condition=DEFECTIVE → SCRAP)
-SOLD → DEFECTIVE     (condition=DEFECTIVE → WARRANTY_TRANSFER — khởi tạo warranty_request với unit ở DEFECTIVE, chỉ serialized)
 ```
-
-**Transition từ `DEFECTIVE` khi warranty_request đi tiếp (SOP §6.3 Bước 3):**
-| Resolution | Transition |
-|------------|-----------|
-| REPAIR | `DEFECTIVE → UNDER_REPAIR` |
-| REPLACE | Giữ `DEFECTIVE` (ghi nhận xử lý) |
-| REFUND | `DEFECTIVE → RETURNED` |
-| REJECT | Giữ `DEFECTIVE` |
 
 ---
 
@@ -871,9 +777,6 @@ Các mục sau **không thuộc phạm vi SOP này**:
 | `/stock/adjustments` | StockAdjustmentListPage | Danh sách điều chỉnh |
 | `/stock/adjustments/new` | StockAdjustmentCreatePage | Tạo điều chỉnh |
 | `/stock/adjustments/:id` | StockAdjustmentDetailPage | Chi tiết điều chỉnh |
-| `/warranty` | WarrantyListPage | Danh sách yêu cầu BH, filter theo status (PENDING / RECEIVED / UNDER_EVALUATION / RESOLVED) |
-| `/warranty/new` | WarrantyCreatePage | Tiếp nhận yêu cầu BH (SALES/STOCK), tra cứu serial + tem bảo hành |
-| `/warranty/:id` | WarrantyDetailPage | Chi tiết: STOCK nhập kết quả kiểm tra, QL duyệt resolution, STOCK thực thi |
 | `/returns` | ReturnListPage | Danh sách phiếu trả hàng |
 | `/returns/new` | ReturnCreatePage | SALES tạo, link export gốc bắt buộc |
 | `/returns/:id` | ReturnDetailPage | STOCK kiểm tra condition, QL duyệt |

@@ -52,7 +52,6 @@ services:
       CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
       CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
       CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}
-      UPLOAD_PATH: ${UPLOAD_PATH:-./uploads}
     healthcheck:
       test: ['CMD', 'curl', '-f', 'http://localhost:8888/actuator/health']
       interval: 30s
@@ -73,7 +72,7 @@ services:
       context: ./frontend
       args:
         VITE_BASE_API_URL: http://localhost:8888/api/v1
-        VITE_SKIP_AUTH: "true"
+        VITE_SKIP_AUTH: ${VITE_SKIP_AUTH:-true}
     ports:
       - '5173:80'
     networks:

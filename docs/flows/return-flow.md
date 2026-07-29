@@ -17,7 +17,7 @@
 | Method | Logic |
 |--------|-------|
 | `create` | Gen code, link to original export, save receipt + items with condition + resulting action |
-| `approve` | For each item: `GOOD→RESTOCK` → unit `SOLD→IN_STOCK`; `DEFECTIVE→SCRAP` → `SOLD→DISPOSED`; `DEFECTIVE→WARRANTY_TRANSFER` → `SOLD→DEFECTIVE`. Enforce 4-eyes |
+| `approve` | For each item: `GOOD→RESTOCK` → unit `SOLD→IN_STOCK`; `DEFECTIVE→SCRAP` → `SOLD→DISPOSED`. Enforce 4-eyes |
 | `cancel` | Set `CANCELLED` |
 
 ### State Machine
@@ -31,7 +31,6 @@ flowchart LR
     subgraph "ProductUnit"
         SOLD -->|GOOD → RESTOCK| IN_STOCK
         SOLD -->|DEFECTIVE → SCRAP| DISPOSED
-        SOLD -->|DEFECTIVE → WARRANTY_TRANSFER| DEFECTIVE
     end
 ```
 
@@ -57,8 +56,6 @@ sequenceDiagram
             S->>DB: UPDATE unit → IN_STOCK
         else DEFECTIVE → SCRAP
             S->>DB: UPDATE unit → DISPOSED
-        else DEFECTIVE → WARRANTY_TRANSFER
-            S->>DB: UPDATE unit → DEFECTIVE
         end
     end
     S->>DB: INSERT status_logs
@@ -114,7 +111,7 @@ flowchart LR
         RC[ReturnCreatePage]
         RC --- EXP[Select export receipt]
         RC --- COND[Condition: GOOD / DEFECTIVE]
-        COND --- ACT[Action: RESTOCK / SCRAP / WARRANTY_TRANSFER]
+        COND --- ACT[Action: RESTOCK / SCRAP]
     end
     subgraph "/returns/:id"
         RD[ReturnDetailPage] --- AP[ApprovalDialog]

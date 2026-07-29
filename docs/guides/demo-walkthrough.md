@@ -13,7 +13,7 @@ Tất cả mật khẩu: **admin123**
 |----------|---------|-------------|
 | admin | ADMIN | Quản trị hệ thống, duyệt thay QL, xem audit/báo cáo |
 | manager | MANAGER | Duyệt/từ chối phiếu, quản lý danh mục |
-| sales | SALES | Tạo phiếu xuất, trả hàng, bảo hành |
+| sales | SALES | Tạo phiếu xuất, trả hàng |
 | stock | STOCK | Tạo phiếu nhập, kiểm kê, điều chỉnh tồn |
 
 ---
@@ -205,7 +205,7 @@ INIT-000001: Intel Vietnam, 32 items, COMPLETED.
 
 ## 9. Trả hàng (Return Receipt)
 
-**Lifecycle:** PENDING_APPROVAL → (approve) → COMPLETED → RESTOCK/SCRAP/WARRANTY_TRANSFER
+**Lifecycle:** PENDING_APPROVAL → (approve) → COMPLETED → RESTOCK/SCRAP
 **Vai trò:** SALES tạo. MANAGER approve/cancel.
 
 ### Dữ liệu seed
@@ -225,7 +225,7 @@ INIT-000001: Intel Vietnam, 32 items, COMPLETED.
 - Chọn items từ export gốc, nhập condition (GOOD/DEFECTIVE)
 - Chọn resulting action:
   - GOOD → RESTOCK
-  - DEFECTIVE → SCRAP hoặc WARRANTY_TRANSFER (nếu serialized)
+  - DEFECTIVE → SCRAP
 - Submit → PENDING_APPROVAL
 
 **Bước 2 (approve → COMPLETED):**
@@ -234,7 +234,6 @@ INIT-000001: Intel Vietnam, 32 items, COMPLETED.
 - ProductUnit chuyển trạng thái theo resulting_action:
   - RESTOCK → IN_STOCK
   - SCRAP → DISPOSED
-  - WARRANTY_TRANSFER → WARRANTY
 
 > **Luồng đầy đủ:** sales tạo (chọn export + items + condition) → manager duyệt → unit cập nhật trạng thái
 
@@ -359,54 +358,7 @@ Không có PO seed.
 
 ---
 
-## 14. Bảo hành (Warranty)
-
-**Lifecycle:** PENDING → RECEIVED → UNDER_EVALUATION → RESOLVED → (execute) → COMPLETED
-**Vai trò:** SALES/STOCK tạo. MANAGER evaluate/execute.
-
-### Dữ liệu seed
-
-| Mã phiếu | Serial | Trạng thái | Mô tả |
-|----------|--------|-----------|-------|
-| WR-000001 | INIT-1-001 | PENDING | CPU không lên nguồn |
-| WR-000002 | INIT-1-002 | PENDING + REPAIR | SSD không nhận diện |
-| WR-000003 | INIT-1-003 | COMPLETED | CPU quá nhiệt — đã thay keo |
-
-### Tái hiện từ đầu
-
-**Bước 1 (tạo PENDING):**
-- Cần có: ProductUnit SOLD (đã xuất bán, còn hạn BH)
-- Login as sales → /warranty/new
-- Giai đoạn A — Tra cứu: nhập serial → lookup (hiện thông tin SP, khách, hạn BH)
-- Giai đoạn B — Nhập lỗi: mô tả lỗi (*), upload ảnh/video
-- "Tiếp nhận" → Submit → PENDING
-
-**Bước 2 (STOCK xác nhận đã nhận hàng → RECEIVED):**
-- Login as stock → /warranty → tab "Chờ xử lý"
-- Click phiếu → nút "Xác nhận đã nhận hàng" → RECEIVED
-
-**Bước 3 (STOCK check → UNDER_EVALUATION):**
-- Form kiểm tra: CONFIRMED (OK) / REJECTED (trả về)
-- CONFIRMED → UNDER_EVALUATION (chờ QL đánh giá)
-
-**Bước 4 (MANAGER evaluate → RESOLVED):**
-- Login as manager → /warranty/:id
-- 5 card xử lý: Đổi mới (REPLACE) | Gửi NCC/RMA | Sửa chữa (REPAIR) | Từ chối (REJECT) | Trả NCC
-- Click card → dialog Resolve → nhập thông tin → RESOLVED
-
-**Bước 5 (STOCK execute → COMPLETED):**
-- Login as stock → /warranty/:id (RESOLVED)
-- Panel động theo resolution:
-  - REPAIR: "Sửa xong" → chọn kết quả → COMPLETED
-  - REPLACE: chọn serial thay thế → COMPLETED
-  - REFUND: nhập số tiền → COMPLETED
-- "Xác nhận kết quả" → dialog → COMPLETED
-
-> **Luồng đầy đủ:** sales tạo (tra cứu serial + nhập lỗi) → stock nhận hàng → stock check → manager evaluate → stock execute → COMPLETED
-
----
-
-## 15. Kho hàng (Stock Units)
+## 14. Kho hàng (Stock Units)
 
 **Route:** /stock/units (gồm 3-4 tab)
 **Vai trò:** CAN_OPERATE
@@ -519,7 +471,6 @@ Audit log tự động ghi khi có thao tác — không cần tạo thủ công.
 docker compose logs backend --tail=50
 
 # Kiểm tra route thực tế (các controller dùng /api/v1 prefix tự động)
-# Warranty: /api/v1/warranty-request (singular)
 # Return: /api/v1/return-receipts (plural)
 # Còn lại: /api/v1/stock-check, /stock-adjustment, /price-adjustment, /import-receipt, /export-receipt (singular)
 `

@@ -34,7 +34,6 @@
 | Exports | `/stock/exports` |
 | Stock Checks | `/stock/checks` |
 | Adjustments | `/stock/adjustments` |
-| Warranty | `/warranty` |
 | Returns | `/returns` |
 | Price Adj. | `/stock/price-adjustments` |
 | Users | `/users` |
@@ -46,7 +45,7 @@
 |-----------|----|
 | Xem Dashboard, Reports, Audit | `CAN_VIEW_REPORTS` |
 | Xem catalog (Products, Brands, Categories, Suppliers) | `CAN_VIEW_INVENTORY` |
-| Xem tất cả stock ops (imports, exports, checks, adjustments, price adj, warranty, returns) | mix of `CAN_VIEW_INVENTORY` + `CAN_OPERATE` |
+| Xem tất cả stock ops (imports, exports, checks, adjustments, price adj, returns) | mix of `CAN_VIEW_INVENTORY` + `CAN_OPERATE` |
 | Approve/Reject tất cả phiếu (import, export, stock check, adjustment, price adj) | `CAN_APPROVE` |
 | CRUD Users + đổi role/status | `CAN_MANAGE_SYSTEM` |
 | Reset password user khác | `CAN_UPDATE_USER` |
@@ -64,9 +63,8 @@
 | CRUD catalog (product, brand, category, supplier) | `CAN_MANAGE_CATALOG` |
 | Tạo/update/delete location | `ROLE_MANAGER` |
 | ~~Update/delete customer~~ | Đã chuyển lên "Có thể làm" — ADMIN full CRUD customer |
-| Resolve/complete/cancel warranty | `ROLE_MANAGER` |
 | Purchase Order (view/create/cancel) | `ROLE_MANAGER` |
-| Tạo export, warranty, return | `CAN_OPERATE` (FE guard matches) |
+| Tạo export, return | `CAN_OPERATE` (FE guard matches) |
 
 ---
 
@@ -89,8 +87,6 @@ Giống ADMIN, thêm **Purchase Orders** (`/stock/purchase-orders`).
 | Hành động | Guard |
 |-----------|-------|
 | Purchase Order (CRUD + cancel) | `ROLE_MANAGER` |
-| Resolve/complete/cancel warranty request | `ROLE_MANAGER` |
-| Xem warranty do mình xử lý | `ROLE_MANAGER` |
 | CRUD Location (create, update, toggle) | `ROLE_MANAGER` |
 | Update + toggle customer | `ROLE_MANAGER` |
 | CRUD catalog (product, brand, category, supplier, product image) | `CAN_MANAGE_CATALOG` |
@@ -116,7 +112,6 @@ Giống ADMIN, thêm **Purchase Orders** (`/stock/purchase-orders`).
 | Exports | `/stock/exports` |
 | Stock Checks | `/stock/checks` |
 | Adjustments | `/stock/adjustments` |
-| Warranty | `/warranty` |
 | Returns | `/returns` |
 | Price Adj. | `/stock/price-adjustments` |
 
@@ -132,7 +127,6 @@ Giống ADMIN, thêm **Purchase Orders** (`/stock/purchase-orders`).
 | **Điều chỉnh kho** | Tạo stock adjustment (PENDING) |
 | **Điều chỉnh giá** | Tạo price adjustment (PENDING) |
 | **Upload** | Upload file (image) |
-| **Bảo hành** | Tạo warranty request (PENDING) |
 | **Trả hàng** | Tạo return receipt (PENDING_APPROVAL) |
 | **Khách hàng** | Xem + tạo customer |
 | **Xem** | Catalog (products, brands, categories, suppliers), inventory, các danh sách phiếu |
@@ -145,7 +139,6 @@ Giống ADMIN, thêm **Purchase Orders** (`/stock/purchase-orders`).
 | CRUD catalog (product, brand, category, supplier) | `CAN_MANAGE_CATALOG` |
 | Purchase Order | `ROLE_MANAGER` |
 | Location CRUD | `ROLE_MANAGER` |
-| Resolve/complete/cancel warranty | `ROLE_MANAGER` |
 | Update/delete customer | `ROLE_MANAGER` |
 | Xem Dashboard, Reports, Audit | `CAN_VIEW_REPORTS` |
 | Quản lý user | `CAN_MANAGE_SYSTEM` |
@@ -163,7 +156,6 @@ Giống ADMIN, thêm **Purchase Orders** (`/stock/purchase-orders`).
 | Customers | `/customers` |
 | Inventory | `/stock/units` |
 | Exports | `/stock/exports` |
-| Warranty | `/warranty` |
 | Returns | `/returns` |
 
 (Không thấy Dashboard, Products, Brands, Categories, Suppliers, Imports, Checks, Adjustments, Price Adj, Users, Audit, Purchase Orders)
@@ -173,10 +165,9 @@ Giống ADMIN, thêm **Purchase Orders** (`/stock/purchase-orders`).
 | Nhóm | Hành động |
 |------|-----------|
 | **Xuất kho** | Tạo phiếu xuất (PENDING_APPROVAL) — chỉ reason = SALE |
-| **Bảo hành** | Lookup serial, tạo warranty request (PENDING) |
 | **Trả hàng** | Tạo return receipt (PENDING_APPROVAL) |
 | **Khách hàng** | Xem + tạo customer |
-| **Xem** | Inventory (product units), danh sách phiếu xuất/bảo hành/trả hàng |
+| **Xem** | Inventory (product units), danh sách phiếu xuất/trả hàng |
 
 ### Không thể làm
 
@@ -188,7 +179,6 @@ Giống ADMIN, thêm **Purchase Orders** (`/stock/purchase-orders`).
 | Xem catalog (Products, Brands, Categories, Suppliers) | `CAN_VIEW_INVENTORY` |
 | Purchase Order | `ROLE_MANAGER` |
 | Location CRUD | `ROLE_MANAGER` |
-| Resolve/complete/cancel warranty | `ROLE_MANAGER` |
 | Update/delete customer | `ROLE_MANAGER` |
 | CRUD catalog | `CAN_MANAGE_CATALOG` |
 | Quản lý user | `CAN_MANAGE_SYSTEM` |
@@ -238,16 +228,6 @@ MANAGER/ADMIN: /stock/adjustments/:id → approve (APPROVED)
 STOCK:  /stock/price-adjustments/new → create (PENDING)
 MANAGER/ADMIN: /stock/price-adjustments/:id → approve (APPROVED)
                                          → reject (REJECTED)
-```
-
-### Warranty → Resolve → Complete
-
-```
-STOCK/SALES: /warranty/lookup?serialNumber= → lookup
-STOCK/SALES: /warranty/new → create (PENDING)
-MANAGER:     /warranty/:id → resolve (chọn REPLACE/RMA/REPAIR/REJECT/RETURN_SUPPLIER)
-MANAGER:     /warranty/:id → complete (ghi kết quả REPAIRED/DEFECTIVE/LOST)
-                          → cancel (CANCELLED)
 ```
 
 ### Return → Approve

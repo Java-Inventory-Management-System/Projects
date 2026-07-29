@@ -12,7 +12,7 @@
 | `ADMIN` | Full system access. Quản lý user, audit, system. |
 | `MANAGER` | Quản lý kho/phòng ban. Approve/reject phiếu, CRUD catalog, reports. |
 | `STOCK` | Thao tác nghiệp vụ kho (nhập, kiểm kê, điều chỉnh giá). |
-| `SALES` | Bán hàng (xuất kho, bảo hành, trả hàng, khách hàng). |
+| `SALES` | Bán hàng (xuất kho, trả hàng, khách hàng). |
 
 **Authorization constants** (`AuthorizationExpressions.java`):
 
@@ -206,14 +206,17 @@ DRAFT → PENDING_APPROVAL → COMPLETED
 | `/export-receipt` | GET | `CAN_OPERATE` | List (paged, filter by status) |
 | `/export-receipt/{id}` | GET | `CAN_OPERATE` | Get one |
 | `/export-receipt` | POST | `CAN_OPERATE` | Create (status = PENDING_APPROVAL) |
-| `/export-receipt/{id}/approve` | PUT | `CAN_APPROVE` | Approve (→ COMPLETED) |
-| `/export-receipt/{id}/cancel` | PUT | `CAN_APPROVE` | Cancel |
+| `/export-receipt/{id}/approve` | PUT | `CAN_APPROVE` | Approve (→ APPROVED) |
+| `/export-receipt/{id}/reject` | PUT | `CAN_APPROVE` | Reject (→ CANCELLED, ghi `rejectedBy`/`rejectedAt`/`rejectReason`) |
+| `/export-receipt/{id}/fulfill` | PUT | `CAN_OPERATE` | Fulfill (→ COMPLETED, validate serials, calc COGS, ghi `fulfilledBy`/`fulfilledAt`) |
+| `/export-receipt/{id}/cancel` | PUT | `CAN_APPROVE` | Cancel (→ CANCELLED) |
+| `/export-receipt/{id}/units` | GET | `CAN_OPERATE` | List units in receipt (optional filter `productId`) |
 
 **Service:** `ExportReceiptService.java`
 
 **Status machine:**
 ```
-PENDING_APPROVAL → COMPLETED
+PENDING_APPROVAL → APPROVED → COMPLETED
                 ↘ CANCELLED
 ```
 
@@ -237,18 +240,24 @@ PENDING_APPROVAL → COMPLETED
   - Commit ngay → release lock.
   - Các FIFO query sau tự động bỏ qua: serialized filter `status NOT IN ('RESERVED')`, bulk filter `(remaining_quantity - reserved_quantity) > 0`.
 
-- `approve()` → PENDING_APPROVAL → COMPLETED. **4-eyes** (`created_by ≠ approved_by`).
+- `approve()` → PENDING_APPROVAL → APPROVED. **4-eyes** (`created_by ≠ approved_by`).
 
   | Reason | Unit transition | Ghi chú |
   |--------|----------------|---------|
   | `SALE` | `RESERVED → SOLD` | Set `warranty_start_date = now`, `warranty_expires_at = now + warranty_months` |
-  | `INTERNAL` | `RESERVED → SOLD` | Nếu từ warranty REPLACE → kế thừa `warranty_start_date` gốc (không set now) |
+  | `INTERNAL` | `RESERVED → SOLD` | Giữ nguyên `warranty_start_date` (không set now) |
   | `RETURN_SUPPLIER` | `RESERVED → RETURNED_TO_SUPPLIER` (terminal). Set `supplier_status = SENT` | Có thể gợi ý `source_import_receipt_id` từ unit |
   | `DISPOSE` | `RESERVED → DISPOSED`. **Chặn nếu unit đang IN_STOCK** (phải qua DAMAGED_IN_STORAGE trước) | |
 
   - **Check status trước approve**: nếu unit đã chuyển sang state khác giữa lúc create→approve → chặn, báo "Unit không còn khả dụng".
   - **Bulk**: trừ `remaining_quantity` + `reserved_quantity` (atomic). Nếu `remaining_quantity <= 0` → set `IN_STOCK → SOLD` (hoặc tương ứng theo reason).
   - Log `ProductUnitStatusLog` với source = `EXPORT_RECEIPT`.
+
+- `reject(id, RejectExportRequest)` → PENDING_APPROVAL → CANCELLED. Populate `rejectedBy`, `rejectedAt`, `rejectReason`. Unit → `IN_STOCK` (giải phóng reserve).
+
+- `fulfill(id, FulfillExportRequest)` → APPROVED → COMPLETED. Validate serials cho serialized, decrement remaining qty cho bulk. Set unit status theo reason (SOLD/DISPOSED/RETURNED_TO_SUPPLIER). Calc COGS, set `fulfilledBy`/`fulfilledAt`/`totalCogs`.
+
+- `getUnitsByReceipt(id, productId?)` → trả về danh sách units đã xuất trong phiếu, optional filter theo product.
 
 - `cancel()` → PENDING_APPROVAL → CANCELLED. Unit → `IN_STOCK` (giải phóng reserve). Chỉ cancel được PENDING_APPROVAL hoặc `exception`.
 
@@ -298,7 +307,7 @@ PENDING_APPROVAL → COMPLETED (áp dụng resulting_action)
   | Reason | Mô tả | Điều kiện |
   |--------|-------|-----------|
   | `CHANGE_MIND` | Khách đổi ý, không lỗi | Trong vòng 7 ngày từ `export_receipt.approved_at` (BE validate — FE chỉ hiển thị) |
-  | `DEFECTIVE` | Hàng lỗi kỹ thuật | Còn hạn BH |
+  | `DEFECTIVE` | Hàng lỗi kỹ thuật | — |
   | `WRONG_ITEM` | Giao sai hàng | Không giới hạn |
 
   Trạng thái khởi tạo: `PENDING_APPROVAL`.
@@ -309,9 +318,6 @@ PENDING_APPROVAL → COMPLETED (áp dụng resulting_action)
   |-----------|-----------------|----------------|---------|
   | `GOOD` | `RESTOCK` | `SOLD → IN_STOCK`. Set `is_warranty_active = false` | Hàng nguyên vẹn nhập lại kho |
   | `DEFECTIVE` | `SCRAP` | `SOLD → DISPOSED` | Hàng lỗi → hủy. Cho phép bulk (không cần serialized) |
-  | `DEFECTIVE` | `WARRANTY_TRANSFER` | `SOLD → DEFECTIVE`. Hệ thống tự tạo `warranty_request` mới, state khởi tạo `RECEIVED` (bỏ qua PENDING), `check_result = CONFIRMED`, copy từ condition. **Chỉ cho serialized** — bulk → reject 400 | Chuyển sang warranty flow. Unit đã ở DEFECTIVE, các resolution REPAIR → `DEFECTIVE → UNDER_REPAIR`, REPLACE → giữ DEFECTIVE, REFUND → `DEFECTIVE → RETURNED` |
-
-  > **Xác nhận:** KHÔNG có transition `SOLD → RETURNED` trực tiếp từ return_receipts. Transition này chỉ xảy ra qua warranty flow với resolution=REFUND (SOP §7.3).
 
   Log `ProductUnitStatusLog` với source = `RETURN_RECEIPT`.
 
@@ -471,78 +477,6 @@ DRAFT ↔ (partial khi có import receipt)
 
 ---
 
-## Flow 11: Warranty Request (Bảo hành)
-
-**Controller:** `WarrantyRequestController.java` — `/warranty-request`
-
-| Endpoint | Method | Guard | Mô tả |
-|----------|--------|-------|-------|
-| `/warranty-request/lookup` | GET | `CAN_OPERATE` | Tra cứu serial → thông tin BH (còn hạn, khách, export gốc) |
-| `/warranty-request` | GET | `CAN_OPERATE` | List (paged, filter status+resolution) |
-| `/warranty-request/my-handled` | GET | `ROLE_MANAGER` | Requests do tôi xử lý |
-| `/warranty-request/{id}` | GET | `CAN_OPERATE` | Get one |
-| `/warranty-request` | POST | `CAN_OPERATE` | Create (status = PENDING) |
-| `/warranty-request/{id}/receive` | PUT | `CAN_OPERATE` | Receive (PENDING → RECEIVED — STOCK nhận hàng từ khách) |
-| `/warranty-request/{id}/check` | PUT | `CAN_OPERATE` | Check (RECEIVED → UNDER_EVALUATION nếu CONFIRMED, → RESOLVED nếu REJECTED) |
-| `/warranty-request/{id}/evaluate` | PUT | `CAN_APPROVE` | Evaluate — QL chọn resolution (UNDER_EVALUATION, thực hiện unit transitions) |
-| `/warranty-request/{id}/execute` | PUT | `CAN_OPERATE` | Execute — STOCK thực thi resolution (RESOLVED, chỉ cần cho REPAIR path) |
-| `/warranty-request/{id}/cancel` | PUT | `CAN_APPROVE` | Cancel (chỉ PENDING mới được cancel) |
-
-**Service:** `WarrantyRequestService.java`
-
-**Entity:** `WarrantyRequest`, `ProductUnit` (FK: `product_unit_id`, `replacement_unit_id`)
-
-**Status machine:**
-```
-PENDING → RECEIVED → UNDER_EVALUATION → RESOLVED (terminal)
-                   ↘ RESOLVED (STOCK từ chối ngay — auto REJECT, không cần QL)
-PENDING → CANCELLED
-```
-
-**Resolution types:** `WarrantyResolutionType` = REPAIR, REPLACE, REFUND, REJECT
-
-> RMA được hấp thụ vào REPAIR (gửi NCC là 1 nhánh của REPAIR). RETURN_SUPPLIER không còn là resolution của warranty — xử lý qua export_receipt riêng.
-
-**Business rules:**
-
-- `lookup()` → tra serial (fuzzy match O/0, I/l) → trả về product info, customer, export receipt, warranty hạn, `warranty_seal_code` nếu có, lịch sử đổi BH (số lần). Nếu hết hạn → vẫn trả thông tin (để SALES thấy lý do từ chối), FE khóa form, hiện banner hết hạn.
-
-- `create()` → serial bắt buộc. Check: serial tồn tại? `status=SOLD` (hoặc `DEFECTIVE` nếu từ WARRANTY_TRANSFER)? Còn hạn BH? Check warranty seal nếu shop dùng. Tạo `status=PENDING`.
-
-- `receive()` → PENDING → RECEIVED. STOCK xác nhận đã nhận hàng vật lý vào kho. Chưa chuyển transition unit.
-
-- `check()` → STOCK kiểm tra:
-  - `check_result=CONFIRMED` → RECEIVED → UNDER_EVALUATION. **Unit giữ nguyên trạng thái hiện tại** (`SOLD` hoặc `DEFECTIVE`) — chưa chuyển transition. Chờ QL chọn resolution.
-  - `check_result=REJECTED` (không lỗi/không thuộc BH) → RECEIVED → RESOLVED với `resolution_type=REJECT`. **Không đổi status unit** (giữ nguyên `SOLD` hoặc `DEFECTIVE`). Bắt buộc `check_note`.
-
-- `evaluate()` → QL chọn 1 trong 4 resolution. Unit transitions xảy ra NGAY tại bước này:
-
-  | Resolution | Transition unit từ `SOLD` | Transition unit từ `DEFECTIVE` (WARRANTY_TRANSFER) | Transition replacement_unit (nếu có) |
-  |---|---|---|---|
-  | `REPAIR` | `SOLD → UNDER_REPAIR` | `DEFECTIVE → UNDER_REPAIR` | — |
-  | `REPLACE` | `SOLD → DEFECTIVE` | Giữ `DEFECTIVE` (đã ở DEFECTIVE, chỉ ghi nhận) | `IN_STOCK → SOLD` (tạo export_receipt ngầm `reason=INTERNAL`, `sell_price=0`, kế thừa `warranty_start_date` gốc) |
-  | `REFUND` | `SOLD → RETURNED` | `DEFECTIVE → RETURNED` | — |
-  | `REJECT` | Không đổi | Không đổi | — |
-
-  > **REPLACE** kế thừa `warranty_start_date` gốc (không reset) — khớp SOP §6.2.
-  > **REPAIR** không tính unit vào tồn khả dụng. `UNDER_REPAIR` / `SENT_TO_MANUFACTURER` đều không khả dụng.
-
-- `execute()` → STOCK thực thi (chỉ cần cho REPAIR path):
-  - **REPAIR — sửa xong tại kho**: `UNDER_REPAIR → SOLD`. Trả khách.
-  - **REPAIR — gửi NCC**: `UNDER_REPAIR → SENT_TO_MANUFACTURER`. Lưu `rma_number`, `sent_to_partner_at`.
-  - **SENT_TO_MANUFACTURER** (cập nhật sau, không có endpoint riêng — có thể gộp vào execute hoặc update riêng):
-    - Hãng trả xong → `SENT_TO_MANUFACTURER → SOLD`.
-    - Hãng từ chối → `SENT_TO_MANUFACTURER → DEFECTIVE`.
-
-- `cancel()` → chỉ cancel PENDING. Không cho cancel RECEIVED/UNDER_EVALUATION/RESOLVED.
-
-**Edge cases:**
-- **Hết serial đổi (REPLACE)**: SLA 7 ngày làm việc (config qua `system_settings` key `warranty_replace_sla_days`). Quá hạn → cảnh báo QL dashboard. QL có nút chuyển hướng → REFUND.
-- **>2 lần đổi BH**: cảnh báo (không chặn cứng) — hiển thị trên Serial Info Card.
-- **Mất tem BH**: mất quyền REPLACE nhanh tại shop, chuyển sang REPAIR/SENT_TO_MANUFACTURER.
-- **Hãng làm mất/hư hàng RMA**: ghi nhận trên warranty_request, unit → LOST.
-- **Warranty từ WARRANTY_TRANSFER (return_receipt)**: unit đã ở `DEFECTIVE` ngay từ đầu. Các resolution áp dụng transitions tương ứng theo cột DEFECTIVE ở bảng trên.
-
 ---
 
 ## Flow 12: Inventory View
@@ -627,16 +561,6 @@ PENDING → CANCELLED
 
 ---
 
-## Flow 18: File Upload
-
-**Controller:** `FileUploadController.java` — `/upload`
-
-| Endpoint | Guard | Mô tả |
-|----------|-------|-------|
-| POST /upload | `CAN_OPERATE_STOCK` | Upload file → Cloudinary, trả về URL |
-
----
-
 ## ProductUnit Status Machine (xuyên suốt các flow)
 
 ```
@@ -657,23 +581,9 @@ RESERVED → SOLD (QL duyệt export)
 
 SOLD ──→ IN_STOCK (return_receipt RESTOCK, set is_warranty_active=false)
       → DISPOSED (return_receipt SCRAP)
-      → DEFECTIVE (return_receipt WARRANTY_TRANSFER)
-      → UNDER_REPAIR (warranty REPAIR)
-      → DEFECTIVE (warranty REPLACE — unit lỗi chuyển DEFECTIVE)
-      → RETURNED (warranty REFUND)
       → RETURNED_TO_SUPPLIER (export RETURN_SUPPLIER)
 
-UNDER_REPAIR → SOLD (sửa xong, trả khách)
-            → DEFECTIVE (không sửa được)
-            → SENT_TO_MANUFACTURER (gửi hãng BH)
-
-SENT_TO_MANUFACTURER → SOLD (hãng trả đã sửa)
-                     → DEFECTIVE (hãng từ chối BH)
-
-DEFECTIVE → UNDER_REPAIR (warranty REPAIR — từ WARRANTY_TRANSFER)
-          → RETURNED (warranty REFUND — từ WARRANTY_TRANSFER)
-          → RETURNED_TO_SUPPLIER (export RETURN_SUPPLIER)
-          → (giữ DEFECTIVE — warranty REPLACE/REJECT)
+DEFECTIVE → RETURNED_TO_SUPPLIER (export RETURN_SUPPLIER)
 
 RETURNED → IN_STOCK (đủ điều kiện nhập lại kho)
          → DEFECTIVE (hàng trả bị lỗi)
@@ -691,5 +601,5 @@ RETURNED_TO_SUPPLIER [*] terminal — trả NCC
 
 > **Bulk**: 1 product_unit (lot) giữ `IN_STOCK` xuyên suốt, chỉ chuyển `SOLD` khi `remaining_quantity = 0`. Khi chuyển sang DAMAGED/LOST/DEFECTIVE/REMOVED → set `remaining_quantity = 0`.
 
-Mỗi lần chuyển trạng thái đều ghi `ProductUnitStatusLog` với `sourceType` (IMPORT_RECEIPT, EXPORT_RECEIPT, STOCK_ADJUSTMENT, STOCK_CHECK, WARRANTY_REQUEST, **RELOCATE**, RETURN_RECEIPT) + `sourceId`.
+Mỗi lần chuyển trạng thái đều ghi `ProductUnitStatusLog` với `sourceType` (IMPORT_RECEIPT, EXPORT_RECEIPT, STOCK_ADJUSTMENT, STOCK_CHECK, **RELOCATE**, RETURN_RECEIPT) + `sourceId`.
 

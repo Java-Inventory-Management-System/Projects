@@ -68,10 +68,8 @@ Các key mặc định được seed trong migration:
 | Key | Default value | Mô tả |
 |-----|--------------|-------|
 | `product_max_images` | `5` | Số ảnh tối đa / sản phẩm |
-| `warranty_replace_sla_days` | `7` | Số ngày SLA chờ đổi BH khi hết serial |
 | `dead_stock_threshold_days` | `90` | Số ngày tồn trước khi gắn nhãn dead stock |
 | `allow_negative_stock_bulk` | `false` | Cho phép tồn âm với bulk (phase 2, phase 1 = false) |
-| `warranty_seal_enabled` | `false` | Có áp dụng tem bảo hành hay không |
 
 ADMIN có thể sửa sau qua màn hình cấu hình (API `PUT /admin/settings/:key`).
 

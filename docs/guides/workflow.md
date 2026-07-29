@@ -8,8 +8,7 @@
 4. [Điều chỉnh tồn (Stock Adjustment)](#4-điều-chỉnh-tồn-stock-adjustment)
 5. [Điều chỉnh giá (Price Adjustment)](#5-điều-chỉnh-giá-price-adjustment)
 6. [Trả hàng (Return)](#6-trả-hàng-return-receipt)
-7. [Bảo hành (Warranty)](#7-bảo-hành-warranty)
-8. [Kiến trúc dữ liệu](#kiến-trúc-dữ-liệu)
+7. [Kiến trúc dữ liệu](#kiến-trúc-dữ-liệu)
 
 ---
 
@@ -235,8 +234,7 @@ Tạo phiếu trả hàng ───────────→ PENDING_APPROVAL
   │
   ├─ Admin/Manager duyệt ─────→ APPROVED
   │     ├─ RESTOCK: nhập lại kho
-  │     ├─ SCRAP: tiêu huỷ
-  │     └─ WARRANTY_TRANSFER: chuyển bảo hành
+  │     └─ SCRAP: tiêu huỷ
   │
   └─ Admin/Manager từ chối ───→ REJECTED
 ```
@@ -271,53 +269,6 @@ Tạo phiếu trả hàng ───────────→ PENDING_APPROVAL
 |--------|---------|
 | `RESTOCK` | Nhập lại kho |
 | `SCRAP` | Tiêu huỷ |
-| `WARRANTY_TRANSFER` | Chuyển bảo hành |
----
-
-## 7. Bảo hành (Warranty)
-
-**Mục đích**: Quản lý yêu cầu bảo hành cho sản phẩm đã bán.
-
-**Luồng**:
-
-```
-Tra cứu BH theo serial ───── (NV/SL/QL/AD)
-  ↓
-Tạo yêu cầu BH ───────────→ PENDING
-  │
-  ├─ Xử lý (RESOLVED)
-  │     ├─ REPAIR: sửa chữa
-  │     ├─ REPLACE: đổi mới
-  │     ├─ REFUND: hoàn tiền
-  │     └─ REJECT: từ chối BH
-  │
-  └─ Hoàn tất ─────────────→ COMPLETED
-        result = REPAIRED | REPLACED | REFUNDED | REJECTED
-```
-
-**Request (tạo)**:
-```json
-{
-  "serialNumber": "SN001",
-  "customerId": 1,
-  "issueDescription": "Không lên nguồn",
-  "note": "Khách gửi 2026-07-20"
-}
-```
-
-**Request (xử lý)**:
-```json
-{
-  "resolutionType": "REPLACE",
-  "rmaNumber": "RMA-2026-001",
-  "expectedReturnAt": "2026-08-01"
-}
-```
-
-**Lưu ý**:
-- ProductUnit phải ở trạng thái **SOLD** mới được tạo yêu cầu BH
-- IN_STOCK không đủ điều kiện (chưa bán thì không có BH)
-
 ---
 
 ## Kiến trúc dữ liệu
@@ -333,14 +284,10 @@ IN_STOCK ────┬──────┼──→ LOST (điều chỉnh LOS
              │
              └──→ SOLD (xuất bán)
                     │
-                    ├──→ WARRANTY ──→ WARRANTY_DONE
-                    │    (tạo BH)       (BH hoàn tất)
-                    │
                     └──→ RETURNED (trả hàng)
                            │
                            ├──→ IN_STOCK (RESTOCK)
-                           ├──→ DISPOSED (SCRAP)
-                           └──→ WARRANTY (WARRANTY_TRANSFER)
+                           └──→ DISPOSED (SCRAP)
 ```
 
 ### Các loại mã
@@ -353,7 +300,6 @@ IN_STOCK ────┬──────┼──→ LOST (điều chỉnh LOS
 | Điều chỉnh tồn | `ADJ-` | ADJ-20260722-0001 |
 | Điều chỉnh giá | `PADJ-` | PADJ-20260722-0001 |
 | Trả hàng | `TH-` | TH-20260722-0001 |
-| Bảo hành | `BH-` | BH-20260722-0001 |
 
 ### Vai trò người dùng
 
@@ -362,7 +308,7 @@ IN_STOCK ────┬──────┼──→ LOST (điều chỉnh LOS
 | `ADMIN` | Quản trị hệ thống (user, cấu hình), xem audit log/báo cáo; duyệt/huỷ phiếu (backup khi QL vắng) — không khởi tạo giao dịch nghiệp vụ |
 | `MANAGER` | Tạo và duyệt/từ chối phiếu; quản lý danh mục sản phẩm, NCC, brand; xem báo cáo |
 | `STOCK` | Tạo phiếu nhập, kiểm kê, điều chỉnh — không duyệt |
-| `SALES` | Tạo phiếu xuất, trả hàng, bảo hành — không duyệt |
+| `SALES` | Tạo phiếu xuất, trả hàng — không duyệt |
 
 ---
 
@@ -375,14 +321,10 @@ Nhà cung cấp                  Khách hàng
   NHẬP KHO ──→ ProductUnit ──→ XUẤT KHO
      │          (IN_STOCK)        │
      │                            │
-     ├── Điều chỉnh giá           ├── TRẢ HÀNG
-     │                            │     │
-     │                            │     ├── RESTOCK → IN_STOCK
-     │                            │     └── SCRAP → DISPOSED
-     │                            │
-     │                            └── BẢO HÀNH
+     ├── Điều chỉnh giá           └── TRẢ HÀNG
      │                                  │
-     │                                  └── REPAIR/REPLACE/REFUND
+     │                                  ├── RESTOCK → IN_STOCK
+     │                                  └── SCRAP → DISPOSED
      │
      └── KIỂM KÊ ──── phát hiện sai lệch ────→ ĐIỀU CHỈNH TỒN
 ```

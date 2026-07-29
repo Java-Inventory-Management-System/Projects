@@ -67,16 +67,6 @@
 | RQ-21a | Hủy phiếu nhập (chuyển trạng thái terminal, không xóa cứng) | F | Phỏng vấn | Must | QL/AD | US-08 |
 | RQ-60 | Theo dõi trạng thái trả NCC — lưu các milestone SENT/CONFIRMED_RECEIVED/PROCESSING/RESOLVED | F | Domain review | Should | NV | US-51 |
 
-### Warranty
-
-| ID    | Yêu cầu                        | Loại | Nguồn     | Pri    | Actor | US    |
-| ----- | ------------------------------ | ---- | --------- | ------ | ----- | ----- |
-| RQ-29 | Tra cứu BH theo serial (fuzzy) | F    | Phỏng vấn | Must   | NV/SL | US-14 |
-| RQ-30 | Tiếp nhận yêu cầu BH           | F    | Phỏng vấn | Must   | NV/SL | US-15 |
-| RQ-31 | Xử lý BH (đổi/RMA/sửa/từ chối) | F    | Phỏng vấn | Must   | NV/QL | US-16 |
-| RQ-32 | Hoàn tất phiếu BH + audit      | F    | Phỏng vấn | Must   | NV    | US-17 |
-| RQ-33 | Xử lý hết tồn khi đổi BH       | F    | Phỏng vấn | Should | NV    | US-18 |
-
 ### Stock Adjustment & Check
 
 | ID | Yêu cầu | Loại | Nguồn | Pri | Actor | US |
@@ -113,7 +103,7 @@
 
 | ID    | Yêu cầu                             | Loại | Nguồn         | Pri | Ghi chú                                    |
 | ----- | ----------------------------------- | ---- | ------------- | --- | ------------------------------------------ |
-| RQ-49 | Quy trình trả hàng khách (ngoài BH) | F    | Edge cases    | Must | Đã có thiết kế (`return_receipts` + flow chi tiết) |
+| RQ-49 | Quy trình trả hàng khách | F    | Edge cases    | Must | Đã có thiết kế (`return_receipts` + flow chi tiết) |
 | RQ-50 | Điều chỉnh giá nhập sau xác nhận    | F    | Edge cases    | Must | Đã có thiết kế (`price_adjustments` flow) |
 | RQ-51 | Retention policy audit log          | N    | Domain review | Must | Tối thiểu 2 năm — đã chốt với business. Không làm archive/purge job ở phase 1. |
 | RQ-52 | Backup duyệt khi QL vắng            | N    | SAD review    | Must | Admin duyệt thay |
@@ -154,7 +144,7 @@ Actor: **AD** = Admin, **QL** = Quản lý kho, **NV** = Nhân viên kho, **SL**
 - Priority: Must.
 
 **US-06** | Là **Manager**, tôi muốn sửa lại serial vừa nhập nếu phát hiện nhập sai, để tránh phải hủy cả phiếu.
-- AC: Chỉ cho sửa nếu unit chưa xuất kho và không trong bảo hành; ghi audit log giá trị cũ → mới (#3).
+- AC: Chỉ cho sửa nếu unit chưa xuất kho; ghi audit log giá trị cũ → mới (#3).
 - Priority: Should.
 
 **US-07** | Là **Manager/Admin**, tôi muốn duyệt hoặc từ chối phiếu nhập `PENDING_APPROVAL`, để hoàn tất nhập kho hoặc yêu cầu Stock sửa lại.
@@ -211,32 +201,7 @@ Actor: **AD** = Admin, **QL** = Quản lý kho, **NV** = Nhân viên kho, **SL**
 - AC: "Kho chính" được seed mặc định, pre-fill trong các form nhập/xuất; không cho phép tạo warehouse thứ hai (chặn cứng, không toggle).
 - Priority: Must.
 
-### 2.3 Epic 3 — Bảo hành
-
-**US-14** | Là **NV/SL**, tôi muốn tra cứu bảo hành theo serial, để xem sản phẩm, ngày mua, hạn bảo hành và lịch sử xử lý trước đó.
-- AC: Hỗ trợ tìm gần đúng khi serial dễ nhầm (O/0, I/l).
-- Priority: Must.
-
-**US-15** | Là **NV/SL**, tôi muốn tiếp nhận yêu cầu bảo hành từ khách, để tạo phiếu và ghi nhận mô tả lỗi.
-- AC: Kiểm tra serial tồn tại và còn hạn; xác minh khách qua tên/SĐT nếu có thể; tạo `warranty_requests.status = PENDING`.
-- Priority: Must.
-
-**US-16** | Là **NV/QL**, tôi muốn xử lý yêu cầu bảo hành theo 1 trong 4 hướng (sửa chữa/đổi mới/hoàn tiền/từ chối), để giải quyết dứt điểm từng ca bảo hành.
-- AC: Sửa chữa → chuyển `UNDER_REPAIR`, không tính tồn; nếu gửi NCC → lưu `rma_number`, `sent_to_partner_at`; sửa xong → `SOLD`, không sửa được → `DEFECTIVE`. Đổi mới → serial cũ chuyển `DEFECTIVE`; serial mới `IN_STOCK → SOLD`, kế thừa hạn BH còn lại (giữ nguyên `warranty_start_date` gốc). Hoàn tiền → unit chuyển `RETURNED`. Từ chối → không đổi status, ghi rõ lý do.
-- Lưu ý: nếu warranty_request đến từ nhánh WARRANTY_TRANSFER của return_receipt (§7.2), unit đầu vào đã ở `DEFECTIVE` thay vì `SOLD` — transition tương ứng theo từng resolution xem `01-domain-model.md` §2.1 (bảng có cột riêng cho nguồn `DEFECTIVE`).
-- Priority: Must.
-- **Đã chốt:** Kế thừa hạn BH cũ — giữ nguyên `warranty_start_date` gốc, không reset.
-
-**US-17** | Là **NV**, tôi muốn hoàn tất phiếu bảo hành, để đóng ca xử lý và ghi audit log.
-- AC: `status = RESOLVED`, ghi hướng xử lý thực tế + người xử lý + ngày hoàn tất.
-- Priority: Must.
-
-**US-18** | Là **NV**, tôi muốn xử lý trường hợp đổi hàng bảo hành nhưng hết tồn serial cùng loại, để không bị kẹt quy trình.
-- AC: Giữ `PENDING` chờ nhập thêm hàng, hoặc chuyển hướng RMA/từ chối.
-- Priority: Should.
-- **Đã chốt:** SLA = 7 ngày làm việc kể từ QL duyệt REPLACE. Quá hạn → cảnh báo QL, không tự huỷ. QL có nút "Chuyển sang REFUND". Config qua `system_settings`.
-
-### 2.4 Epic 4 — Điều chỉnh tồn kho thủ công
+### 2.3 Epic 4 — Điều chỉnh tồn kho thủ công
 
 **US-19** | Là **NV**, tôi muốn tạo phiếu điều chỉnh khi phát hiện hàng hỏng/mất/thừa ngoài luồng kiểm kê, để cập nhật tồn kho chính xác.
 - AC: Chọn loại `DAMAGED | LOST | FOUND`; nhập lý do bắt buộc; upload ảnh minh chứng tùy chọn.
@@ -297,7 +262,7 @@ Actor: **AD** = Admin, **QL** = Quản lý kho, **NV** = Nhân viên kho, **SL**
 - AC: `full_code` unique dạng `A-01-01A` (đủ 3 cấp) hoặc `A` (chỉ zone); shelf/bin optional — chỉ bắt buộc zone; soft-delete qua `is_active`; không cho xóa vị trí đang có unit `IN_STOCK` gán vào.
 - Priority: Must.
 
-**US-36** | Là **QL/NV/SL**, tôi muốn CRUD thông tin khách hàng, để tra cứu và quản lý lịch sử mua hàng/bảo hành.
+**US-36** | Là **QL/NV/SL**, tôi muốn CRUD thông tin khách hàng, để tra cứu và quản lý lịch sử mua hàng.
 - AC: NV chỉ được xem + thêm mới (không sửa/xóa); QL full CRUD; soft-delete qua `is_active`.
 - Priority: Must.
 
@@ -344,12 +309,12 @@ Actor: **AD** = Admin, **QL** = Quản lý kho, **NV** = Nhân viên kho, **SL**
 - AC: Với unit dead stock >90 ngày → đề xuất giảm `sell_price` tạm thời; >180 ngày → thêm đề xuất thanh lý; QL click đề xuất → chuyển đến màn hình tạo adjustment/export tương ứng; đề xuất mang tính tư vấn, không tự động thực thi.
 - Priority: Could.
 
-### 2.10 Epic 10 — Trả hàng từ khách (ngoài luồng bảo hành)
+### 2.10 Epic 10 — Trả hàng từ khách
 
 **US-40** | Là **SALES**, tôi muốn ghi nhận khách trả hàng thông thường (không phải hàng lỗi — ví dụ đổi ý, mua nhầm), để chuyển unit về lại trạng thái khả dụng hoặc xử lý theo tình trạng hàng trả.
-- AC: Unit chuyển trực tiếp từ `SOLD` → `IN_STOCK` khi condition=GOOD (resulting_action=RESTOCK); `SOLD` → `DISPOSED` khi condition=DEFECTIVE + resulting_action=SCRAP; `SOLD` → `DEFECTIVE` khi condition=DEFECTIVE + resulting_action=WARRANTY_TRANSFER (chỉ áp dụng serialized, xem `03-known-issues-tech-debt.md §8.1.9`). **Không có** trạng thái `RETURNED` trung gian — xem `02-sop-nghiep-vu.md §7.3`.
+- AC: Unit chuyển trực tiếp từ `SOLD` → `IN_STOCK` khi condition=GOOD (resulting_action=RESTOCK); `SOLD` → `DISPOSED` khi condition=DEFECTIVE + resulting_action=SCRAP. **Không có** trạng thái `RETURNED` trung gian — xem `02-sop-nghiep-vu.md §7.3`.
 - Priority: Must.
-- **Đã chốt domain-model:** `return_receipts` + `return_receipt_items` đã có trong `01-domain-model.md` (bổ sung đợt merge SOP §9). Chính sách hoàn tiền/đổi hàng (vd thời gian CHANGE_MIND, condition DEFECTIVE→SCRAP hay WARRANTY_TRANSFER) đã được SOP §7 định nghĩa.
+- **Đã chốt domain-model:** `return_receipts` + `return_receipt_items` đã có trong `01-domain-model.md` (bổ sung đợt merge SOP §9). Chính sách hoàn tiền/đổi hàng (vd thời gian CHANGE_MIND) đã được SOP §7 định nghĩa.
 
 ### 2.11 Epic 11 — Điều chỉnh đơn giá nhập sau xác nhận
 

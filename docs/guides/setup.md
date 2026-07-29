@@ -43,10 +43,10 @@ MAIL_PORT=1025
 MAIL_USERNAME=dummy
 MAIL_PASSWORD=dummy
 MAIL_FROM=noreply@test.local
+APP_SECURITY_ENABLED=false
 CLOUDINARY_CLOUD_NAME=
 CLOUDINARY_API_KEY=
 CLOUDINARY_API_SECRET=
-UPLOAD_PATH=./uploads
 VITE_BASE_API_URL=/api/v1
 MYSQL_DATABASE=inventory_db
 ```
@@ -55,7 +55,8 @@ Các biến cần lưu ý:
 
 - **JWT_SECRET**: đặt giá trị riêng trong production, dev để mặc định
 - **Mail**: mặc định `MAIL_ENABLED=false`. Nếu cần test mail, copy `backend/.env.template` và điền thông tin Mailtrap
-- **Cloudinary**: bỏ trống được, upload lưu local. Có Cloudinary thì điền API key ở cả root `.env` và `backend/.env`
+- **APP_SECURITY_ENABLED**: đặt `false` để tắt auth — test full tính năng không cần login. Mặc định dev (docker compose) = false, production = true.
+- **Cloudinary**: bỏ trống được, upload sẽ không hoạt động. Có Cloudinary thì điền API key ở cả root `.env` và `backend/.env`
 
 ### Bước 1 — Khởi động MySQL
 
