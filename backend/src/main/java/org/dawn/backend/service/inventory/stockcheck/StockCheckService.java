@@ -10,7 +10,6 @@ import org.dawn.backend.constant.enums.inventory.stockcheck.StockCheckStatus;
 import org.dawn.backend.constant.shared.LogConstant;
 import org.dawn.backend.constant.shared.Message;
 import org.dawn.backend.controller.inventory.request.CreateStockCheckRequest;
-import org.dawn.backend.controller.inventory.request.ImportSerialsRequest;
 import org.dawn.backend.controller.inventory.request.StockCheckItemRequest;
 import org.dawn.backend.controller.inventory.response.StockCheckResponse;
 import org.dawn.backend.entity.auth.User;
@@ -259,41 +258,6 @@ throw new InvalidRequestException(
         sc.setStatus(StockCheckStatus.COMPLETED);
         sc = stockCheckRepository.save(sc);
         return toResponse(sc, autoFilledCount);
-    }
-
-    @Transactional
-    @AuditLog(action = LogConstant.Action.RECORD_STOCK_CHECK, entity = LogConstant.Entity.STOCK_CHECK)
-    public StockCheckResponse importSerials(Long stockCheckId, ImportSerialsRequest request) {
-        var sc = stockCheckRepository.findById(stockCheckId)
-                .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.STOCK_CHECK_NOT_FOUND));
-
-        var serials = Arrays.stream(request.fileContent().split("[\\n\\r]+"))
-                .map(String::trim)
-                .filter(s -> !s.isEmpty())
-                .toList();
-
-        var items = stockCheckItemRepository.findByStockCheckId(stockCheckId);
-        var unitIds = items.stream().map(StockCheckItem::getProductUnitId).toList();
-        var units = productUnitRepository.findAllById(unitIds).stream()
-                .collect(Collectors.toMap(ProductUnit::getId, u -> u));
-
-        int matched = 0;
-        List<String> invalidSerials = new ArrayList<>();
-        var importedSet = new HashSet<>(serials);
-
-        for (var item : items) {
-            var pu = units.get(item.getProductUnitId());
-            String sn = pu != null ? pu.getSerialNumber() : null;
-            if (sn == null || !importedSet.contains(sn)) continue;
-            matched++;
-            item.setActualStatus(ProductUnitStatus.IN_STOCK.name());
-            item.setCountedQuantity(BigDecimal.ONE);
-            item.setAutoFilled(false);
-            item.setDifference(org.dawn.backend.constant.enums.inventory.stockcheck.DifferenceType.MATCH.name());
-            stockCheckItemRepository.save(item);
-        }
-
-        return toResponse(sc);
     }
 
     @Transactional
