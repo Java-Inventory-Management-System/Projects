@@ -6,7 +6,7 @@ import org.dawn.backend.constant.enums.inventory.exports.ExportReceiptStatus;
 import org.dawn.backend.constant.enums.inventory.imports.ImportReceiptStatus;
 import org.dawn.backend.constant.enums.inventory.returns.ReturnReceiptStatus;
 import org.dawn.backend.constant.enums.inventory.stockcheck.StockCheckStatus;
-import org.dawn.backend.constant.enums.inventory.warranty.WarrantyRequestStatus;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -39,12 +39,6 @@ public class InventoryStateMachineConfig {
     public StateMachine<AdjustmentStatus> adjustmentStateMachine() {
         return new StateMachine<>(AdjustmentStatus.class)
             .allow(AdjustmentStatus.PENDING, AdjustmentStatus.APPROVED, AdjustmentStatus.REJECTED, AdjustmentStatus.CANCELLED);
-    }
-
-    @Bean
-    public StateMachine<WarrantyRequestStatus> warrantyRequestStateMachine() {
-        return new StateMachine<>(WarrantyRequestStatus.class)
-            .allow(WarrantyRequestStatus.PENDING, WarrantyRequestStatus.COMPLETED, WarrantyRequestStatus.CANCELLED);
     }
 
     @Bean

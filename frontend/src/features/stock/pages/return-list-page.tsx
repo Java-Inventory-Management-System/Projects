@@ -3,17 +3,21 @@ import { useNavigate, useSearchParams } from "react-router-dom"
 import { useReturnReceipts } from "@/hooks/use-returns"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Plus, Eye } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { Plus, Eye, Search } from "lucide-react"
 import { usePermission } from "@/hooks/use-permission"
 import { ROLES } from "@/utils/permissions"
 import { DataTable, type Column } from "@/components/ui/data-table"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import type { ReturnReceipt } from "@/utils/types"
+import { RETURN_RECEIPT_STATUS, RETURN_REASON } from "@/utils/types"
 
 const reasonLabel: Record<string, string> = {
   CHANGE_MIND: "Đổi ý",
   DEFECTIVE: "Hàng lỗi",
   WRONG_ITEM: "Sai hàng",
+  WARRANTY_CLAIM: "Bảo hành",
 }
 
 const statusLabel: Record<string, { label: string; variant: "default" | "secondary" | "destructive" }> = {
@@ -32,6 +36,10 @@ export const ReturnListPage = () => {
   const [sort, setSort] = useState<{ key: string; dir: "asc" | "desc" } | undefined>(undefined)
   const sortStr = sort ? `${sort.key},${sort.dir}` : undefined
 
+  const [statusFilter, setStatusFilter] = useState<string | undefined>(undefined)
+  const [reasonFilter, setReasonFilter] = useState<string | undefined>(undefined)
+  const [searchText, setSearchText] = useState("")
+
   const handleSort = useCallback((key: string) => {
     setSort((prev) => {
       if (prev?.key !== key) return { key, dir: "asc" }
@@ -40,8 +48,7 @@ export const ReturnListPage = () => {
     })
   }, [])
 
-  const { data, isLoading } = useReturnReceipts(page, pageSize)
-  void sortStr
+  const { data, isLoading } = useReturnReceipts(page, pageSize, statusFilter, reasonFilter, searchText || undefined)
 
   const updateParams = useCallback(
     (updates: Record<string, string | undefined>) => {
@@ -107,6 +114,41 @@ export const ReturnListPage = () => {
             <Plus className="size-4 mr-1" /> Tạo phiếu trả hàng
           </Button>
         )}
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative flex-1 min-w-[200px] max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+          <Input
+            value={searchText}
+            onChange={(e) => { setSearchText(e.target.value); updateParams({ page: undefined }) }}
+            placeholder="Tìm mã phiếu..."
+            className="pl-9"
+          />
+        </div>
+        <Select value={statusFilter ?? "all"} onValueChange={(v) => { setStatusFilter(v === "all" ? undefined : v); updateParams({ page: undefined }) }}>
+          <SelectTrigger className="w-36">
+            <SelectValue placeholder="Trạng thái" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Tất cả</SelectItem>
+            <SelectItem value={RETURN_RECEIPT_STATUS.PENDING_APPROVAL}>Chờ duyệt</SelectItem>
+            <SelectItem value={RETURN_RECEIPT_STATUS.COMPLETED}>Đã duyệt</SelectItem>
+            <SelectItem value={RETURN_RECEIPT_STATUS.CANCELLED}>Đã hủy</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={reasonFilter ?? "all"} onValueChange={(v) => { setReasonFilter(v === "all" ? undefined : v); updateParams({ page: undefined }) }}>
+          <SelectTrigger className="w-36">
+            <SelectValue placeholder="Lý do" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Lý do</SelectItem>
+            <SelectItem value={RETURN_REASON.CHANGE_MIND}>Đổi ý</SelectItem>
+            <SelectItem value={RETURN_REASON.DEFECTIVE}>Hàng lỗi</SelectItem>
+            <SelectItem value={RETURN_REASON.WRONG_ITEM}>Sai hàng</SelectItem>
+            <SelectItem value={RETURN_REASON.WARRANTY_CLAIM}>Bảo hành</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       <DataTable

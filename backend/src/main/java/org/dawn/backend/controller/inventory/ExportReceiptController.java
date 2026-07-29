@@ -8,8 +8,12 @@ import org.dawn.backend.controller.inventory.request.ExportReceiptRequest;
 import org.dawn.backend.controller.inventory.request.FulfillExportRequest;
 import org.dawn.backend.controller.inventory.request.RejectExportRequest;
 import org.dawn.backend.controller.inventory.response.ExportReceiptResponse;
+import org.dawn.backend.controller.inventory.response.ProductUnitResponse;
 import org.dawn.backend.service.inventory.exports.ExportReceiptService;
 import org.springframework.data.domain.Pageable;
+import org.springframework.web.bind.annotation.RequestParam;
+
+import java.util.List;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -22,8 +26,10 @@ public class ExportReceiptController {
 
     @GetMapping("/export-receipt")
     @PreAuthorize(AuthorizationExpressions.CAN_OPERATE)
-    public ResponseObject<ResponsePage<ExportReceiptResponse>> getAll(Pageable pageable, @RequestParam(required = false) String status) {
-        return ResponseObject.success(exportReceiptService.findAll(pageable, status));
+    public ResponseObject<ResponsePage<ExportReceiptResponse>> getAll(Pageable pageable,
+                                                                      @RequestParam(required = false) String status,
+                                                                      @RequestParam(required = false) Long customerId) {
+        return ResponseObject.success(exportReceiptService.findAll(pageable, status, customerId));
     }
 
     @GetMapping("/export-receipt/{id}")
@@ -60,5 +66,12 @@ public class ExportReceiptController {
     @PreAuthorize(AuthorizationExpressions.CAN_APPROVE)
     public ResponseObject<ExportReceiptResponse> cancel(@PathVariable Long id) {
         return ResponseObject.success(exportReceiptService.cancel(id));
+    }
+
+    @GetMapping("/export-receipt/{id}/units")
+    @PreAuthorize(AuthorizationExpressions.CAN_OPERATE)
+    public ResponseObject<List<ProductUnitResponse>> getUnits(@PathVariable Long id,
+                                                               @RequestParam(required = false) Long productId) {
+        return ResponseObject.success(exportReceiptService.getUnitsByReceipt(id, productId));
     }
 }

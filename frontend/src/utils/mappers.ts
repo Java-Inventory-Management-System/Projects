@@ -25,8 +25,6 @@ import type {
   ProductImage,
   PurchaseOrderItem,
   PurchaseOrder,
-  WarrantyRequest,
-  WarrantyLookup,
   ReturnReceipt,
   ReturnReceiptItem,
 } from "@/utils/types"
@@ -202,6 +200,7 @@ export function mapExportReceipt(raw: unknown): ExportReceipt {
     totalAmount: r.totalAmount,
     note: r.note ?? null,
     status: r.status,
+    externalReference: r.externalReference ?? null,
     createdBy: r.createdBy,
     createdByName: r.createdByName ?? "—",
     createdAt: r.createdAt,
@@ -406,57 +405,6 @@ export function mapProductUnit(raw: unknown): ProductUnit {
     warrantyExpiresAt: r.warrantyExpiresAt ?? null,
     createdAt: r.createdAt,
     updatedAt: r.updatedAt,
-  }
-}
-
-export function mapWarrantyRequest(raw: unknown): WarrantyRequest {
-  const r = raw as WarrantyRequest
-  return {
-    id: r.id,
-    requestCode: r.requestCode,
-    productUnitId: r.productUnitId,
-    serialNumber: r.serialNumber,
-    productId: r.productId,
-    productName: r.productName,
-    productSku: r.productSku,
-    customerId: r.customerId ?? null,
-    customerName: r.customerName ?? null,
-    issueDescription: r.issueDescription,
-    resolutionType: r.resolutionType ?? null,
-    replacementUnitId: r.replacementUnitId ?? null,
-    replacementSerialNumber: r.replacementSerialNumber ?? null,
-    rmaNumber: r.rmaNumber ?? null,
-    sentToPartnerAt: r.sentToPartnerAt ?? null,
-    expectedReturnAt: r.expectedReturnAt ?? null,
-    partnerNote: r.partnerNote ?? null,
-    status: r.status,
-    createdByName: r.createdByName ?? null,
-    handledBy: r.handledBy ?? null,
-    handledByName: r.handledByName ?? null,
-    completedAt: r.completedAt ?? null,
-    note: r.note ?? null,
-    createdAt: r.createdAt,
-    updatedAt: r.updatedAt,
-  }
-}
-
-export function mapWarrantyLookup(raw: unknown): WarrantyLookup {
-  const r = raw as unknown as WarrantyLookup & { history?: unknown[] }
-  return {
-    productUnitId: r.productUnitId,
-    serialNumber: r.serialNumber,
-    productId: r.productId,
-    productName: r.productName,
-    productSku: r.productSku,
-    productUnitStatus: r.productUnitStatus,
-    purchaseDate: r.purchaseDate ?? null,
-    warrantyExpiresAt: r.warrantyExpiresAt ?? null,
-    warrantyStatus: r.warrantyStatus,
-    eligible: r.eligible,
-    customerId: r.customerId ?? null,
-    customerName: r.customerName ?? null,
-    saleReceiptCode: r.saleReceiptCode ?? null,
-    history: (r.history ?? []).map(mapWarrantyRequest),
   }
 }
 

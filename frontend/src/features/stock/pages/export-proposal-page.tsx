@@ -30,6 +30,7 @@ interface ProposalFormFields {
   reason: string
   customerId: string
   note: string
+  externalReference: string
   items: {
     tempId: number
     productId: number
@@ -45,6 +46,7 @@ const reasons: { value: ExportReason; label: string }[] = [
   { value: EXPORT_REASON.INTERNAL, label: "Xuất nội bộ" },
   { value: EXPORT_REASON.RETURN_SUPPLIER, label: "Trả nhà cung cấp" },
   { value: EXPORT_REASON.DISPOSE, label: "Hủy hàng" },
+  { value: EXPORT_REASON.WARRANTY_REPLACEMENT, label: "Thay thế bảo hành" },
 ]
 
 export const ExportProposalPage = () => {
@@ -65,13 +67,13 @@ export const ExportProposalPage = () => {
   }, [invRes])
 
   const form = useForm<ProposalFormFields>({
-    defaultValues: { reason: "", customerId: "", note: "", items: [] },
+    defaultValues: { reason: "", customerId: "", note: "", externalReference: "", items: [] },
   })
   const { fields, append, remove } = useFieldArray({ control: form.control, name: "items" })
 
   const formValues = form.watch()
   const draftState = useMemo(
-    () => ({ reason: formValues.reason, customerId: formValues.customerId, customerName, note: formValues.note, items: formValues.items }),
+    () => ({ reason: formValues.reason, customerId: formValues.customerId, customerName, note: formValues.note, externalReference: formValues.externalReference, items: formValues.items }),
     [formValues, customerName],
   )
   const isDirty = fields.length > 0
@@ -85,6 +87,7 @@ export const ExportProposalPage = () => {
         reason: d.reason ?? "",
         customerId: d.customerId ?? "",
         note: d.note ?? "",
+        externalReference: d.externalReference ?? "",
         items: d.items ?? [],
       })
       setCustomerName(d.customerName ?? "")
@@ -138,6 +141,7 @@ export const ExportProposalPage = () => {
       reason: values.reason as ExportReason,
       customerId: values.customerId ? Number(values.customerId) : null,
       note: values.note || null,
+      externalReference: values.externalReference || null,
       items: values.items.map((i) => ({
         productId: i.productId,
         quantity: i.quantity,
@@ -181,6 +185,12 @@ export const ExportProposalPage = () => {
             )}
           />
         </div>
+        {watchedReason === EXPORT_REASON.WARRANTY_REPLACEMENT && (
+          <div className="space-y-2">
+            <Label htmlFor="externalReference">Mã bảo hành</Label>
+            <Input id="externalReference" placeholder="VD: WR-2026-00123" {...form.register("externalReference")} />
+          </div>
+        )}
         {watchedReason === EXPORT_REASON.SALE && (
           <div className="space-y-2">
             <Label htmlFor="customer">Khách hàng</Label>

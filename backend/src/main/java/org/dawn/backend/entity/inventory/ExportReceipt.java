@@ -65,4 +65,7 @@ public class ExportReceipt extends AuditableEntity {
 
     @Column(name = "total_cogs", precision = 15, scale = 2)
     private BigDecimal totalCogs;
+
+    @Column(name = "external_reference", length = 100)
+    private String externalReference;
 }

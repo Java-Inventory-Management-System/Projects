@@ -10,7 +10,7 @@ import org.dawn.backend.constant.enums.inventory.exports.*;
 import org.dawn.backend.constant.enums.inventory.imports.*;
 import org.dawn.backend.constant.enums.inventory.returns.*;
 import org.dawn.backend.constant.enums.inventory.stockcheck.*;
-import org.dawn.backend.constant.enums.inventory.warranty.*;
+
 import org.dawn.backend.constant.enums.inventory.*;
 import org.dawn.backend.constant.shared.LogConstant;
 import org.dawn.backend.constant.shared.Message;
@@ -36,6 +36,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -58,8 +60,20 @@ public class ReturnReceiptService {
     private final SecurityPolicy securityPolicy;
 
     @Transactional(readOnly = true)
-    public ResponsePage<ReturnReceiptResponse> findAll(Pageable pageable) {
-        var page = returnReceiptRepository.findAll(pageable);
+    public ResponsePage<ReturnReceiptResponse> findAll(Pageable pageable,
+                                                        String status,
+                                                        String reason,
+                                                        String search) {
+        ReturnReceiptStatus st = safeParseStatus(status);
+        var page = st != null && reason != null
+                ? returnReceiptRepository.findByStatusAndReason(st, reason, pageable)
+                : st != null
+                    ? returnReceiptRepository.findByStatus(st, pageable)
+                    : reason != null
+                        ? returnReceiptRepository.findByReason(reason, pageable)
+                        : search != null && !search.isBlank()
+                            ? returnReceiptRepository.findByReceiptCodeContainingIgnoreCase(search, pageable)
+                            : returnReceiptRepository.findAll(pageable);
         var receipts = page.getContent();
         var customerMap = fetchCustomerMap(receipts);
         var userMap = fetchUserMap(receipts);
@@ -110,6 +124,13 @@ public class ReturnReceiptService {
 
         var exportReceipt = exportReceiptRepository.findById(request.originalExportReceiptId())
                 .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.EXPORT_RECEIPT_NOT_FOUND));
+        if (!exportReceipt.getCustomerId().equals(request.customerId())) {
+            throw new InvalidRequestException("Đơn xuất không thuộc khách hàng đã chọn");
+        }
+        if ("CHANGE_MIND".equals(reason) && exportReceipt.getCreatedAt() != null
+                && exportReceipt.getCreatedAt().plus(7, ChronoUnit.DAYS).isBefore(Instant.now())) {
+            throw new InvalidRequestException("Chỉ được đổi trả trong vòng 7 ngày kể từ ngày xuất");
+        }
 
         String receiptCode = ReceiptCodeGenerator.generate("RET-", returnReceiptRepository::existsByReceiptCode);
 
@@ -140,7 +161,14 @@ public class ReturnReceiptService {
                 throw new InvalidRequestException(Message.format(Message.Inventory.RETURN_INVALID_ACTION, itemReq.resultingAction()));
             }
 
-            if (itemReq.productUnitId() != null) {
+            boolean good = "GOOD".equals(condition);
+            if (good && !"RESTOCK".equals(action)
+                    || !good && "RESTOCK".equals(action)) {
+                throw new InvalidRequestException(
+                    "Trạng thái " + condition + " không phù hợp với hành động " + action);
+            }
+
+            if (itemReq.productUnitId() != null && itemReq.productUnitId() > 0) {
                 var pu = productUnitRepository.findById(itemReq.productUnitId())
                         .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.PRODUCT_UNIT_NOT_FOUND));
                 if (ProductUnitStatus.EXPORTED != pu.getStatus()) {
@@ -207,7 +235,9 @@ public class ReturnReceiptService {
             ProductUnitStatus oldStatus = pu.getStatus();
             String action = item.getResultingAction();
 
-            if (ResultingAction.RESTOCK.name().equals(action)) {
+            if (ResultingAction.REJECT.name().equals(action)) {
+                continue;
+            } else if (ResultingAction.RESTOCK.name().equals(action)) {
                 pu.setStatus(ProductUnitStatus.RETURNED);
             } else if (ResultingAction.SCRAP.name().equals(action)) {
                 pu.setStatus(ProductUnitStatus.DISPOSED);
@@ -295,6 +325,12 @@ public class ReturnReceiptService {
                 .collect(Collectors.toMap(Product::getId, Function.identity()));
 
         return new ItemProductInfo(productUnitMap, productMap);
+    }
+
+    private ReturnReceiptStatus safeParseStatus(String value) {
+        if (value == null || value.isBlank()) return null;
+        try { return ReturnReceiptStatus.valueOf(value.toUpperCase()); }
+        catch (IllegalArgumentException e) { return null; }
     }
 
     private ReturnReceiptResponse enrich(ReturnReceipt receipt) {

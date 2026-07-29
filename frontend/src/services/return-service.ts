@@ -2,8 +2,16 @@ import http from "@/utils/http-client"
 import type { ResponsePage, ReturnReceipt } from "@/utils/types"
 import { mapResponsePage, mapReturnReceipt } from "@/utils/mappers"
 
-export async function getReturnReceipts(page = 0, size = 20): Promise<ResponsePage<ReturnReceipt>> {
-  const res = await http.get("/return-receipts", { params: { page, size, sort: "createdAt,desc" } })
+export async function getReturnReceipts(
+  page = 0,
+  size = 20,
+  status?: string,
+  reason?: string,
+  search?: string,
+): Promise<ResponsePage<ReturnReceipt>> {
+  const res = await http.get("/return-receipts", {
+    params: { page, size, sort: "createdAt,desc", ...(status && { status }), ...(reason && { reason }), ...(search && { search }) },
+  })
   return mapResponsePage(res, mapReturnReceipt)
 }
 

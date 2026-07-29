@@ -7,7 +7,8 @@ test.describe("Warranty Flow (Bảo hành) — SOP §6", () => {
 
   test.beforeAll(() => cleanupProduct1())
 
-  test("STOCK creates warranty request → resolves as REPLACE → verifies completion", async ({ browser }) => {
+  // ponytail: skipped — warranty service/controller deleted (V10__drop_warranty_request.sql), all endpoints return 404.
+  test.skip("STOCK creates warranty request → resolves as REPLACE → verifies completion", async ({ browser }) => {
     const stockCtx = await browser.newContext()
     const mgrCtx = await browser.newContext()
     const stock = await stockCtx.newPage()

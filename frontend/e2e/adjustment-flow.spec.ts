@@ -24,7 +24,7 @@ test.describe("Stock Adjustment Flow (Điều chỉnh tồn) — SOP §5", () =>
 
     // STOCK creates adjustment via API_URL
     const createRes = await stock.request.post(`${API_URL}/stock-adjustment`, {
-      data: { type: "DAMAGED", productUnitId: productUnitIds[0], reason: "E2E test: damaged" },
+      data: { type: "DAMAGED", productUnitId: productUnitIds[0], reason: "E2E test: damaged", imageUrl: "https://via.placeholder.com/150" },
       headers: { Authorization: `Bearer ${stockToken}` },
     })
     expect(createRes.ok()).toBeTruthy()

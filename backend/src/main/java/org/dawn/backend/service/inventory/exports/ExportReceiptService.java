@@ -17,6 +17,7 @@ import org.dawn.backend.controller.inventory.request.ExportReceiptRequest;
 import org.dawn.backend.controller.inventory.request.FulfillExportRequest;
 import org.dawn.backend.controller.inventory.request.RejectExportRequest;
 import org.dawn.backend.controller.inventory.response.ExportReceiptResponse;
+import org.dawn.backend.controller.inventory.response.ProductUnitResponse;
 import org.dawn.backend.entity.auth.User;
 import org.dawn.backend.entity.catalog.Product;
 import org.dawn.backend.entity.inventory.Customer;
@@ -24,6 +25,7 @@ import org.dawn.backend.entity.inventory.ExportReceipt;
 import org.dawn.backend.entity.inventory.ExportReceiptItem;
 import org.dawn.backend.entity.inventory.ExportReceiptItemUnit;
 import org.dawn.backend.entity.inventory.ExportReceiptStatusHistory;
+import org.dawn.backend.entity.inventory.Location;
 import org.dawn.backend.entity.inventory.ProductUnit;
 import org.dawn.backend.entity.inventory.ProductUnitStatusLog;
 import org.dawn.backend.exception.type.InvalidRequestException;
@@ -32,6 +34,7 @@ import org.dawn.backend.exception.type.ResourceNotFoundException;
 import org.dawn.backend.repository.auth.UserRepository;
 import org.dawn.backend.repository.catalog.ProductRepository;
 import org.dawn.backend.repository.inventory.CustomerRepository;
+import org.dawn.backend.repository.inventory.LocationRepository;
 import org.dawn.backend.repository.inventory.exports.ExportReceiptItemRepository;
 import org.dawn.backend.repository.inventory.exports.ExportReceiptItemUnitRepository;
 import org.dawn.backend.repository.inventory.exports.ExportReceiptRepository;
@@ -39,6 +42,7 @@ import org.dawn.backend.repository.inventory.exports.ExportReceiptStatusHistoryR
 import org.dawn.backend.repository.inventory.ProductUnitRepository;
 import org.dawn.backend.repository.inventory.ProductUnitStatusLogRepository;
 import org.dawn.backend.repository.inventory.stockcheck.StockCheckItemRepository;
+import org.dawn.backend.service.inventory.ProductUnitMappingHelper;
 import org.dawn.backend.shared.util.ReceiptCodeGenerator;
 import org.dawn.backend.config.security.SecurityPolicy;
 import org.springframework.data.domain.Pageable;
@@ -47,6 +51,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -65,6 +70,7 @@ public class ExportReceiptService {
     private final StockCheckItemRepository stockCheckItemRepository;
     private final ProductRepository productRepository;
     private final CustomerRepository customerRepository;
+    private final LocationRepository locationRepository;
     private final UserRepository userRepository;
     private final StateMachine<ExportReceiptStatus> exportReceiptStateMachine;
     private final SecurityPolicy securityPolicy;
@@ -74,13 +80,20 @@ public class ExportReceiptService {
             org.dawn.backend.constant.enums.catalog.ProductUnit.KG.name());
 
     @Transactional(readOnly = true)
-    public ResponsePage<ExportReceiptResponse> findAll(Pageable pageable, String status) {
+    public ResponsePage<ExportReceiptResponse> findAll(Pageable pageable, String status, Long customerId) {
         ExportReceiptStatus s = safeParseExportStatus(status);
-        Page<ExportReceipt> page = s != null
-                ? exportReceiptRepository.findByStatus(s, pageable)
-                : status != null && !status.isBlank()
-                    ? Page.empty(pageable)
-                    : exportReceiptRepository.findAll(pageable);
+        Page<ExportReceipt> page;
+        if (customerId != null && s != null) {
+            page = exportReceiptRepository.findByCustomerIdAndStatus(customerId, s, pageable);
+        } else if (customerId != null) {
+            page = exportReceiptRepository.findByCustomerId(customerId, pageable);
+        } else if (s != null) {
+            page = exportReceiptRepository.findByStatus(s, pageable);
+        } else if (status != null && !status.isBlank()) {
+            page = Page.empty(pageable);
+        } else {
+            page = exportReceiptRepository.findAll(pageable);
+        }
         var receipts = page.getContent();
         var customerIds = receipts.stream().map(ExportReceipt::getCustomerId).filter(java.util.Objects::nonNull).distinct().toList();
         var customers = customerRepository.findAllById(customerIds).stream()
@@ -138,6 +151,7 @@ public class ExportReceiptService {
                 .customerId(request.customerId())
                 .status(ExportReceiptStatus.PENDING)
                 .note(request.note())
+                .externalReference(request.externalReference())
                 .createdBy(userId)
                 .build();
         receipt = exportReceiptRepository.save(receipt);
@@ -408,6 +422,34 @@ public class ExportReceiptService {
         }
         return BigDecimal.valueOf(productUnitRepository.countByProductIdAndStatus(
                 product.getId(), ProductUnitStatus.IN_STOCK));
+    }
+
+    @Transactional(readOnly = true)
+    public List<ProductUnitResponse> getUnitsByReceipt(Long receiptId, Long productId) {
+        var unitIds = exportReceiptItemUnitRepository.findProductUnitIdsByReceiptId(receiptId);
+        if (unitIds.isEmpty()) return List.of();
+        var allUnits = productUnitRepository.findAllById(unitIds).stream()
+                .filter(u -> ProductUnitStatus.EXPORTED == u.getStatus())
+                .toList();
+        if (productId != null) {
+            allUnits = allUnits.stream().filter(u -> productId.equals(u.getProductId())).toList();
+        }
+        var productIds = allUnits.stream().map(ProductUnit::getProductId).distinct().toList();
+        var products = productRepository.findAllById(productIds).stream()
+                .collect(Collectors.toMap(Product::getId, p -> p));
+        var locationIds = allUnits.stream().map(ProductUnit::getLocationId).filter(java.util.Objects::nonNull).distinct().toList();
+        var locations = locationRepository.findAllById(locationIds).stream()
+                .collect(Collectors.toMap(Location::getId, l -> l));
+        List<ProductUnitResponse> result = new ArrayList<>();
+        for (var unit : allUnits) {
+            Product p = products.get(unit.getProductId());
+            Location loc = unit.getLocationId() != null ? locations.get(unit.getLocationId()) : null;
+            result.add(ProductUnitMappingHelper.map(unit,
+                    p != null ? p.getName() : null,
+                    p != null ? p.getSku() : null,
+                    loc != null ? loc.getFullCode() : null));
+        }
+        return result;
     }
 
     private ExportReceiptResponse toResponse(ExportReceipt receipt) {

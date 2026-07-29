@@ -7,6 +7,7 @@ public record ExportReceiptRequest(
         String reason,
         Long customerId,
         String note,
+        String externalReference,
         List<ExportItemRequest> items
 ) {
     public record ExportItemRequest(

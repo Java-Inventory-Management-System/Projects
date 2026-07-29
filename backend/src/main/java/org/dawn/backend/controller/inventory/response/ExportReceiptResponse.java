@@ -25,6 +25,7 @@ public record ExportReceiptResponse(
         Instant fulfilledAt,
         Long rejectedBy,
         String rejectedByName,
+        String externalReference,
         Instant rejectedAt,
         String rejectReason,
         List<ExportItemResponse> items,

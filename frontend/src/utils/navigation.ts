@@ -13,7 +13,6 @@ import {
   Truck,
   Contact,
   FileText,
-  ShieldCheck,
   Undo2,
 } from "lucide-react"
 import type { ComponentType } from "react"
@@ -53,7 +52,7 @@ export const navSections: NavSection[] = [
       { label: "Exports", icon: ArrowUpFromLine, path: "/stock/exports", roles: ROLES.CAN_OPERATE },
       { label: "Stock Checks", icon: ClipboardCheck, path: "/stock/checks", roles: ROLES.CAN_VIEW_INVENTORY },
       { label: "Adjustments", icon: ClipboardCheck, path: "/stock/adjustments", roles: ROLES.CAN_VIEW_INVENTORY },
-      { label: "Warranty", icon: ShieldCheck, path: "/warranty", roles: ROLES.CAN_OPERATE },
+
       { label: "Returns", icon: Undo2, path: "/returns", roles: ROLES.CAN_OPERATE },
       { label: "Price Adj.", icon: ClipboardList, path: "/stock/price-adjustments", roles: ROLES.CAN_VIEW_INVENTORY },
     ],

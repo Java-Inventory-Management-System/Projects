@@ -22,8 +22,8 @@ public class AuthorizationExpressions {
     /** Xem tồn kho, danh mục — MANAGER/ADMIN/STOCK */
     public static final String CAN_VIEW_INVENTORY = "@securityPolicy.hasAnyRole('MANAGER', 'ADMIN', 'STOCK')";
 
-    /** Thao tác bán hàng (xuất kho, bảo hành, trả hàng) — SALES/STOCK/MANAGER */
-    public static final String CAN_OPERATE = "@securityPolicy.hasAnyRole('SALES', 'STOCK', 'MANAGER')";
+    /** Thao tác bán hàng (xuất kho, bảo hành, trả hàng) — ADMIN/SALES/STOCK/MANAGER */
+    public static final String CAN_OPERATE = "@securityPolicy.hasAnyRole('ADMIN', 'SALES', 'STOCK', 'MANAGER')";
 
     /** Manage catalog — CRUD sản phẩm, danh mục, NCC, brand */
     public static final String CAN_MANAGE_CATALOG = "@securityPolicy.hasAnyRole('MANAGER')";

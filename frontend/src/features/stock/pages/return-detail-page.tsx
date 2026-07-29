@@ -18,9 +18,10 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
-import { Check, X } from "lucide-react"
+import { Check, X, Printer, ExternalLink, Circle } from "lucide-react"
 import { toast } from "@/utils/toast"
 import { RETURN_RECEIPT_STATUS } from "@/utils/types"
+import { cn } from "@/utils/cn"
 
 const reasonLabel: Record<string, string> = {
   CHANGE_MIND: "Đổi ý",
@@ -52,6 +53,7 @@ export const ReturnDetailPage = () => {
   const perm = usePermission()
 
   const [showCancel, setShowCancel] = useState(false)
+  const [showApprove, setShowApprove] = useState(false)
 
   const { data: receipt, isLoading } = useQuery({
     queryKey: ["return-receipt", id],
@@ -121,6 +123,32 @@ export const ReturnDetailPage = () => {
         <span className="font-mono text-xs text-muted-foreground">{receipt.receiptCode}</span>
       </div>
 
+      <div className="flex items-start gap-6 px-1 py-3 text-xs">
+        <div className="flex items-center gap-2">
+          <Circle className={cn("size-3 fill-current", receipt.status !== RETURN_RECEIPT_STATUS.CANCELLED ? "text-blue-500" : "text-muted-foreground")} />
+          <div>
+            <p className="font-medium">Tạo phiếu</p>
+            <p className="text-muted-foreground">{new Date(receipt.createdAt).toLocaleString("vi-VN")}</p>
+            <p className="text-muted-foreground">{receipt.createdByName}</p>
+          </div>
+        </div>
+        <div className="w-6 border-t border-muted-foreground/30 mt-3" />
+        <div className="flex items-center gap-2">
+          <Circle className={cn("size-3 fill-current", receipt.status === RETURN_RECEIPT_STATUS.COMPLETED ? "text-green-500" : receipt.status === RETURN_RECEIPT_STATUS.CANCELLED ? "text-red-500" : "text-muted-foreground")} />
+          <div>
+            <p className="font-medium">{receipt.status === RETURN_RECEIPT_STATUS.CANCELLED ? "Đã hủy" : "Duyệt"}</p>
+            {receipt.approvedAt ? (
+              <>
+                <p className="text-muted-foreground">{new Date(receipt.approvedAt).toLocaleString("vi-VN")}</p>
+                <p className="text-muted-foreground">{receipt.approvedByName}</p>
+              </>
+            ) : (
+              <p className="text-muted-foreground italic">{receipt.status === RETURN_RECEIPT_STATUS.CANCELLED ? "" : "Chờ duyệt"}</p>
+            )}
+          </div>
+        </div>
+      </div>
+
       <div className="rounded-lg border p-6 space-y-4">
         <div className="grid grid-cols-2 gap-6 text-sm">
           <div>
@@ -134,7 +162,11 @@ export const ReturnDetailPage = () => {
           <div>
             <span className="text-muted-foreground">Đơn xuất gốc</span>
             <p className="font-mono text-xs mt-0.5">
-              {receipt.originalExportReceiptId ? `#${receipt.originalExportReceiptId}` : "—"}
+              {receipt.originalExportReceiptId
+                ? <a className="inline-flex items-center gap-1 text-blue-600 hover:underline cursor-pointer" onClick={() => navigate(`/stock/exports/${receipt.originalExportReceiptId}`)}>
+                    <ExternalLink className="size-3" /> #{receipt.originalExportReceiptId}
+                  </a>
+                : "—"}
             </p>
           </div>
           <div>
@@ -185,17 +217,39 @@ export const ReturnDetailPage = () => {
       </div>
 
       <div className="flex justify-end gap-2">
+        <Button variant="outline" onClick={() => window.print()}>
+          <Printer className="size-4 mr-1" /> In phiếu
+        </Button>
         {canCancel && (
           <Button variant="outline" className="text-destructive" onClick={() => setShowCancel(true)}>
             <X className="size-4 mr-1" /> Hủy phiếu
           </Button>
         )}
         {canApprove && (
-          <Button onClick={() => approveMut.mutate()} disabled={approveMut.isPending}>
+          <Button onClick={() => setShowApprove(true)} disabled={approveMut.isPending}>
             <Check className="size-4 mr-1" /> Duyệt
           </Button>
         )}
       </div>
+
+      <Dialog open={showApprove} onOpenChange={(v) => { if (!v) setShowApprove(false) }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Duyệt phiếu trả hàng</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Xác nhận duyệt phiếu {receipt.receiptCode}? Hàng trả sẽ được cập nhật vào kho.
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowApprove(false)}>
+              Quay lại
+            </Button>
+            <Button onClick={() => { approveMut.mutate(); setShowApprove(false) }} disabled={approveMut.isPending}>
+              {approveMut.isPending ? "Đang duyệt..." : "Xác nhận duyệt"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={showCancel}

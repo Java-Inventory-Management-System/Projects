@@ -67,9 +67,6 @@ const PriceAdjustmentDetailPage = lazyPage(
   "PriceAdjustmentDetailPage",
 )
 const POListPage = lazyPage(() => import("@/features/stock/pages/po-list-page"), "POListPage")
-const WarrantyListPage = lazyPage(() => import("@/features/stock/pages/warranty-list-page"), "WarrantyListPage")
-const WarrantyCreatePage = lazyPage(() => import("@/features/stock/pages/warranty-create-page"), "WarrantyCreatePage")
-const WarrantyDetailPage = lazyPage(() => import("@/features/stock/pages/warranty-detail-page"), "WarrantyDetailPage")
 const ReturnListPage = lazyPage(() => import("@/features/stock/pages/return-list-page"), "ReturnListPage")
 const ReturnCreatePage = lazyPage(() => import("@/features/stock/pages/return-create-page"), "ReturnCreatePage")
 const ReturnDetailPage = lazyPage(() => import("@/features/stock/pages/return-detail-page"), "ReturnDetailPage")
@@ -397,36 +394,6 @@ export const router = createBrowserRouter([
             ),
           },
           { path: "reports", element: <Navigate to="/" replace /> },
-          {
-            path: "warranty",
-            element: (
-              <Lazy>
-                <PageGuard roles={ROLES.CAN_OPERATE}>
-                  <WarrantyListPage />
-                </PageGuard>
-              </Lazy>
-            ),
-          },
-          {
-            path: "warranty/new",
-            element: (
-              <Lazy>
-                <PageGuard roles={ROLES.CAN_OPERATE}>
-                  <WarrantyCreatePage />
-                </PageGuard>
-              </Lazy>
-            ),
-          },
-          {
-            path: "warranty/:id",
-            element: (
-              <Lazy>
-                <PageGuard roles={ROLES.CAN_OPERATE}>
-                  <WarrantyDetailPage />
-                </PageGuard>
-              </Lazy>
-            ),
-          },
           {
             path: "returns",
             element: (

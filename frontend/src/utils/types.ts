@@ -316,6 +316,7 @@ export interface ExportReceipt {
   note: string | null
   status: ExportReceiptStatus
   totalAmount: number
+  externalReference: string | null
   createdBy: number | null
   createdByName: string | null
   approvedBy: number | null
@@ -332,7 +333,7 @@ export interface ExportReceipt {
   items: ExportReceiptItem[]
 }
 
-export type ExportReason = "SALE" | "INTERNAL" | "RETURN_SUPPLIER" | "DISPOSE"
+export type ExportReason = "SALE" | "INTERNAL" | "RETURN_SUPPLIER" | "DISPOSE" | "WARRANTY_REPLACEMENT"
 export type ExportReceiptStatus = "PENDING" | "APPROVED" | "COMPLETED" | "CANCELLED"
 
 export interface ExportReceiptItem {
@@ -525,56 +526,6 @@ export interface DeadStockItem {
   costPrice: number
 }
 
-// ============ Warranty ============
-
-export interface WarrantyRequest {
-  id: number
-  requestCode: string
-  productUnitId: number
-  serialNumber: string
-  productId: number
-  productName: string
-  productSku: string | null
-  customerId: number | null
-  customerName: string | null
-  createdByName: string | null
-  issueDescription: string
-  resolutionType: string | null
-  replacementUnitId: number | null
-  replacementSerialNumber: string | null
-  rmaNumber: string | null
-  sentToPartnerAt: string | null
-  expectedReturnAt: string | null
-  partnerNote: string | null
-  status: WarrantyStatus
-  handledBy: number | null
-  handledByName: string | null
-  completedAt: string | null
-  note: string | null
-  createdAt: string
-  updatedAt: string
-}
-
-export type WarrantyStatus =
-  "PENDING" | "COMPLETED" | "CANCELLED"
-
-export interface WarrantyLookup {
-  productUnitId: number
-  serialNumber: string
-  productId: number
-  productName: string
-  productSku: string | null
-  productUnitStatus: string
-  purchaseDate: string | null
-  warrantyExpiresAt: string | null
-  warrantyStatus: string
-  eligible: boolean
-  customerId: number | null
-  customerName: string | null
-  saleReceiptCode: string | null
-  history: WarrantyRequest[]
-}
-
 // ============ Return Receipt ============
 
 export interface ReturnReceiptItem {
@@ -688,6 +639,7 @@ export const EXPORT_REASON = {
   INTERNAL: "INTERNAL",
   RETURN_SUPPLIER: "RETURN_SUPPLIER",
   DISPOSE: "DISPOSE",
+  WARRANTY_REPLACEMENT: "WARRANTY_REPLACEMENT",
 } as const
 
 export const PURCHASE_ORDER_STATUS = {
@@ -711,12 +663,6 @@ export const ADJUSTMENT_STATUS = {
   CANCELLED: "CANCELLED",
 } as const
 
-export const WARRANTY_STATUS = {
-  PENDING: "PENDING",
-  COMPLETED: "COMPLETED",
-  CANCELLED: "CANCELLED",
-} as const
-
 export const PRODUCT_UNIT_STATUS = {
   IN_STOCK: "IN_STOCK",
   SOLD: "SOLD",
@@ -724,9 +670,6 @@ export const PRODUCT_UNIT_STATUS = {
   QUARANTINED: "QUARANTINED",
   RETURNED: "RETURNED",
   DISPOSED: "DISPOSED",
-  WARRANTY: "WARRANTY",
-  WARRANTY_DONE: "WARRANTY_DONE",
-  WARRANTY_REPLACED: "WARRANTY_REPLACED",
   DEFECTIVE: "DEFECTIVE",
   DAMAGED_IN_STORAGE: "DAMAGED_IN_STORAGE",
   LOST: "LOST",
@@ -787,24 +730,11 @@ export const ADJUSTMENT_TYPE = {
   FOUND: "FOUND",
 } as const
 
-export const WARRANTY_RESOLUTION_TYPE = {
-  REPLACE: "REPLACE",
-  RMA: "RMA",
-  REPAIR: "REPAIR",
-  REJECT: "REJECT",
-  RETURN_SUPPLIER: "RETURN_SUPPLIER",
-} as const
-
-export const WARRANTY_RESULT = {
-  REPAIRED: "REPAIRED",
-  DEFECTIVE: "DEFECTIVE",
-  LOST: "LOST",
-} as const
-
 export const RETURN_REASON = {
   CHANGE_MIND: "CHANGE_MIND",
   DEFECTIVE: "DEFECTIVE",
   WRONG_ITEM: "WRONG_ITEM",
+  WARRANTY_CLAIM: "WARRANTY_CLAIM",
 } as const
 
 export const RETURN_ITEM_CONDITION = {
@@ -816,4 +746,5 @@ export const RETURN_RESULTING_ACTION = {
   RESTOCK: "RESTOCK",
   SCRAP: "SCRAP",
   WARRANTY_TRANSFER: "WARRANTY_TRANSFER",
+  REJECT: "REJECT",
 } as const

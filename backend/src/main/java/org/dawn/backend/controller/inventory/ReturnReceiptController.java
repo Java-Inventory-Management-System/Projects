@@ -22,8 +22,11 @@ public class ReturnReceiptController {
 
     @GetMapping("")
     @PreAuthorize(AuthorizationExpressions.CAN_OPERATE)
-    public ResponseObject<ResponsePage<ReturnReceiptResponse>> findAll(Pageable pageable) {
-        return ResponseObject.success(returnReceiptService.findAll(pageable));
+    public ResponseObject<ResponsePage<ReturnReceiptResponse>> findAll(Pageable pageable,
+                                                                        @RequestParam(required = false) String status,
+                                                                        @RequestParam(required = false) String reason,
+                                                                        @RequestParam(required = false) String search) {
+        return ResponseObject.success(returnReceiptService.findAll(pageable, status, reason, search));
     }
 
     @GetMapping("/{id}")

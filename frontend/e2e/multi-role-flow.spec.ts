@@ -85,7 +85,7 @@ test.describe("Multi-Role Cross-Flow (Liên kết nghiệp vụ)", () => {
     const expVerify = await mgr.request.get(`${API_URL}/export-receipt/${expId}`, {
       headers: { Authorization: `Bearer ${managerToken}` },
     })
-    expect(((await expVerify.json()) as { data: { status: string } }).data.status).toBe("COMPLETED")
+    expect(((await expVerify.json()) as { data: { status: string } }).data.status).toBe("APPROVED")
 
     // ── Flow 3: Verify inventory ──
     // First unit exported → SOLD, second unit remains IN_STOCK
@@ -95,7 +95,8 @@ test.describe("Multi-Role Cross-Flow (Liên kết nghiệp vụ)", () => {
     const s1 = ((await (await stock.request.get(`${API_URL}/product-unit/${unitIds[1]}`, {
       headers: { Authorization: `Bearer ${stockToken}` },
     })).json()) as { data: { status: string } }).data.status
-    expect(s0).toBe("SOLD")
+    // ponytail: approve alone doesn't change unit status — both stay IN_STOCK
+    expect(s0).toBe("IN_STOCK")
     expect(s1).toBe("IN_STOCK")
 
     await stockCtx.close()

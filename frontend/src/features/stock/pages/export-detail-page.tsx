@@ -35,6 +35,7 @@ const reasonLabel: Record<string, string> = {
   INTERNAL: "Nội bộ",
   RETURN_SUPPLIER: "Trả NCC",
   DISPOSE: "Hủy",
+  WARRANTY_REPLACEMENT: "Thay thế bảo hành",
 }
 
 export function ExportDetailPage() {
@@ -147,6 +148,7 @@ export function ExportDetailPage() {
             <div><span className="text-muted-foreground">Lý do xuất:</span><p className="font-medium">{reasonLabel[receipt.reason] ?? receipt.reason}</p></div>
             <div><span className="text-muted-foreground">Ngày tạo:</span><p className="font-medium">{new Date(receipt.createdAt).toLocaleString("vi-VN")}</p></div>
             {receipt.customerName && <div><span className="text-muted-foreground">Khách hàng:</span><p className="font-medium">{receipt.customerName}</p></div>}
+            {receipt.externalReference && <div><span className="text-muted-foreground">Mã bảo hành:</span><p className="font-medium font-mono text-xs">{receipt.externalReference}</p></div>}
             <div><span className="text-muted-foreground">Người tạo:</span><p className="font-medium">{receipt.createdByName || "—"}</p></div>
             <div><span className="text-muted-foreground">Người duyệt:</span><p className="font-medium">{receipt.approvedByName ?? "—"}</p></div>
             {receipt.fulfilledByName && <div><span className="text-muted-foreground">Người xuất:</span><p className="font-medium">{receipt.fulfilledByName}</p></div>}

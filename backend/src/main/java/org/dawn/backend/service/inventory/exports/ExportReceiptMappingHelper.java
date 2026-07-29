@@ -40,6 +40,7 @@ public interface ExportReceiptMappingHelper {
                 .rejectedByName(rejectedByName)
                 .rejectedAt(receipt.getRejectedAt())
                 .rejectReason(receipt.getRejectReason())
+                .externalReference(receipt.getExternalReference())
                 .items(items.stream().map(item -> {
                     Product p = productMap.get(item.getProductId());
                     return ExportItemResponse.builder()
