@@ -4,8 +4,6 @@ import { login as loginApi, logout as logoutApi } from "@/services/auth-service"
 import { clearToken } from "@/utils/http-client"
 import { jwtDecode } from "@/utils/jwt"
 
-export const SKIP_AUTH = import.meta.env.VITE_SKIP_AUTH === "true"
-
 interface User {
   id: number
   username: string

@@ -1,4 +1,5 @@
-import { useAuthStore, SKIP_AUTH } from "@/store/auth-store"
+import { useAuthStore } from "@/store/auth-store"
+import { AUTH_ENABLED } from "@/utils/http-client"
 import { useCallback } from "react"
 import { ROLES } from "@/utils/permissions"
 import type { URole } from "@/utils/types"
@@ -7,7 +8,7 @@ export function usePermission() {
   const user = useAuthStore((s) => s.user)
 
   const hasRole = useCallback((...roles: URole[]) => {
-    if (SKIP_AUTH) return true
+    if (!AUTH_ENABLED) return true
     if (!user) return false
     return roles.includes(user.role)
   }, [user])
@@ -16,7 +17,7 @@ export function usePermission() {
 
   const canApprove = useCallback(
     (adj?: { createdBy?: number | null; status?: string }) => {
-      if (SKIP_AUTH) return adj ? adj.status === "PENDING" : true
+      if (!AUTH_ENABLED) return adj ? adj.status === "PENDING" : true
       const hasApproveRole = hasRole(...ROLES.CAN_APPROVE)
       if (!adj) return hasApproveRole
       return hasApproveRole && adj.status === "PENDING" && adj.createdBy !== user?.id

@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react"
 import { useNavigate } from "react-router-dom"
-import { useAuthStore, SKIP_AUTH } from "@/store/auth-store"
+import { useAuthStore } from "@/store/auth-store"
+import { AUTH_ENABLED } from "@/utils/http-client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -16,7 +17,7 @@ export const LoginPage = () => {
   const navigate = useNavigate()
 
   useEffect(() => {
-    if (SKIP_AUTH) navigate("/", { replace: true })
+    if (!AUTH_ENABLED) navigate("/", { replace: true })
   }, [navigate])
 
   const handleSubmit = async (e: FormEvent) => {

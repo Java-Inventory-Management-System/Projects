@@ -1,6 +1,7 @@
 import { useState, lazy, Suspense } from "react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useAuthStore } from "@/store/auth-store"
+import { AUTH_ENABLED } from "@/utils/http-client"
 import { ROLES } from "@/utils/permissions"
 
 const StockOverviewTab = lazy(() => import("./stock-overview-tab").then((m) => ({ default: m.StockOverviewTab })))
@@ -26,7 +27,7 @@ const TAB_FALLBACK = <Skeleton className="h-96 w-full" />
 export function StockUnitsPage() {
   const user = useAuthStore((s) => s.user)
 
-  const availableTabs = TABS.filter((t) => !t.roles || (user && t.roles.includes(user.role)))
+  const availableTabs = TABS.filter((t) => !AUTH_ENABLED || !t.roles || (user && t.roles.includes(user.role)))
   const [tab, setTab] = useState<TabKey>(availableTabs[0]?.key ?? "list")
 
   return (

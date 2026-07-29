@@ -3,6 +3,7 @@ import { toast } from "./toast"
 
 const STORAGE_KEY_TOKEN = "accessToken"
 const BASE_URL = (import.meta.env.VITE_BASE_API_URL as string) ?? "http://localhost:8888/api/v1"
+export const AUTH_ENABLED = import.meta.env.VITE_ENABLED_AUTH !== "false"
 
 const http = axios.create({
   baseURL: BASE_URL,
@@ -24,6 +25,7 @@ function processQueue(error: unknown, token: string | null) {
 }
 
 http.interceptors.request.use((config: InternalAxiosRequestConfig) => {
+  if (!AUTH_ENABLED) return config
   const token = localStorage.getItem(STORAGE_KEY_TOKEN)
   if (token) config.headers.Authorization = `Bearer ${token}`
   return config
