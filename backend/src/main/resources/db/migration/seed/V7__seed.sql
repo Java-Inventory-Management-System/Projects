@@ -163,7 +163,7 @@ INSERT INTO locations(zone_code,shelf_code,bin_code,full_code,description,is_act
     UNION ALL SELECT'Z','01','02','Z-01-02','Hàng mới nhập — chờ phân loại',TRUE
     UNION ALL SELECT'Z','02','01','Z-02-01','Hàng chuyển kho — tạm thời',TRUE
     UNION ALL SELECT'Z','02','02','Z-02-02','Hàng chờ xuất — tạm thời',TRUE
-    UNION ALL SELECT'QC','QC','HOLD','QC-QC-HOLD','QC hold quarantine zone',TRUE,NULL
+    UNION ALL SELECT'QC','QC','HOLD','QC-QC-HOLD','QC hold quarantine zone',TRUE
 )SELECT z,s,b,f,d,active FROM l;
 
 -- Customers
@@ -206,11 +206,11 @@ INSERT INTO products(id,name,sku,barcode,brand_id,category_id,description,unit,t
     UNION ALL SELECT 26,'Cooler Master MasterLiquid ML360L','CLN-CM-001','4711176752033',11,8,'AIO 360mm, ARGB','PIECE','SERIALIZED',3499000,3,TRUE
     UNION ALL SELECT 27,'ASUS ROG Ryujin III 360','CLN-ASU-001','4711081808866',1,8,'AIO 360mm, LCD display','PIECE','SERIALIZED',8999000,2,TRUE
     UNION ALL SELECT 28,'Samsung 980 Pro 500GB NVMe','STO-SAM-003','8801647775342',6,6,'PCIe 4.0 NVMe, đọc 6900MB/s','PIECE','SERIALIZED',3499000,10,TRUE
-    UNION ALL SELECT 29,'WD Blue SN580 1TB NVMe','STO-WD-002','7180378869318',8,6,'PCIe 4.0 NVMe, đọc 4150MB/s','PIECE','SERIALIZED',2999000,10,TRUE
+    UNION ALL SELECT 29,'WD Blue SN580 1TB NVMe','STO-WD-002','7180378869318',8,6,'PCe 4.0 NVMe, đọc 4150MB/s','PIECE','SERIALIZED',2999000,10,TRUE
     UNION ALL SELECT 30,'Noctua NH-D15 chromax.black','CLN-NOC-001','4711176752040',12,8,'Tản nhiệt khí dual tower, black','PIECE','SERIALIZED',2999000,5,TRUE
     UNION ALL SELECT 31,'Cooler Master Hyper 212 Halo','CLN-CM-002','4711176752057',11,8,'Tản nhiệt khí single tower, ARGB','PIECE','SERIALIZED',1599000,10,TRUE
     UNION ALL SELECT 32,'Corsair Vengeance DDR4 32GB 3200MHz','RAM-COR-003','8435911058902',7,2,'DDR4, 32GB (2x16GB), 3200MHz','PIECE','SERIALIZED',2299000,10,TRUE
-    UNION ALL SELECT 33,'Thermal Grizzly Kryonaut 1g','THR-TG-001','4260719050015',12,8,'Thermal paste high-end, 1g tube','PIECE','BULK',199000,20,TRUE
+    UNION ALL SELECT 33,'Thermal Grizzly Kryonaut 1g','THR-TG-001','4260719050015',12,8,'Thermal pasIte high-end, 1g tube','PIECE','BULK',199000,20,TRUE
 )SELECT id,name,sku,barcode,bid,cid,`desc`,unit,track,price,min,active FROM p;
 
 -- Import receipts (receiving supplier stock)
@@ -372,13 +372,6 @@ UPDATE product_units
 SET warranty_start_date = imported_at,
     warranty_expires_at = DATE_ADD(imported_at, INTERVAL warranty_months MONTH)
 WHERE status = 'EXPORTED' AND warranty_start_date IS NULL;
-
--- Warranty requests
-INSERT INTO warranty_requests (request_code, product_unit_id, customer_id, issue_description, resolution_type, status, handled_by, completed_at, note, created_at)
-VALUES
-('WR-000001', @sold1, 1, 'Máy không lên nguồn, đã kiểm tra PSU và mainboard vẫn OK. Nghi ngờ CPU lỗi.', NULL, 'PENDING', NULL, NULL, NULL, '2026-07-10 09:00:00'),
-('WR-000002', @sold2, 1, 'SSD không được nhận diện trên BIOS, đã thử đổi slot vẫn không được.', 'REPAIR', 'PENDING', 2, NULL, 'Xác nhận sửa chữa tại kho', '2026-07-10 09:30:00'),
-('WR-000003', @sold3, 1, 'Nhiệt độ CPU lên 100°C ngay khi idle, tản nhiệt gắn đúng cách.', 'REPAIR', 'COMPLETED', 2, '2026-07-12 16:00:00', 'Đã thay keo tản nhiệt và kiểm tra — OK', '2026-07-09 14:00:00');
 
 -- Return receipts
 INSERT INTO return_receipts (receipt_code, customer_id, original_export_receipt_id, reason, status, note, created_by, created_at)

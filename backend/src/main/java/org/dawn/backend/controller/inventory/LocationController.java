@@ -1,11 +1,13 @@
 package org.dawn.backend.controller.inventory;
 
 import jakarta.validation.Valid;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.dawn.backend.config.web.response.ResponseObject;
 import org.dawn.backend.config.web.response.ResponsePage;
 import org.dawn.backend.constant.security.AuthorizationExpressions;
 import org.dawn.backend.controller.inventory.request.LocationRequest;
+import org.dawn.backend.controller.inventory.request.RelocateRequest;
 import org.dawn.backend.controller.inventory.response.LocationMapResponse;
 import org.dawn.backend.controller.inventory.response.LocationResponse;
 import org.dawn.backend.service.inventory.LocationService;
@@ -67,5 +69,12 @@ public class LocationController {
     @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER)
     public ResponseObject<LocationResponse> toggleActive(@PathVariable Long id) {
         return ResponseObject.success(locationService.toggleActive(id));
+    }
+
+    @PostMapping("/relocate")
+    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER)
+    public ResponseObject<Void> relocate(@Valid @RequestBody RelocateRequest request) {
+        locationService.relocate(request);
+        return ResponseObject.success(null);
     }
 }

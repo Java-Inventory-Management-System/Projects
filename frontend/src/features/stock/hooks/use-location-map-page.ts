@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from "react"
+import { useMemo, useState, useEffect, useCallback, useRef } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useLocationMap } from "@/hooks/use-location-map"
 import type { LocationMapData } from "@/utils/types"
@@ -11,6 +11,8 @@ export function useLocationMapPage() {
   const qc = useQueryClient()
   const { data, isLoading, isFetching, error, refetch } = useLocationMap()
 
+  const searchToastShown = useRef(false)
+
   function patchZones(updater: (prev: LocationMapData) => LocationMapData) {
     qc.setQueryData<LocationMapData>(["location-map"], (prev) => prev ? updater(prev) : prev)
   }
@@ -20,7 +22,7 @@ export function useLocationMapPage() {
     return data.zones.reduce((sum, z) => sum + z.shelves.reduce((s, sh) => s + sh.bins.length, 0), 0)
   }, [data])
 
-  const [search, setSearch] = useState("")
+  const [search, _setSearch] = useState("")
   const [filter, setFilter] = useState<FilterMode>("all")
   const [selectedBin, setSelectedBin] = useState<DetailBin | null>(null)
   const [sheetOpen, setSheetOpen] = useState(false)
@@ -32,8 +34,23 @@ export function useLocationMapPage() {
   const [zoomStage, setZoomStage] = useState<"idle" | "entering" | "visible" | "exiting">("idle")
   const [dragSource, setDragSource] = useState<{ bin: DetailBin; zoneCode: string } | null>(null)
   const [relocateTarget, setRelocateTarget] = useState<{ source: DetailBin; dest: DetailBin } | null>(null)
+  const [relocateCountdown, setRelocateCountdown] = useState(0)
+  const [relocateQuantity, setRelocateQuantity] = useState(0)
+  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const isZoneZoomed = zoomedShelf != null && zoomedShelf.shelfCode == null
+
+  function setSearch(value: string) {
+    if (value && filter !== "all") {
+      setFilter("all")
+      if (!searchToastShown.current) {
+        searchToastShown.current = true
+        toast.info("Đã bỏ bộ lọc để hiển thị kết quả tìm kiếm")
+      }
+    }
+    if (!value) searchToastShown.current = false
+    _setSearch(value)
+  }
 
   function openZoom(target: { zoneCode: string; shelfCode: string | null } | null) {
     if (target == null) {
@@ -58,6 +75,22 @@ export function useLocationMapPage() {
     return () => document.removeEventListener("keydown", handler)
   }, [zoomStage])
 
+  useEffect(() => {
+    if (!dragSource && !relocateTarget) return
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        if (relocateTarget) {
+          clearCountdown()
+          setRelocateCountdown(0)
+          setRelocateTarget(null)
+        }
+        setDragSource(null)
+      }
+    }
+    document.addEventListener("keydown", handler)
+    return () => document.removeEventListener("keydown", handler)
+  }, [dragSource, relocateTarget])
+
   const filteredZones = useMemo(() => {
     if (!data) return []
     return data.zones
@@ -71,7 +104,12 @@ export function useLocationMapPage() {
               return { ...shelf, bins: [] }
             }
             const bins = shelf.bins.filter((bin) => {
-              if (search && !bin.fullCode.toLowerCase().includes(search.toLowerCase())) return false
+              if (search) {
+                const q = search.toLowerCase()
+                const matchesFullCode = bin.fullCode.toLowerCase().includes(q)
+                const matchesSku = (bin.productSkuList ?? []).some((s) => s.toLowerCase().includes(q))
+                if (!matchesFullCode && !matchesSku) return false
+              }
               if (filter === "empty") return bin.productCount === 0
               if (filter === "stocked") return bin.productCount > 0
               if (filter === "full")
@@ -90,6 +128,29 @@ export function useLocationMapPage() {
       })
       .filter((zone) => zone.shelves.length > 0)
   }, [data, search, filter, zoomedShelf])
+
+  const highlightBinId = useMemo(() => {
+    if (!search) return null
+    const q = search.toLowerCase()
+    for (const zone of data?.zones ?? []) {
+      for (const shelf of zone.shelves) {
+        for (const bin of shelf.bins) {
+          const matchesFullCode = bin.fullCode.toLowerCase().includes(q)
+          const matchesSku = (bin.productSkuList ?? []).some((s) => s.toLowerCase().includes(q))
+          if (matchesFullCode || matchesSku) return bin.id
+        }
+      }
+    }
+    return null
+  }, [search, data])
+
+  useEffect(() => {
+    if (!search || highlightBinId) return
+    const timer = setTimeout(() => {
+      toast.info("Không tìm thấy sản phẩm này trong kho")
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [search, highlightBinId])
 
   function isBinActive(bin: DetailBin) {
     return !deactivatedIds[bin.id]
@@ -125,6 +186,7 @@ export function useLocationMapPage() {
       binCode,
       productCount: 0,
       maxCapacity: null,
+      productSkuList: [],
     }
     patchZones((prev) => ({ ...prev, zones: [...prev.zones, { zoneCode, shelves: [{ shelfCode, bins: [newBin] }] }] }))
     createLocation({ zoneCode, shelfCode, binCode })
@@ -199,6 +261,7 @@ export function useLocationMapPage() {
       binCode,
       productCount: 0,
       maxCapacity: null,
+      productSkuList: [],
     }
     patchZones((prev) => ({
       ...prev,
@@ -257,6 +320,7 @@ export function useLocationMapPage() {
       binCode,
       productCount: 0,
       maxCapacity: null,
+      productSkuList: [],
     }
     patchZones((prev) => ({
       ...prev,
@@ -308,27 +372,75 @@ export function useLocationMapPage() {
 
   function handleDrop(destBin: DetailBin) {
     if (!dragSource) return
-    if (dragSource.bin.id === destBin.id) return
+    if (dragSource.bin.id === destBin.id) { setDragSource(null); return }
     if (dragSource.zoneCode !== destBin.zoneCode) return
+    if (destBin.maxCapacity != null && destBin.productCount >= destBin.maxCapacity) return
     setRelocateTarget({ source: dragSource.bin, dest: destBin })
+    setRelocateQuantity(dragSource.bin.productCount)
     setDragSource(null)
   }
 
-  function handleRelocateCancel() {
-    setRelocateTarget(null)
+  function clearCountdown() {
+    if (countdownRef.current) {
+      clearInterval(countdownRef.current)
+      countdownRef.current = null
+    }
   }
 
-  function handleRelocateConfirm() {
+  /** Nhánh A: huỷ/hết giờ → revert UI local, KHÔNG gọi API */
+  function handleRelocateCancel() {
+    clearCountdown()
+    setRelocateCountdown(0)
+    setRelocateTarget(null)
+    setRelocateQuantity(0)
+    setDragSource(null)
+  }
+
+  /** Nhánh B: bấm OK → gọi API, nếu lỗi revert + toast cụ thể */
+  async function handleRelocateConfirm() {
+    clearCountdown()
+    setRelocateCountdown(0)
     const target = relocateTarget
     setRelocateTarget(null)
     if (!target) return
-    relocateProductUnits(target.source.id, target.dest.id)
-      .then(() => {
-        toast.success(`Đã di chuyển sản phẩm từ ${target.source.fullCode} sang ${target.dest.fullCode}`)
-        refetch()
-      })
-      .catch((err: Error) => toast.error(err.message || "Di chuyển thất bại"))
+
+    const sourceId = target.source.id
+    const destId = target.dest.id
+
+    try {
+      await relocateProductUnits(sourceId, destId, relocateQuantity || undefined)
+      toast.success(`Đã di chuyển ${relocateQuantity} sản phẩm từ ${target.source.fullCode} sang ${target.dest.fullCode}`)
+      qc.invalidateQueries({ queryKey: ["location-map"] })
+      qc.invalidateQueries({ queryKey: ["product-units"] })
+      qc.invalidateQueries({ queryKey: ["inventory"] })
+    } catch (err) {
+      const message = (err as { response?: { data?: { message?: string } }; message?: string })?.response?.data?.message
+        ?? (err as Error).message
+        ?? "Di chuyển thất bại"
+      toast.error(message)
+      refetch()
+    }
   }
+
+  /** Bắt đầu countdown khi relocateTarget thay đổi */
+  useEffect(() => {
+    if (!relocateTarget) {
+      setRelocateCountdown(0)
+      return
+    }
+    setRelocateCountdown(20)
+    countdownRef.current = setInterval(() => {
+      setRelocateCountdown((prev) => {
+        if (prev <= 1) {
+          clearCountdown()
+          setRelocateTarget(null)
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+    return clearCountdown
+  }, [relocateTarget])
 
   return {
     data,
@@ -371,7 +483,11 @@ export function useLocationMapPage() {
     handleDragStart,
     handleDrop,
     relocateTarget,
+    relocateCountdown,
+    relocateQuantity,
+    setRelocateQuantity,
     handleRelocateCancel,
     handleRelocateConfirm,
+    highlightBinId,
   }
 }

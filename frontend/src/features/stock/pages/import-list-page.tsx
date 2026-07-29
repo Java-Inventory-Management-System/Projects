@@ -6,7 +6,7 @@ import { ViewImportModal } from "../components/view-import-modal"
 import { ReceiptListPage } from "../components/receipt-list-page"
 import { Badge } from "@/components/ui/badge"
 import type { Column } from "@/components/ui/data-table"
-import type { ImportReceipt } from "@/utils/types"
+import { IMPORT_RECEIPT_STATUS, type ImportReceipt } from "@/utils/types"
 
 const statusLabel: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
   DRAFT: { label: "Bản nháp", variant: "secondary" },
@@ -62,6 +62,7 @@ export function ImportListPage() {
       approveService={approveImportReceipt}
       ViewModal={ViewImportModal}
       columns={columns}
+      scanStatuses={[IMPORT_RECEIPT_STATUS.DRAFT]}
     />
   )
 }

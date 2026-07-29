@@ -91,6 +91,9 @@ public class Message {
         public static final String LOCATION_CODE_EXISTS = "Location code already exists";
         public static final String LOCATION_CODE_REQUIRED = "Zone code, shelf code, and bin code are required";
         public static final String CANNOT_DELETE_LOCATION_WITH_UNITS = "Cannot delete location with {0} product unit(s)";
+        public static final String SOURCE_BIN_EMPTY = "Source bin has no product units to relocate";
+        public static final String RELOCATE_SAME_BIN = "Cannot relocate to the same bin";
+        public static final String INVALID_QUANTITY = "Invalid quantity: {0}";
         public static final String CUSTOMER_NOT_FOUND = "Customer not found";
         public static final String IMPORT_RECEIPT_NOT_FOUND = "Import receipt not found";
         public static final String IMPORT_ITEM_NOT_FOUND = "Import receipt item not found";
@@ -151,6 +154,7 @@ public class Message {
         public static final String PO_CODE_EXISTS = "Purchase order code already exists";
         public static final String PO_ALREADY_CANCELLED = "Purchase order already cancelled";
         public static final String PO_HAS_COMPLETED_RECEIPTS = "Cannot cancel purchase order with completed import receipts";
+        public static final String PO_REQUIRED = "Purchase order is required";
 
 
 
@@ -190,6 +194,9 @@ public class Message {
         public static final String RETURN_INVALID_CONDITION = "Invalid return condition: {0}";
         public static final String RETURN_INVALID_ACTION = "Invalid resulting action: {0}";
         public static final String RETURN_UNIT_NOT_SOLD = "Product unit is not in sold status";
+        public static final String RETURN_EXPORT_NOT_BELONG_TO_CUSTOMER = "Export receipt does not belong to the selected customer";
+        public static final String RETURN_7_DAY_LIMIT = "Returns are only allowed within 7 days from the export date";
+        public static final String RETURN_CONDITION_ACTION_MISMATCH = "Status {0} is not compatible with action {1}";
 
         // Stock check
         public static final String STOCK_CHECK_INVALID_SCOPE = "Invalid scope type. Must be ZONE or CATEGORY";

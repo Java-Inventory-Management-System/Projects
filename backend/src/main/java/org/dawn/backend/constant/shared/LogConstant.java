@@ -33,6 +33,7 @@ public class LogConstant {
         public static final String UPDATE_LOCATION = "UPDATE_LOCATION";
         public static final String DELETE_LOCATION = "DELETE_LOCATION";
         public static final String TOGGLE_LOCATION = "TOGGLE_LOCATION";
+        public static final String RELOCATE_LOCATION = "RELOCATE_LOCATION";
         public static final String CREATE_CUSTOMER = "CREATE_CUSTOMER";
         public static final String UPDATE_CUSTOMER = "UPDATE_CUSTOMER";
         public static final String TOGGLE_CUSTOMER = "TOGGLE_CUSTOMER";

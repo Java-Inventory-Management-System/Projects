@@ -6,7 +6,6 @@ import org.dawn.backend.config.web.response.ResponsePage;
 import org.dawn.backend.constant.security.AuthorizationExpressions;
 import org.dawn.backend.controller.inventory.request.ApproveStockCheckRequest;
 import org.dawn.backend.controller.inventory.request.CreateStockCheckRequest;
-import org.dawn.backend.controller.inventory.request.ImportSerialsRequest;
 import org.dawn.backend.controller.inventory.request.StockCheckItemRequest;
 import org.dawn.backend.controller.inventory.response.StockCheckResponse;
 import org.dawn.backend.service.inventory.stockcheck.StockCheckAdjustmentService;
@@ -57,14 +56,6 @@ public class StockCheckController {
             @PathVariable Long id,
             @RequestBody StockCheckItemRequest.BatchRequest request) {
         return ResponseObject.success(stockCheckService.recordItems(id, request));
-    }
-
-    @PostMapping("/stock-check/{id}/import-serials")
-    @PreAuthorize(AuthorizationExpressions.CAN_OPERATE_STOCK)
-    public ResponseObject<StockCheckResponse> importSerials(
-            @PathVariable Long id,
-            @RequestBody ImportSerialsRequest request) {
-        return ResponseObject.success(stockCheckService.importSerials(id, request));
     }
 
     @PutMapping("/stock-check/{id}/start")

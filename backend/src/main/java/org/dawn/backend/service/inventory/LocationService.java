@@ -4,24 +4,33 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dawn.backend.aspect.AuditLog;
 import org.dawn.backend.config.web.response.ResponsePage;
+import org.dawn.backend.constant.enums.inventory.ProductUnitStatus;
+import org.dawn.backend.constant.enums.inventory.SourceType;
 import org.dawn.backend.constant.shared.LogConstant;
 import org.dawn.backend.constant.shared.Message;
 import org.dawn.backend.controller.inventory.request.LocationRequest;
+import org.dawn.backend.controller.inventory.request.RelocateRequest;
 import org.dawn.backend.controller.inventory.response.LocationMapResponse;
 import org.dawn.backend.controller.inventory.response.LocationMapResponse.ZoneData;
 import org.dawn.backend.controller.inventory.response.LocationMapResponse.ShelfData;
 import org.dawn.backend.controller.inventory.response.LocationMapResponse.BinData;
 import org.dawn.backend.controller.inventory.response.LocationResponse;
 import org.dawn.backend.entity.inventory.Location;
+import org.dawn.backend.entity.inventory.ProductUnit;
+import org.dawn.backend.entity.inventory.ProductUnitStatusLog;
 import org.dawn.backend.exception.type.InvalidRequestException;
 import org.dawn.backend.exception.type.ResourceAlreadyExistedException;
 import org.dawn.backend.exception.type.ResourceNotFoundException;
 import org.dawn.backend.repository.inventory.LocationRepository;
 import org.dawn.backend.repository.inventory.ProductUnitRepository;
+import org.dawn.backend.repository.inventory.ProductUnitStatusLogRepository;
+import org.dawn.backend.config.security.SecurityPolicy;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -34,11 +43,14 @@ public class LocationService {
 
     private final LocationRepository locationRepository;
     private final ProductUnitRepository productUnitRepository;
+    private final ProductUnitStatusLogRepository productUnitStatusLogRepository;
+    private final SecurityPolicy securityPolicy;
 
     @Transactional(readOnly = true)
     public LocationMapResponse getMap() {
         var locations = locationRepository.findAllByOrderByZoneCodeAscShelfCodeAscBinCodeAsc();
         var counts = productUnitRepository.countByLocation();
+        var skuMap = productUnitRepository.findSkuByLocationId();
 
         Map<String, List<Location>> byZone = locations.stream()
             .collect(Collectors.groupingBy(Location::getZoneCode, LinkedHashMap::new, Collectors.toList()));
@@ -50,7 +62,8 @@ public class LocationService {
             List<ShelfData> shelves = byShelf.entrySet().stream().map(shelfEntry -> {
                 List<BinData> bins = shelfEntry.getValue().stream().map(loc -> {
                     Long mc = loc.getMaxCapacity() != null ? loc.getMaxCapacity().longValue() : null;
-                    return new BinData(loc.getId(), loc.getBinCode(), loc.getFullCode(), counts.getOrDefault(loc.getId(), 0L), mc);
+                    List<String> skus = skuMap.getOrDefault(loc.getId(), Collections.emptyList());
+                    return new BinData(loc.getId(), loc.getBinCode(), loc.getFullCode(), counts.getOrDefault(loc.getId(), 0L), mc, skus);
                 }).toList();
                 return new ShelfData(shelfEntry.getKey(), bins);
             }).toList();
@@ -134,5 +147,60 @@ public class LocationService {
             throw new InvalidRequestException(Message.format(Message.Inventory.CANNOT_DELETE_LOCATION_WITH_UNITS, productCount));
         }
         locationRepository.delete(location);
+    }
+
+    @Transactional
+    @AuditLog(action = LogConstant.Action.RELOCATE_LOCATION, entity = LogConstant.Entity.LOCATION)
+    public void relocate(RelocateRequest request) {
+        Long sourceId = request.sourceBinId();
+        Long destId = request.destBinId();
+
+        if (sourceId.equals(destId)) {
+            throw new InvalidRequestException(Message.Inventory.RELOCATE_SAME_BIN);
+        }
+
+        Location sourceLocation = locationRepository
+                .findById(sourceId)
+                .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.LOCATION_NOT_FOUND));
+        Location destLocation = locationRepository
+                .findById(destId)
+                .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.LOCATION_NOT_FOUND));
+
+        List<ProductUnit> units = productUnitRepository.findByLocationIdInAndStatus(
+                List.of(sourceId), ProductUnitStatus.IN_STOCK);
+
+        if (units.isEmpty()) {
+            throw new InvalidRequestException(Message.Inventory.SOURCE_BIN_EMPTY);
+        }
+
+        int quantity = request.quantity() != null ? request.quantity() : units.size();
+        if (quantity <= 0 || quantity > units.size()) {
+            throw new InvalidRequestException(Message.format(Message.Inventory.INVALID_QUANTITY, quantity));
+        }
+
+        List<ProductUnit> toMove = quantity < units.size()
+                ? new ArrayList<>(units.subList(0, quantity))
+                : units;
+
+        long currentUserId = securityPolicy.requireAuthenticated();
+
+        for (ProductUnit unit : toMove) {
+            unit.setLocationId(destId);
+        }
+        productUnitRepository.saveAll(toMove);
+
+        List<ProductUnitStatusLog> logs = toMove.stream().<ProductUnitStatusLog>map(unit ->
+            ProductUnitStatusLog.builder()
+                    .productUnitId(unit.getId())
+                    .fromStatus(ProductUnitStatus.IN_STOCK.name())
+                    .toStatus(ProductUnitStatus.IN_STOCK.name())
+                    .sourceType(SourceType.RELOCATE.name())
+                    .sourceId(destId)
+                    .changedBy(currentUserId)
+                    .build()
+        ).toList();
+        productUnitStatusLogRepository.saveAll(logs);
+
+        log.info("Relocated {} units from location {} to location {}", toMove.size(), sourceId, destId);
     }
 }

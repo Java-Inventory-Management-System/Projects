@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react"
+import { useState, useMemo, useCallback, useRef } from "react"
 import { useForm, useFieldArray, Controller } from "react-hook-form"
 import { useNavigate, useBlocker } from "react-router-dom"
 import { useCreatePurchaseOrder } from "@/hooks/use-purchase-orders"
@@ -33,6 +33,7 @@ interface POFormFields {
 
 export function POCreatePage() {
   const navigate = useNavigate()
+  const navigatingAfterMut = useRef(false)
   const [selectedProductIds, setSelectedProductIds] = useState<number[]>([])
   const [productPopoverOpen, setProductPopoverOpen] = useState(false)
 
@@ -57,7 +58,7 @@ export function POCreatePage() {
   const hasUnsaved = fields.length > 0
   useBlocker(
     ({ currentLocation, nextLocation }) =>
-      hasUnsaved && currentLocation.pathname !== nextLocation.pathname,
+      !navigatingAfterMut.current && hasUnsaved && currentLocation.pathname !== nextLocation.pathname,
   )
 
   const nextTempId = useMemo(() => {
@@ -98,6 +99,7 @@ export function POCreatePage() {
       },
       {
         onSuccess: () => {
+          navigatingAfterMut.current = true
           toast.success("Tạo đơn hàng thành công")
           navigate("/stock/purchase-orders")
         },

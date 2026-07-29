@@ -18,7 +18,7 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { SerialModal } from "@/features/stock/components/serial-modal"
 import { LocationPicker } from "@/features/stock/components/location-picker"
-import { ScanLine, CircleCheckBig, Circle, Trash2, ClipboardList, Check, X, Plus, ListChecks } from "lucide-react"
+import { ScanLine, CircleCheckBig, Circle, ClipboardList, Check, X, Plus, ListChecks } from "lucide-react"
 
 interface PreviewEntry {
   line: number
@@ -122,10 +122,6 @@ export function ImportStepSerials({ items, dispatch, discrepancyNotes, onDiscrep
   const totalReceived = useMemo(() => items.filter((i) => i.itemStatus !== "NOT_RECEIVED").reduce((s, i) => s + i.serials.length, 0), [items])
   const progressPct = totalExpected > 0 ? Math.round((totalReceived / totalExpected) * 100) : 0
 
-  function removeItem(tempId: number) {
-    dispatch({ type: "REMOVE_ITEM", tempId })
-  }
-
   function saveSerials(tempId: number, serials: string[]) {
     dispatch({ type: "SAVE_SERIALS", tempId, serials })
     if (serials.length > 0) {
@@ -188,7 +184,7 @@ export function ImportStepSerials({ items, dispatch, discrepancyNotes, onDiscrep
 
   return (
     <div className="space-y-4">
-      <h2 className="text-sm font-semibold text-muted-foreground">Bước 3/4 — Nhập serial</h2>
+      <h2 className="text-sm font-semibold text-muted-foreground">Bước 2/3 — Nhập serial</h2>
 
       {items.length > 0 && (
         <>
@@ -213,7 +209,6 @@ export function ImportStepSerials({ items, dispatch, discrepancyNotes, onDiscrep
                   <TableHead className="w-28 text-center">Serial</TableHead>
                   <TableHead className="w-36">Vị trí</TableHead>
                   <TableHead className="w-28 text-center">Trạng thái</TableHead>
-                  <TableHead className="w-10" />
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -301,11 +296,6 @@ export function ImportStepSerials({ items, dispatch, discrepancyNotes, onDiscrep
                             </TooltipContent>
                           )}
                         </Tooltip>
-                      </TableCell>
-                      <TableCell>
-                        <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => removeItem(item.tempId)}>
-                          <Trash2 className="size-4 text-destructive" />
-                        </Button>
                       </TableCell>
                     </TableRow>
                   )

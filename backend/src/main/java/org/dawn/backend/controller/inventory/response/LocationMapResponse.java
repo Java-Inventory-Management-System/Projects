@@ -18,6 +18,7 @@ public record LocationMapResponse(
         String binCode,
         String fullCode,
         long productCount,
-        Long maxCapacity
+        Long maxCapacity,
+        List<String> productSkuList
     ) {}
 }

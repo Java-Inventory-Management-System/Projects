@@ -68,6 +68,7 @@ export function ReceiptListPage<R extends Receipt>({
   const pageSize = Number(searchParams.get("size") ?? "10")
   const [viewReceipt, setViewReceipt] = useState<R | null>(null)
   const [cancelTarget, setCancelTarget] = useState<R | null>(null)
+  const [approveTarget, setApproveTarget] = useState<R | null>(null)
   const [sort, setSort] = useState<{ key: string; dir: "asc" | "desc" } | undefined>(undefined)
   const sortStr = sort ? `${sort.key},${sort.dir}` : undefined
 
@@ -116,15 +117,16 @@ export function ReceiptListPage<R extends Receipt>({
     })
   }
 
-  const handleApprove = useCallback(
-    (receipt: R) => {
-      approveMut.mutate(receipt.id, {
-        onSuccess: () => toast.success(`Đã duyệt phiếu ${receipt.receiptCode}`),
-        onError: (err) => toast.error(err instanceof Error ? err.message : "Không thể duyệt phiếu"),
-      })
-    },
-    [approveMut],
-  )
+  const handleApproveConfirm = () => {
+    if (!approveTarget) return
+    approveMut.mutate(approveTarget.id, {
+      onSuccess: () => {
+        toast.success(`Đã duyệt phiếu ${approveTarget.receiptCode}`)
+        setApproveTarget(null)
+      },
+      onError: (err) => toast.error(err instanceof Error ? err.message : "Không thể duyệt phiếu"),
+    })
+  }
 
   const canApprove = useCallback((r: R) => r.status === approvableStatus && hasApprovePerm(), [approvableStatus, hasApprovePerm])
 
@@ -154,7 +156,7 @@ export function ReceiptListPage<R extends Receipt>({
         {canApprove(r) && (
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" onClick={() => handleApprove(r)} disabled={approveMut.isPending}>
+              <Button variant="ghost" size="icon" onClick={() => setApproveTarget(r)} disabled={approveMut.isPending}>
                 <Check className="size-4 text-green-600" />
               </Button>
             </TooltipTrigger>
@@ -185,7 +187,7 @@ export function ReceiptListPage<R extends Receipt>({
         </Button>
       </div>
 
-      <DataTable
+        <DataTable
         columns={[...columns, actionsCol]}
         data={data?.content ?? []}
         isLoading={isLoading}
@@ -209,6 +211,28 @@ export function ReceiptListPage<R extends Receipt>({
           if (!v) setViewReceipt(null)
         }}
       />
+
+      <AlertDialog
+        open={!!approveTarget}
+        onOpenChange={(v) => {
+          if (!v) setApproveTarget(null)
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Duyệt phiếu nhập</AlertDialogTitle>
+            <AlertDialogDescription>
+              Xác nhận duyệt phiếu <strong>{approveTarget?.receiptCode}</strong>? Hàng sẽ được nhập kho.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={approveMut.isPending}>Không</AlertDialogCancel>
+            <AlertDialogAction disabled={approveMut.isPending} onClick={handleApproveConfirm}>
+              {approveMut.isPending ? "Đang duyệt..." : "Xác nhận duyệt"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog
         open={!!cancelTarget}

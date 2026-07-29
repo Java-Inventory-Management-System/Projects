@@ -125,11 +125,11 @@ public class ReturnReceiptService {
         var exportReceipt = exportReceiptRepository.findById(request.originalExportReceiptId())
                 .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.EXPORT_RECEIPT_NOT_FOUND));
         if (!exportReceipt.getCustomerId().equals(request.customerId())) {
-            throw new InvalidRequestException("Đơn xuất không thuộc khách hàng đã chọn");
+            throw new InvalidRequestException(Message.Inventory.RETURN_EXPORT_NOT_BELONG_TO_CUSTOMER);
         }
         if ("CHANGE_MIND".equals(reason) && exportReceipt.getCreatedAt() != null
                 && exportReceipt.getCreatedAt().plus(7, ChronoUnit.DAYS).isBefore(Instant.now())) {
-            throw new InvalidRequestException("Chỉ được đổi trả trong vòng 7 ngày kể từ ngày xuất");
+            throw new InvalidRequestException(Message.Inventory.RETURN_7_DAY_LIMIT);
         }
 
         String receiptCode = ReceiptCodeGenerator.generate("RET-", returnReceiptRepository::existsByReceiptCode);
@@ -165,7 +165,7 @@ public class ReturnReceiptService {
             if (good && !"RESTOCK".equals(action)
                     || !good && "RESTOCK".equals(action)) {
                 throw new InvalidRequestException(
-                    "Trạng thái " + condition + " không phù hợp với hành động " + action);
+                    Message.format(Message.Inventory.RETURN_CONDITION_ACTION_MISMATCH, condition, action));
             }
 
             if (itemReq.productUnitId() != null && itemReq.productUnitId() > 0) {

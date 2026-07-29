@@ -113,7 +113,7 @@ export const ViewImportModal = ({
           <Button variant="outline" onClick={() => navigate(`/stock/imports/${receipt.id}`)}>
             <Eye className="size-4 mr-1" /> Xem chi tiết
           </Button>
-          {(receipt.status === "DRAFT" || receipt.status === "PENDING_APPROVAL") && (
+          {receipt.status === "DRAFT" && (
             <Button onClick={() => navigate(`/stock/imports/new?id=${receipt.id}`)}>
               <ScanLine className="size-4 mr-1" /> Nhập serial
             </Button>

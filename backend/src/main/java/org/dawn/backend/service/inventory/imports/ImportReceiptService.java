@@ -104,6 +104,9 @@ public class ImportReceiptService {
     public ImportReceiptResponse create(ImportReceiptRequest request) {
         Long userId = securityPolicy.requireAuthenticated();
         if (request.supplierId() == null) throw new InvalidRequestException(Message.Inventory.SUPPLIER_REQUIRED);
+        if (request.purchaseOrderId() == null) throw new InvalidRequestException(Message.Inventory.PO_REQUIRED);
+        purchaseOrderRepository.findById(request.purchaseOrderId())
+                .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.PO_NOT_FOUND));
 
         String receiptCode = request.receiptCode() != null ? request.receiptCode() : generateReceiptCode();
         if (importReceiptRepository.existsByReceiptCode(receiptCode)) {
