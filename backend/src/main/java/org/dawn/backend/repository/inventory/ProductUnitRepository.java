@@ -1,7 +1,7 @@
 package org.dawn.backend.repository.inventory;
 
 import jakarta.persistence.LockModeType;
-import org.dawn.backend.constant.inventory.ProductUnitStatus;
+import org.dawn.backend.constant.enums.inventory.ProductUnitStatus;
 import org.dawn.backend.entity.inventory.ProductUnit;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -35,16 +35,18 @@ public interface ProductUnitRepository extends JpaRepository<ProductUnit, Long> 
     @Query("SELECT p FROM ProductUnit p WHERE p.id = :id")
     Optional<ProductUnit> findByIdForUpdate(@Param("id") Long id);
 
+    static final String NOT_IN_STOCK_CHECK = "AND p.id NOT IN (SELECT sci.productUnitId FROM StockCheckItem sci WHERE sci.stockCheckId IN (SELECT sc.id FROM StockCheck sc WHERE sc.status = 'IN_PROGRESS'))";
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("SELECT p FROM ProductUnit p WHERE p.id IN :ids AND p.status = 'IN_STOCK' ORDER BY p.importedAt ASC")
+    @Query("SELECT p FROM ProductUnit p WHERE p.id IN :ids AND p.status = 'IN_STOCK' " + NOT_IN_STOCK_CHECK + " ORDER BY p.importedAt ASC")
     List<ProductUnit> findByIdInWithLock(@Param("ids") List<Long> ids);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("SELECT p FROM ProductUnit p WHERE p.productId = :productId AND p.status = 'IN_STOCK' ORDER BY p.importedAt ASC")
+    @Query("SELECT p FROM ProductUnit p WHERE p.productId = :productId AND p.status = 'IN_STOCK' " + NOT_IN_STOCK_CHECK + " ORDER BY p.importedAt ASC")
     List<ProductUnit> findAvailableForExportWithLock(@Param("productId") Long productId);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("SELECT p FROM ProductUnit p WHERE p.productId = :productId AND p.status = 'IN_STOCK'")
+    @Query("SELECT p FROM ProductUnit p WHERE p.productId = :productId AND p.status = 'IN_STOCK' " + NOT_IN_STOCK_CHECK)
     List<ProductUnit> findByProductIdAndStatusWithLock(@Param("productId") Long productId);
 
     @Query("SELECT p.serialNumber FROM ProductUnit p WHERE p.serialNumber IN :serials")
@@ -52,12 +54,15 @@ public interface ProductUnitRepository extends JpaRepository<ProductUnit, Long> 
     List<ProductUnit> findByImportReceiptItemId(Long importReceiptItemId);
     List<ProductUnit> findByImportReceiptItemIdIn(List<Long> importReceiptItemIds);
     List<ProductUnit> findByProductIdAndStatus(Long productId, ProductUnitStatus status);
-    long countByProductIdAndStatus(Long productId, ProductUnitStatus status);
+    @Query("SELECT COUNT(p) FROM ProductUnit p WHERE p.productId = :productId AND p.status = :status AND p.id NOT IN (SELECT sci.productUnitId FROM StockCheckItem sci WHERE sci.stockCheckId IN (SELECT sc.id FROM StockCheck sc WHERE sc.status = 'IN_PROGRESS'))")
+    long countByProductIdAndStatus(@Param("productId") Long productId, @Param("status") ProductUnitStatus status);
     long countByLocationId(Long locationId);
     Page<ProductUnit> findByStatus(ProductUnitStatus status, Pageable pageable);
     Page<ProductUnit> findByProductId(Long productId, Pageable pageable);
 
     List<ProductUnit> findByProductIdInAndStatus(List<Long> productIds, ProductUnitStatus status);
+
+    List<ProductUnit> findByLocationIdInAndStatus(List<Long> locationIds, ProductUnitStatus status);
 
     @Query(value = """
             SELECT pu.* FROM product_units pu

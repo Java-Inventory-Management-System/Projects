@@ -2,8 +2,6 @@ services:
   mysql:
     environment:
       MYSQL_DATABASE: inventory_db_test
-    tmpfs: /var/lib/mysql
-    volumes: []
 
   backend:
     build:
@@ -57,6 +55,7 @@ services:
       context: ./frontend
       args:
         VITE_BASE_API_URL: /api/v1
+        VITE_SKIP_AUTH: "false"
 
   nginx:
     depends_on:

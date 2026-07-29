@@ -2,14 +2,14 @@ package org.dawn.backend.service.inventory;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.dawn.backend.config.anno.AuditLog;
+import org.dawn.backend.aspect.AuditLog;
 import org.dawn.backend.config.web.response.ResponsePage;
 import org.dawn.backend.constant.shared.LogConstant;
 import org.dawn.backend.constant.shared.Message;
 import org.dawn.backend.controller.inventory.request.CustomerRequest;
 import org.dawn.backend.controller.inventory.response.CustomerResponse;
 import org.dawn.backend.entity.inventory.Customer;
-import org.dawn.backend.exception.wrapper.ResourceNotFoundException;
+import org.dawn.backend.exception.type.ResourceNotFoundException;
 import org.dawn.backend.repository.inventory.CustomerRepository;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;

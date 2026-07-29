@@ -6,9 +6,11 @@ import org.dawn.backend.config.web.response.ResponsePage;
 import org.dawn.backend.constant.security.AuthorizationExpressions;
 import org.dawn.backend.controller.inventory.request.ApproveStockCheckRequest;
 import org.dawn.backend.controller.inventory.request.CreateStockCheckRequest;
+import org.dawn.backend.controller.inventory.request.ImportSerialsRequest;
 import org.dawn.backend.controller.inventory.request.StockCheckItemRequest;
 import org.dawn.backend.controller.inventory.response.StockCheckResponse;
-import org.dawn.backend.service.inventory.StockCheckService;
+import org.dawn.backend.service.inventory.stockcheck.StockCheckAdjustmentService;
+import org.dawn.backend.service.inventory.stockcheck.StockCheckService;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -19,17 +21,22 @@ import org.springframework.web.bind.annotation.*;
 public class StockCheckController {
 
     private final StockCheckService stockCheckService;
+    private final StockCheckAdjustmentService stockCheckAdjustmentService;
 
     @GetMapping("/stock-check/my")
     @PreAuthorize(AuthorizationExpressions.CAN_VIEW_INVENTORY)
-    public ResponseObject<ResponsePage<StockCheckResponse>> getMyStockChecks(Pageable pageable) {
-        return ResponseObject.success(stockCheckService.findMyChecks(pageable));
+    public ResponseObject<ResponsePage<StockCheckResponse>> getMyStockChecks(
+            Pageable pageable,
+            @RequestParam(required = false) String status) {
+        return ResponseObject.success(stockCheckService.findMyChecks(pageable, status));
     }
 
     @GetMapping("/stock-check")
     @PreAuthorize(AuthorizationExpressions.CAN_VIEW_REPORTS)
-    public ResponseObject<ResponsePage<StockCheckResponse>> getAll(Pageable pageable) {
-        return ResponseObject.success(stockCheckService.findAll(pageable));
+    public ResponseObject<ResponsePage<StockCheckResponse>> getAll(
+            Pageable pageable,
+            @RequestParam(required = false) String status) {
+        return ResponseObject.success(stockCheckService.findAll(pageable, status));
     }
 
     @GetMapping("/stock-check/{id}")
@@ -52,6 +59,20 @@ public class StockCheckController {
         return ResponseObject.success(stockCheckService.recordItems(id, request));
     }
 
+    @PostMapping("/stock-check/{id}/import-serials")
+    @PreAuthorize(AuthorizationExpressions.CAN_OPERATE_STOCK)
+    public ResponseObject<StockCheckResponse> importSerials(
+            @PathVariable Long id,
+            @RequestBody ImportSerialsRequest request) {
+        return ResponseObject.success(stockCheckService.importSerials(id, request));
+    }
+
+    @PutMapping("/stock-check/{id}/start")
+    @PreAuthorize(AuthorizationExpressions.CAN_OPERATE_STOCK)
+    public ResponseObject<StockCheckResponse> start(@PathVariable Long id) {
+        return ResponseObject.success(stockCheckService.start(id));
+    }
+
     @PutMapping("/stock-check/{id}/complete")
     @PreAuthorize(AuthorizationExpressions.CAN_OPERATE_STOCK)
     public ResponseObject<StockCheckResponse> complete(@PathVariable Long id) {
@@ -63,7 +84,7 @@ public class StockCheckController {
     public ResponseObject<StockCheckResponse> approve(
             @PathVariable Long id,
             @RequestBody(required = false) ApproveStockCheckRequest request) {
-        return ResponseObject.success(stockCheckService.approve(id, request));
+        return ResponseObject.success(stockCheckAdjustmentService.approve(id, request));
     }
 
     @PutMapping("/stock-check/{id}/reject")
@@ -71,6 +92,6 @@ public class StockCheckController {
     public ResponseObject<StockCheckResponse> reject(
             @PathVariable Long id,
             @RequestBody(required = false) ApproveStockCheckRequest request) {
-        return ResponseObject.success(stockCheckService.reject(id, request));
+        return ResponseObject.success(stockCheckAdjustmentService.reject(id, request));
     }
 }

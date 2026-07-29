@@ -1,9 +1,10 @@
 import { useState, useCallback } from "react"
-import { useNavigate } from "react-router-dom"
+import { useNavigate, useSearchParams } from "react-router-dom"
 import { usePermission } from "@/hooks/use-permission"
 import { useStockChecks, useMyStockChecks } from "@/hooks/use-stock-checks"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Plus, Eye } from "lucide-react"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 import { DataTable, type Column } from "@/components/ui/data-table"
@@ -14,13 +15,22 @@ const statusLabel: Record<string, { label: string; variant: "default" | "seconda
   IN_PROGRESS: { label: "Đang kiểm", variant: "outline" },
   COMPLETED: { label: "Chờ duyệt", variant: "default" },
   APPROVED: { label: "Đã duyệt", variant: "default" },
-  REJECTED: { label: "Từ chối", variant: "destructive" },
 }
+
+const statusOptions = [
+  { value: "all", label: "Tất cả" },
+  { value: "PENDING", label: "Chờ xử lý" },
+  { value: "IN_PROGRESS", label: "Đang kiểm" },
+  { value: "COMPLETED", label: "Chờ duyệt" },
+  { value: "APPROVED", label: "Đã duyệt" },
+]
 
 export const StockCheckListPage = () => {
   const navigate = useNavigate()
   const perm = usePermission()
-  const [page, setPage] = useState(0)
+  const [searchParams, setSearchParams] = useSearchParams()
+  const page = Number(searchParams.get("page") ?? "0")
+  const statusFilter = searchParams.get("status") ?? ""
   const [pageSize, setPageSize] = useState(10)
   const [sort, setSort] = useState<{ key: string; dir: "asc" | "desc" } | undefined>(undefined)
   const sortStr = sort ? `${sort.key},${sort.dir}` : undefined
@@ -33,11 +43,23 @@ export const StockCheckListPage = () => {
     })
   }, [])
 
+  const updateParams = useCallback(
+    (updates: Record<string, string | undefined>) => {
+      const next = new URLSearchParams(searchParams)
+      for (const [key, val] of Object.entries(updates)) {
+        if (val) next.set(key, val)
+        else next.delete(key)
+      }
+      setSearchParams(next, { replace: true })
+    },
+    [searchParams, setSearchParams],
+  )
+
   // STOCK → own checks only; MANAGER/ADMIN → all checks
   const isStock = perm.hasRole("STOCK")
-  const { data, isLoading } = isStock
-    ? useMyStockChecks(page, pageSize, sortStr)
-    : useStockChecks(page, pageSize, sortStr)
+  const myChecks = useMyStockChecks(page, pageSize, sortStr, statusFilter || undefined)
+  const allChecks = useStockChecks(page, pageSize, sortStr, statusFilter || undefined)
+  const { data, isLoading } = isStock ? myChecks : allChecks
 
   const columns: Column<StockCheck>[] = [
     {
@@ -90,9 +112,21 @@ export const StockCheckListPage = () => {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-semibold tracking-tight">Kiểm kho</h1>
-        <Button onClick={() => navigate("/stock/checks/new")}>
-          <Plus className="size-4 mr-1" /> Tạo phiếu kiểm
-        </Button>
+        <div className="flex items-center gap-2">
+          <Select value={statusFilter} onValueChange={(v) => updateParams({ status: v || undefined, page: undefined })}>
+            <SelectTrigger className="w-40">
+              <SelectValue placeholder="Trạng thái" />
+            </SelectTrigger>
+            <SelectContent className="max-h-[50vh]">
+              {statusOptions.map((o) => (
+                <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button onClick={() => navigate("/stock/checks/new")}>
+            <Plus className="size-4 mr-1" /> Tạo phiếu kiểm
+          </Button>
+        </div>
       </div>
 
       <DataTable
@@ -106,10 +140,10 @@ export const StockCheckListPage = () => {
         page={page}
         totalPages={data?.pagination.totalPages}
         pageSize={pageSize}
-        onPageChange={setPage}
+        onPageChange={(p) => updateParams({ page: String(p) })}
         onPageSizeChange={(s) => {
           setPageSize(s)
-          setPage(0)
+          updateParams({ page: undefined })
         }}
       />
     </div>

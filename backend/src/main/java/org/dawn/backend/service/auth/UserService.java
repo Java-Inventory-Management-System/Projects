@@ -2,10 +2,10 @@ package org.dawn.backend.service.auth;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.dawn.backend.config.anno.AuditLog;
+import org.dawn.backend.aspect.AuditLog;
 import org.dawn.backend.config.web.response.ResponsePage;
-import org.dawn.backend.constant.auth.URole;
-import org.dawn.backend.constant.shared.ActiveStatus;
+import org.dawn.backend.constant.enums.auth.URole;
+import org.dawn.backend.constant.enums.shared.ActiveStatus;
 import org.dawn.backend.constant.shared.LogConstant;
 import org.dawn.backend.constant.shared.Message;
 import org.dawn.backend.controller.auth.request.RegisterRequest;
@@ -14,14 +14,14 @@ import org.dawn.backend.controller.auth.response.CreateUserResponse;
 import org.dawn.backend.controller.auth.response.UserResponse;
 import org.dawn.backend.entity.auth.Role;
 import org.dawn.backend.entity.auth.User;
-import org.dawn.backend.exception.wrapper.InvalidRequestException;
-import org.dawn.backend.exception.wrapper.PermissionDeniedException;
-import org.dawn.backend.exception.wrapper.ResourceAlreadyExistedException;
-import org.dawn.backend.exception.wrapper.ResourceNotFoundException;
+import org.dawn.backend.exception.type.InvalidRequestException;
+import org.dawn.backend.exception.type.PermissionDeniedException;
+import org.dawn.backend.exception.type.ResourceAlreadyExistedException;
+import org.dawn.backend.exception.type.ResourceNotFoundException;
 import org.dawn.backend.repository.auth.RoleRepository;
 import org.dawn.backend.repository.auth.UserRepository;
-import org.dawn.backend.utils.SecurityUtils;
-import org.dawn.backend.utils.UserUtils;
+import org.dawn.backend.config.security.SecurityPolicy;
+import org.dawn.backend.shared.util.UserUtils;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -36,6 +36,7 @@ public class UserService {
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
+    private final SecurityPolicy securityPolicy;
 
     @Transactional(readOnly = true)
     public ResponsePage<UserResponse> findAll(Pageable pageable) {
@@ -134,7 +135,7 @@ public class UserService {
     @Transactional
     @AuditLog(action = LogConstant.Action.UPDATE_STATUS, entity = LogConstant.Entity.USER, entityClass = User.class)
     public UserResponse updateStatus(Long id, Boolean status) {
-        if (Objects.equals(id, SecurityUtils.getCurrentUserId())) {
+        if (Objects.equals(id, securityPolicy.requireAuthenticated())) {
             throw new PermissionDeniedException(Message.User.CANNOT_UPDATE_YOURSELF);
         }
 
@@ -173,7 +174,7 @@ public class UserService {
     @Transactional
     @AuditLog(action = LogConstant.Action.UPDATE_ROLE, entity = LogConstant.Entity.USER, entityClass = User.class)
     public UserResponse updateRole(Long id, URole roleName) {
-        if (Objects.equals(id, SecurityUtils.getCurrentUserId())) {
+        if (Objects.equals(id, securityPolicy.requireAuthenticated())) {
             throw new PermissionDeniedException(Message.User.CANNOT_CHANGE_OWN_ROLE);
         }
 

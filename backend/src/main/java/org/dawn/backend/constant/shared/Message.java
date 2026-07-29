@@ -52,11 +52,15 @@ public class Message {
         public static final String ENDPOINT_NOT_FOUND = "API endpoint not found";
         public static final String INTERNAL_ERROR = "An unexpected error occurred";
         public static final String IMAGE_UPLOAD_FAILED = "Image upload failed";
+        public static final String CLOUDINARY_UPLOAD_FAILED = "Failed to upload file to Cloudinary";
+        public static final String FILE_UPLOAD_DIR_CREATE_FAILED = "Could not create upload directory: {0}";
+        public static final String FILE_UPLOAD_SAVE_FAILED = "Failed to save file: {0}";
         public static final String EMAIL_SEND_FAILED = "Failed to send email, please contact support";
         public static final String METHOD_NOT_IMPLEMENTED = "This feature is not yet implemented";
         public static final String INVALID_TOKEN = "Invalid token";
         public static final String PASSWORD_NOT_MATCH = "Passwords do not match";
         public static final String PASSWORD_TOO_SHORT = "Password must be at least 6 characters";
+        public static final String INVALID_STATE_TRANSITION = "Invalid transition: {0} -> {1}";
     }
 
     // Catalog
@@ -124,6 +128,7 @@ public class Message {
         public static final String STOCK_CHECK_ALREADY_COMPLETED = "Stock check already completed";
         public static final String STOCK_CHECK_ITEMS_REQUIRED = "At least one stock check item is required";
         public static final String STOCK_CHECK_MUST_BE_IN_PROGRESS = "Stock check must be in progress to record items";
+        public static final String STOCK_CHECK_ALREADY_STARTED = "Stock check has already been started";
         public static final String ONLY_COMPLETED_CAN_APPROVE = "Only completed stock checks can be approved";
         public static final String ONLY_COMPLETED_CAN_REJECT = "Only completed stock checks can be rejected";
         public static final String ADJUSTMENT_NOT_FOUND = "Stock adjustment not found";
@@ -137,45 +142,39 @@ public class Message {
         public static final String ONLY_PENDING_CAN_APPROVE = "Only pending adjustments can be approved";
         public static final String ONLY_PENDING_CAN_REJECT = "Only pending adjustments can be rejected";
         public static final String ADJUSTMENT_UNIT_NOT_RESTORABLE = "Product unit is in status {0} and cannot be restored via found adjustment";
+        public static final String ADJUSTMENT_PHOTO_REQUIRED_DAMAGED = "Photo is required for DAMAGED adjustment";
+        public static final String ADJUSTMENT_SERIAL_REQUIRED_FOUND = "Serial number is required for FOUND adjustment";
+        public static final String ADJUSTMENT_LOCATION_REQUIRED_FOUND = "Location is required for FOUND adjustment";
+        public static final String REJECTION_REASON_REQUIRED = "Rejection reason is required";
 
         public static final String PO_NOT_FOUND = "Purchase order not found";
         public static final String PO_CODE_EXISTS = "Purchase order code already exists";
         public static final String PO_ALREADY_CANCELLED = "Purchase order already cancelled";
         public static final String PO_HAS_COMPLETED_RECEIPTS = "Cannot cancel purchase order with completed import receipts";
 
-        public static final String WARRANTY_REQUEST_NOT_FOUND = "Warranty request not found";
-        public static final String WARRANTY_SERIAL_REQUIRED = "Serial number is required for warranty lookup";
-        public static final String WARRANTY_SERIAL_AMBIGUOUS = "Serial lookup is ambiguous; please enter the exact serial number";
-        public static final String WARRANTY_SERIALIZED_ONLY = "Warranty requests are only supported for serialized products";
-        public static final String WARRANTY_UNIT_NOT_SOLD = "Only sold product units can start a warranty request";
-        public static final String WARRANTY_EXPIRED = "Product warranty has expired";
-        public static final String WARRANTY_NOT_ACTIVATED = "Product warranty has not been activated";
-        public static final String WARRANTY_ISSUE_REQUIRED = "Issue description is required";
-        public static final String WARRANTY_ALREADY_PENDING = "This product unit already has a pending warranty request";
-        public static final String WARRANTY_ONLY_PENDING = "Only pending warranty requests can be changed";
-        public static final String WARRANTY_RESOLUTION_REQUIRED = "Warranty resolution type is required";
-        public static final String WARRANTY_INVALID_RESOLUTION = "Invalid warranty resolution type: {0}";
-        public static final String WARRANTY_RESOLUTION_ALREADY_SELECTED = "A resolution has already been selected for this warranty request";
-        public static final String WARRANTY_REPLACEMENT_REQUIRED = "A replacement product unit is required";
-        public static final String WARRANTY_REPLACEMENT_SAME_UNIT = "The replacement unit must differ from the original unit";
-        public static final String WARRANTY_REPLACEMENT_PRODUCT_MISMATCH = "The replacement unit must be the same product";
-        public static final String WARRANTY_REPLACEMENT_NOT_AVAILABLE = "The replacement unit is not available in stock";
-        public static final String WARRANTY_RMA_NUMBER_REQUIRED = "RMA number is required";
-        public static final String WARRANTY_REJECT_REASON_REQUIRED = "A rejection reason is required";
-        public static final String WARRANTY_COMPLETION_RESULT_REQUIRED = "Warranty completion result is required";
-        public static final String WARRANTY_INVALID_COMPLETION_RESULT = "Invalid warranty completion result: {0}";
-        public static final String WARRANTY_CANNOT_COMPLETE = "Only repair or RMA warranty requests can be completed manually";
-        public static final String WARRANTY_INVALID_UNIT_STATE = "Product unit cannot transition from {0} for this warranty action";
-        public static final String WARRANTY_CANCEL_REASON_REQUIRED = "A cancellation reason is required";
+
+
+        // Export fulfillment
+        public static final String EXPORT_ITEM_NOT_FOUND = "Export item not found: {0}";
+        public static final String EXPORT_ACTUAL_QTY_REQUIRED_BULK = "Actual quantity required for bulk item";
+        public static final String EXPORT_SERIALS_REQUIRED = "Serial numbers required for serialized item";
+        public static final String EXPORT_SERIAL_WRONG_PRODUCT = "Serial {0} does not belong to product {1}";
+        public static final String EXPORT_SERIAL_NOT_AVAILABLE = "Serial {0} is not available (status: {1})";
+        public static final String EXPORT_SERIAL_IN_STOCK_CHECK = "Serial {0} is currently being stock-checked";
 
         // Price adjustment
         public static final String PRICE_ADJ_NOT_FOUND = "Price adjustment not found";
         public static final String PRICE_ADJ_ITEM_REQUIRED = "Import receipt item is required";
         public static final String PRICE_ADJ_NEW_PRICE_NEGATIVE = "New price must be a non-negative value";
+        public static final String PRICE_ADJ_WHOLE_NUMBER = "New price must be a whole number (no decimals)";
         public static final String PRICE_ADJ_SAME_PRICE = "New price is the same as the current price";
         public static final String PRICE_ADJ_REASON_REQUIRED = "Reason is required for price adjustment";
         public static final String PRICE_ADJ_ONLY_PENDING_APPROVE = "Only pending price adjustments can be approved";
         public static final String PRICE_ADJ_ONLY_PENDING_REJECT = "Only pending price adjustments can be rejected";
+        public static final String PRICE_ADJ_DUPLICATE_PENDING = "Another pending price adjustment ({0}) already exists for this item";
+        public static final String PRICE_ADJ_REJECT_REASON_REQUIRED = "Reason is required when rejecting a price adjustment";
+        public static final String PRICE_ADJ_PRICE_CHANGED = "Product price has changed since the adjustment was created, please verify";
+        public static final String PRICE_ADJ_ONLY_PENDING_CANCEL = "Only pending price adjustments can be cancelled";
 
         // Return receipt
         public static final String RETURN_RECEIPT_NOT_FOUND = "Return receipt not found";
@@ -191,6 +190,14 @@ public class Message {
         public static final String RETURN_INVALID_CONDITION = "Invalid return condition: {0}";
         public static final String RETURN_INVALID_ACTION = "Invalid resulting action: {0}";
         public static final String RETURN_UNIT_NOT_SOLD = "Product unit is not in sold status";
+
+        // Stock check
+        public static final String STOCK_CHECK_INVALID_SCOPE = "Invalid scope type. Must be ZONE or CATEGORY";
+        public static final String STOCK_CHECK_NO_UNITS_IN_SCOPE = "No in-stock units found in the selected scope";
+        public static final String STOCK_CHECK_ITEM_NOT_IN_CHECK = "Product unit {0} is not part of this stock check";
+        public static final String STOCK_CHECK_PHOTO_REQUIRED_DAMAGED = "Photo is required when reporting DAMAGED status";
+        public static final String STOCK_CHECK_BULK_MISSING_QTY = "Cannot complete: {0} bulk item(s) missing counted quantity: {1}";
+        public static final String STOCK_CHECK_ADJUSTMENTS_EXIST = "Adjustments already created for this stock check";
     }
 
     // User

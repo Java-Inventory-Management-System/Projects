@@ -1,10 +1,13 @@
 import type { ImportReceipt } from "@/utils/types"
+import { useNavigate } from "react-router-dom"
 import { Badge } from "@/components/ui/badge"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { ScanLine, Eye } from "lucide-react"
 
 const statusLabel: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
-  PENDING: { label: "Chờ xử lý", variant: "secondary" },
+  DRAFT: { label: "Bản nháp", variant: "secondary" },
   PENDING_APPROVAL: { label: "Chờ duyệt", variant: "outline" },
   COMPLETED: { label: "Hoàn tất", variant: "default" },
   CANCELLED: { label: "Đã hủy", variant: "destructive" },
@@ -19,6 +22,7 @@ export const ViewImportModal = ({
   open: boolean
   onOpenChange: (v: boolean) => void
 }) => {
+  const navigate = useNavigate()
   if (!receipt)
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
@@ -105,6 +109,16 @@ export const ViewImportModal = ({
             <span className="text-lg font-semibold">Tổng: {(receipt.totalAmount ?? 0).toLocaleString("vi-VN")}₫</span>
           </div>
         </div>
+        <DialogFooter className="gap-2">
+          <Button variant="outline" onClick={() => navigate(`/stock/imports/${receipt.id}`)}>
+            <Eye className="size-4 mr-1" /> Xem chi tiết
+          </Button>
+          {(receipt.status === "DRAFT" || receipt.status === "PENDING_APPROVAL") && (
+            <Button onClick={() => navigate(`/stock/imports/new?id=${receipt.id}`)}>
+              <ScanLine className="size-4 mr-1" /> Nhập serial
+            </Button>
+          )}
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   )

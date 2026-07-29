@@ -1,8 +1,7 @@
 import { useState, useCallback, type ComponentType } from "react"
-import { useNavigate } from "react-router-dom"
+import { useNavigate, useSearchParams } from "react-router-dom"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { usePermission } from "@/hooks/use-permission"
-import { useUrlState } from "@/hooks/use-url-state"
 import { Button } from "@/components/ui/button"
 import { DataTable, type Column } from "@/components/ui/data-table"
 import {
@@ -15,7 +14,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { Plus, Eye, Check, X } from "lucide-react"
+import { Plus, Eye, Check, X, ScanLine } from "lucide-react"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 import { toast } from "@/utils/toast"
 import { IMPORT_RECEIPT_STATUS } from "@/utils/types"
@@ -40,6 +39,10 @@ interface Props<R extends Receipt> {
   approveService: (id: number) => Promise<unknown>
   ViewModal: ComponentType<{ receipt: R | null; open: boolean; onOpenChange: (v: boolean) => void }>
   columns: Column<R>[]
+  approvableStatus?: string
+  cancelledStatus?: string
+  completedStatus?: string
+  scanStatuses?: string[]
 }
 
 export function ReceiptListPage<R extends Receipt>({
@@ -52,12 +55,17 @@ export function ReceiptListPage<R extends Receipt>({
   approveService,
   ViewModal,
   columns,
+  approvableStatus = IMPORT_RECEIPT_STATUS.PENDING_APPROVAL,
+  cancelledStatus = IMPORT_RECEIPT_STATUS.CANCELLED,
+  completedStatus = IMPORT_RECEIPT_STATUS.COMPLETED,
+  scanStatuses = [IMPORT_RECEIPT_STATUS.DRAFT, IMPORT_RECEIPT_STATUS.PENDING_APPROVAL],
 }: Props<R>) {
   const navigate = useNavigate()
   const qc = useQueryClient()
+  const [searchParams, setSearchParams] = useSearchParams()
   const { canCancel: hasCancelPerm, canApprove: hasApprovePerm } = usePermission()
-  const [page, setPage] = useUrlState("page", 0)
-  const [pageSize, setPageSize] = useUrlState("size", 10)
+  const page = Number(searchParams.get("page") ?? "0")
+  const pageSize = Number(searchParams.get("size") ?? "10")
   const [viewReceipt, setViewReceipt] = useState<R | null>(null)
   const [cancelTarget, setCancelTarget] = useState<R | null>(null)
   const [sort, setSort] = useState<{ key: string; dir: "asc" | "desc" } | undefined>(undefined)
@@ -70,6 +78,20 @@ export function ReceiptListPage<R extends Receipt>({
       return undefined
     })
   }, [])
+
+  const updateParams = useCallback(
+    (updates: Record<string, string | undefined>) => {
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev)
+        for (const [key, val] of Object.entries(updates)) {
+          if (val) next.set(key, val)
+          else next.delete(key)
+        }
+        return next
+      }, { replace: true })
+    },
+    [setSearchParams],
+  )
 
   const { data, isLoading } = useHook(page, pageSize, sortStr)
 
@@ -104,11 +126,11 @@ export function ReceiptListPage<R extends Receipt>({
     [approveMut],
   )
 
-  const canApprove = useCallback((r: R) => hasApprovePerm(r.status), [hasApprovePerm])
+  const canApprove = useCallback((r: R) => r.status === approvableStatus && hasApprovePerm(), [approvableStatus, hasApprovePerm])
 
   const actionsCol: Column<R> = {
     header: "Thao tác",
-    className: "w-[130px]",
+    className: "w-[180px]",
     render: (r: R) => (
       <div className="flex items-center gap-1">
         <Tooltip>
@@ -119,6 +141,16 @@ export function ReceiptListPage<R extends Receipt>({
           </TooltipTrigger>
           <TooltipContent>Xem chi tiết</TooltipContent>
         </Tooltip>
+        {scanStatuses.includes(r.status) && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" onClick={() => navigate(`${newRoute}?id=${r.id}`)}>
+                <ScanLine className="size-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Nhập serial</TooltipContent>
+          </Tooltip>
+        )}
         {canApprove(r) && (
           <Tooltip>
             <TooltipTrigger asChild>
@@ -129,7 +161,7 @@ export function ReceiptListPage<R extends Receipt>({
             <TooltipContent>Duyệt phiếu</TooltipContent>
           </Tooltip>
         )}
-        {hasCancelPerm() && r.status !== IMPORT_RECEIPT_STATUS.CANCELLED && (
+        {hasCancelPerm() && r.status !== cancelledStatus && r.status !== completedStatus && (
           <Tooltip>
             <TooltipTrigger asChild>
               <Button variant="ghost" size="icon" onClick={() => setCancelTarget(r)}>
@@ -164,10 +196,9 @@ export function ReceiptListPage<R extends Receipt>({
         page={page}
         totalPages={data?.pagination.totalPages}
         pageSize={pageSize}
-        onPageChange={setPage}
+        onPageChange={(p) => updateParams({ page: String(p) })}
         onPageSizeChange={(s) => {
-          setPageSize(s)
-          setPage(0)
+          updateParams({ size: String(s), page: undefined })
         }}
       />
 

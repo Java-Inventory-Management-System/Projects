@@ -43,7 +43,7 @@ test.describe("Export Flow (Xuất kho) — SOP §3", () => {
       headers: { Authorization: `Bearer ${managerToken}` },
     })
     const data = (await detail.json()) as { data: { status: string; reason: string } }
-    expect(data.data.status).toBe("COMPLETED")
+    expect(data.data.status).toBe("APPROVED")
     expect(data.data.reason).toBe("SALE")
 
     await stockCtx.close()

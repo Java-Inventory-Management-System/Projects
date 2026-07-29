@@ -4,10 +4,11 @@ import { ViewExportModal } from "../components/view-export-modal"
 import { ReceiptListPage } from "../components/receipt-list-page"
 import { Badge } from "@/components/ui/badge"
 import type { Column } from "@/components/ui/data-table"
-import type { ExportReceipt } from "@/utils/types"
+import { EXPORT_RECEIPT_STATUS, type ExportReceipt } from "@/utils/types"
 
 const statusLabel: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
-  PENDING_APPROVAL: { label: "Chờ duyệt", variant: "outline" },
+  PENDING: { label: "Chờ duyệt", variant: "outline" },
+  APPROVED: { label: "Đã duyệt", variant: "secondary" },
   COMPLETED: { label: "Hoàn tất", variant: "default" },
   CANCELLED: { label: "Đã hủy", variant: "destructive" },
 }
@@ -63,6 +64,9 @@ export function ExportListPage() {
       approveService={approveExportReceipt}
       ViewModal={ViewExportModal}
       columns={columns}
+      approvableStatus={EXPORT_RECEIPT_STATUS.PENDING}
+      cancelledStatus={EXPORT_RECEIPT_STATUS.CANCELLED}
+      scanStatuses={[]}
     />
   )
 }

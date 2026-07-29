@@ -11,6 +11,8 @@ public record StockCheckResponse(
         Long id,
         String checkCode,
         String status,
+        String scopeType,
+        Long scopeId,
         String note,
         Long createdBy,
         String createdByName,
@@ -22,6 +24,7 @@ public record StockCheckResponse(
         int matchCount,
         int missingCount,
         int unexpectedCount,
+        int autoFilledCount,
         Instant createdAt,
         Instant updatedAt
 ) {
@@ -33,10 +36,13 @@ public record StockCheckResponse(
             Long productId,
             String productName,
             String productSku,
+            String trackingType,
             String expectedStatus,
             String actualStatus,
             BigDecimal countedQuantity,
             String difference,
-            String note
+            String note,
+            String photo,
+            Boolean autoFilled
     ) {}
 }

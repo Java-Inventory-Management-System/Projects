@@ -1,4 +1,7 @@
-import { useState, useEffect, useCallback } from "react"
+import { useState, useCallback } from "react"
+import { useSearchParams } from "react-router-dom"
+import { useForm, Controller } from "react-hook-form"
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useDebounce } from "@/hooks/use-debounce"
 import {
   getUsers,
@@ -8,7 +11,7 @@ import {
   updateUserStatus,
   resetPassword,
 } from "@/services/user-service"
-import type { UserResponse, ResponsePage, URole } from "@/utils/types"
+import type { UserResponse, URole } from "@/utils/types"
 import { USER_STATUS } from "@/utils/types"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -46,7 +49,9 @@ function fmt(d: string) {
 }
 
 export const UsersPage = () => {
-  const [page, setPage] = useState(0)
+  const qc = useQueryClient()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const page = Number(searchParams.get("page") ?? "0")
   const [pageSize, setPageSize] = useState(20)
   const [sort, setSort] = useState<{ key: string; dir: "asc" | "desc" } | undefined>(undefined)
   const sortStr = sort ? `${sort.key},${sort.dir}` : undefined
@@ -59,123 +64,93 @@ export const UsersPage = () => {
     })
   }, [])
 
-  const [data, setData] = useState<ResponsePage<UserResponse> | null>(null)
-  const [allData, setAllData] = useState<UserResponse[] | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [search, setSearch] = useState("")
+  const search = searchParams.get("search") ?? ""
   const debouncedSearch = useDebounce(search, 300)
 
-  const [createOpen, setCreateOpen] = useState(false)
-  const [createForm, setCreateForm] = useState({
-    fullName: "",
-    email: "",
-    roleName: "STOCK",
-    status: USER_STATUS.ACTIVE,
+  const updateParams = useCallback(
+    (updates: Record<string, string | undefined>) => {
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev)
+        for (const [key, val] of Object.entries(updates)) {
+          if (val) next.set(key, val)
+          else next.delete(key)
+        }
+        return next
+      }, { replace: true })
+    },
+    [setSearchParams],
+  )
+
+  const { data: usersRes, isLoading, error: fetchError } = useQuery({
+    queryKey: ["users", debouncedSearch || "paged", debouncedSearch ? 0 : page, pageSize, sortStr],
+    queryFn: () => debouncedSearch ? getUsers(0, 10000, sortStr) : getUsers(page, pageSize, sortStr),
   })
-  const [creating, setCreating] = useState(false)
+
+  const filtered = debouncedSearch
+    ? (usersRes?.content ?? []).filter((u) => {
+        const kw = debouncedSearch.toLowerCase()
+        return u.fullName.toLowerCase().includes(kw) || u.username.toLowerCase().includes(kw) || u.email.toLowerCase().includes(kw)
+      })
+    : (usersRes?.content ?? [])
+  const totalEl = debouncedSearch ? filtered.length : usersRes?.pagination?.totalElements
+  const totalPg = !debouncedSearch ? usersRes?.pagination?.totalPages : undefined
+
+  const invalidate = () => qc.invalidateQueries({ queryKey: ["users"] })
+
+  const [createOpen, setCreateOpen] = useState(false)
   const [tempPassword, setTempPassword] = useState<string | null>(null)
+  const createForm = useForm({ defaultValues: { fullName: "", email: "", roleName: "STOCK", status: USER_STATUS.ACTIVE } })
 
   const [editOpen, setEditOpen] = useState(false)
   const [editUser, setEditUser] = useState<UserResponse | null>(null)
-  const [editForm, setEditForm] = useState({ fullName: "", phoneNumber: "", gender: "" })
-  const [editing, setEditing] = useState(false)
-
+  const editForm = useForm({ defaultValues: { fullName: "", phoneNumber: "", gender: "" } })
   const [roleOpen, setRoleOpen] = useState(false)
   const [roleUserId, setRoleUserId] = useState<number | null>(null)
   const [roleVal, setRoleVal] = useState<string>("")
 
-  const fetch = useCallback(() => {
-    setLoading(true)
-    setError(null)
-    if (debouncedSearch) {
-      getUsers(0, 10000, sortStr)
-        .then((res) => {
-          setAllData(res.content)
-          setData(null)
-        })
-        .catch((err) => setError((err as Error).message || "Không thể tải danh sách"))
-        .finally(() => setLoading(false))
-    } else {
-      getUsers(page, pageSize, sortStr)
-        .then((res) => {
-          setData(res)
-          setAllData(null)
-        })
-        .catch((err) => setError((err as Error).message || "Không thể tải danh sách"))
-        .finally(() => setLoading(false))
-    }
-  }, [page, pageSize, sortStr, debouncedSearch])
+  const createMut = useMutation({ mutationFn: createUser, onSuccess: invalidate })
+  const updateMut = useMutation({ mutationFn: ({ id, data }: { id: number; data: import("@/services/user-service").UpdateInfoRequest }) => updateUserInfo(id, data), onSuccess: invalidate })
+  const roleMut = useMutation({ mutationFn: ({ id, role }: { id: number; role: string }) => updateUserRole(id, role), onSuccess: invalidate })
+  const toggleStatusMut = useMutation({ mutationFn: (args: [number, boolean]) => updateUserStatus(args[0], args[1]), onSuccess: invalidate })
+  const resetPwdMut = useMutation({ mutationFn: resetPassword })
 
-  useEffect(() => {
-    fetch()
-  }, [fetch])
-
-  const filtered = (allData ?? data?.content ?? []).filter((u) => {
-    if (!debouncedSearch) return true
-    const kw = debouncedSearch.toLowerCase()
-    return (
-      u.fullName.toLowerCase().includes(kw) ||
-      u.username.toLowerCase().includes(kw) ||
-      u.email.toLowerCase().includes(kw)
-    )
-  })
-
-  const handleCreate = async () => {
-    if (!createForm.fullName.trim() || !createForm.email.trim()) {
+  const handleCreate = createForm.handleSubmit(async (values) => {
+    if (!values.fullName.trim() || !values.email.trim()) {
       toast.error("Vui lòng nhập họ tên và email")
       return
     }
-    setCreating(true)
     try {
-      const res = await createUser(createForm)
+      const res = await createMut.mutateAsync(values)
       setTempPassword(res.tempPassword)
       toast.success("Tạo người dùng thành công")
-      setCreateForm({ fullName: "", email: "", roleName: "STOCK", status: USER_STATUS.ACTIVE })
-      fetch()
     } catch (err) {
       toast.error((err as Error).message || "Có lỗi xảy ra")
-    } finally {
-      setCreating(false)
     }
-  }
+  })
 
   const openEdit = (u: UserResponse) => {
     setEditUser(u)
-    setEditForm({
-      fullName: u.fullName,
-      phoneNumber: u.phoneNumber ?? "",
-      gender: u.gender != null ? String(u.gender) : "",
-    })
+    editForm.reset({ fullName: u.fullName, phoneNumber: u.phoneNumber ?? "", gender: u.gender != null ? String(u.gender) : "" })
     setEditOpen(true)
   }
 
-  const handleEdit = async () => {
+  const handleEdit = editForm.handleSubmit(async (values) => {
     if (!editUser) return
-    setEditing(true)
     try {
-      await updateUserInfo(editUser.id, {
-        fullName: editForm.fullName,
-        phoneNumber: editForm.phoneNumber || null,
-        gender: editForm.gender ? Number(editForm.gender) : null,
-      })
+      await updateMut.mutateAsync({ id: editUser.id, data: { fullName: values.fullName, phoneNumber: values.phoneNumber || null, gender: values.gender ? Number(values.gender) : null } })
       toast.success("Cập nhật thông tin thành công")
       setEditOpen(false)
-      fetch()
     } catch (err) {
       toast.error((err as Error).message || "Có lỗi xảy ra")
-    } finally {
-      setEditing(false)
     }
-  }
+  })
 
   const handleRoleChange = async () => {
     if (!roleUserId || !roleVal) return
     try {
-      await updateUserRole(roleUserId, roleVal)
+      await roleMut.mutateAsync({ id: roleUserId, role: roleVal })
       toast.success("Đã thay đổi vai trò")
       setRoleOpen(false)
-      fetch()
     } catch (err) {
       toast.error((err as Error).message || "Có lỗi xảy ra")
     }
@@ -183,9 +158,8 @@ export const UsersPage = () => {
 
   const handleToggleStatus = async (u: UserResponse) => {
     try {
-      await updateUserStatus(u.id, u.isDeleted)
+      await toggleStatusMut.mutateAsync([u.id, u.isDeleted])
       toast.success(u.isDeleted ? "Đã kích hoạt người dùng" : "Đã vô hiệu hóa người dùng")
-      fetch()
     } catch (err) {
       toast.error((err as Error).message || "Có lỗi xảy ra")
     }
@@ -193,14 +167,12 @@ export const UsersPage = () => {
 
   const handleResetPassword = async (id: number) => {
     try {
-      const pwd = await resetPassword(id)
+      const pwd = await resetPwdMut.mutateAsync(id)
       toast.success(`Mật khẩu mới: ${pwd}`)
     } catch (err) {
       toast.error((err as Error).message || "Có lỗi xảy ra")
     }
   }
-
-  const s = data?.pagination
 
   const columns: Column<UserResponse>[] = [
     { header: "Username", sortKey: "username", render: (u) => <span className="font-mono text-xs">{u.username}</span> },
@@ -286,8 +258,9 @@ export const UsersPage = () => {
         <h1 className="text-xl font-semibold tracking-tight">Quản lý người dùng</h1>
         <Button
           onClick={() => {
-            setCreateOpen(true)
+            createForm.reset()
             setTempPassword(null)
+            setCreateOpen(true)
           }}
         >
           <Plus className="size-4 mr-1" /> Thêm người dùng
@@ -301,18 +274,15 @@ export const UsersPage = () => {
             placeholder="Tìm theo tên, username, email..."
             className="pl-8"
             value={search}
-            onChange={(e) => {
-              setSearch(e.target.value)
-              setPage(0)
-            }}
+            onChange={(e) => updateParams({ search: e.target.value || undefined, page: undefined })}
           />
         </div>
       </div>
 
-      {error ? (
+      {fetchError ? (
         <div className="rounded-lg border p-8 text-center">
-          <p className="text-sm text-destructive mb-2">{error}</p>
-          <Button variant="outline" size="sm" onClick={fetch}>
+          <p className="text-sm text-destructive mb-2">{fetchError instanceof Error ? fetchError.message : "Không thể tải danh sách"}</p>
+          <Button variant="outline" size="sm" onClick={invalidate}>
             <RefreshCw className="size-3 mr-1" /> Thử lại
           </Button>
         </div>
@@ -320,20 +290,20 @@ export const UsersPage = () => {
         <DataTable
           columns={columns}
           data={filtered}
-          isLoading={loading}
+          isLoading={isLoading}
           emptyMessage={debouncedSearch ? "Không tìm thấy người dùng nào" : "Chưa có người dùng nào"}
           sort={sort}
           onSort={handleSort}
-          totalElements={s?.totalElements}
+          totalElements={totalEl}
           page={!debouncedSearch ? page : undefined}
-          totalPages={!debouncedSearch ? s?.totalPages : undefined}
+          totalPages={totalPg}
           pageSize={!debouncedSearch ? pageSize : undefined}
-          onPageChange={!debouncedSearch ? setPage : undefined}
+          onPageChange={!debouncedSearch ? (p) => updateParams({ page: String(p) }) : undefined}
           onPageSizeChange={
             !debouncedSearch
               ? (s) => {
                   setPageSize(s)
-                  setPage(0)
+                  updateParams({ page: undefined })
                 }
               : undefined
           }
@@ -378,48 +348,40 @@ export const UsersPage = () => {
               <div className="grid gap-4 py-2">
                 <div className="space-y-2">
                   <Label htmlFor="fullName">Họ tên</Label>
-                  <Input
-                    id="fullName"
-                    placeholder="Nguyễn Văn A"
-                    value={createForm.fullName}
-                    onChange={(e) => setCreateForm((f) => ({ ...f, fullName: e.target.value }))}
-                  />
+                  <Input id="fullName" placeholder="Nguyễn Văn A" {...createForm.register("fullName")} />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="a@example.com"
-                    value={createForm.email}
-                    onChange={(e) => setCreateForm((f) => ({ ...f, email: e.target.value }))}
-                  />
+                  <Input id="email" type="email" placeholder="a@example.com" {...createForm.register("email")} />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="role">Vai trò</Label>
-                  <Select
-                    value={createForm.roleName}
-                    onValueChange={(v) => setCreateForm((f) => ({ ...f, roleName: v }))}
-                  >
-                    <SelectTrigger id="role">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {roleOptions.map((o) => (
-                        <SelectItem key={o.value} value={o.value}>
-                          {o.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Controller
+                    name="roleName"
+                    control={createForm.control}
+                    render={({ field }) => (
+                      <Select value={field.value} onValueChange={field.onChange}>
+                        <SelectTrigger id="role">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {roleOptions.map((o) => (
+                            <SelectItem key={o.value} value={o.value}>
+                              {o.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
                 </div>
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setCreateOpen(false)}>
                   Hủy
                 </Button>
-                <Button onClick={handleCreate} disabled={creating}>
-                  {creating ? "Đang tạo..." : "Tạo"}
+                <Button onClick={handleCreate} disabled={createMut.isPending}>
+                  {createMut.isPending ? "Đang tạo..." : "Tạo"}
                 </Button>
               </DialogFooter>
             </>
@@ -438,41 +400,38 @@ export const UsersPage = () => {
           <div className="grid gap-4 py-2">
             <div className="space-y-2">
               <Label htmlFor="editName">Họ tên</Label>
-              <Input
-                id="editName"
-                value={editForm.fullName}
-                onChange={(e) => setEditForm((f) => ({ ...f, fullName: e.target.value }))}
-              />
+              <Input id="editName" {...editForm.register("fullName")} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="editPhone">Số điện thoại</Label>
-              <Input
-                id="editPhone"
-                placeholder="Không bắt buộc"
-                value={editForm.phoneNumber}
-                onChange={(e) => setEditForm((f) => ({ ...f, phoneNumber: e.target.value }))}
-              />
+              <Input id="editPhone" placeholder="Không bắt buộc" {...editForm.register("phoneNumber")} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="editGender">Giới tính</Label>
-              <Select value={editForm.gender} onValueChange={(v) => setEditForm((f) => ({ ...f, gender: v }))}>
-                <SelectTrigger id="editGender">
-                  <SelectValue placeholder="Chọn..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="0">Nam</SelectItem>
-                  <SelectItem value="1">Nữ</SelectItem>
-                  <SelectItem value="2">Khác</SelectItem>
-                </SelectContent>
-              </Select>
+              <Controller
+                name="gender"
+                control={editForm.control}
+                render={({ field }) => (
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger id="editGender">
+                      <SelectValue placeholder="Chọn..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="0">Nam</SelectItem>
+                      <SelectItem value="1">Nữ</SelectItem>
+                      <SelectItem value="2">Khác</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+              />
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditOpen(false)}>
               Hủy
             </Button>
-            <Button onClick={handleEdit} disabled={editing}>
-              {editing ? "Đang lưu..." : "Lưu"}
+            <Button onClick={handleEdit} disabled={updateMut.isPending}>
+              {updateMut.isPending ? "Đang lưu..." : "Lưu"}
             </Button>
           </DialogFooter>
         </DialogContent>

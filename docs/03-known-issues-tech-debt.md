@@ -1,4 +1,4 @@
-> Gộp từ: `03-known-issues.md`, `08-inventory-analysis.md` (P0/P1), `09-business-analysis.md` (P0 bugs), `09c-business-analysis-final-review.md` (bugs còn treo) (các file này đã bị xóa sau khi gộp — xem git history nếu cần tra lại quá trình phân tích gốc).
+﻿> Gộp từ: `03-known-issues.md`, `08-inventory-analysis.md` (P0/P1), `09-business-analysis.md` (P0 bugs), `09c-business-analysis-final-review.md` (bugs còn treo) (các file này đã bị xóa sau khi gộp — xem git history nếu cần tra lại quá trình phân tích gốc).
 
 ## 7. Domain Review — Known Issues & Improvements
 
@@ -58,15 +58,15 @@ CREATE TABLE export_receipt_item_units (
 ```sql
 SELECT * FROM product_units
 WHERE product_id = ?
-  AND ((tracking_type = 'serialized' AND status = 'in_stock')
-    OR (tracking_type = 'bulk' AND status = 'in_stock' AND remaining_quantity > 0))
+  AND ((tracking_type = 'serialized' AND status = 'IN_STOCK')
+    OR (tracking_type = 'bulk' AND status = 'IN_STOCK' AND remaining_quantity > 0))
 ORDER BY imported_at ASC
 LIMIT <n>
 FOR UPDATE
 ```
 
 - Nếu row bulk và `remaining_quantity > qty_xuất`: trừ `remaining_quantity`, không chuyển status.
-- Nếu row bulk và `remaining_quantity = qty_xuất`: set `status = 'sold'`.
+- Nếu row bulk và `remaining_quantity = qty_xuất`: set `status = 'SOLD'`.
 - Tổng tồn = SUM `remaining_quantity` (bulk) + COUNT id (serialized).
 
 > **Ghi chú về CHECK constraint:** MySQL không hỗ trợ subquery trong CHECK constraint, nên không thể enforce "serialized → quantity phải integer" ở DB bằng cách JOIN với `products.tracking_type`. Giải pháp: validate tại Service layer Java (kiểm tra `product.trackingType` trước khi insert). DB chỉ có `quantity > 0`.
@@ -102,31 +102,31 @@ CREATE TABLE audit_logs (
 
 | #   | Hành động                 | entity_type      | old_value        | new_value                    |
 | --- | ------------------------- | ---------------- | ---------------- | ---------------------------- |
-| 1   | Nhập kho (NV xác nhận)    | IMPORT_RECEIPT   | null             | JSON phiếu + items + serials; status=pending→pending_approval |
-| 2   | Sửa serial sau nhập       | PRODUCT_UNIT     | serial cũ        | serial mới                   |
-| 3   | Duyệt phiếu nhập          | IMPORT_RECEIPT   | status=pending_approval | status=completed, approved_by |
-| 4   | Xuất kho (QL duyệt)       | EXPORT_RECEIPT   | null             | JSON phiếu + items + serials; status=pending_approval→completed |
-| 5   | Hủy phiếu nhập            | IMPORT_RECEIPT   | status=completed | status=cancelled             |
-| 6   | Hủy phiếu xuất            | EXPORT_RECEIPT   | status=completed | status=cancelled             |
-| 7   | Điều chỉnh tồn (approved) | STOCK_ADJUSTMENT | status=pending   | status=approved              |
-| 8   | Kiểm kê (approved)        | STOCK_CHECK      | null             | diff summary                 |
-| 9   | Kiểm kê — chuyển missing→lost | PRODUCT_UNIT | status=in_stock  | status=lost, stock_check_id  |
-| 10  | Bảo hành (hoàn tất)       | WARRANTY_REQUEST | trạng thái cũ    | resolution + serial thay đổi |
+| 1   | Manager tạo phiếu nhập (Phase 1) | IMPORT_RECEIPT   | null             | JSON phiếu + items (chưa có serial/QC); status=→PENDING |
+| 2   | Stock submit serial+QC (Phase 2) | IMPORT_RECEIPT   | null             | JSON phiếu + items + serials + QC; status=PENDING→PENDING_APPROVAL |
+| 3   | Sửa serial sau nhập       | PRODUCT_UNIT     | serial cũ        | serial mới                   |
+| 4   | Duyệt phiếu nhập          | IMPORT_RECEIPT   | status=PENDING_APPROVAL | status=COMPLETED, approved_by |
+| 5   | Xuất kho (QL duyệt)       | EXPORT_RECEIPT   | null             | JSON phiếu + items + serials; status=PENDING_APPROVAL→COMPLETED |
+| 6   | Hủy phiếu nhập            | IMPORT_RECEIPT   | status=COMPLETED | status=CANCELLED             |
+| 7   | Hủy phiếu xuất            | EXPORT_RECEIPT   | status=COMPLETED | status=CANCELLED             |
+| 8   | Điều chỉnh tồn (APPROVED) | STOCK_ADJUSTMENT | status=PENDING   | status=APPROVED              |
+| 9   | Kiểm kê (APPROVED)        | STOCK_CHECK      | null             | diff summary                 |
+| 10  | Kiểm kê — chuyển missing→LOST | PRODUCT_UNIT | status=IN_STOCK  | status=LOST, stock_check_id  |
 | 11  | Đổi role user             | USER             | role cũ          | role mới                     |
-| 12  | Khóa/mở user              | USER             | is_active cũ     | is_active mới                |
-| 13  | User đổi password         | USER             | null             | null                         |
-| 14  | Admin reset password      | USER             | null             | null                         |
-| 15  | Đăng nhập thất bại        | AUTH             | -                | - (optional)                 |
-| 16  | Duyệt phiếu trả hàng      | RETURN_RECEIPT   | status=pending_approval | status=completed, resulting_action |
-| 17  | Từ chối phiếu trả hàng    | RETURN_RECEIPT   | status=pending_approval | status=cancelled                 |
-| 18  | Duyệt điều chỉnh giá nhập | PRICE_ADJUSTMENT | status=pending_approval | status=approved, old_unit_price→new_unit_price |
-| 19  | Từ chối điều chỉnh giá nhập | PRICE_ADJUSTMENT | status=pending_approval | status=rejected |
-| 20  | Tạo/hủy đơn đặt hàng (PO) | PURCHASE_ORDER   | null (tạo) / status=draft~partial (hủy) | status=draft (tạo) / status=cancelled (hủy) |
-| 21  | Admin sửa cấu hình hệ thống | SYSTEM_SETTING  | setting_value cũ | setting_value mới, updated_by |
-| 22  | Từ chối phiếu nhập (lúc pending_approval) | IMPORT_RECEIPT | status=pending_approval | status=cancelled; units→removed (khác #5 — #5 là hủy phiếu ĐÃ completed) |
-| 23  | Từ chối phiếu xuất (lúc pending_approval) | EXPORT_RECEIPT | status=pending_approval | status=cancelled; units→in_stock hoặc damaged_in_storage tùy reason (khác #6 — #6 là hủy phiếu ĐÃ completed) |
-| 24  | Từ chối kết quả kiểm kê | STOCK_CHECK | status=completed | status=rejected, không áp dụng thay đổi (khác #8 — #8 là approved) |
-| 25  | Từ chối phiếu điều chỉnh tồn | STOCK_ADJUSTMENT | status=pending | status=rejected (khác #7 — #7 là approved) |
+| 13  | Khóa/mở user              | USER             | is_active cũ     | is_active mới                |
+| 14  | User đổi password         | USER             | null             | null                         |
+| 15  | Admin reset password      | USER             | null             | null                         |
+| 16  | Đăng nhập thất bại        | AUTH             | -                | - (optional)                 |
+| 17  | Duyệt phiếu trả hàng      | RETURN_RECEIPT   | status=PENDING_APPROVAL | status=COMPLETED, resulting_action |
+| 18  | Từ chối phiếu trả hàng    | RETURN_RECEIPT   | status=PENDING_APPROVAL | status=CANCELLED                 |
+| 19  | Duyệt điều chỉnh giá nhập | PRICE_ADJUSTMENT | status=PENDING_APPROVAL | status=APPROVED, old_unit_price→new_unit_price |
+| 20  | Từ chối điều chỉnh giá nhập | PRICE_ADJUSTMENT | status=PENDING_APPROVAL | status=REJECTED |
+| 21  | Tạo/hủy đơn đặt hàng (PO) | PURCHASE_ORDER   | null (tạo) / status=DRAFT~partial (hủy) | status=DRAFT (tạo) / status=CANCELLED (hủy) |
+| 22  | Admin sửa cấu hình hệ thống | SYSTEM_SETTING  | setting_value cũ | setting_value mới, updated_by |
+| 23  | Từ chối phiếu nhập (lúc PENDING_APPROVAL) | IMPORT_RECEIPT | status=PENDING_APPROVAL | status=PENDING; kèm reject_reason; serial+QC đã nhập giữ nguyên, Stock sửa lại và resubmit (khác #6 — #6 là hủy phiếu ĐÃ COMPLETED) |
+| 24  | Từ chối phiếu xuất (lúc PENDING_APPROVAL) | EXPORT_RECEIPT | status=PENDING_APPROVAL | status=CANCELLED; units→IN_STOCK hoặc DAMAGED_IN_STORAGE tùy reason (khác #7 — #7 là hủy phiếu ĐÃ COMPLETED) |
+| 25  | Từ chối kết quả kiểm kê | STOCK_CHECK | status=COMPLETED | status=REJECTED, không áp dụng thay đổi (khác #9 — #9 là APPROVED) |
+| 26  | Từ chối phiếu điều chỉnh tồn | STOCK_ADJUSTMENT | status=PENDING | status=REJECTED (khác #8 — #8 là APPROVED) |
 
 ### 7.3. `stock_adjustments.product_unit_id` nullable + fallback
 
@@ -137,7 +137,7 @@ CREATE TABLE audit_logs (
 ```sql
 CREATE TABLE stock_adjustments (
     ...
-    type            VARCHAR(30) NOT NULL COMMENT 'damaged | lost | found',
+    type            VARCHAR(30) NOT NULL COMMENT 'damaged | LOST | found',
     product_unit_id BIGINT NULL COMMENT 'NULL nếu chỉnh theo product',
     product_id      BIGINT NULL COMMENT 'dùng khi không rõ serial',
     quantity        DECIMAL(15,2) NULL COMMENT 'dùng khi không rõ serial',
@@ -174,18 +174,7 @@ JOIN export_receipt_item_units eriu ON eriu.product_unit_id = pu.id
 WHERE eriu.export_receipt_item_id = ?;
 ```
 
-### 7.5. Warranty Inheritance khi đổi serial
-
-**Vấn đề:** Nghiệp vụ yêu cầu "kế thừa thời hạn BH còn lại" của serial cũ, nhưng `warranty_months` của serial mới có thể khác.
-
-**Quy tắc:**
-
-1. `warranty_months` = metadata gốc của unit (theo lô nhập) — không đổi.
-2. `warranty_expires_at` = hạn BH thực tế — **copy cứng từ serial cũ khi đổi**.
-3. `warranty_start_date` của serial mới = ngày đổi (tracking mốc).
-4. Hiển thị: "Còn BH đến: `warranty_expires_at`" + "Chính sách gốc: `warranty_months` tháng".
-
-### 7.6. Soft-delete không nhất quán
+### 7.5. Soft-delete không nhất quán
 
 **Vấn đề:** users dùng `is_deleted`, products/locations dùng `is_active`, suppliers/brands/categories/customers không có cờ.
 
@@ -294,19 +283,19 @@ private void validateUnitTrackingType(Product product) {
 
 ### 7.9. Phân quyền Admin — tách vai trò giám sát khỏi vận hành nghiệp vụ (Separation of Duties)
 
-**Vấn đề:** Bảng phân quyền ban đầu (mục 6) cho Admin ✅ ở toàn bộ 18/18 chức năng — bao gồm cả tạo và tự duyệt mọi giao dịch nghiệp vụ (nhập/xuất/điều chỉnh tồn/bảo hành), đồng thời là người duy nhất xem toàn bộ audit log. Trong thực tế Admin là người được thuê (system admin/IT), không phải chủ sở hữu doanh nghiệp — cho một nhân viên vừa hành động vừa tự giám sát chính mình tạo lỗ hổng gian lận nội bộ (embezzlement) mà không ai trong hệ thống phát hiện được, vì người có khả năng gây ra sai phạm cũng chính là người duy nhất xem log để phát hiện sai phạm.
+**Vấn đề:** Bảng phân quyền ban đầu (mục 6) cho Admin ✅ ở toàn bộ 18/18 chức năng — bao gồm cả tạo và tự duyệt mọi giao dịch nghiệp vụ (nhập/xuất/điều chỉnh tồn), đồng thời là người duy nhất xem toàn bộ audit log. Trong thực tế Admin là người được thuê (system admin/IT), không phải chủ sở hữu doanh nghiệp — cho một nhân viên vừa hành động vừa tự giám sát chính mình tạo lỗ hổng gian lận nội bộ (embezzlement) mà không ai trong hệ thống phát hiện được, vì người có khả năng gây ra sai phạm cũng chính là người duy nhất xem log để phát hiện sai phạm.
 
 **Root cause:** Elicitation ban đầu không hỏi rõ "Admin trong hệ thống này thực chất đóng vai trò gì trong doanh nghiệp thật", nên mặc định gán ✅ toàn bộ cho role có `level` cao nhất — nhầm lẫn giữa "quyền hệ thống cao nhất" và "được tin tưởng tuyệt đối về nghiệp vụ".
 
-**Quyết định:** Tách Admin thành vai trò **giám sát + quản trị hệ thống** (quản lý user, cấu hình hệ thống, xem toàn bộ audit log, làm approver dự phòng khi cần escalation), loại bỏ quyền **khởi tạo** giao dịch nghiệp vụ hàng ngày (nhập/xuất/điều chỉnh tồn/danh mục/bảo hành) khỏi Admin. Quản lý kho (QL) chịu trách nhiệm vận hành thực tế.
+**Quyết định:** Tách Admin thành vai trò **giám sát + quản trị hệ thống** (quản lý user, cấu hình hệ thống, xem toàn bộ audit log, làm approver dự phòng khi cần escalation), loại bỏ quyền **khởi tạo** giao dịch nghiệp vụ hàng ngày (nhập/xuất/điều chỉnh tồn/danh mục) khỏi Admin. Quản lý kho (QL) chịu trách nhiệm vận hành thực tế.
 
 Áp dụng ràng buộc **`created_by ≠ approved_by`** cho mọi luồng có bước duyệt (phiếu nhập, phiếu xuất, kiểm kê lệch, điều chỉnh tồn thủ công) — người duyệt không được là người đã tạo phiếu, bất kể role. Khi chỉ có 1 QL và họ là người tạo, hệ thống escalate lên Admin duyệt thay — đây là lý do Admin vẫn giữ ✅ ở các dòng "Duyệt...", nhưng không còn ✅ ở dòng "Tạo...".
 
 **Đã cân nhắc và loại bỏ:** thêm role Owner/Chủ sở hữu riêng đứng trên Admin. Bị loại vì ở quy mô 1 kho của dự án này, chưa có use case nào cho thấy Owner cần hành vi khác biệt rõ ràng so với Admin sau khi Admin đã được tách vai trò giám sát — thêm role này sẽ là over-engineering, vi phạm YAGNI (lỗi #6 trong checklist SAD).
 
 **Hệ quả kỹ thuật:**
-- Cần enforce `approved_by != created_by` ở service layer cho `import_receipts`, `export_receipts`, `stock_checks`, `stock_adjustments` trước khi cho phép chuyển status sang `approved`/`completed`.
-- **Gap đã xử lý:** `import_receipts` và `export_receipts` trước đây chưa có cột `approved_by` trong ERD (mục 1) — chỉ có `created_by`. Đã bổ sung cột `approved_by BIGINT NULL FK` vào cả hai bảng để service layer có thể kiểm tra `approved_by != created_by` khi chuyển status sang `completed` qua bước duyệt.
+- Cần enforce `approved_by != created_by` ở service layer cho `import_receipts`, `export_receipts`, `stock_checks`, `stock_adjustments` trước khi cho phép chuyển status sang `APPROVED`/`COMPLETED`.
+- **Gap đã xử lý:** `import_receipts` và `export_receipts` trước đây chưa có cột `approved_by` trong ERD (mục 1) — chỉ có `created_by`. Đã bổ sung cột `approved_by BIGINT NULL FK` vào cả hai bảng để service layer có thể kiểm tra `approved_by != created_by` khi chuyển status sang `COMPLETED` qua bước duyệt.
 - Phù hợp làm invariant test bằng ArchUnit hoặc unit test tầng service (đúng mục tiêu học nâng cao đã đề ra cho WMS sample project).
 - Trade-off chấp nhận: nếu chỉ có 1 QL, escalate lên Admin nghĩa là Admin phải tham gia duyệt trong tình huống này — chấp nhận được vì đây là exception/backup, không phải luồng vận hành chính.
 
@@ -316,7 +305,7 @@ private void validateUnitTrackingType(Product product) {
 
 **Phạm vi ảnh hưởng:**
 - `04-requirements-traceability.md`: legend thiếu SL; RQ-22→33 actor chỉ ghi `NV` thiếu SL; US-40 (trả hàng) actor sai NV phải là SALES; US-25/35/36 actor gồm AD (trái matrix); US-41 (điều chỉnh giá) actor QL/AD sai, phải là NV/QL.
-- `06-ux-design.md`: §2.2 tiêu đề WarrantyCreatePage ghi `(SALES)` — thiếu STOCK; §1.4 dòng "tránh NV" sai actor (phải là SALES).
+- `06-ux-design.md`: §1.4 dòng "tránh NV" sai actor (phải là SALES).
 - `01-domain-model.md`: dòng 28 ghi level 3 chung cho SALES/STOCK — level này dùng trong `UserRoleSecurity.canUpdate()` (hierarchical user mgmt), đã xác nhận không ảnh hưởng feature-level permissions.
 - `backend/docs/api/api-documentation.md`: role hierarchy, user create/response enums, role description thiếu SALES.
 - `02-sop-nghiep-vu.md`: §2 flow diagram/mô tả ghi SALES tạo phiếu nhập (trái §1.3.1); §12 approval table có ADMIN ở Tạo rows, thiếu SALES ở ExportReceipt Tạo.
@@ -353,7 +342,7 @@ private void validateUnitTrackingType(Product product) {
 - **Nguồn:** `08-inventory-analysis-archive.md §6, §7`
 - **Mô tả:** Không có flow trả hàng cho NCC (import return) và khách hàng trả lại (sales return). Phải dùng export/import thủ công, mất traceability.
 - **Tác động:** Khi nhập lô hỏng, không tạo chứng từ trả NCC. Khi khách trả hàng, không có flow nhập lại kho.
-- **Fix:** Tạo entity `ImportReturn` + `SalesReturn` với các bước kiểm tra (inspect) → quyết định nhập lại/hủy. Kế thừa warranty nếu còn hạn.
+- **Fix:** Tạo entity `ImportReturn` + `SalesReturn` với các bước kiểm tra (inspect) → quyết định nhập lại/hủy.
 
 #### 8.1.3 Customer không có unique constraint (08 §14)
 
@@ -362,12 +351,13 @@ private void validateUnitTrackingType(Product product) {
 - **Tác động:** Dễ tạo customer trùng (cùng phone nhưng khác tên), báo cáo sales by customer sai.
 - **Fix:** Thêm `UNIQUE (phone)` và `UNIQUE (email)`. Validate trùng khi create/update. Mở rộng search lên phone + email.
 
-#### 8.1.4 Import thiếu Draft, không sửa được phiếu pending (08 §15.1)
+#### 8.1.4 Import thiếu trạng thái trung gian, không sửa được phiếu sau tạo (08 §15.1) — ✅ Resolved
 
 - **Nguồn:** `08-inventory-analysis-archive.md §15.1`
-- **Mô tả:** Tạo phiếu nhập là `PENDING_APPROVAL` ngay, không có `DRAFT`. Không thể sửa phiếu sau khi tạo (chỉ approve/cancel). Nếu sai 1 dòng phải hủy làm lại.
+- **Mô tả:** Tạo phiếu nhập là `PENDING_APPROVAL` ngay. Không thể sửa phiếu sau tạo (chỉ approve/cancel). Nếu sai 1 dòng phải hủy làm lại.
 - **Tác động:** UX tệ, mất thời gian khi nhập nhiều dòng.
-- **Fix:** Thêm `DRAFT` status, cho phép sửa trước khi submit. SOP §2.2 đã chốt thêm draft.
+- **Fix gốc:** Thêm `DRAFT` status.
+- **Trạng thái hiện tại:** ✅ Resolved. Thiết kế 2-phase mới (07/2026) thay DRAFT bằng PENDING, tách thành 2 phase riêng (Manager tạo → PENDING, Stock submit serial+QC → PENDING_APPROVAL). Xem `02-sop-nghiep-vu.md §2`.
 
 #### 8.1.5 Set warranty trên import không copy sang ProductUnit (08 §15.1)
 
@@ -389,7 +379,7 @@ private void validateUnitTrackingType(Product product) {
 - **Nguồn:** `08-inventory-analysis-archive.md §15.2`
 - **Mô tả:** Units được claim ở `create()` nhưng chưa deduct đến lúc approve. Hai phiếu song song có thể claim cùng unit.
 - **Vị trí:** `ExportReceiptService.create()` — thiếu `FOR UPDATE`
-- **Tác động:** Overselling: approve phiếu thứ 2 fail vì unit đã sold.
+- **Tác động:** Overselling: approve phiếu thứ 2 fail vì unit đã SOLD.
 - **Fix:** Thêm `@Lock(PESSIMISTIC_WRITE)` hoặc `SELECT ... FOR UPDATE`. SOP bổ sung reserve transaction ngắn.
 
 #### 8.1.8 4-eyes principle chưa enforce đầy đủ (08 §15.3, §16.1)
@@ -570,5 +560,4 @@ private void validateUnitTrackingType(Product product) {
 |---|--------|-----------|----------------------|
 | 1 | **Bảng `system_settings` mới** | Thêm bảng key-value cho tham số cấu hình (SLA, product_max_images, deadstock threshold...). ADMIN sửa được, các role khác read-only hoặc không thấy. | Migration mới: tạo bảng + seed mặc định. Cần thêm API endpoint `GET/PUT /api/v1/admin/settings`. |
 | 2 | **Location shelf/bin optional** | zone bắt buộc, shelf/bin có thể NULL khi nhập. | Migration: ALTER `locations` để `shelf_code`, `bin_code` nullable. Service layer cần xử lý logic `full_code` sinh khi thiếu shelf/bin (VD "A-null-null" → chỉ "A"). |
-| 3 | **Warranty REPLACE SLA 7 ngày** | Config qua `system_settings`. Khi quá hạn → cảnh báo QL dashboard + nút "Chuyển sang REFUND". | Cần background job kiểm tra SLA + notification cho QL. |
-| 4 | **product_max_images configurable** | Default 5, config qua `system_settings`. | UI cần đọc config này thay vì hard-code 5. |
+| 3 | **product_max_images configurable** | Default 5, config qua `system_settings`. | UI cần đọc config này thay vì hard-code 5. |

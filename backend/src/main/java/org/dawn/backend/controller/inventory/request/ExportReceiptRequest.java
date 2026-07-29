@@ -7,12 +7,12 @@ public record ExportReceiptRequest(
         String reason,
         Long customerId,
         String note,
+        String externalReference,
         List<ExportItemRequest> items
 ) {
     public record ExportItemRequest(
             Long productId,
             BigDecimal quantity,
-            BigDecimal unitPrice,
-            List<Long> productUnitIds
+            BigDecimal unitPrice
     ) {}
 }

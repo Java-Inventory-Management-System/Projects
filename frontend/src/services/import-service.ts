@@ -29,11 +29,24 @@ export async function createImportReceipt(data: {
     quantity: number
     unitPrice: number
     warrantyMonths?: number
-    serialNumbers?: string[]
-    locationId?: number
   }>
 }): Promise<ImportReceipt> {
   const res = await http.post("/import-receipt", data)
+  return mapImportReceipt(res)
+}
+
+export async function confirmImportReceipt(
+  id: number,
+  data: {
+    receiptId: number
+    serials: Array<{
+      itemId: number
+      serialNumbers: string[]
+      locationId: number | null
+    }>
+  },
+): Promise<ImportReceipt> {
+  const res = await http.put(`/import-receipt/${id}/confirm`, data)
   return mapImportReceipt(res)
 }
 

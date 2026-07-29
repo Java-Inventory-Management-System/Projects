@@ -1,9 +1,9 @@
 import { describe, it, expect } from "vitest"
-import { api, loginAsAdmin, ensureImport, randomSerial } from "./api-client"
+import { api, loginAsManager, ensureImport, randomSerial } from "./api-client"
 
 describe("Import Flow", () => {
   it("should create import receipt in DRAFT status", async () => {
-    await loginAsAdmin()
+    await loginAsManager()
     const serial = randomSerial()
     const res = await api.post("/import-receipt", {
       supplierId: 1, note: "E2E DRAFT",
@@ -14,7 +14,7 @@ describe("Import Flow", () => {
   })
 
   it("should confirm to PENDING_APPROVAL then approve to COMPLETED", async () => {
-    await loginAsAdmin()
+    await loginAsManager()
     const { importReceiptId } = await ensureImport()
     const res = await api.get(`/import-receipt/${importReceiptId}`)
     expect(res.status).toBe(200)
@@ -22,7 +22,7 @@ describe("Import Flow", () => {
   })
 
   it("should return pagination with pageNumber/pageSize", async () => {
-    await loginAsAdmin()
+    await loginAsManager()
     const res = await api.get("/import-receipt", { params: { page: 0, size: 10 } })
     expect(res.status).toBe(200)
     expect(res.data.data.pagination.pageNumber).toBe(0)

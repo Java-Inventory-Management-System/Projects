@@ -18,12 +18,23 @@ export async function getProductUnitsByStatus(status: string, page = 0, size = 2
 
 export async function getSerialsForExport(productId: number, quantity: number): Promise<ProductUnit[]> {
   try {
-    const res = await http.get(`/import-receipt/product-unit/product/${productId}`, {
+    const res = await http.get(`/product-unit/product/${productId}`, {
       params: { page: 0, size: quantity, sort: "importedAt,asc" },
     })
     return mapResponsePage(res, mapProductUnit)
       .content.filter((u) => u.status === PRODUCT_UNIT_STATUS.IN_STOCK)
       .slice(0, quantity)
+  } catch {
+    return []
+  }
+}
+
+export async function getAllSerialsForProduct(productId: number): Promise<ProductUnit[]> {
+  try {
+    const res = await http.get(`/product-unit/product/${productId}`, {
+      params: { page: 0, size: 999, sort: "importedAt,asc" },
+    })
+    return mapResponsePage(res, mapProductUnit).content.filter((u) => u.status === PRODUCT_UNIT_STATUS.IN_STOCK)
   } catch {
     return []
   }

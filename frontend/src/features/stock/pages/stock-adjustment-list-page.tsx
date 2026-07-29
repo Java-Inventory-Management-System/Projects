@@ -1,9 +1,11 @@
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { useStockAdjustments, useMyStockAdjustments } from "@/hooks/use-stock-adjustments"
+import { approveStockAdjustment, rejectStockAdjustment } from "@/services/stock-adjustment-service"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Plus, Eye, ChevronDown, ChevronUp } from "lucide-react"
+import { Plus, Eye, Check, X, ChevronDown, ChevronUp, Loader2 } from "lucide-react"
 import { usePermission } from "@/hooks/use-permission"
 import { ROLES } from "@/utils/permissions"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
@@ -12,6 +14,8 @@ import { DataTable, type Column } from "@/components/ui/data-table"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import type { StockAdjustment } from "@/utils/types"
 import { ADJUSTMENT_STATUS, ADJUSTMENT_TYPE } from "@/utils/types"
+import { toast } from "@/utils/toast"
+import { backgroundBatch } from "@/utils/background-batch"
 
 const typeLabel: Record<string, string> = {
   [ADJUSTMENT_TYPE.DAMAGED]: "Hư hỏng",
@@ -53,11 +57,57 @@ export const StockAdjustmentListPage = () => {
     })
   }, [])
 
+  const qc = useQueryClient()
+  const approveMut = useMutation({
+    mutationFn: (id: number) => approveStockAdjustment(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["stock-adjustments"] })
+      qc.invalidateQueries({ queryKey: ["my-stock-adjustments"] })
+      toast.success("Đã duyệt phiếu điều chỉnh")
+    },
+    onError: (e: Error) => toast.error(e.message || "Không thể duyệt"),
+  })
+  const rejectMut = useMutation({
+    mutationFn: (id: number) => rejectStockAdjustment(id, "Manager từ chối"),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["stock-adjustments"] })
+      qc.invalidateQueries({ queryKey: ["my-stock-adjustments"] })
+      toast.success("Đã từ chối phiếu điều chỉnh")
+    },
+    onError: (e: Error) => toast.error(e.message || "Không thể từ chối"),
+  })
+
+  const [batchDone, setBatchDone] = useState(false)
+
+  useEffect(() => {
+    const unsub = backgroundBatch.subscribe(() => {
+      if (!backgroundBatch.isRunning() && backgroundBatch.getResults().length > 0 && !batchDone) {
+        setBatchDone(true)
+        const ok = backgroundBatch.getResults().filter((r) => r.success).length
+        const total = backgroundBatch.getResults().length
+        if (ok === total) {
+          toast.success(`Batch hoàn thành: ${ok}/${total} thành công`)
+        } else {
+          toast.warning(`Batch hoàn thành: ${ok}/${total} thành công, ${total - ok} lỗi — xem chi tiết`)
+        }
+      }
+    })
+    return unsub
+  }, [batchDone])
+
+  const handleClearBatch = useCallback(() => {
+    backgroundBatch.reset()
+    setBatchDone(false)
+    qc.invalidateQueries({ queryKey: ["stock-adjustments"] })
+  }, [qc])
+
+  const canApprove = perm.hasRole(...ROLES.CAN_APPROVE)
+
   // STOCK → own adjustments only; MANAGER/ADMIN → all adjustments
   const isStock = perm.hasRole("STOCK")
-  const { data, isLoading } = isStock
-    ? useMyStockAdjustments(page, pageSize, sortStr, typeFilter || undefined, statusFilter || undefined)
-    : useStockAdjustments(page, pageSize, sortStr, typeFilter || undefined, statusFilter || undefined)
+  const myAdj = useMyStockAdjustments(page, pageSize, sortStr, typeFilter || undefined, statusFilter || undefined)
+  const allAdj = useStockAdjustments(page, pageSize, sortStr, typeFilter || undefined, statusFilter || undefined)
+  const { data, isLoading } = isStock ? myAdj : allAdj
 
   const updateParams = useCallback(
     (updates: Record<string, string | undefined>) => {
@@ -108,22 +158,58 @@ export const StockAdjustmentListPage = () => {
     },
     {
       header: "Thao tác",
-      className: "w-[70px]",
+      className: "w-[160px]",
       render: (r) => (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" onClick={() => navigate(`/stock/adjustments/${r.id}`)}>
-              <Eye className="size-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Xem chi tiết</TooltipContent>
-        </Tooltip>
+        <div className="flex items-center gap-1">
+          {canApprove && r.status === ADJUSTMENT_STATUS.PENDING && (
+            <>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" className="text-green-600" onClick={() => approveMut.mutate(r.id)}>
+                    <Check className="size-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Duyệt</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" className="text-destructive" onClick={() => rejectMut.mutate(r.id)}>
+                    <X className="size-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Từ chối</TooltipContent>
+              </Tooltip>
+            </>
+          )}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" onClick={() => navigate(`/stock/adjustments/${r.id}`)}>
+                <Eye className="size-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Xem chi tiết</TooltipContent>
+          </Tooltip>
+        </div>
       ),
     },
   ]
 
   return (
     <div className="space-y-4">
+      {backgroundBatch.isRunning() && (
+        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-800">
+          <Loader2 className="size-4 animate-spin" />
+          Batch đang chạy nền: {backgroundBatch.getProgress()?.current ?? "?"}/{backgroundBatch.getProgress()?.total ?? "?"}
+        </div>
+      )}
+      {batchDone && backgroundBatch.getResults().length > 0 && (
+        <div className="flex items-center justify-between rounded-lg border border-green-200 bg-green-50 px-4 py-2 text-sm text-green-800">
+          <span>
+            Batch hoàn thành: {backgroundBatch.getResults().filter((r) => r.success).length}/{backgroundBatch.getResults().length} phiếu
+          </span>
+          <Button variant="ghost" size="sm" onClick={handleClearBatch}>Ẩn</Button>
+        </div>
+      )}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-semibold tracking-tight">Điều chỉnh tồn kho</h1>
         {perm.hasRole(...ROLES.CAN_OPERATE_STOCK) && (

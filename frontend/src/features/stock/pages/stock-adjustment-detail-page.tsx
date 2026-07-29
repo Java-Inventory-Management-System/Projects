@@ -125,8 +125,8 @@ export const StockAdjustmentDetailPage = () => {
         <Badge variant={st.variant}>{st.label}</Badge>
       </div>
 
-      <div className="rounded-lg border p-6 space-y-4">
-        <div className="grid grid-cols-2 gap-6 text-sm">
+      <div className="rounded-lg border p-4 sm:p-6 space-y-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 text-sm">
           <div>
             <span className="text-muted-foreground">Sản phẩm</span>
             <p className="font-medium text-base mt-0.5">{adj.productName ?? "—"}</p>
@@ -147,14 +147,19 @@ export const StockAdjustmentDetailPage = () => {
           {adj.imageUrl && (
             <div>
               <span className="text-muted-foreground">Ảnh minh chứng</span>
-              <a
-                href={adj.imageUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block mt-0.5 text-sm text-primary underline"
-              >
-                Xem ảnh
-              </a>
+              <div className="flex flex-wrap gap-2 mt-1">
+                {adj.imageUrl.split(",").filter(Boolean).map((url, i) => (
+                  <a
+                    key={i}
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block size-20 rounded-lg overflow-hidden border"
+                  >
+                    <img src={url} alt={`evidence ${i}`} className="size-full object-cover hover:opacity-80 transition-opacity" />
+                  </a>
+                ))}
+              </div>
             </div>
           )}
         </div>
@@ -165,7 +170,7 @@ export const StockAdjustmentDetailPage = () => {
         </div>
 
         <Separator />
-        <div className="grid grid-cols-2 gap-6 text-sm pt-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 text-sm pt-4">
           <div>
             <span className="text-muted-foreground">Người tạo</span>
             <p className="font-medium mt-0.5">{adj.createdByName}</p>

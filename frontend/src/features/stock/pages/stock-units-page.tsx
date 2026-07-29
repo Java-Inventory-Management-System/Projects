@@ -1,4 +1,4 @@
-import { useState, lazy, Suspense, useEffect } from "react"
+import { useState, lazy, Suspense } from "react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useAuthStore } from "@/store/auth-store"
 import { ROLES } from "@/utils/permissions"
@@ -28,12 +28,6 @@ export function StockUnitsPage() {
 
   const availableTabs = TABS.filter((t) => !t.roles || (user && t.roles.includes(user.role)))
   const [tab, setTab] = useState<TabKey>(availableTabs[0]?.key ?? "list")
-
-  useEffect(() => {
-    if (!availableTabs.some((t) => t.key === tab)) {
-      setTab(availableTabs[0]?.key ?? "list")
-    }
-  }, [user?.role])
 
   return (
     <div className="space-y-4">

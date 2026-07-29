@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
-import { useAuthStore } from "@/store/auth-store"
+import { useAuthStore, SKIP_AUTH } from "@/store/auth-store"
 import { LogOut, User, ChevronLeft, ChevronRight, Menu } from "lucide-react"
 import type { URole } from "@/utils/types"
 
@@ -28,6 +28,13 @@ const roleLabel: Record<URole, string> = {
 export function Topbar({ collapsed, onToggle, onMobileOpen }: TopbarProps) {
   const user = useAuthStore((s) => s.user)
   const logout = useAuthStore((s) => s.logout)
+  if (SKIP_AUTH) {
+    return (
+      <header className="flex h-14 items-center justify-between border-b bg-background px-4">
+        <span className="text-sm text-muted-foreground">DEV MODE</span>
+      </header>
+    )
+  }
   if (!user) return null
 
   const initials = user.displayName

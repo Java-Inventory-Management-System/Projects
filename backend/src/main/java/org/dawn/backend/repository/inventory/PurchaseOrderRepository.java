@@ -1,6 +1,6 @@
 package org.dawn.backend.repository.inventory;
 
-import org.dawn.backend.constant.inventory.PurchaseOrderStatus;
+import org.dawn.backend.constant.enums.inventory.PurchaseOrderStatus;
 import org.dawn.backend.entity.inventory.PurchaseOrder;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;

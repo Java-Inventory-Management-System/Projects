@@ -4,7 +4,7 @@ import io.swagger.v3.oas.annotations.Hidden;
 import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
-import org.dawn.backend.constant.auth.URole;
+import org.dawn.backend.constant.enums.auth.URole;
 import org.dawn.backend.entity.base.AuditableEntity;
 
 @Entity

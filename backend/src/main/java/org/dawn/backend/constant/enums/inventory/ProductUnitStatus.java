@@ -1,0 +1,7 @@
+package org.dawn.backend.constant.enums.inventory;
+
+public enum ProductUnitStatus {
+    PENDING_QC, IN_STOCK, RESERVED, SOLD, EXPORTED, DEFECTIVE, DAMAGED_IN_STORAGE,
+    LOST, REMOVED, DISPOSED, UNDER_REPAIR, SENT_TO_MANUFACTURER,
+    RETURNED, RETURNED_TO_SUPPLIER
+}

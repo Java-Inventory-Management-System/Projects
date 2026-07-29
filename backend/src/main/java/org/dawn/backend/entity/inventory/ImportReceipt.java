@@ -6,7 +6,7 @@ import lombok.experimental.SuperBuilder;
 import org.dawn.backend.entity.base.AuditableEntity;
 
 import java.math.BigDecimal;
-import org.dawn.backend.constant.inventory.ImportReceiptStatus;
+import org.dawn.backend.constant.enums.inventory.imports.ImportReceiptStatus;
 
 @Entity
 @Table(name = "import_receipts")

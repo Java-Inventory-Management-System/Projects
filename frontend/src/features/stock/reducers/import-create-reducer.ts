@@ -7,6 +7,7 @@ export type ItemAction =
   | { type: "REMOVE_ITEM"; tempId: number }
   | { type: "SAVE_SERIALS"; tempId: number; serials: string[] }
   | { type: "PASTE_SERIALS"; pasteText: string }
+  | { type: "SET_ITEM_STATUS"; tempId: number; itemStatus: LineItem["itemStatus"]; notReceivedReason?: string }
 
 export function itemReducer(state: LineItem[], action: ItemAction): LineItem[] {
   switch (action.type) {
@@ -35,5 +36,9 @@ export function itemReducer(state: LineItem[], action: ItemAction): LineItem[] {
         return serials.length ? { ...item, serials } : item
       })
     }
+    case "SET_ITEM_STATUS":
+      return state.map((i) =>
+        i.tempId === action.tempId ? { ...i, itemStatus: action.itemStatus, notReceivedReason: action.notReceivedReason ?? "" } : i,
+      )
   }
 }

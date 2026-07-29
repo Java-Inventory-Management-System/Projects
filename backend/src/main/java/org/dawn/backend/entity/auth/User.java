@@ -9,7 +9,7 @@ import lombok.experimental.SuperBuilder;
 import org.dawn.backend.entity.base.AuditableEntity;
 
 import java.time.Instant;
-import org.dawn.backend.constant.shared.ActiveStatus;
+import org.dawn.backend.constant.enums.shared.ActiveStatus;
 
 @Entity
 @Table(name = "users")

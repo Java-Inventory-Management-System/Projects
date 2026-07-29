@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Empty, EmptyTitle } from "@/components/ui/empty"
 import { ButtonGroup } from "@/components/ui/button-group"
-import { Check, X } from "lucide-react"
+import { Check, X, ScanLine } from "lucide-react"
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -36,7 +36,7 @@ import { PrintReceiptButton } from "../components/print-receipt"
 import { FileDown } from "lucide-react"
 
 const statusLabel: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
-  PENDING: { label: "Chờ xử lý", variant: "secondary" },
+  DRAFT: { label: "Bản nháp", variant: "secondary" },
   PENDING_APPROVAL: { label: "Chờ duyệt", variant: "outline" },
   COMPLETED: { label: "Hoàn tất", variant: "default" },
   CANCELLED: { label: "Đã hủy", variant: "destructive" },
@@ -128,21 +128,31 @@ export function ImportDetailPage() {
         <div className="flex items-center gap-2">
           {receipt.status === IMPORT_RECEIPT_STATUS.PENDING_APPROVAL && (
             <ButtonGroup>
+              {perm.canApprove() && (
+                <>
+                  <Button variant="outline" className="text-destructive" onClick={() => setConfirmAction("cancel")}>
+                    <X className="size-4 mr-1" /> Từ chối
+                  </Button>
+                  <Button onClick={() => setConfirmAction("approve")}>
+                    <Check className="size-4 mr-1" /> Duyệt
+                  </Button>
+                </>
+              )}
               {perm.canCancel() && (
                 <Button variant="outline" className="text-destructive" onClick={() => setConfirmAction("cancel")}>
                   <X className="size-4 mr-1" /> Hủy phiếu
                 </Button>
               )}
-              {perm.canApprove(receipt.status) && (
-                <Button onClick={() => setConfirmAction("approve")}>
-                  <Check className="size-4 mr-1" /> Duyệt
-                </Button>
-              )}
             </ButtonGroup>
           )}
-          {perm.canCancel() && receipt.status === IMPORT_RECEIPT_STATUS.COMPLETED && (
+          {perm.canCancel() && receipt.status === IMPORT_RECEIPT_STATUS.DRAFT && (
             <Button variant="outline" className="text-destructive" onClick={() => setConfirmAction("cancel")}>
               <X className="size-4 mr-1" /> Hủy phiếu
+            </Button>
+          )}
+          {(receipt.status === IMPORT_RECEIPT_STATUS.DRAFT || receipt.status === IMPORT_RECEIPT_STATUS.PENDING_APPROVAL) && (
+            <Button variant="secondary" onClick={() => navigate(`/stock/imports/new?id=${receipt.id}`)}>
+              <ScanLine className="size-4 mr-1" /> Nhập serial
             </Button>
           )}
           <PrintReceiptButton
@@ -244,7 +254,9 @@ export function ImportDetailPage() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{confirmAction === "approve" ? "Duyệt phiếu nhập" : "Hủy phiếu nhập"}</AlertDialogTitle>
+            <AlertDialogTitle>
+              {confirmAction === "approve" ? "Duyệt phiếu nhập" : "Hủy phiếu nhập"}
+            </AlertDialogTitle>
             <AlertDialogDescription>
               {confirmAction === "approve"
                 ? "Xác nhận duyệt phiếu nhập này? Hàng sẽ được nhập kho."

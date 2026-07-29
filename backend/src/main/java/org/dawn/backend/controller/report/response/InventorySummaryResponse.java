@@ -10,5 +10,7 @@ public record InventorySummaryResponse(
         long totalUnits,
         BigDecimal totalStockValue,
         long lowStockCount,
-        long outOfStockCount
+        long outOfStockCount,
+        BigDecimal previousPeriodStockValue,
+        BigDecimal trendPercent
 ) {}

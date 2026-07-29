@@ -3,8 +3,8 @@ package org.dawn.backend.service.report;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dawn.backend.config.web.response.ResponsePage;
-import org.dawn.backend.constant.catalog.TrackingType;
-import org.dawn.backend.constant.inventory.ProductUnitStatus;
+import org.dawn.backend.constant.enums.catalog.TrackingType;
+import org.dawn.backend.constant.enums.inventory.ProductUnitStatus;
 import org.dawn.backend.controller.report.response.*;
 import org.dawn.backend.entity.catalog.Category;
 import org.dawn.backend.entity.catalog.Product;
@@ -18,9 +18,9 @@ import org.dawn.backend.repository.catalog.CategoryRepository;
 import org.dawn.backend.repository.catalog.ProductRepository;
 import org.dawn.backend.repository.catalog.SupplierRepository;
 import org.dawn.backend.repository.inventory.CustomerRepository;
-import org.dawn.backend.repository.inventory.ExportReceiptRepository;
-import org.dawn.backend.repository.inventory.ImportReceiptItemRepository;
-import org.dawn.backend.repository.inventory.ImportReceiptRepository;
+import org.dawn.backend.repository.inventory.exports.ExportReceiptRepository;
+import org.dawn.backend.repository.inventory.imports.ImportReceiptItemRepository;
+import org.dawn.backend.repository.inventory.imports.ImportReceiptRepository;
 import org.dawn.backend.repository.inventory.ProductUnitRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -71,12 +71,28 @@ public class ReportService {
             }
         }
 
+        Instant now = Instant.now();
+        Instant monthAgo = now.minus(java.time.Duration.ofDays(30));
+        BigDecimal importTotal = importReceiptRepository.sumTotalAmountByStatusAndCreatedAtBetween(monthAgo, now);
+        BigDecimal exportTotal = exportReceiptRepository.sumTotalAmountByStatusAndCreatedAtBetween(monthAgo, now);
+        BigDecimal previousValue = totalValue.subtract(importTotal).add(exportTotal);
+        if (previousValue.compareTo(BigDecimal.ZERO) < 0) previousValue = BigDecimal.ZERO;
+
+        BigDecimal trendPercent = BigDecimal.ZERO;
+        if (previousValue.compareTo(BigDecimal.ZERO) > 0) {
+            trendPercent = totalValue.subtract(previousValue)
+                    .multiply(BigDecimal.valueOf(100))
+                    .divide(previousValue, 1, java.math.RoundingMode.HALF_UP);
+        }
+
         return InventorySummaryResponse.builder()
                 .totalProducts(totalProducts)
                 .totalUnits(totalUnits)
                 .totalStockValue(totalValue)
                 .lowStockCount(lowStockCount)
                 .outOfStockCount(outOfStockCount)
+                .previousPeriodStockValue(previousValue)
+                .trendPercent(trendPercent)
                 .build();
     }
 
@@ -88,32 +104,43 @@ public class ReportService {
 
         var aggregates = productUnitRepository.aggregateInStockByProductIdIn(activeProductIds);
 
-        Map<Long, long[]> catAgg = new HashMap<>();
+        Map<Long, CategoryStats> catAgg = new HashMap<>();
         for (var row : aggregates) {
             Long catId = row[4] != null ? ((Number) row[4]).longValue() : 0L;
             long qty = ((Number) row[1]).longValue();
+            int minStock = row[2] != null ? ((Number) row[2]).intValue() : 0;
             BigDecimal sellPrice = row[3] != null ? BigDecimal.valueOf(((Number) row[3]).doubleValue()) : BigDecimal.ZERO;
-            var agg = catAgg.computeIfAbsent(catId, k -> new long[]{0, 0});
-            agg[0] += 1; // productCount
-            agg[1] += qty; // totalUnits
+
+            var agg = catAgg.computeIfAbsent(catId, k -> new CategoryStats());
+            agg.productCount++;
+            agg.totalUnits += qty;
+            agg.totalStockValue = agg.totalStockValue.add(sellPrice.multiply(BigDecimal.valueOf(qty)));
+
+            if (qty == 0) {
+                agg.outOfStockCount++;
+            } else if (qty <= minStock) {
+                agg.lowStockCount++;
+            } else {
+                agg.healthyCount++;
+            }
         }
 
-        long uncategorizedCount = allProducts.stream().filter(p -> p.getCategory() == null).count();
-
         Map<Long, String> categoryNames = new HashMap<>();
-        categoryNames.put(0L, "Uncategorized");
         categories.forEach(c -> categoryNames.put(c.getId(), c.getName()));
 
         return categoryNames.entrySet().stream()
                 .map(entry -> {
                     Long catId = entry.getKey();
-                    var agg = catAgg.getOrDefault(catId, new long[]{0, 0});
+                    var agg = catAgg.getOrDefault(catId, new CategoryStats());
                     return CategoryStockResponse.builder()
-                            .categoryId(0L == catId ? null : catId)
+                            .categoryId(catId)
                             .categoryName(entry.getValue())
-                            .productCount(agg[0])
-                            .totalUnits(agg[1])
-                            .totalStockValue(BigDecimal.ZERO)
+                            .productCount(agg.productCount)
+                            .totalUnits(agg.totalUnits)
+                            .totalStockValue(agg.totalStockValue)
+                            .healthyCount(agg.healthyCount)
+                            .lowStockCount(agg.lowStockCount)
+                            .outOfStockCount(agg.outOfStockCount)
                             .build();
                 })
                 .sorted(Comparator.comparing(CategoryStockResponse::categoryName))
@@ -193,6 +220,15 @@ public class ReportService {
 
         result.sort(Comparator.comparing(ActivityResponse::date).reversed());
         return result;
+    }
+
+    static class CategoryStats {
+        long productCount;
+        long totalUnits;
+        BigDecimal totalStockValue = BigDecimal.ZERO;
+        long healthyCount;
+        long lowStockCount;
+        long outOfStockCount;
     }
 
     @Transactional(readOnly = true)

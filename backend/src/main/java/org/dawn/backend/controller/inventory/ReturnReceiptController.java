@@ -6,10 +6,12 @@ import org.dawn.backend.config.web.response.ResponsePage;
 import org.dawn.backend.constant.security.AuthorizationExpressions;
 import org.dawn.backend.controller.inventory.request.ReturnReceiptRequest;
 import org.dawn.backend.controller.inventory.response.ReturnReceiptResponse;
-import org.dawn.backend.service.inventory.ReturnReceiptService;
+import org.dawn.backend.service.inventory.returns.ReturnReceiptService;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.Map;
 
 @RestController
 @RequestMapping("/return-receipts")
@@ -20,8 +22,11 @@ public class ReturnReceiptController {
 
     @GetMapping("")
     @PreAuthorize(AuthorizationExpressions.CAN_OPERATE)
-    public ResponseObject<ResponsePage<ReturnReceiptResponse>> findAll(Pageable pageable) {
-        return ResponseObject.success(returnReceiptService.findAll(pageable));
+    public ResponseObject<ResponsePage<ReturnReceiptResponse>> findAll(Pageable pageable,
+                                                                        @RequestParam(required = false) String status,
+                                                                        @RequestParam(required = false) String reason,
+                                                                        @RequestParam(required = false) String search) {
+        return ResponseObject.success(returnReceiptService.findAll(pageable, status, reason, search));
     }
 
     @GetMapping("/{id}")
@@ -46,5 +51,12 @@ public class ReturnReceiptController {
     @PreAuthorize(AuthorizationExpressions.CAN_APPROVE)
     public ResponseObject<ReturnReceiptResponse> cancel(@PathVariable Long id) {
         return ResponseObject.success(returnReceiptService.cancel(id));
+    }
+
+    @GetMapping("/lookup-unit")
+    @PreAuthorize(AuthorizationExpressions.CAN_OPERATE)
+    public ResponseObject<ReturnReceiptService.ProductUnitLookup> lookupUnit(
+            @RequestParam String serial, @RequestParam Long exportReceiptId) {
+        return ResponseObject.success(returnReceiptService.lookupUnitBySerial(serial, exportReceiptId));
     }
 }

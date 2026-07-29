@@ -1,13 +1,13 @@
 import { describe, it, expect } from "vitest"
-import { api, loginAsAdmin } from "./api-client"
+import { api, loginAsManager } from "./api-client"
 
 describe("Stock Adjustment Flow", () => {
   it("should reject adjustment with missing productUnitId", async () => {
-    await loginAsAdmin()
+    await loginAsManager()
     try {
       await api.post("/stock-adjustment", { type: "DAMAGED", reason: "Test" })
     } catch (err: any) {
-      expect(err.response.status).toBe(500)
+      expect(err.response.status).toBe(400)
     }
   })
 })

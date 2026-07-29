@@ -2,13 +2,13 @@ package org.dawn.backend.service.system;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.dawn.backend.constant.inventory.ProductUnitStatus;
-import org.dawn.backend.constant.inventory.StockCheckStatus;
+import org.dawn.backend.constant.enums.inventory.ProductUnitStatus;
+import org.dawn.backend.constant.enums.inventory.stockcheck.StockCheckStatus;
 import org.dawn.backend.entity.catalog.Product;
 import org.dawn.backend.entity.inventory.ProductUnit;
 import org.dawn.backend.repository.catalog.ProductRepository;
 import org.dawn.backend.repository.inventory.ProductUnitRepository;
-import org.dawn.backend.repository.inventory.StockCheckRepository;
+import org.dawn.backend.repository.inventory.stockcheck.StockCheckRepository;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

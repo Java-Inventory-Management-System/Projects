@@ -5,6 +5,7 @@ export function usePriceAdjustments(page = 0, size = 20, sort?: string, status?:
   return useQuery({
     queryKey: ["price-adjustments", page, size, sort, status],
     queryFn: () => getPriceAdjustments(page, size, sort, status),
+    placeholderData: (prev) => prev,
   })
 }
 
@@ -12,5 +13,6 @@ export function useMyPriceAdjustments(page = 0, size = 20, sort?: string, status
   return useQuery({
     queryKey: ["my-price-adjustments", page, size, sort, status],
     queryFn: () => getMyPriceAdjustments(page, size, sort, status),
+    placeholderData: (prev) => prev,
   })
 }

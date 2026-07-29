@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react"
+import { useForm, Controller } from "react-hook-form"
 import { useParams, useNavigate } from "react-router-dom"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { getProductById, updateProduct, toggleProductActive } from "@/services/product-service"
@@ -49,6 +50,19 @@ const UNITS = [
 ]
 const TRACKING_TYPES = [TRACKING_TYPE.SERIALIZED, TRACKING_TYPE.BULK]
 
+interface FormData {
+  name: string
+  sku: string
+  barcode: string
+  brandId: string
+  categoryId: string
+  unit: string
+  trackingType: string
+  sellPrice: string
+  minStock: string
+  description: string
+}
+
 export function ProductEditPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
@@ -58,35 +72,30 @@ export function ProductEditPage() {
   const productId = Number(id)
 
   const [loading, setLoading] = useState(true)
-  const [name, setName] = useState("")
-  const [sku, setSku] = useState("")
-  const [barcode, setBarcode] = useState("")
-  const [brandId, setBrandId] = useState("")
-  const [categoryId, setCategoryId] = useState("")
-  const [unit, setUnit] = useState("")
-  const [trackingType, setTrackingType] = useState("")
-  const [sellPrice, setSellPrice] = useState("")
-  const [minStock, setMinStock] = useState("0")
-  const [description, setDescription] = useState("")
   const [isActive, setIsActive] = useState(true)
-
   const [images, setImages] = useState<ProductImage[]>([])
   const [showDeleteImgDialog, setShowDeleteImgDialog] = useState<number | null>(null)
+
+  const { register, handleSubmit, control, reset, watch, formState: { errors } } = useForm<FormData>({
+    defaultValues: { name: "", sku: "", barcode: "", brandId: "", categoryId: "", unit: "", trackingType: "", sellPrice: "", minStock: "0", description: "" },
+  })
 
   useEffect(() => {
     if (!id) return
     Promise.all([getProductById(productId), getProductImages(productId)])
       .then(([product, imgs]) => {
-        setName(product.name)
-        setSku(product.sku ?? "")
-        setBarcode(product.barcode ?? "")
-        setBrandId(product.brandId ? String(product.brandId) : "")
-        setCategoryId(product.categoryId ? String(product.categoryId) : "")
-        setUnit(product.unit ?? "")
-        setTrackingType(product.trackingType ?? "")
-        setSellPrice(product.sellPrice ? String(product.sellPrice) : "")
-        setMinStock(product.minStock ? String(product.minStock) : "0")
-        setDescription(product.description ?? "")
+        reset({
+          name: product.name,
+          sku: product.sku ?? "",
+          barcode: product.barcode ?? "",
+          brandId: product.brandId ? String(product.brandId) : "",
+          categoryId: product.categoryId ? String(product.categoryId) : "",
+          unit: product.unit ?? "",
+          trackingType: product.trackingType ?? "",
+          sellPrice: product.sellPrice ? String(product.sellPrice) : "",
+          minStock: product.minStock ? String(product.minStock) : "0",
+          description: product.description ?? "",
+        })
         setIsActive(product.isActive)
         setImages(imgs)
       })
@@ -94,18 +103,18 @@ export function ProductEditPage() {
   }, [id])
 
   const save = useMutation({
-    mutationFn: () => {
+    mutationFn: (values: FormData) => {
       const payload = {
-        name: name.trim(),
-        sku: sku || "",
-        unit: unit || "",
-        retailPrice: sellPrice ? Number(sellPrice) : 0,
-        brandId: brandId ? Number(brandId) : null,
-        categoryId: categoryId ? Number(categoryId) : null,
-        barcode: barcode || null,
-        trackingType: trackingType || null,
-        minStock: minStock ? Number(minStock) : undefined,
-        description: description || undefined,
+        name: values.name.trim(),
+        sku: values.sku || "",
+        unit: values.unit || "",
+        retailPrice: values.sellPrice ? Number(values.sellPrice) : 0,
+        brandId: values.brandId ? Number(values.brandId) : null,
+        categoryId: values.categoryId ? Number(values.categoryId) : null,
+        barcode: values.barcode || null,
+        trackingType: values.trackingType || null,
+        minStock: values.minStock ? Number(values.minStock) : undefined,
+        description: values.description || undefined,
       }
       return updateProduct(productId, payload)
     },
@@ -151,17 +160,11 @@ export function ProductEditPage() {
     if (url?.trim()) addImage.mutate(url.trim())
   }
 
-  const handleSubmit = () => {
-    if (!name.trim()) {
-      toast.error("Tên sản phẩm là bắt buộc")
-      return
-    }
-    if (sku && !/^[A-Za-z0-9-]+$/.test(sku)) {
-      toast.error("SKU chỉ gồm chữ, số và dấu gạch")
-      return
-    }
-    save.mutate()
-  }
+  const onSubmit = handleSubmit((values) => {
+    if (!values.name.trim()) { toast.error("Tên sản phẩm là bắt buộc"); return }
+    if (values.sku && !/^[A-Za-z0-9-]+$/.test(values.sku)) { toast.error("SKU chỉ gồm chữ, số và dấu gạch"); return }
+    save.mutate(values)
+  })
 
   if (loading)
     return (
@@ -191,113 +194,109 @@ export function ProductEditPage() {
         <Switch checked={isActive} onCheckedChange={() => toggleActive.mutate()} disabled={toggleActive.isPending} />
       </div>
 
-      <Card>
-        <CardContent className="pt-6">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2 sm:col-span-2">
-              <Label htmlFor="name">
-                Tên sản phẩm <span className="text-destructive">*</span>
-              </Label>
-              <Input id="name" required value={name} onChange={(e) => setName(e.target.value)} />
+      <form onSubmit={onSubmit}>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2 sm:col-span-2">
+                <Label htmlFor="name">
+                  Tên sản phẩm <span className="text-destructive">*</span>
+                </Label>
+                <Input id="name" required {...register("name", { required: "Tên sản phẩm là bắt buộc" })} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="sku">SKU</Label>
+                <Input id="sku" {...register("sku", { pattern: { value: /^[A-Za-z0-9-]*$/, message: "SKU chỉ gồm chữ, số và dấu gạch" } })} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="barcode">Barcode</Label>
+                <Input id="barcode" {...register("barcode")} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="brand">Thương hiệu</Label>
+                <Controller
+                  control={control}
+                  name="brandId"
+                  render={({ field }) => (
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <SelectTrigger id="brand"><SelectValue placeholder="Chọn thương hiệu" /></SelectTrigger>
+                      <SelectContent>
+                        {brands?.map((b) => (<SelectItem key={b.id} value={String(b.id)}>{b.name}</SelectItem>))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="category">Danh mục</Label>
+                <Controller
+                  control={control}
+                  name="categoryId"
+                  render={({ field }) => (
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <SelectTrigger id="category"><SelectValue placeholder="Chọn danh mục" /></SelectTrigger>
+                      <SelectContent>
+                        {categories?.map((c) => (<SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="unit">Đơn vị tính</Label>
+                <Controller
+                  control={control}
+                  name="unit"
+                  render={({ field }) => (
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <SelectTrigger id="unit"><SelectValue placeholder="Chọn ĐVT" /></SelectTrigger>
+                      <SelectContent>
+                        {UNITS.map((u) => (<SelectItem key={u} value={u}>{u}</SelectItem>))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+              </div>
+              <div className="space-y-2 sm:col-span-2">
+                <Label>Kiểu theo dõi</Label>
+                <Controller
+                  control={control}
+                  name="trackingType"
+                  render={({ field }) => (
+                    <RadioGroup value={field.value} onValueChange={field.onChange} className="flex gap-6">
+                      {TRACKING_TYPES.map((t) => (
+                        <div key={t} className="flex items-center gap-2">
+                          <RadioGroupItem value={t} id={`edit-tracking-${t}`} />
+                          <Label htmlFor={`edit-tracking-${t}`} className="font-normal">
+                            {t === TRACKING_TYPE.SERIALIZED ? "Theo serial" : "Hàng rời"}
+                          </Label>
+                        </div>
+                      ))}
+                    </RadioGroup>
+                  )}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="sellPrice">Giá bán</Label>
+                <Input id="sellPrice" type="number" min={0} {...register("sellPrice")} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="minStock">Tồn tối thiểu</Label>
+                <Input id="minStock" type="number" min={0} {...register("minStock")} />
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="sku">SKU</Label>
-              <Input id="sku" value={sku} onChange={(e) => setSku(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="barcode">Barcode</Label>
-              <Input id="barcode" value={barcode} onChange={(e) => setBarcode(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="brand">Thương hiệu</Label>
-              <Select value={brandId} onValueChange={setBrandId}>
-                <SelectTrigger id="brand">
-                  <SelectValue placeholder="Chọn thương hiệu" />
-                </SelectTrigger>
-                <SelectContent>
-                  {brands?.map((b) => (
-                    <SelectItem key={b.id} value={String(b.id)}>
-                      {b.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="category">Danh mục</Label>
-              <Select value={categoryId} onValueChange={setCategoryId}>
-                <SelectTrigger id="category">
-                  <SelectValue placeholder="Chọn danh mục" />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories?.map((c) => (
-                    <SelectItem key={c.id} value={String(c.id)}>
-                      {c.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="unit">Đơn vị tính</Label>
-              <Select value={unit} onValueChange={setUnit}>
-                <SelectTrigger id="unit">
-                  <SelectValue placeholder="Chọn ĐVT" />
-                </SelectTrigger>
-                <SelectContent>
-                  {UNITS.map((u) => (
-                    <SelectItem key={u} value={u}>
-                      {u}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2 sm:col-span-2">
-              <Label>Kiểu theo dõi</Label>
-              <RadioGroup value={trackingType} onValueChange={setTrackingType} className="flex gap-6">
-                {TRACKING_TYPES.map((t) => (
-                  <div key={t} className="flex items-center gap-2">
-                    <RadioGroupItem value={t} id={`edit-tracking-${t}`} />
-                    <Label htmlFor={`edit-tracking-${t}`} className="font-normal">
-                      {t === TRACKING_TYPE.SERIALIZED ? "Theo serial" : "Hàng rời"}
-                    </Label>
-                  </div>
-                ))}
-              </RadioGroup>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="sellPrice">Giá bán</Label>
-              <Input
-                id="sellPrice"
-                type="number"
-                min={0}
-                value={sellPrice}
-                onChange={(e) => setSellPrice(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="minStock">Tồn tối thiểu</Label>
-              <Input
-                id="minStock"
-                type="number"
-                min={0}
-                value={minStock}
-                onChange={(e) => setMinStock(e.target.value)}
-              />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
 
-      <Card>
-        <CardContent className="pt-6">
-          <div className="space-y-2">
-            <Label htmlFor="description">Mô tả</Label>
-            <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} rows={3} />
-          </div>
-        </CardContent>
-      </Card>
+        <Card className="mt-4">
+          <CardContent className="pt-6">
+            <div className="space-y-2">
+              <Label htmlFor="description">Mô tả</Label>
+              <Textarea id="description" {...register("description")} rows={3} />
+            </div>
+          </CardContent>
+        </Card>
+      </form>
 
       <Card>
         <CardContent className="pt-6">
@@ -347,10 +346,8 @@ export function ProductEditPage() {
 
       <div className="flex justify-end">
         <ButtonGroup>
-          <Button variant="outline" onClick={() => navigate("/products")}>
-            Hủy
-          </Button>
-          <Button onClick={handleSubmit} disabled={!name.trim() || save.isPending}>
+          <Button variant="outline" onClick={() => navigate("/products")}>Hủy</Button>
+          <Button onClick={() => onSubmit()} disabled={!watch("name").trim() || save.isPending}>
             {save.isPending ? "Đang lưu..." : "Lưu"}
           </Button>
         </ButtonGroup>

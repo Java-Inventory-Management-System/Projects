@@ -32,7 +32,7 @@ services:
       mysql:
         condition: service_healthy
     environment:
-      DB_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-inventory_db}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      DB_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-inventory_db}
       DB_USER: ${DB_USER:-root}
       DB_PASS: ${DB_PASS:-123456}
       DB_DRIVER: ${DB_DRIVER:-com.mysql.cj.jdbc.Driver}
@@ -42,6 +42,7 @@ services:
       JWT_COOKIE_NAME: ${JWT_COOKIE_NAME:-dawn-jwt}
       JWT_COOKIE_REFRESH_NAME: ${JWT_COOKIE_REFRESH_NAME:-dawn-jwt-refresh}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost}
+      APP_SECURITY_ENABLED: ${APP_SECURITY_ENABLED:-true}
       MAIL_ENABLED: ${MAIL_ENABLED:-false}
       MAIL_HOST: ${MAIL_HOST:-localhost}
       MAIL_PORT: ${MAIL_PORT:-1025}
@@ -51,9 +52,8 @@ services:
       CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
       CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
       CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}
-      UPLOAD_PATH: ${UPLOAD_PATH:-./uploads}
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8888/actuator/health"]
+      test: ['CMD', 'curl', '-f', 'http://localhost:8888/actuator/health']
       interval: 30s
       timeout: 10s
       retries: 5
@@ -68,6 +68,11 @@ services:
     restart: always
     depends_on:
       - backend
+    build:
+      context: ./frontend
+      args:
+        VITE_BASE_API_URL: http://localhost:8888/api/v1
+        VITE_SKIP_AUTH: ${VITE_SKIP_AUTH:-true}
     ports:
       - '5173:80'
     networks:

@@ -21,7 +21,7 @@
 | NFR-08 | Transaction nghiệp vụ | Nhập/xuất kho trong 1 DB transaction; dùng `SELECT ... FOR UPDATE` để tránh race condition        | Must     |
 | NFR-09 | Audit log async       | Audit log afterCommit (SUCCESS) / @Async REQUIRES_NEW (FAILED) — không ảnh hưởng main transaction | Must     |
 | NFR-10 | Serial lookup         | Tra cứu serial hỗ trợ fuzzy match (O/0, I/l) — index trên `serial_number`                         | Must     |
-| NFR-11 | Dashboard performance | Dead stock >90 ngày — background job, không realtime                                              | Could    |
+| NFR-11 | Dashboard performance | Dead stock — ngưỡng mặc định 90 ngày, configurable qua system_settings.dead_stock_threshold_days (không hard-code) — background job, không realtime | Could    |
 
 ## 3. Availability & Reliability
 
@@ -44,8 +44,6 @@
 | ID     | Requirement     | Mô tả                                                                              | Priority |
 | ------ | --------------- | ---------------------------------------------------------------------------------- | -------- |
 | NFR-18 | Audit retention | Tối thiểu 2 năm. Không làm archive/purge job ở phase 1. | Must |
-| NFR-19  | Warranty policy — cách làm | Kế thừa hạn BH cũ khi đổi serial — giữ nguyên `warranty_start_date` gốc, không reset (đã chốt ở SOP §6.2) | Must |
-| NFR-19b | Warranty policy — pháp lý  | Giả định chấp nhận trong phạm vi đồ án. Cần review pháp lý trước go-live thật (không phải blocker cho đồ án). | TBD  |
 
 ## 6. Operations
 

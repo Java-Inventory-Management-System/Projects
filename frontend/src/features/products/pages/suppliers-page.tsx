@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { useForm } from "react-hook-form"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { getSuppliers, createSupplier, updateSupplier, toggleSupplierActive } from "@/services/supplier-service"
 import type { SupplierResponse } from "@/utils/types"
@@ -14,6 +15,26 @@ import { usePermission } from "@/hooks/use-permission"
 import { ROLES } from "@/utils/permissions"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 
+interface SupplierForm {
+  name: string
+  contactPerson: string
+  phone: string
+  email: string
+  address: string
+  taxCode: string
+  note: string
+}
+
+const defaultForm: SupplierForm = {
+  name: "",
+  contactPerson: "",
+  phone: "",
+  email: "",
+  address: "",
+  taxCode: "",
+  note: "",
+}
+
 export function SuppliersPage() {
   const perm = usePermission()
   const qc = useQueryClient()
@@ -22,45 +43,35 @@ export function SuppliersPage() {
     queryFn: () => getSuppliers(),
   })
   const [dialog, setDialog] = useState<{ open: boolean; edit?: SupplierResponse }>({ open: false })
-  const [name, setName] = useState("")
-  const [contactPerson, setContactPerson] = useState("")
-  const [phone, setPhone] = useState("")
-  const [email, setEmail] = useState("")
-  const [address, setAddress] = useState("")
-  const [taxCode, setTaxCode] = useState("")
-  const [note, setNote] = useState("")
+  const form = useForm<SupplierForm>({ defaultValues: defaultForm })
 
   const openCreate = () => {
-    setName("")
-    setContactPerson("")
-    setPhone("")
-    setEmail("")
-    setAddress("")
-    setTaxCode("")
-    setNote("")
+    form.reset(defaultForm)
     setDialog({ open: true })
   }
   const openEdit = (s: SupplierResponse) => {
-    setName(s.name)
-    setContactPerson(s.contactPerson ?? "")
-    setPhone(s.phone ?? "")
-    setEmail(s.email ?? "")
-    setAddress(s.address ?? "")
-    setTaxCode(s.taxCode ?? "")
-    setNote(s.note ?? "")
+    form.reset({
+      name: s.name,
+      contactPerson: s.contactPerson ?? "",
+      phone: s.phone ?? "",
+      email: s.email ?? "",
+      address: s.address ?? "",
+      taxCode: s.taxCode ?? "",
+      note: s.note ?? "",
+    })
     setDialog({ open: true, edit: s })
   }
 
   const save = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (values: SupplierForm) => {
       const data = {
-        name: name.trim(),
-        contactPerson: contactPerson || null,
-        phone: phone || null,
-        email: email || null,
-        address: address || null,
-        taxCode: taxCode || null,
-        note: note || null,
+        name: values.name.trim(),
+        contactPerson: values.contactPerson || null,
+        phone: values.phone || null,
+        email: values.email || null,
+        address: values.address || null,
+        taxCode: values.taxCode || null,
+        note: values.note || null,
       }
       if (dialog.edit) return updateSupplier(dialog.edit.id, data)
       return createSupplier(data)
@@ -145,46 +156,48 @@ export function SuppliersPage() {
           <DialogHeader>
             <DialogTitle>{dialog.edit ? "Sửa NCC" : "Thêm NCC"}</DialogTitle>
           </DialogHeader>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2 sm:col-span-2">
-              <Label htmlFor="name">
-                Tên <span className="text-destructive">*</span>
-              </Label>
-              <Input id="name" required value={name} onChange={(e) => setName(e.target.value)} />
+          <form onSubmit={form.handleSubmit((values) => save.mutate(values))}>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2 sm:col-span-2">
+                <Label htmlFor="name">
+                  Tên <span className="text-destructive">*</span>
+                </Label>
+                <Input id="name" required {...form.register("name")} />
+              </div>
+              <div className="space-y-2">
+                <Label>Người liên hệ</Label>
+                <Input {...form.register("contactPerson")} />
+              </div>
+              <div className="space-y-2">
+                <Label>SĐT</Label>
+                <Input {...form.register("phone")} />
+              </div>
+              <div className="space-y-2">
+                <Label>Email</Label>
+                <Input {...form.register("email")} />
+              </div>
+              <div className="space-y-2">
+                <Label>MST</Label>
+                <Input {...form.register("taxCode")} />
+              </div>
+              <div className="space-y-2 sm:col-span-2">
+                <Label>Địa chỉ</Label>
+                <Input {...form.register("address")} />
+              </div>
+              <div className="space-y-2 sm:col-span-2">
+                <Label>Ghi chú</Label>
+                <Input {...form.register("note")} />
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label>Người liên hệ</Label>
-              <Input value={contactPerson} onChange={(e) => setContactPerson(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label>SĐT</Label>
-              <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label>Email</Label>
-              <Input value={email} onChange={(e) => setEmail(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label>MST</Label>
-              <Input value={taxCode} onChange={(e) => setTaxCode(e.target.value)} />
-            </div>
-            <div className="space-y-2 sm:col-span-2">
-              <Label>Địa chỉ</Label>
-              <Input value={address} onChange={(e) => setAddress(e.target.value)} />
-            </div>
-            <div className="space-y-2 sm:col-span-2">
-              <Label>Ghi chú</Label>
-              <Input value={note} onChange={(e) => setNote(e.target.value)} />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDialog({ open: false })}>
-              Hủy
-            </Button>
-            <Button onClick={() => save.mutate()} disabled={!name.trim() || save.isPending}>
-              {save.isPending ? "Đang lưu..." : "Lưu"}
-            </Button>
-          </DialogFooter>
+            <DialogFooter className="mt-4">
+              <Button variant="outline" onClick={() => setDialog({ open: false })}>
+                Hủy
+              </Button>
+              <Button type="submit" disabled={!form.watch("name").trim() || save.isPending}>
+                {save.isPending ? "Đang lưu..." : "Lưu"}
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
     </div>

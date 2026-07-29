@@ -2,68 +2,73 @@ import { useState, useMemo } from "react"
 import { useNavigate } from "react-router-dom"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createStockCheck } from "@/services/stock-check-service"
-import { getImportReceipts } from "@/services/import-service"
-import { mapResponsePage, mapProductUnit } from "@/utils/mappers"
 import http from "@/utils/http-client"
+import { mapResponsePage } from "@/utils/mappers"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Checkbox } from "@/components/ui/checkbox"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { ArrowLeft, Search, Package } from "lucide-react"
-import { Empty, EmptyTitle } from "@/components/ui/empty"
+import { ArrowLeft, Info } from "lucide-react"
 import { toast } from "@/utils/toast"
+import type { StockCheckScopeType } from "@/utils/types"
 
 export const StockCheckCreatePage = () => {
   const navigate = useNavigate()
   const qc = useQueryClient()
-  const [search, setSearch] = useState("")
-  const [selectedIds, setSelectedIds] = useState<number[]>([])
+  const [scopeType, setScopeType] = useState<StockCheckScopeType | "">("")
+  const [scopeId, setScopeId] = useState<string>("")
   const [note, setNote] = useState("")
-  const [receiptFilter, setReceiptFilter] = useState("all")
 
-  const { data: units, isLoading } = useQuery({
-    queryKey: ["product-units", "in-stock"],
+  const { data: locations } = useQuery({
+    queryKey: ["locations"],
     queryFn: async () => {
-      const res = await http.get("/product-unit/status/IN_STOCK", { params: { page: 0, size: 500 } })
-      return mapResponsePage(res, mapProductUnit)
+      const res = await http.get("/location", { params: { page: 0, size: 500 } })
+      return mapResponsePage(res, (r: unknown) => {
+        const o = r as { id: number; zoneCode: string; fullCode: string }
+        return o
+      })
     },
+    enabled: scopeType === "ZONE",
   })
 
-  const { data: receipts } = useQuery({
-    queryKey: ["import-receipts"],
-    queryFn: () => getImportReceipts(0, 50),
-  })
+  const zones = useMemo(() => {
+    if (!locations?.content) return []
+    const seen = new Set<string>()
+    return locations.content.filter((l) => {
+      if (seen.has(l.zoneCode)) return false
+      seen.add(l.zoneCode)
+      return true
+    }).map((l) => ({
+      zoneCode: l.zoneCode,
+      locationId: l.id,
+      exampleFullCode: l.fullCode,
+    }))
+  }, [locations])
 
-  const { data: receiptUnits } = useQuery({
-    queryKey: ["receipt-units", receiptFilter],
+  const { data: categories } = useQuery({
+    queryKey: ["categories"],
     queryFn: async () => {
-      if (!receiptFilter) return [] as number[]
-      const res = await http.get(`/import-receipt/${receiptFilter}/units`)
-      return (res as unknown as Array<{ id: number }>).map((u) => u.id)
+      const res = await http.get("/catalog/category")
+      return mapResponsePage(res, (r: unknown) => {
+        const o = r as { id: number; name: string }
+        return o
+      })
     },
-    enabled: receiptFilter !== "all",
+    enabled: scopeType === "CATEGORY",
   })
 
-  const receiptUnitIds = receiptUnits ?? []
-
-  const filtered = useMemo(() => {
-    const all = units?.content ?? []
-    let result = all
-    if (receiptFilter !== "all" && receiptUnitIds.length > 0) {
-      result = result.filter((u) => receiptUnitIds.includes(u.id))
+  const handleSubmit = () => {
+    if (!scopeType || !scopeId) {
+      toast.error("Vui lòng chọn phạm vi kiểm")
+      return
     }
-    if (!search) return result
-    const q = search.toLowerCase()
-    return result.filter(
-      (u) =>
-        u.serialNumber.toLowerCase().includes(q) ||
-        u.productName.toLowerCase().includes(q) ||
-        u.productSku.toLowerCase().includes(q),
-    )
-  }, [units, search, receiptFilter, receiptUnitIds])
+    createMut.mutate({
+      scopeType: scopeType as StockCheckScopeType,
+      scopeId: Number(scopeId),
+      note: note || undefined,
+    })
+  }
 
   const createMut = useMutation({
     mutationFn: createStockCheck,
@@ -75,18 +80,6 @@ export const StockCheckCreatePage = () => {
     onError: (err: Error) => toast.error(err.message || "Có lỗi xảy ra"),
   })
 
-  const toggle = (id: number) => {
-    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
-  }
-
-  const handleSubmit = () => {
-    if (selectedIds.length === 0) {
-      toast.error("Vui lòng chọn ít nhất 1 sản phẩm để kiểm")
-      return
-    }
-    createMut.mutate({ productUnitIds: selectedIds, note: note || undefined })
-  }
-
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <div className="flex items-center gap-3">
@@ -96,120 +89,72 @@ export const StockCheckCreatePage = () => {
         <h1 className="text-xl font-semibold tracking-tight">Tạo phiếu kiểm kho</h1>
       </div>
 
-      <div className="space-y-2">
-        <Label>Tìm sản phẩm cần kiểm</Label>
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-          <Input
-            placeholder="Tìm theo serial, tên sản phẩm hoặc SKU..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
-          />
-        </div>
-        <div className="flex flex-wrap gap-2 items-start">
-          <Select value={receiptFilter} onValueChange={setReceiptFilter}>
-            <SelectTrigger className="w-64">
-              <SelectValue placeholder="Lọc theo lô nhập..." />
+      <div className="space-y-4 rounded-lg border p-4">
+        <h2 className="text-sm font-medium">Phạm vi kiểm</h2>
+
+        <div className="space-y-2">
+          <Label>Loại phạm vi</Label>
+          <Select value={scopeType} onValueChange={(v) => { setScopeType(v as StockCheckScopeType); setScopeId("") }}>
+            <SelectTrigger>
+              <SelectValue placeholder="Chọn loại phạm vi..." />
             </SelectTrigger>
             <SelectContent className="max-h-[50vh]">
-              <SelectItem value="all">Tất cả lô</SelectItem>
-              {receipts?.content?.map((r) => (
-                <SelectItem key={r.id} value={String(r.id)} className="font-mono text-xs">
-                  {r.receiptCode}
-                </SelectItem>
-              ))}
+              <SelectItem value="ZONE">Khu vực (Zone)</SelectItem>
+              <SelectItem value="CATEGORY">Danh mục (Category)</SelectItem>
             </SelectContent>
           </Select>
-          {receiptFilter !== "all" && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-xs"
-              onClick={() => {
-                setSelectedIds((prev) => {
-                  const existing = new Set(prev)
-                  receiptUnitIds.forEach((id) => existing.add(id))
-                  return [...existing]
-                })
-              }}
-              disabled={receiptUnitIds.length === 0}
-            >
-              <Package className="size-3 mr-1" />
-              Chọn {receiptUnitIds.length} SP trong lô
-            </Button>
-          )}
         </div>
-      </div>
 
-      {receiptFilter !== "all" &&
-        (() => {
-          const r = receipts?.content?.find((x) => String(x.id) === receiptFilter)
-          return r ? (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
-              <span className="font-medium">Lô:</span>
-              <span className="font-mono text-xs bg-muted px-2 py-0.5 rounded">{r.receiptCode}</span>
-            </div>
-          ) : null
-        })()}
+        {scopeType === "ZONE" && (
+          <div className="space-y-2">
+            <Label>Khu vực</Label>
+            {!locations ? (
+              <Skeleton className="h-10 w-full" />
+            ) : (
+              <Select value={scopeId} onValueChange={setScopeId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Chọn khu vực..." />
+                </SelectTrigger>
+                <SelectContent className="max-h-[50vh]">
+                  {zones.map((z) => (
+                    <SelectItem key={z.zoneCode} value={String(z.locationId)}>
+                      {z.zoneCode} ({z.exampleFullCode})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
+        )}
 
-      <div className="rounded-lg border overflow-x-auto max-h-[50vh]">
-        {isLoading ? (
-          <div className="p-4 space-y-3">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <Skeleton key={i} className="h-10 w-full" />
-            ))}
+        {scopeType === "CATEGORY" && (
+          <div className="space-y-2">
+            <Label>Danh mục</Label>
+            {!categories ? (
+              <Skeleton className="h-10 w-full" />
+            ) : (
+              <Select value={scopeId} onValueChange={setScopeId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Chọn danh mục..." />
+                </SelectTrigger>
+                <SelectContent className="max-h-[50vh]">
+                  {(categories.content ?? []).map((c) => (
+                    <SelectItem key={c.id} value={String(c.id)}>
+                      {c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
-        ) : filtered.length === 0 ? (
-          <div className="py-4">
-            <Empty>
-              <EmptyTitle>
-                {search ? "Không tìm thấy sản phẩm phù hợp." : "Không có sản phẩm nào trong kho."}
-              </EmptyTitle>
-            </Empty>
-          </div>
-        ) : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b bg-muted/50 text-left">
-                <th className="w-10 px-3 py-2">
-                  <Checkbox
-                    checked={filtered.length > 0 && selectedIds.length === filtered.length}
-                    onCheckedChange={(v) => setSelectedIds(v ? filtered.map((u) => u.id) : [])}
-                  />
-                </th>
-                <th className="px-3 py-2 font-medium">Serial</th>
-                <th className="px-3 py-2 font-medium">Sản phẩm</th>
-                <th className="px-3 py-2 font-medium">SKU</th>
-                <th className="px-3 py-2 font-medium">Vị trí</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((u) => (
-                <tr
-                  key={u.id}
-                  className="border-b last:border-0 hover:bg-muted/30 cursor-pointer"
-                  onClick={() => toggle(u.id)}
-                >
-                  <td className="px-3 py-2">
-                    <Checkbox checked={selectedIds.includes(u.id)} />
-                  </td>
-                  <td className="px-3 py-2 font-mono text-xs">{u.serialNumber}</td>
-                  <td className="px-3 py-2 font-medium">{u.productName}</td>
-                  <td className="px-3 py-2 text-muted-foreground">{u.productSku}</td>
-                  <td className="px-3 py-2 text-muted-foreground">{u.locationCode ?? "—"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        )}
+
+        {scopeId && (
+          <p className="text-sm flex items-center gap-1.5 text-muted-foreground">
+            <Info className="size-3.5" /> Sẽ kiểm tra tất cả sản phẩm IN_STOCK trong phạm vi đã chọn
+          </p>
         )}
       </div>
-
-      {selectedIds.length > 0 && (
-        <p className="text-xs text-muted-foreground">
-          Đã chọn <strong>{selectedIds.length}</strong> sản phẩm
-        </p>
-      )}
 
       <div className="space-y-2">
         <Label htmlFor="note">Ghi chú</Label>
@@ -226,8 +171,8 @@ export const StockCheckCreatePage = () => {
         <Button variant="outline" onClick={() => navigate("/stock/checks")}>
           Hủy
         </Button>
-        <Button onClick={handleSubmit} disabled={createMut.isPending || selectedIds.length === 0}>
-          {createMut.isPending ? "Đang tạo..." : "Tạo phiếu kiểm"}
+        <Button onClick={handleSubmit} disabled={createMut.isPending || !scopeType || !scopeId}>
+          {createMut.isPending ? "Đang tạo..." : "Bắt đầu kiểm kê"}
         </Button>
       </div>
     </div>

@@ -5,7 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.dawn.backend.constant.shared.Message;
 import org.dawn.backend.entity.auth.User;
 import org.dawn.backend.entity.auth.UserDetailsImpl;
-import org.dawn.backend.exception.wrapper.ResourceNotFoundException;
+import org.dawn.backend.exception.type.ResourceNotFoundException;
 import org.dawn.backend.repository.auth.UserRepository;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import type { LineItem, QcRecord } from "@/utils/types"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -12,31 +12,49 @@ interface Props {
   note: string
   setNote: (v: string) => void
   onQcStatus: (status: { hasRecords: boolean; done: boolean }) => void
+  onQcRecordsChange?: (records: QcRecord[]) => void
 }
 
-export function ImportStepQc({ items, note, setNote, onQcStatus }: Props) {
-  const allSerials = items.flatMap((i) => i.serials.map((s) => ({ serial: s, productName: i.productName })))
+export function ImportStepQc({ items, note, setNote, onQcStatus, onQcRecordsChange }: Props) {
+  const allSerials = useMemo(
+    () =>
+      items
+        .filter((i) => i.itemStatus !== "NOT_RECEIVED")
+        .flatMap((i) => i.serials.map((s) => ({ serial: s, productName: i.productName }))),
+    [items],
+  )
+
+  const serialSet = useMemo(() => new Set(allSerials.map((s) => s.serial)), [allSerials])
 
   const [qcRecords, setQcRecords] = useState<QcRecord[]>([])
 
   useEffect(() => {
-    if (qcRecords.length === 0 && allSerials.length > 0) {
-      const records = allSerials.map((s) => ({
-        serial: s.serial,
-        productName: s.productName,
-        passed: true,
-        failReason: "",
-      }))
-      setQcRecords(records)
-    }
-  }, [allSerials, qcRecords.length])
+    setQcRecords((prev) => {
+      const prevMap = new Map(prev.map((r) => [r.serial, r]))
+      const synced: QcRecord[] = []
+      let changed = false
+      for (const s of allSerials) {
+        const existing = prevMap.get(s.serial)
+        if (existing) {
+          synced.push(existing)
+        } else {
+          synced.push({ serial: s.serial, productName: s.productName, passed: true, failReason: "" })
+          changed = true
+        }
+      }
+      const prevCount = prev.length - synced.length
+      if (prevCount > 0) changed = true
+      return changed ? synced : prev
+    })
+  }, [allSerials, serialSet])
 
   useEffect(() => {
     onQcStatus({
       hasRecords: qcRecords.length > 0,
       done: qcRecords.length > 0 && qcRecords.every((r) => r.passed || r.failReason.trim().length > 0),
     })
-  }, [qcRecords, onQcStatus])
+    onQcRecordsChange?.(qcRecords)
+  }, [qcRecords, onQcStatus, onQcRecordsChange])
 
   const qcFailed = qcRecords.filter((r) => !r.passed)
   const checkedCount = qcRecords.filter((r) => r.failReason || r.passed).length
@@ -63,7 +81,7 @@ export function ImportStepQc({ items, note, setNote, onQcStatus }: Props) {
 
       {qcRecords.length === 0 && allSerials.length === 0 && (
         <div className="rounded-lg border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
-          Không có serial nào để kiểm tra — sản phẩm dạng BULK (hàng rời). Bạn có thể bỏ qua bước này.
+          Không có serial nào để kiểm tra — tất cả sản phẩm đã đánh dấu Không nhận hoặc dạng BULK.
         </div>
       )}
 

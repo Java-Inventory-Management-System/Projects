@@ -1,176 +1,338 @@
-import { useState, useEffect } from "react"
+import { useEffect, useState, useRef, useMemo, useCallback } from "react"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { z } from "zod"
 import { useNavigate } from "react-router-dom"
-import { useMutation, useQueryClient } from "@tanstack/react-query"
-import { createPriceAdjustment } from "@/services/price-adjustment-service"
-import { getImportReceipts } from "@/services/import-service"
-import type { ImportReceipt, ResponsePage } from "@/utils/types"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { createPriceAdjustment, getAvailableItemsByProduct } from "@/services/price-adjustment-service"
+import { getProducts } from "@/services/product-service"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Card, CardContent } from "@/components/ui/card"
-import { ArrowLeft, ArrowRight } from "lucide-react"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { ArrowLeft, ArrowRight, AlertTriangle, Search, Loader2, TrendingUp, TrendingDown } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
 import { toast } from "@/utils/toast"
+import { FieldError } from "@/components/ui/field"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+
+const schema = z.object({
+  selectedItem: z.string().min(1, "Chọn lô hàng cần điều chỉnh"),
+  newPrice: z.coerce.number().min(1, "Giá mới phải lớn hơn 0"),
+  reason: z.string().min(10, "Lý do phải có ít nhất 10 ký tự").max(500, "Lý do không quá 500 ký tự"),
+})
 
 export function PriceAdjustmentCreatePage() {
   const navigate = useNavigate()
   const qc = useQueryClient()
-  const [receipts, setReceipts] = useState<ImportReceipt[]>([])
-  const [receiptId, setReceiptId] = useState("")
-  const [selectedItem, setSelectedItem] = useState("")
-  const [newPrice, setNewPrice] = useState("")
-  const [reason, setReason] = useState("")
+  const [confirmLeave, setConfirmLeave] = useState(false)
+  const [searchTerm, setSearchTerm] = useState("")
+  const [debouncedSearch, setDebouncedSearch] = useState("")
+  const [selectedProductId, setSelectedProductId] = useState<number | null>(null)
+  const [displayPrice, setDisplayPrice] = useState("")
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+
+  const form = useForm({ resolver: zodResolver(schema), defaultValues: { selectedItem: "", newPrice: 0, reason: "" } })
+  const selectedItemStr = form.watch("selectedItem")
+  const newPrice = Number(form.watch("newPrice"))
+
+  const isDirty = Object.values(form.formState.dirtyFields).length > 0
 
   useEffect(() => {
-    getImportReceipts(0, 50).then((r: ResponsePage<ImportReceipt>) => setReceipts(r.content))
-  }, [])
+    const handler = (e: BeforeUnloadEvent) => {
+      if (isDirty) e.preventDefault()
+    }
+    window.addEventListener("beforeunload", handler)
+    return () => window.removeEventListener("beforeunload", handler)
+  }, [isDirty])
 
-  const currentReceipt = receipts.find((r) => r.id === Number(receiptId))
-  const selectedReceiptItem = currentReceipt?.items.find((item) => item.id === Number(selectedItem))
-  const oldPrice = selectedReceiptItem?.unitPrice ?? 0
+  // Debounced search
+  useEffect(() => {
+    clearTimeout(searchTimer.current)
+    searchTimer.current = setTimeout(() => setDebouncedSearch(searchTerm), 300)
+    return () => clearTimeout(searchTimer.current)
+  }, [searchTerm])
+
+  const { data: productsRes, isLoading: searchLoading } = useQuery({
+    queryKey: ["products", "list", "100", debouncedSearch],
+    queryFn: () => getProducts(0, 100, undefined, debouncedSearch || undefined),
+  })
+
+  const { data: availableItems, isLoading: itemsLoading } = useQuery({
+    queryKey: ["available-items", selectedProductId],
+    queryFn: () => getAvailableItemsByProduct(selectedProductId!),
+    enabled: !!selectedProductId,
+  })
+
+  const selItem = useMemo(
+    () => availableItems?.find((i) => String(i.importReceiptItemId) === selectedItemStr) ?? null,
+    [availableItems, selectedItemStr],
+  )
+  const oldPrice = selItem?.unitPrice ?? 0
+
+  const priceDiffPct = oldPrice > 0 ? Math.abs(((newPrice - oldPrice) / oldPrice) * 100) : 0
+  const showPriceWarning = newPrice > 0 && oldPrice > 0 && priceDiffPct > 50
+
+  const allItemsPending = availableItems && availableItems.length > 0 && availableItems.every((i) => i.hasPending)
 
   const save = useMutation({
-    mutationFn: () =>
-      createPriceAdjustment({
-        importReceiptItemId: Number(selectedItem),
-        newPrice: Number(newPrice),
-        reason: reason.trim(),
-      }),
-    onSuccess: () => {
+    mutationFn: (data: { importReceiptItemId: number; newPrice: number; reason: string }) =>
+      createPriceAdjustment(data),
+    onSuccess: (result) => {
       qc.invalidateQueries({ queryKey: ["price-adjustments"] })
-      toast.success("Tạo phiếu điều chỉnh giá thành công")
+      qc.invalidateQueries({ queryKey: ["my-price-adjustments"] })
+      toast.success(`Đã tạo phiếu ${result.adjustCode}`)
       navigate("/stock/price-adjustments")
     },
     onError: (e: Error) => toast.error(e.message || "Không thể tạo phiếu điều chỉnh giá"),
   })
 
-  const handleSubmit = () => {
-    if (!selectedItem) {
-      toast.error("Chọn sản phẩm cần điều chỉnh")
-      return
-    }
-    if (!newPrice || Number(newPrice) < 0) {
-      toast.error("Giá mới không hợp lệ")
-      return
-    }
-    if (!reason.trim()) {
-      toast.error("Nhập lý do điều chỉnh")
-      return
-    }
-    save.mutate()
-  }
+  const handleCreate = useCallback(
+    (values: { selectedItem: string; newPrice: number; reason: string }) => {
+      const item = availableItems?.find((i) => String(i.importReceiptItemId) === values.selectedItem)
+      if (!item) { toast.error("Không tìm thấy lô hàng đã chọn"); return }
+      if (oldPrice > 0 && values.newPrice === oldPrice) {
+        toast.error("Giá mới phải khác giá cũ")
+        return
+      }
+      save.mutate({
+        importReceiptItemId: Number(values.selectedItem),
+        newPrice: values.newPrice,
+        reason: values.reason.trim(),
+      })
+    },
+    [availableItems, oldPrice, save],
+  )
+
+  const products = productsRes?.content ?? []
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="sm" onClick={() => navigate("/stock/price-adjustments")}>
+        <Button variant="ghost" size="sm" onClick={() => {
+          if (isDirty) setConfirmLeave(true)
+          else navigate("/stock/price-adjustments")
+        }}>
           <ArrowLeft className="size-4 mr-1" /> Quay lại
         </Button>
         <h1 className="text-xl font-semibold tracking-tight">Tạo phiếu điều chỉnh giá</h1>
       </div>
 
-      <div className="space-y-4">
+      <form onSubmit={form.handleSubmit(handleCreate)} className="space-y-4">
+        {/* Step 1: Search product */}
         <div className="space-y-2">
-          <Label>Phiếu nhập</Label>
-          <Select
-            value={receiptId}
-            onValueChange={(v) => {
-              setReceiptId(v)
-              setSelectedItem("")
-            }}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Chọn phiếu nhập" />
-            </SelectTrigger>
-            <SelectContent>
-              {receipts.map((r) => (
-                <SelectItem key={r.id} value={String(r.id)}>
-                  {r.receiptCode} - {r.supplierName}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Label>Tìm sản phẩm</Label>
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+            <Input
+              className="pl-8"
+              placeholder="Nhập tên hoặc mã sản phẩm..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+            {searchLoading && (
+              <Loader2 className="absolute right-2.5 top-1/2 -translate-y-1/2 size-4 animate-spin text-muted-foreground" />
+            )}
+          </div>
+          {searchTerm.length >= 2 && products.length === 0 && !searchLoading && (
+            <p className="text-xs text-muted-foreground">Không tìm thấy sản phẩm</p>
+          )}
         </div>
 
-        {currentReceipt && (
-          <div className="space-y-2">
-            <Label>Sản phẩm</Label>
-            <Select value={selectedItem} onValueChange={setSelectedItem}>
-              <SelectTrigger>
-                <SelectValue placeholder="Chọn sản phẩm" />
-              </SelectTrigger>
-              <SelectContent>
-                {currentReceipt.items.map((item) => (
-                  <SelectItem key={item.id} value={String(item.id)}>
-                    {item.productName} (giá cũ: {(item.unitPrice ?? 0).toLocaleString("vi-VN")}₫)
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+        {/* Product list */}
+        {!selectedProductId && products.length > 0 && (
+          <div className="space-y-1 border rounded-lg divide-y max-h-[50vh] overflow-y-auto">
+            {products.map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                className="w-full text-left px-4 py-3 text-sm hover:bg-muted/50 transition-colors"
+                onClick={() => setSelectedProductId(p.id)}
+              >
+                <span className="font-medium">{p.name}</span>
+                {p.sku && <span className="text-muted-foreground ml-2 text-xs">({p.sku})</span>}
+              </button>
+            ))}
           </div>
         )}
 
-        {selectedReceiptItem && (
-          <Card>
-            <CardContent className="pt-4">
-              <div className="flex items-center justify-center gap-4">
-                <div className="text-center">
-                  <p className="text-xs text-muted-foreground mb-1">Giá cũ</p>
-                  <p className="text-lg font-semibold text-muted-foreground">
-                    {(oldPrice ?? 0).toLocaleString("vi-VN")}₫
-                  </p>
-                </div>
-                <ArrowRight className="size-5 text-muted-foreground" />
-                <div className="text-center">
-                  <p className="text-xs text-muted-foreground mb-1">Giá mới</p>
-                  <p className="text-lg font-semibold text-primary">{Number(newPrice || 0).toLocaleString("vi-VN")}₫</p>
-                </div>
-              </div>
-              {Number(newPrice) > 0 && (
-                <div className="mt-2 text-center">
-                  <span
-                    className={`text-xs font-medium ${Number(newPrice) > oldPrice ? "text-destructive" : "text-green-600"}`}
-                  >
-                    {Number(newPrice) > oldPrice ? "Tăng" : "Giảm"}{" "}
-                    {Math.abs(((Number(newPrice) - oldPrice) / oldPrice) * 100).toFixed(1)}%
-                  </span>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+        {/* Selected product badge */}
+        {selectedProductId && products.length > 0 && (
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary" className="text-sm">
+              {products.find((p) => p.id === selectedProductId)?.name ?? `Sản phẩm #${selectedProductId}`}
+            </Badge>
+            <Button variant="ghost" size="sm" className="text-xs" onClick={() => { setSelectedProductId(null); form.setValue("selectedItem", "") }}>
+              Đổi sản phẩm
+            </Button>
+          </div>
         )}
 
-        <div className="space-y-2">
-          <Label htmlFor="newPrice">
-            Giá mới <span className="text-destructive">*</span>
-          </Label>
-          <Input
-            id="newPrice"
-            type="number"
-            min={0}
-            required
-            value={newPrice}
-            onChange={(e) => setNewPrice(e.target.value)}
-          />
+        {/* Step 2: Select batch (import receipt item) */}
+        {itemsLoading && (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground py-4 justify-center">
+            <Loader2 className="size-4 animate-spin" /> Đang tải lô hàng...
+          </div>
+        )}
+
+        {availableItems && availableItems.length === 0 && !itemsLoading && (
+          <Alert>
+            <AlertDescription>Sản phẩm này chưa có lô hàng nào đã nhập kho hoàn tất.</AlertDescription>
+          </Alert>
+        )}
+
+        {allItemsPending && availableItems && availableItems.length > 0 && (
+          <Alert variant="default" className="border-amber-300 bg-amber-50">
+            <AlertTriangle className="size-4 text-amber-600" />
+            <AlertDescription className="text-amber-800 text-sm">
+              Tất cả lô hàng của sản phẩm này đã có yêu cầu điều chỉnh đang chờ duyệt.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {availableItems && availableItems.length > 0 && !allItemsPending && !selItem && (
+          <div className="space-y-2">
+            <Label>Chọn lô hàng cần điều chỉnh</Label>
+            <div className="space-y-2 max-h-72 overflow-y-auto">
+              {availableItems.map((item) => (
+                <button
+                  key={item.importReceiptItemId}
+                  type="button"
+                  disabled={item.hasPending}
+                  onClick={() => form.setValue("selectedItem", String(item.importReceiptItemId))}
+                  className={`w-full text-left border rounded-lg p-3 transition-colors ${
+                    item.hasPending
+                      ? "opacity-50 cursor-not-allowed border-muted"
+                      : "hover:border-primary cursor-pointer"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium">{item.receiptCode}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {item.receiptDate ? new Date(item.receiptDate).toLocaleDateString("vi-VN") : "—"}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm tabular-nums">{(item.unitPrice ?? 0).toLocaleString("vi-VN")}₫</p>
+                      {item.hasPending && (
+                        <Badge variant="outline" className="text-xs">Đang chờ duyệt</Badge>
+                      )}
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+            <FieldError errors={form.formState.errors.selectedItem ? [{ message: form.formState.errors.selectedItem.message ?? "" }] : undefined} />
+          </div>
+        )}
+
+        {/* Price — inline: Giá cũ: X₫ → [input]₫ ↑ Tăng Y% */}
+        <div className="space-y-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            {selItem ? (
+              <span className="text-sm text-muted-foreground whitespace-nowrap">
+                Giá cũ: <span className="font-semibold tabular-nums">{(oldPrice ?? 0).toLocaleString("vi-VN")}₫</span>
+              </span>
+            ) : (
+              <span className="text-sm font-medium whitespace-nowrap">Giá mới:</span>
+            )}
+            {selItem && <ArrowRight className="size-4 text-muted-foreground/30 shrink-0" />}
+            <div className="flex items-center gap-1 min-w-[120px] flex-1">
+              <Input
+                type="text"
+                inputMode="numeric"
+                placeholder="0"
+                className="h-9 w-full"
+                value={displayPrice}
+                onChange={(e) => {
+                  const raw = e.target.value.replace(/[^0-9]/g, "")
+                  const num = raw ? parseInt(raw, 10) : 0
+                  form.setValue("newPrice", num, { shouldValidate: true })
+                  setDisplayPrice(num ? num.toLocaleString("vi-VN") + "₫" : "")
+                }}
+                onFocus={() => {
+                  if (newPrice > 0) setDisplayPrice(String(newPrice))
+                }}
+                onBlur={() => {
+                  if (newPrice > 0) setDisplayPrice(newPrice.toLocaleString("vi-VN") + "₫")
+                }}
+              />
+            </div>
+            {newPrice > 0 && oldPrice > 0 && newPrice !== oldPrice && (
+              <span
+                className={`inline-flex items-center gap-1 text-sm font-semibold whitespace-nowrap ${
+                  newPrice > oldPrice ? "text-destructive" : "text-green-600"
+                }`}
+                aria-live="polite"
+              >
+                {newPrice > oldPrice ? <TrendingUp className="size-4" /> : <TrendingDown className="size-4" />}
+                {newPrice > oldPrice ? "Tăng" : "Giảm"} {priceDiffPct.toFixed(1)}%
+              </span>
+            )}
+          </div>
+          <FieldError errors={form.formState.errors.newPrice ? [{ message: form.formState.errors.newPrice.message ?? "" }] : undefined} />
+          {showPriceWarning && (
+            <div className="flex items-center gap-2 text-sm text-amber-700 bg-amber-50 rounded-lg px-4 py-2 border border-amber-200">
+              <AlertTriangle className="size-4 shrink-0" />
+              Giá mới chênh lệch lớn so với giá hiện tại, vui lòng kiểm tra lại
+            </div>
+          )}
         </div>
 
+        {/* Reason */}
         <div className="space-y-2">
           <Label htmlFor="reason">
             Lý do <span className="text-destructive">*</span>
           </Label>
-          <Textarea id="reason" value={reason} onChange={(e) => setReason(e.target.value)} rows={3} />
+          <Textarea id="reason" {...form.register("reason")} rows={3} placeholder="Nhập ít nhất 10 ký tự" />
+          <FieldError errors={form.formState.errors.reason ? [{ message: form.formState.errors.reason.message ?? "" }] : undefined} />
         </div>
-      </div>
 
       <div className="flex gap-2 justify-end">
-        <Button variant="outline" onClick={() => navigate("/stock/price-adjustments")}>
+        <Button variant="outline" type="button" onClick={() => {
+          if (isDirty) setConfirmLeave(true)
+          else navigate("/stock/price-adjustments")
+        }}>
           Hủy
         </Button>
-        <Button onClick={handleSubmit} disabled={save.isPending}>
-          {save.isPending ? "Đang tạo..." : "Tạo phiếu"}
+        <Button type="submit" disabled={save.isPending}>
+          {save.isPending ? (
+            <>
+              <span className="size-4 mr-1 animate-spin rounded-full border-2 border-current border-t-transparent" />
+              Đang tạo...
+            </>
+          ) : (
+            "Tạo phiếu"
+          )}
         </Button>
       </div>
+      </form>
+
+      <AlertDialog open={confirmLeave} onOpenChange={(v) => { if (!v) setConfirmLeave(false) }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Thay đổi chưa lưu</AlertDialogTitle>
+            <AlertDialogDescription>Bạn có thay đổi chưa lưu. Rời khỏi trang?</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Ở lại</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { setConfirmLeave(false); navigate("/stock/price-adjustments") }}>
+              Rời khỏi
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

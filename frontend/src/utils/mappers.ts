@@ -9,9 +9,11 @@ import type {
   ExportReceipt,
   ExportReceiptItem,
   StockCheckStatus,
+  StockCheckScopeType,
   StockCheck,
   StockCheckItem,
   StockAdjustment,
+  AdjustmentSourceType,
   PriceAdjustment,
   InventorySummary,
   LowStockItem,
@@ -23,8 +25,6 @@ import type {
   ProductImage,
   PurchaseOrderItem,
   PurchaseOrder,
-  WarrantyRequest,
-  WarrantyLookup,
   ReturnReceipt,
   ReturnReceiptItem,
 } from "@/utils/types"
@@ -140,9 +140,15 @@ export function mapImportItem(raw: unknown): ImportReceiptItem {
     productName: r.productName,
     productSku: r.productSku,
     quantity: r.quantity,
+    expectedQuantity: r.expectedQuantity ?? r.quantity,
+    receivedQuantity: r.receivedQuantity ?? 0,
+    qcPassQuantity: r.qcPassQuantity ?? 0,
+    qcFailQuantity: r.qcFailQuantity ?? 0,
     unitPrice: r.unitPrice,
     warrantyMonths: r.warrantyMonths,
     createdUnits: r.createdUnits,
+    itemStatus: r.itemStatus ?? "NORMAL",
+    locationId: r.locationId ?? null,
   }
 }
 
@@ -163,8 +169,10 @@ export function mapImportReceipt(raw: unknown): ImportReceipt {
     approvedByName: r.approvedByName ?? null,
     purchaseOrderId: r.purchaseOrderId ?? null,
     poCode: r.poCode ?? null,
+    rejectReason: r.rejectReason ?? null,
     updatedAt: r.updatedAt ?? r.createdAt,
     items: (r.items ?? []).map(mapImportItem),
+    discrepancyNotes: r.discrepancyNotes ?? [],
   }
 }
 
@@ -177,6 +185,7 @@ export function mapExportItem(raw: unknown): ExportReceiptItem {
     productSku: r.productSku,
     quantity: r.quantity,
     unitPrice: r.unitPrice,
+    trackingType: r.trackingType,
   }
 }
 
@@ -191,11 +200,19 @@ export function mapExportReceipt(raw: unknown): ExportReceipt {
     totalAmount: r.totalAmount,
     note: r.note ?? null,
     status: r.status,
+    externalReference: r.externalReference ?? null,
     createdBy: r.createdBy,
     createdByName: r.createdByName ?? "—",
     createdAt: r.createdAt,
     approvedBy: r.approvedBy ?? null,
     approvedByName: r.approvedByName ?? null,
+    fulfilledBy: r.fulfilledBy ?? null,
+    fulfilledByName: r.fulfilledByName ?? null,
+    fulfilledAt: r.fulfilledAt ?? null,
+    rejectedBy: r.rejectedBy ?? null,
+    rejectedByName: r.rejectedByName ?? null,
+    rejectedAt: r.rejectedAt ?? null,
+    rejectReason: r.rejectReason ?? null,
     updatedAt: r.updatedAt ?? r.createdAt,
     items: (r.items ?? []).map(mapExportItem),
   }
@@ -209,12 +226,15 @@ export function mapStockCheckItem(raw: unknown): StockCheckItem {
     serialNumber: r.serialNumber ?? "",
     productId: r.productId,
     productName: r.productName ?? "",
-    productSku: r.productSku ?? "",
+    productSku: r.productSku ?? null,
+    trackingType: (r.trackingType as "SERIALIZED" | "BULK") ?? null,
     expectedStatus: r.expectedStatus,
     actualStatus: r.actualStatus ?? null,
     countedQuantity: r.countedQuantity ?? null,
     difference: r.difference ?? null,
     note: r.note ?? null,
+    photo: r.photo ?? null,
+    autoFilled: r.autoFilled ?? false,
   }
 }
 
@@ -224,6 +244,8 @@ export function mapStockCheck(raw: unknown): StockCheck {
     id: r.id,
     checkCode: r.checkCode,
     status: r.status as StockCheckStatus,
+    scopeType: (r.scopeType as StockCheckScopeType) ?? null,
+    scopeId: r.scopeId ?? null,
     note: r.note ?? null,
     createdBy: r.createdBy,
     createdByName: r.createdByName ?? "—",
@@ -236,6 +258,7 @@ export function mapStockCheck(raw: unknown): StockCheck {
     matchCount: r.matchCount,
     missingCount: r.missingCount,
     unexpectedCount: r.unexpectedCount,
+    autoFilledCount: r.autoFilledCount ?? 0,
     updatedAt: r.updatedAt,
   }
 }
@@ -255,6 +278,8 @@ export function mapStockAdjustment(raw: unknown): StockAdjustment {
     reason: r.reason,
     imageUrl: r.imageUrl ?? null,
     status: r.status as StockAdjustment["status"],
+    sourceType: (r.sourceType as AdjustmentSourceType) ?? null,
+    sourceId: r.sourceId ?? null,
     createdBy: r.createdBy,
     createdByName: r.createdByName ?? "—",
     createdAt: r.createdAt,
@@ -283,6 +308,7 @@ export function mapPriceAdjustment(raw: unknown): PriceAdjustment {
     approvedByName: r.approvedByName ?? null,
     approvalNote: r.approvalNote ?? null,
     createdAt: r.createdAt,
+    approvedAt: r.approvedAt ?? null,
     updatedAt: r.updatedAt,
   }
 }
@@ -295,6 +321,8 @@ export function mapInventorySummary(raw: unknown): InventorySummary {
     totalStockValue: r.totalStockValue,
     lowStockCount: r.lowStockCount,
     outOfStockCount: r.outOfStockCount,
+    previousPeriodStockValue: r.previousPeriodStockValue ?? 0,
+    trendPercent: r.trendPercent ?? 0,
   }
 }
 export function mapLowStockItem(raw: unknown): LowStockItem {
@@ -315,6 +343,9 @@ export function mapCategoryStock(raw: unknown): CategoryStock {
     productCount: r.productCount,
     totalUnits: r.totalUnits,
     totalStockValue: r.totalStockValue,
+    healthyCount: r.healthyCount ?? 0,
+    lowStockCount: r.lowStockCount ?? 0,
+    outOfStockCount: r.outOfStockCount ?? 0,
   }
 }
 export function mapStockValueItem(raw: unknown): StockValueItem {
@@ -377,62 +408,15 @@ export function mapProductUnit(raw: unknown): ProductUnit {
   }
 }
 
-export function mapWarrantyRequest(raw: unknown): WarrantyRequest {
-  const r = raw as WarrantyRequest
-  return {
-    id: r.id,
-    requestCode: r.requestCode,
-    productUnitId: r.productUnitId,
-    serialNumber: r.serialNumber,
-    productId: r.productId,
-    productName: r.productName,
-    productSku: r.productSku,
-    customerId: r.customerId ?? null,
-    customerName: r.customerName ?? null,
-    issueDescription: r.issueDescription,
-    resolutionType: r.resolutionType ?? null,
-    replacementUnitId: r.replacementUnitId ?? null,
-    replacementSerialNumber: r.replacementSerialNumber ?? null,
-    rmaNumber: r.rmaNumber ?? null,
-    sentToPartnerAt: r.sentToPartnerAt ?? null,
-    expectedReturnAt: r.expectedReturnAt ?? null,
-    partnerNote: r.partnerNote ?? null,
-    status: r.status,
-    handledBy: r.handledBy ?? null,
-    handledByName: r.handledByName ?? null,
-    completedAt: r.completedAt ?? null,
-    note: r.note ?? null,
-    createdAt: r.createdAt,
-    updatedAt: r.updatedAt,
-  }
-}
-
-export function mapWarrantyLookup(raw: unknown): WarrantyLookup {
-  const r = raw as unknown as WarrantyLookup & { history?: unknown[] }
-  return {
-    productUnitId: r.productUnitId,
-    serialNumber: r.serialNumber,
-    productId: r.productId,
-    productName: r.productName,
-    productSku: r.productSku,
-    productUnitStatus: r.productUnitStatus,
-    purchaseDate: r.purchaseDate ?? null,
-    warrantyExpiresAt: r.warrantyExpiresAt ?? null,
-    warrantyStatus: r.warrantyStatus,
-    eligible: r.eligible,
-    customerId: r.customerId ?? null,
-    customerName: r.customerName ?? null,
-    saleReceiptCode: r.saleReceiptCode ?? null,
-    history: (r.history ?? []).map(mapWarrantyRequest),
-  }
-}
-
 export function mapReturnReceiptItem(raw: unknown): ReturnReceiptItem {
   const r = raw as ReturnReceiptItem
   return {
     id: r.id,
     productUnitId: r.productUnitId,
     productId: r.productId,
+    productName: r.productName ?? null,
+    productSku: r.productSku ?? null,
+    serialNumber: r.serialNumber ?? null,
     quantity: r.quantity,
     condition: r.condition,
     resultingAction: r.resultingAction,

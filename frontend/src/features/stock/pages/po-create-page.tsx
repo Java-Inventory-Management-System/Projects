@@ -1,4 +1,5 @@
-import { useState, useMemo, useCallback, useEffect } from "react"
+import { useState, useMemo, useCallback } from "react"
+import { useForm, useFieldArray, Controller } from "react-hook-form"
 import { useNavigate, useBlocker } from "react-router-dom"
 import { useCreatePurchaseOrder } from "@/hooks/use-purchase-orders"
 import { useProducts } from "@/hooks/use-products"
@@ -16,25 +17,22 @@ import { Trash2, Plus, ChevronsUpDown } from "lucide-react"
 import { toast } from "@/utils/toast"
 import { Empty, EmptyTitle } from "@/components/ui/empty"
 
-interface LineItem {
-  tempId: number
-  productId: number
-  productName: string
-  productSku: string
-  quantity: number
-  unitPrice: number
+interface POFormFields {
+  supplierId: string
+  note: string
+  expectedDate: string
+  items: {
+    tempId: number
+    productId: number
+    productName: string
+    productSku: string
+    quantity: number
+    unitPrice: number
+  }[]
 }
 
 export function POCreatePage() {
   const navigate = useNavigate()
-  const [supplierId, setSupplierId] = useState("")
-  const [note, setNote] = useState("")
-  const [expectedDate, setExpectedDate] = useState(() => {
-    const d = new Date()
-    d.setDate(d.getDate() + 14)
-    return d.toISOString().slice(0, 10)
-  })
-  const [items, setItems] = useState<LineItem[]>([])
   const [selectedProductIds, setSelectedProductIds] = useState<number[]>([])
   const [productPopoverOpen, setProductPopoverOpen] = useState(false)
 
@@ -42,16 +40,24 @@ export function POCreatePage() {
   const { data: suppliers = [] } = useSuppliers()
   const products = useMemo(() => productsRes?.content ?? [], [productsRes])
 
+  const defaultDate = useMemo(() => {
+    const d = new Date()
+    d.setDate(d.getDate() + 14)
+    return d.toISOString().slice(0, 10)
+  }, [])
+
+  const form = useForm<POFormFields>({
+    defaultValues: { supplierId: "", note: "", expectedDate: defaultDate, items: [] },
+  })
+  const { fields, append, remove } = useFieldArray({ control: form.control, name: "items" })
+  const watchedSupplierId = form.watch("supplierId")
+
   const createMut = useCreatePurchaseOrder()
 
-  const [hasSubmitted, setHasSubmitted] = useState(false)
-  useEffect(() => {
-    if (items.length === 0) setHasSubmitted(false)
-  }, [items])
-  const hasUnsaved = items.length > 0
+  const hasUnsaved = fields.length > 0
   useBlocker(
     ({ currentLocation, nextLocation }) =>
-      hasUnsaved && !hasSubmitted && currentLocation.pathname !== nextLocation.pathname,
+      hasUnsaved && currentLocation.pathname !== nextLocation.pathname,
   )
 
   const nextTempId = useMemo(() => {
@@ -61,53 +67,34 @@ export function POCreatePage() {
 
   const addItems = useCallback(() => {
     if (selectedProductIds.length === 0) return
-    const existing = new Set(items.map((i) => i.productId))
+    const existing = new Set(fields.map((f) => f.productId))
     const toAdd = products.filter((p) => selectedProductIds.includes(p.id) && !existing.has(p.id))
     if (toAdd.length === 0) {
       toast.error("Tất cả sản phẩm đã có")
       setSelectedProductIds([])
       return
     }
-    setItems((prev) => [
-      ...prev,
-      ...toAdd.map((p) => ({
-        tempId: nextTempId(),
-        productId: p.id,
-        productName: p.name,
-        productSku: p.sku ?? "",
-        quantity: 1,
-        unitPrice: 0,
-      })),
-    ])
+    append(toAdd.map((p) => ({
+      tempId: nextTempId(),
+      productId: p.id,
+      productName: p.name,
+      productSku: p.sku ?? "",
+      quantity: 1,
+      unitPrice: 0,
+    })))
     setSelectedProductIds([])
     setProductPopoverOpen(false)
-  }, [selectedProductIds, products, items, nextTempId])
+  }, [selectedProductIds, products, fields, append, nextTempId])
 
-  const updateItem = useCallback((tempId: number, field: keyof LineItem, value: number | string) => {
-    setItems((prev) => prev.map((i) => (i.tempId === tempId ? { ...i, [field]: value } : i)))
-  }, [])
+  const totalAmount = useMemo(() => fields.reduce((sum, i) => sum + i.quantity * i.unitPrice, 0), [fields])
 
-  const removeItem = useCallback((tempId: number) => {
-    setItems((prev) => prev.filter((i) => i.tempId !== tempId))
-  }, [])
-
-  const totalAmount = useMemo(() => items.reduce((sum, i) => sum + i.quantity * i.unitPrice, 0), [items])
-
-  const handleSubmit = useCallback(() => {
-    if (!supplierId) {
-      toast.error("Vui lòng chọn nhà cung cấp")
-      return
-    }
-    if (items.length === 0) {
-      toast.error("Thêm ít nhất một sản phẩm")
-      return
-    }
+  const onSubmit = form.handleSubmit((values) => {
     createMut.mutate(
       {
-        supplierId: Number(supplierId),
-        expectedDate,
-        note: note || null,
-        items: items.map((i) => ({ productId: i.productId, quantity: i.quantity, unitPrice: i.unitPrice })),
+        supplierId: Number(values.supplierId),
+        expectedDate: values.expectedDate,
+        note: values.note || null,
+        items: values.items.map((i) => ({ productId: i.productId, quantity: i.quantity, unitPrice: i.unitPrice })),
       },
       {
         onSuccess: () => {
@@ -115,12 +102,11 @@ export function POCreatePage() {
           navigate("/stock/purchase-orders")
         },
         onError: (e: Error) => {
-          setHasSubmitted(true)
           toast.error(e.message || "Không thể tạo đơn hàng")
         },
       },
     )
-  }, [supplierId, expectedDate, note, items, createMut, navigate])
+  })
 
   return (
     <div className="mx-auto max-w-7xl grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
@@ -137,27 +123,28 @@ export function POCreatePage() {
             <Label htmlFor="supplier">
               Nhà cung cấp <span className="text-destructive">*</span>
             </Label>
-            <Select value={supplierId} onValueChange={setSupplierId}>
-              <SelectTrigger id="supplier">
-                <SelectValue placeholder="Chọn NCC" />
-              </SelectTrigger>
-              <SelectContent>
-                {suppliers.map((s) => (
-                  <SelectItem key={s.id} value={String(s.id)}>
-                    {s.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Controller
+              name="supplierId"
+              control={form.control}
+              render={({ field }) => (
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <SelectTrigger id="supplier">
+                    <SelectValue placeholder="Chọn NCC" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {suppliers.map((s) => (
+                      <SelectItem key={s.id} value={String(s.id)}>
+                        {s.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="expectedDate">Ngày giao dự kiến</Label>
-            <Input
-              id="expectedDate"
-              type="date"
-              value={expectedDate}
-              onChange={(e) => setExpectedDate(e.target.value)}
-            />
+            <Input id="expectedDate" type="date" {...form.register("expectedDate")} />
           </div>
         </div>
 
@@ -183,7 +170,7 @@ export function POCreatePage() {
                     <CommandEmpty>Không tìm thấy</CommandEmpty>
                     <CommandGroup>
                       {products
-                        .filter((p) => !items.find((i) => i.productId === p.id))
+                        .filter((p) => !fields.find((i) => i.productId === p.id))
                         .map((p) => (
                           <CommandItem
                             key={p.id}
@@ -224,7 +211,7 @@ export function POCreatePage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {items.length === 0 ? (
+              {fields.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={5} className="text-center py-8">
                     <Empty>
@@ -233,8 +220,8 @@ export function POCreatePage() {
                   </TableCell>
                 </TableRow>
               ) : (
-                items.map((item) => (
-                  <TableRow key={item.tempId}>
+                fields.map((item, index) => (
+                  <TableRow key={item.id}>
                     <TableCell>
                       <span className="font-medium">{item.productName}</span>
                       <span className="text-xs text-muted-foreground ml-1">{item.productSku}</span>
@@ -244,8 +231,7 @@ export function POCreatePage() {
                         type="number"
                         min={1}
                         className="h-8 w-20 text-right"
-                        value={item.quantity || ""}
-                        onChange={(e) => updateItem(item.tempId, "quantity", Math.max(1, Number(e.target.value)))}
+                        {...form.register(`items.${index}.quantity`, { valueAsNumber: true })}
                       />
                     </TableCell>
                     <TableCell className="text-right">
@@ -253,15 +239,14 @@ export function POCreatePage() {
                         type="number"
                         min={0}
                         className="h-8 w-24 text-right"
-                        value={item.unitPrice || ""}
-                        onChange={(e) => updateItem(item.tempId, "unitPrice", Number(e.target.value))}
+                        {...form.register(`items.${index}.unitPrice`, { valueAsNumber: true })}
                       />
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
                       {(item.quantity * item.unitPrice).toLocaleString("vi-VN")}₫
                     </TableCell>
                     <TableCell>
-                      <Button variant="ghost" size="icon" onClick={() => removeItem(item.tempId)}>
+                      <Button variant="ghost" size="icon" onClick={() => remove(index)}>
                         <Trash2 className="size-4 text-destructive" />
                       </Button>
                     </TableCell>
@@ -278,20 +263,14 @@ export function POCreatePage() {
 
         <div className="space-y-2">
           <Label htmlFor="note">Ghi chú</Label>
-          <Textarea
-            id="note"
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            placeholder="Ghi chú cho NCC..."
-            rows={2}
-          />
+          <Textarea id="note" placeholder="Ghi chú cho NCC..." rows={2} {...form.register("note")} />
         </div>
 
         <div className="flex gap-2 justify-end">
           <Button variant="outline" onClick={() => navigate("/stock/purchase-orders")}>
             Hủy
           </Button>
-          <Button onClick={handleSubmit} disabled={!supplierId || items.length === 0 || createMut.isPending}>
+          <Button onClick={onSubmit} disabled={!watchedSupplierId || fields.length === 0 || createMut.isPending}>
             {createMut.isPending ? "Đang tạo..." : "Tạo đơn hàng"}
           </Button>
         </div>

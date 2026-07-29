@@ -49,3 +49,7 @@ export async function toggleLocation(id: number): Promise<LocationResponse> {
 export async function deleteLocation(id: number): Promise<void> {
   await http.delete(`/location/${id}`)
 }
+
+export async function relocateProductUnits(sourceBinId: number, destBinId: number): Promise<void> {
+  await http.post("/location/relocate", { sourceBinId, destBinId })
+}

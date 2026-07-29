@@ -1,8 +1,10 @@
-import { useState, useEffect, useCallback } from "react"
+import { useState, useCallback } from "react"
+import { useSearchParams } from "react-router-dom"
+import { useQuery } from "@tanstack/react-query"
 import { useDebounce } from "@/hooks/use-debounce"
 import { getProductUnits } from "@/services/product-unit-service"
 import { getProducts } from "@/services/product-service"
-import { PRODUCT_UNIT_STATUS, type ProductUnit, type ResponsePage, type ProductResponse } from "@/utils/types"
+import { PRODUCT_UNIT_STATUS, type ProductUnit } from "@/utils/types"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
@@ -49,18 +51,14 @@ function fmt(d: string | null) {
 }
 
 export const ProductUnitListPage = () => {
-  const [page, setPage] = useState(0)
+  const [searchParams, setSearchParams] = useSearchParams()
+  const page = Number(searchParams.get("page") ?? "0")
   const [pageSize, setPageSize] = useState(10)
-  const [data, setData] = useState<ResponsePage<ProductUnit> | null>(null)
-  const [allData, setAllData] = useState<ProductUnit[] | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-
   const [search, setSearch] = useState("")
   const debouncedSearch = useDebounce(search, 300)
-  const [statusFilter, setStatusFilter] = useState("all")
-  const [productFilter, setProductFilter] = useState("all")
-  const [sortOrder, setSortOrder] = useState("desc")
+  const statusFilter = searchParams.get("status") ?? "all"
+  const productFilter = searchParams.get("product") ?? "all"
+  const sortOrder = searchParams.get("sort") ?? "desc"
   const [sort, setSort] = useState<{ key: string; dir: "asc" | "desc" } | undefined>(undefined)
 
   const handleSort = useCallback((key: string) => {
@@ -71,43 +69,39 @@ export const ProductUnitListPage = () => {
     })
   }, [])
 
-  const [products, setProducts] = useState<ProductResponse[]>([])
   const [viewUnit, setViewUnit] = useState<ProductUnit | null>(null)
   const [viewOpen, setViewOpen] = useState(false)
   const [filterOpen, setFilterOpen] = useState(true)
 
-  useEffect(() => {
-    getProducts(0, 500)
-      .then((res) => setProducts(res.content))
-      .catch(() => {})
-  }, [])
+  const updateParams = useCallback(
+    (updates: Record<string, string | undefined>) => {
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev)
+        for (const [key, val] of Object.entries(updates)) {
+          if (val) next.set(key, val)
+          else next.delete(key)
+        }
+        return next
+      }, { replace: true })
+    },
+    [setSearchParams],
+  )
+
+  const { data: products } = useQuery({
+    queryKey: ["products", "all"],
+    queryFn: () => getProducts(0, 500).then((r) => r.content),
+    staleTime: 5 * 60 * 1000,
+  })
 
   const hasFilters = debouncedSearch || statusFilter !== "all" || productFilter !== "all"
+  const sortStr = `importedAt,${sortOrder}`
 
-  useEffect(() => {
-    setLoading(true)
-    setError(null)
-    const sort = `importedAt,${sortOrder}`
-    if (hasFilters) {
-      getProductUnits(0, 10000, sort)
-        .then((res) => {
-          setAllData(res.content)
-          setData(null)
-        })
-        .catch((err) => setError((err as Error).message || "Không thể tải danh sách"))
-        .finally(() => setLoading(false))
-    } else {
-      getProductUnits(page, pageSize, sort)
-        .then((res) => {
-          setData(res)
-          setAllData(null)
-        })
-        .catch((err) => setError((err as Error).message || "Không thể tải danh sách"))
-        .finally(() => setLoading(false))
-    }
-  }, [page, hasFilters, debouncedSearch, statusFilter, productFilter, sortOrder])
+  const { data: unitsRes, isLoading, error: fetchError } = useQuery({
+    queryKey: ["product-units", hasFilters ? "all" : page, pageSize, sortStr, statusFilter, productFilter, debouncedSearch || ""],
+    queryFn: () => (hasFilters ? getProductUnits(0, 10000, sortStr) : getProductUnits(page, pageSize, sortStr)),
+  })
 
-  const filtered = (allData ?? data?.content ?? []).filter((u) => {
+  const filtered = (unitsRes?.content ?? []).filter((u) => {
     if (debouncedSearch && !u.serialNumber.toLowerCase().includes(debouncedSearch.toLowerCase())) return false
     if (statusFilter !== "all" && u.status !== statusFilter) return false
     if (productFilter !== "all" && u.productId !== Number(productFilter)) return false
@@ -183,7 +177,7 @@ export const ProductUnitListPage = () => {
               value={search}
               onChange={(e) => {
                 setSearch(e.target.value)
-                setPage(0)
+                updateParams({ page: undefined })
               }}
             />
           </div>
@@ -199,10 +193,7 @@ export const ProductUnitListPage = () => {
             <ToggleGroup
               type="single"
               value={statusFilter}
-              onValueChange={(v) => {
-                setStatusFilter(v || "all")
-                setPage(0)
-              }}
+              onValueChange={(v) => updateParams({ status: v || undefined, page: undefined })}
             >
               {statusOptions.slice(0, 5).map((o) => (
                 <ToggleGroupItem key={o.value} value={o.value} size="sm" className="text-xs">
@@ -212,17 +203,14 @@ export const ProductUnitListPage = () => {
             </ToggleGroup>
             <Select
               value={productFilter}
-              onValueChange={(v) => {
-                setProductFilter(v)
-                setPage(0)
-              }}
+              onValueChange={(v) => updateParams({ product: v === "all" ? undefined : v, page: undefined })}
             >
               <SelectTrigger className="w-64">
                 <SelectValue placeholder="Sản phẩm" />
               </SelectTrigger>
               <SelectContent className="max-h-[50vh]">
                 <SelectItem value="all">Tất cả</SelectItem>
-                {products.map((p) => (
+                {(products ?? []).map((p) => (
                   <SelectItem key={p.id} value={String(p.id)}>
                     {p.name} ({p.sku})
                   </SelectItem>
@@ -231,10 +219,7 @@ export const ProductUnitListPage = () => {
             </Select>
             <Select
               value={sortOrder}
-              onValueChange={(v) => {
-                setSortOrder(v)
-                setPage(0)
-              }}
+              onValueChange={(v) => updateParams({ sort: v === "desc" ? undefined : v, page: undefined })}
             >
               <SelectTrigger className="w-32">
                 <SelectValue placeholder="Sắp xếp" />
@@ -248,17 +233,19 @@ export const ProductUnitListPage = () => {
         </CollapsibleContent>
       </Collapsible>
 
-      {error ? (
+      {fetchError ? (
         <div className="rounded-lg border p-8 text-center">
-          <p className="text-sm text-destructive mb-2">{error}</p>
+          <p className="text-sm text-destructive mb-2">{fetchError instanceof Error ? fetchError.message : "Không thể tải danh sách"}</p>
           <Button
             variant="outline"
             size="sm"
             onClick={() => {
-              setPage(0)
               setSearch("")
-              setStatusFilter("all")
-              setProductFilter("all")
+              setSearchParams((prev) => {
+                const next = new URLSearchParams(prev)
+                for (const key of ["page", "status", "product", "sort"]) next.delete(key)
+                return next
+              }, { replace: true })
             }}
           >
             <RefreshCw className="size-3 mr-1" /> Thử lại
@@ -268,19 +255,21 @@ export const ProductUnitListPage = () => {
         <DataTable
           columns={columns}
           data={filtered}
-          isLoading={loading}
+          isLoading={isLoading}
           emptyMessage={hasFilters ? "Không có sản phẩm nào" : "Chưa có sản phẩm trong kho"}
           sort={sort}
           onSort={handleSort}
-          totalElements={data?.pagination.totalElements}
-          page={page}
-          totalPages={data?.pagination.totalPages}
-          pageSize={pageSize}
-          onPageChange={setPage}
-          onPageSizeChange={(s) => {
-            setPageSize(s)
-            setPage(0)
-          }}
+          totalElements={unitsRes?.pagination?.totalElements}
+          page={!hasFilters ? page : undefined}
+          totalPages={!hasFilters ? unitsRes?.pagination?.totalPages : undefined}
+          pageSize={!hasFilters ? pageSize : undefined}
+          onPageChange={!hasFilters ? (p) => updateParams({ page: String(p) }) : undefined}
+          onPageSizeChange={!hasFilters
+            ? (s) => {
+                setPageSize(s)
+                updateParams({ page: undefined })
+              }
+            : undefined}
         />
       )}
 

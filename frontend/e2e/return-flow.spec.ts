@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test"
 import { loginAsStock, loginAsManager } from "./helpers/auth"
 import { navigateTo } from "./helpers/nav"
 import { initTokens, getToken, API_URL } from "./helpers/api"
+import { approveDialog } from "./helpers/approve"
 import { cleanupProduct1 } from "./helpers/cleanup"
 
 test.describe("Return Flow (Trả hàng) — SOP §7", () => {
@@ -64,13 +65,22 @@ test.describe("Return Flow (Trả hàng) — SOP §7", () => {
       headers: { Authorization: `Bearer ${stockToken}` },
     })
     expect(expRes.ok()).toBeTruthy()
-    const expId: number = (await expRes.json()).data.id
+    const expData = (await expRes.json()).data
+    const expId: number = expData.id
+    const expItemId: number = expData.items[0].id
 
-    // Approve export (unit stays IN_STOCK — BE does not set SOLD yet)
+    // Approve export
     const expApproveRes = await stock.request.put(`${API_URL}/export-receipt/${expId}/approve`, {
       headers: { Authorization: `Bearer ${managerToken}` },
     })
     expect(expApproveRes.ok()).toBeTruthy()
+
+    // Fulfill export to change unit status to EXPORTED (required for return)
+    const fulfillRes = await stock.request.put(`${API_URL}/export-receipt/${expId}/fulfill`, {
+      data: { items: [{ itemId: expItemId, serialNumbers: [serial], actualQuantity: 1 }] },
+      headers: { Authorization: `Bearer ${managerToken}` },
+    })
+    expect(fulfillRes.ok()).toBeTruthy()
 
     // ── Step 1: Create return via API_URL (UI form may be complex) ──
     const retRes = await stock.request.post(`${API_URL}/return-receipts`, {
@@ -88,15 +98,8 @@ test.describe("Return Flow (Trả hàng) — SOP §7", () => {
     const retId: number = (await retRes.json()).data.id
 
     // ── Step 2: MANAGER approves via UI ──
-    // Return detail page approves directly (no confirmation dialog)
     await navigateTo(mgr, `/returns/${retId}`)
-    const retApproveResp = mgr.waitForResponse(
-      (r) => r.url().includes(`/${retId}/approve`) && r.status() === 200,
-    )
-    const retApproveBtn = mgr.locator('button:has-text("Duyệt")')
-    await expect(retApproveBtn).toBeVisible({ timeout: 10000 })
-    await retApproveBtn.click()
-    await retApproveResp
+    await approveDialog(mgr, retId)
 
     // ── Step 3: Verify COMPLETED (approve sets status to COMPLETED for return receipts) ──
     const retDetail = await mgr.request.get(`${API_URL}/return-receipts/${retId}`, {

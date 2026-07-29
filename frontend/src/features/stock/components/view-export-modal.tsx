@@ -1,10 +1,14 @@
+import { useNavigate } from "react-router-dom"
 import type { ExportReceipt } from "@/utils/types"
 import { Badge } from "@/components/ui/badge"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { Eye, ArrowRightFromLine } from "lucide-react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
 const statusLabel: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
-  PENDING_APPROVAL: { label: "Chờ duyệt", variant: "outline" },
+  PENDING: { label: "Chờ duyệt", variant: "outline" },
+  APPROVED: { label: "Đã duyệt", variant: "secondary" },
   COMPLETED: { label: "Hoàn tất", variant: "default" },
   CANCELLED: { label: "Đã hủy", variant: "destructive" },
 }
@@ -25,8 +29,9 @@ export const ViewExportModal = ({
   open: boolean
   onOpenChange: (v: boolean) => void
 }) => {
+  const navigate = useNavigate()
   if (!receipt) return null
-  const s = statusLabel[receipt.status] ?? { label: receipt.status, variant: "secondary" }
+  const s = statusLabel[receipt.status] ?? { label: receipt.status, variant: "secondary" as const }
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[min(95vw,80rem)]">
@@ -38,26 +43,12 @@ export const ViewExportModal = ({
         </DialogHeader>
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4 text-sm">
-            <div>
-              <span className="text-muted-foreground">Lý do:</span>
-              <p className="font-medium">{reasonLabel[receipt.reason] ?? receipt.reason}</p>
-            </div>
-            <div>
-              <span className="text-muted-foreground">Khách hàng:</span>
-              <p className="font-medium">{receipt.customerName ?? "—"}</p>
-            </div>
-            <div>
-              <span className="text-muted-foreground">Ngày tạo:</span>
-              <p className="font-medium">{new Date(receipt.createdAt).toLocaleString("vi-VN")}</p>
-            </div>
-            <div>
-              <span className="text-muted-foreground">Người tạo:</span>
-              <p className="font-medium">{receipt.createdByName}</p>
-            </div>
-            <div>
-              <span className="text-muted-foreground">Người duyệt:</span>
-              <p className="font-medium">{receipt.approvedByName ?? "—"}</p>
-            </div>
+            <div><span className="text-muted-foreground">Lý do:</span><p className="font-medium">{reasonLabel[receipt.reason] ?? receipt.reason}</p></div>
+            <div><span className="text-muted-foreground">Khách hàng:</span><p className="font-medium">{receipt.customerName ?? "—"}</p></div>
+            <div><span className="text-muted-foreground">Ngày tạo:</span><p className="font-medium">{new Date(receipt.createdAt).toLocaleString("vi-VN")}</p></div>
+            <div><span className="text-muted-foreground">Người tạo:</span><p className="font-medium">{receipt.createdByName}</p></div>
+            <div><span className="text-muted-foreground">Người duyệt:</span><p className="font-medium">{receipt.approvedByName ?? "—"}</p></div>
+            {receipt.fulfilledByName && <div><span className="text-muted-foreground">Người xuất:</span><p className="font-medium">{receipt.fulfilledByName}</p></div>}
           </div>
           {receipt.note && (
             <div className="rounded-md border bg-muted/20 px-3 py-2.5 text-sm">
@@ -83,12 +74,8 @@ export const ViewExportModal = ({
                       <span className="text-xs text-muted-foreground ml-2">{item.productSku}</span>
                     </TableCell>
                     <TableCell className="text-right tabular-nums">{item.quantity}</TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {(item.unitPrice ?? 0).toLocaleString("vi-VN")}₫
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {((item.quantity ?? 0) * (item.unitPrice ?? 0)).toLocaleString("vi-VN")}₫
-                    </TableCell>
+                    <TableCell className="text-right tabular-nums">{(item.unitPrice ?? 0).toLocaleString("vi-VN")}₫</TableCell>
+                    <TableCell className="text-right tabular-nums">{((item.quantity ?? 0) * (item.unitPrice ?? 0)).toLocaleString("vi-VN")}₫</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -98,6 +85,16 @@ export const ViewExportModal = ({
             <span className="text-lg font-semibold">Tổng: {(receipt.totalAmount ?? 0).toLocaleString("vi-VN")}₫</span>
           </div>
         </div>
+        <DialogFooter className="gap-2">
+          <Button variant="outline" onClick={() => navigate(`/stock/exports/${receipt.id}`)}>
+            <Eye className="size-4 mr-1" /> Xem chi tiết
+          </Button>
+          {receipt.status === "APPROVED" && (
+            <Button onClick={() => navigate(`/stock/exports/${receipt.id}/fulfill`)}>
+              <ArrowRightFromLine className="size-4 mr-1" /> Xuất kho
+            </Button>
+          )}
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   )

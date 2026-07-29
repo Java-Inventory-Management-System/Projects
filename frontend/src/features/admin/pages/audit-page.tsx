@@ -1,16 +1,22 @@
-import { useState, useEffect, useCallback } from "react"
+import { useState, useCallback } from "react"
+import { useSearchParams } from "react-router-dom"
+import { useQuery } from "@tanstack/react-query"
 import { searchAuditLogs } from "@/services/audit-service"
-import type { AuditLog, ResponsePage } from "@/utils/types"
+import type { AuditLog } from "@/utils/types"
 import { AUDIT_STATUS, AUDIT_ACTION } from "@/utils/types"
+import { useUsers } from "@/hooks/use-users"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Eye, X, Search } from "lucide-react"
+import { Eye, X, Search, ChevronsUpDown, Check } from "lucide-react"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 import { DataTable, type Column } from "@/components/ui/data-table"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover"
+import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command"
+import { cn } from "@/utils/cn"
 
 const statusBadge: Record<string, { label: string; variant: "default" | "destructive" | "secondary" }> = {
   [AUDIT_STATUS.SUCCESS]: { label: "Thành công", variant: "default" },
@@ -35,10 +41,16 @@ const actionOptions = [
   AUDIT_ACTION.EXPORT,
 ]
 
+const entityOptions = [
+  "USER", "IMPORT_RECEIPT", "EXPORT_RECEIPT", "PRODUCT_UNIT",
+  "WARRANTY_REQUEST", "RETURN_RECEIPT", "STOCK_CHECK", "STOCK_ADJUSTMENT",
+  "PRICE_ADJUSTMENT", "PURCHASE_ORDER", "BRAND", "CATEGORY", "PRODUCT",
+  "SUPPLIER", "LOCATION", "CUSTOMER", "SYSTEM_SETTINGS",
+]
+
 export const AuditPage = () => {
-  const [data, setData] = useState<ResponsePage<AuditLog> | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [page, setPage] = useState(0)
+  const [searchParams, setSearchParams] = useSearchParams()
+  const page = Number(searchParams.get("page") ?? "0")
   const [pageSize, setPageSize] = useState(20)
   const [sort, setSort] = useState<{ key: string; dir: "asc" | "desc" } | undefined>(undefined)
   const sortStr = sort ? `${sort.key},${sort.dir}` : undefined
@@ -51,62 +63,73 @@ export const AuditPage = () => {
     })
   }, [])
 
-  const [actionFilter, setActionFilter] = useState("all")
-  const [entityFilter, setEntityFilter] = useState("")
-  const [statusFilter, setStatusFilter] = useState("all")
-  const [fromDate, setFromDate] = useState("")
-  const [toDate, setToDate] = useState("")
+  const actionFilter = searchParams.get("action") ?? "all"
+  const entityFilter = searchParams.get("entity") ?? ""
+  const statusFilter = searchParams.get("status") ?? "all"
+  const fromDate = searchParams.get("from") ?? ""
+  const toDate = searchParams.get("to") ?? ""
+  const userIdFilter = searchParams.get("userId") ?? ""
   const [viewLog, setViewLog] = useState<AuditLog | null>(null)
 
-  useEffect(() => {
-    setPage(0)
-  }, [actionFilter, entityFilter, statusFilter, fromDate, toDate])
+  const updateParams = useCallback(
+    (updates: Record<string, string | undefined>) => {
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev)
+        for (const [key, val] of Object.entries(updates)) {
+          if (val) next.set(key, val)
+          else next.delete(key)
+        }
+        return next
+      }, { replace: true })
+    },
+    [setSearchParams],
+  )
 
-  useEffect(() => {
-    const doFetch = async () => {
-      setLoading(true)
-      try {
-        const res = await searchAuditLogs({
-          page,
-          size: pageSize,
-          sort: sortStr,
-          action: actionFilter === "all" ? undefined : actionFilter,
-          entity: entityFilter || undefined,
-          status: statusFilter === "all" ? undefined : statusFilter,
-          from: fromDate ? fromDate + "T00:00:00Z" : undefined,
-          to: toDate ? toDate + "T23:59:59Z" : undefined,
-        })
-        setData(res)
-      } catch {
-        // silent
-      } finally {
-        setLoading(false)
-      }
-    }
-    doFetch()
-  }, [page, pageSize, sortStr, actionFilter, entityFilter, statusFilter, fromDate, toDate])
+  const { data, isLoading: loading } = useQuery({
+    queryKey: ["audit-logs", page, pageSize, sortStr, actionFilter, entityFilter, statusFilter, fromDate, toDate, userIdFilter],
+    queryFn: () => searchAuditLogs({
+      page,
+      size: pageSize,
+      sort: sortStr,
+      action: actionFilter === "all" ? undefined : actionFilter,
+      entity: entityFilter || undefined,
+      status: statusFilter === "all" ? undefined : statusFilter,
+      userId: userIdFilter ? Number(userIdFilter) : undefined,
+      from: fromDate ? fromDate + "T00:00:00Z" : undefined,
+      to: toDate ? toDate + "T23:59:59Z" : undefined,
+    }),
+  })
+
+  const { data: usersPage } = useUsers(0, 200)
+  const users = usersPage?.content ?? []
 
   const s = data?.pagination
 
-  const hasFilters = actionFilter !== "all" || !!entityFilter || statusFilter !== "all" || !!fromDate || !!toDate
+  const hasFilters = actionFilter !== "all" || !!entityFilter || statusFilter !== "all" || !!fromDate || !!toDate || !!userIdFilter
 
   const clearAll = () => {
-    setActionFilter("all")
-    setEntityFilter("")
-    setStatusFilter("all")
-    setFromDate("")
-    setToDate("")
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev)
+      for (const key of ["action", "entity", "status", "from", "to", "userId", "page"]) {
+        next.delete(key)
+      }
+      return next
+    }, { replace: true })
   }
 
   const activeChips: { key: string; label: string; onRemove: () => void }[] = []
-  if (actionFilter !== "all") activeChips.push({ key: "action", label: `Hành động: ${actionFilter}`, onRemove: () => setActionFilter("all") })
-  if (entityFilter) activeChips.push({ key: "entity", label: `Đối tượng: ${entityFilter}`, onRemove: () => setEntityFilter("") })
+  if (actionFilter !== "all") activeChips.push({ key: "action", label: `Hành động: ${actionFilter}`, onRemove: () => updateParams({ action: undefined }) })
+  if (entityFilter) activeChips.push({ key: "entity", label: `Đối tượng: ${entityFilter}`, onRemove: () => updateParams({ entity: undefined }) })
   if (statusFilter !== "all") {
     const st = statusBadge[statusFilter]?.label ?? statusFilter
-    activeChips.push({ key: "status", label: `Trạng thái: ${st}`, onRemove: () => setStatusFilter("all") })
+    activeChips.push({ key: "status", label: `Trạng thái: ${st}`, onRemove: () => updateParams({ status: undefined }) })
   }
-  if (fromDate) activeChips.push({ key: "from", label: `Từ: ${fromDate}`, onRemove: () => setFromDate("") })
-  if (toDate) activeChips.push({ key: "to", label: `Đến: ${toDate}`, onRemove: () => setToDate("") })
+  if (fromDate) activeChips.push({ key: "from", label: `Từ: ${fromDate}`, onRemove: () => updateParams({ from: undefined }) })
+  if (toDate) activeChips.push({ key: "to", label: `Đến: ${toDate}`, onRemove: () => updateParams({ to: undefined }) })
+  if (userIdFilter) {
+    const u = users.find((u) => String(u.id) === userIdFilter)
+    activeChips.push({ key: "user", label: `Người dùng: ${u?.fullName || userIdFilter}`, onRemove: () => updateParams({ userId: undefined }) })
+  }
 
   const columns: Column<AuditLog>[] = [
     {
@@ -154,7 +177,7 @@ export const AuditPage = () => {
         <div className="flex flex-wrap gap-2 items-end">
           <div className="space-y-1">
             <Label className="text-xs">Hành động</Label>
-            <Select value={actionFilter} onValueChange={setActionFilter}>
+            <Select value={actionFilter} onValueChange={(v) => updateParams({ action: v === "all" ? undefined : v, page: undefined })}>
               <SelectTrigger className="w-40 h-8 text-xs">
                 <SelectValue placeholder="Tất cả" />
               </SelectTrigger>
@@ -170,16 +193,23 @@ export const AuditPage = () => {
           </div>
           <div className="space-y-1">
             <Label className="text-xs">Đối tượng</Label>
-            <Input
-              placeholder="Ví dụ: USER"
-              className="w-36 h-8 text-xs"
-              value={entityFilter}
-              onChange={(e) => setEntityFilter(e.target.value)}
-            />
+            <Select value={entityFilter || "all"} onValueChange={(v) => updateParams({ entity: v === "all" ? undefined : v, page: undefined })}>
+              <SelectTrigger className="w-40 h-8 text-xs">
+                <SelectValue placeholder="Tất cả" />
+              </SelectTrigger>
+              <SelectContent className="max-h-[50vh]">
+                <SelectItem value="all">Tất cả</SelectItem>
+                {entityOptions.map((e) => (
+                  <SelectItem key={e} value={e}>
+                    {e}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="space-y-1">
             <Label className="text-xs">Trạng thái</Label>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <Select value={statusFilter} onValueChange={(v) => updateParams({ status: v === "all" ? undefined : v, page: undefined })}>
               <SelectTrigger className="w-32 h-8 text-xs">
                 <SelectValue placeholder="Tất cả" />
               </SelectTrigger>
@@ -191,12 +221,68 @@ export const AuditPage = () => {
             </Select>
           </div>
           <div className="space-y-1">
+            <Label className="text-xs">Người dùng</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  className="w-44 h-8 justify-between text-xs font-normal"
+                >
+                  {userIdFilter
+                    ? users.find((u) => String(u.id) === userIdFilter)?.fullName ?? "Tất cả"
+                    : "Tất cả"}
+                  <ChevronsUpDown className="size-3 ml-1 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-44 p-0">
+                <Command>
+                  <CommandInput placeholder="Tìm người dùng..." className="h-8 text-xs" />
+                  <CommandList>
+                    <CommandEmpty className="text-xs py-4">Không tìm thấy</CommandEmpty>
+                    <CommandGroup>
+                      <CommandItem
+                        value=""
+                        onSelect={() => updateParams({ userId: undefined, page: undefined })}
+                        className="text-xs h-8"
+                      >
+                        <Check
+                          className={cn(
+                            "mr-2 size-3 shrink-0",
+                            !userIdFilter ? "opacity-100" : "opacity-0",
+                          )}
+                        />
+                        Tất cả
+                      </CommandItem>
+                      {users.map((u) => (
+                        <CommandItem
+                          key={u.id}
+                          value={`${u.fullName} ${u.username}`}
+                          onSelect={() => updateParams({ userId: String(u.id), page: undefined })}
+                          className="text-xs h-8"
+                        >
+                          <Check
+                            className={cn(
+                              "mr-2 size-3 shrink-0",
+                              userIdFilter === String(u.id) ? "opacity-100" : "opacity-0",
+                            )}
+                          />
+                          {u.fullName} ({u.username})
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+          </div>
+          <div className="space-y-1">
             <Label className="text-xs">Từ ngày</Label>
             <Input
               type="date"
               className="w-36 h-8 text-xs"
               value={fromDate}
-              onChange={(e) => setFromDate(e.target.value)}
+              onChange={(e) => updateParams({ from: e.target.value || undefined, page: undefined })}
             />
           </div>
           <div className="space-y-1">
@@ -205,7 +291,7 @@ export const AuditPage = () => {
               type="date"
               className="w-36 h-8 text-xs"
               value={toDate}
-              onChange={(e) => setToDate(e.target.value)}
+              onChange={(e) => updateParams({ to: e.target.value || undefined, page: undefined })}
             />
           </div>
           {hasFilters && (
@@ -247,10 +333,10 @@ export const AuditPage = () => {
         page={page}
         totalPages={s?.totalPages}
         pageSize={pageSize}
-        onPageChange={setPage}
+        onPageChange={(p) => updateParams({ page: String(p) })}
         onPageSizeChange={(s) => {
           setPageSize(s)
-          setPage(0)
+          updateParams({ page: undefined })
         }}
       />
 

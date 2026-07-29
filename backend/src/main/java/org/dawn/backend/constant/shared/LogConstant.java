@@ -5,6 +5,7 @@ public class LogConstant {
         public static final String CREATE_PRICE_ADJUSTMENT = "CREATE_PRICE_ADJUSTMENT";
         public static final String APPROVE_PRICE_ADJUSTMENT = "APPROVE_PRICE_ADJUSTMENT";
         public static final String REJECT_PRICE_ADJUSTMENT = "REJECT_PRICE_ADJUSTMENT";
+        public static final String CANCEL_PRICE_ADJUSTMENT = "CANCEL_PRICE_ADJUSTMENT";
         public static final String CREATE_USER = "CREATE_USER";
         public static final String UPDATE_INFO = "UPDATE_USER_INFO";
         public static final String UPDATE_STATUS = "UPDATE_USER_STATUS";
@@ -37,18 +38,18 @@ public class LogConstant {
         public static final String TOGGLE_CUSTOMER = "TOGGLE_CUSTOMER";
         public static final String CREATE_EXPORT = "CREATE_EXPORT";
         public static final String APPROVE_EXPORT = "APPROVE_EXPORT";
+        public static final String REJECT_EXPORT = "REJECT_EXPORT";
+        public static final String FULFILL_EXPORT = "FULFILL_EXPORT";
         public static final String CANCEL_EXPORT = "CANCEL_EXPORT";
         public static final String CREATE_STOCK_CHECK = "CREATE_STOCK_CHECK";
+        public static final String START_STOCK_CHECK = "START_STOCK_CHECK";
         public static final String COMPLETE_STOCK_CHECK = "COMPLETE_STOCK_CHECK";
         public static final String APPROVE_STOCK_CHECK = "APPROVE_STOCK_CHECK";
         public static final String REJECT_STOCK_CHECK = "REJECT_STOCK_CHECK";
         public static final String CREATE_ADJUSTMENT = "CREATE_ADJUSTMENT";
         public static final String APPROVE_ADJUSTMENT = "APPROVE_ADJUSTMENT";
         public static final String REJECT_ADJUSTMENT = "REJECT_ADJUSTMENT";
-        public static final String CREATE_WARRANTY = "CREATE_WARRANTY";
-        public static final String RESOLVE_WARRANTY = "RESOLVE_WARRANTY";
-        public static final String COMPLETE_WARRANTY = "COMPLETE_WARRANTY";
-        public static final String CANCEL_WARRANTY = "CANCEL_WARRANTY";
+
         public static final String CREATE_PURCHASE_ORDER = "CREATE_PURCHASE_ORDER";
         public static final String CANCEL_PURCHASE_ORDER = "CANCEL_PURCHASE_ORDER";
         public static final String RECORD_STOCK_CHECK = "RECORD_STOCK_CHECK";
@@ -73,7 +74,6 @@ public class LogConstant {
         public static final String STOCK_CHECK = "STOCK_CHECK";
         public static final String STOCK_CHECK_ITEM = "STOCK_CHECK_ITEM";
         public static final String STOCK_ADJUSTMENT = "STOCK_ADJUSTMENT";
-        public static final String WARRANTY_REQUEST = "WARRANTY_REQUEST";
         public static final String PURCHASE_ORDER = "PURCHASE_ORDER";
         public static final String PRODUCT_IMAGE = "PRODUCT_IMAGE";
         public static final String RETURN_RECEIPT = "RETURN_RECEIPT";

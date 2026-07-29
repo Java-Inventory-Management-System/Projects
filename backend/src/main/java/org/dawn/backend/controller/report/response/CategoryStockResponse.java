@@ -10,5 +10,8 @@ public record CategoryStockResponse(
         String categoryName,
         long productCount,
         long totalUnits,
-        BigDecimal totalStockValue
+        BigDecimal totalStockValue,
+        long healthyCount,
+        long lowStockCount,
+        long outOfStockCount
 ) {}
