@@ -175,7 +175,7 @@ public class LocationService {
 
         int quantity = request.quantity() != null ? request.quantity() : units.size();
         if (quantity <= 0 || quantity > units.size()) {
-            throw new InvalidRequestException("Invalid quantity: " + quantity);
+            throw new InvalidRequestException(Message.format(Message.Inventory.INVALID_QUANTITY, quantity));
         }
 
         List<ProductUnit> toMove = quantity < units.size()

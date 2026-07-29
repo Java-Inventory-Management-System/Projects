@@ -1,13 +1,14 @@
 import { useState, useCallback } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
-import { usePurchaseOrders } from "@/hooks/use-purchase-orders"
+import { usePurchaseOrders, useCancelPurchaseOrder } from "@/hooks/use-purchase-orders"
 import { DataTable, type Column } from "@/components/ui/data-table"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Plus, Eye } from "lucide-react"
+import { Plus, Eye, X } from "lucide-react"
 import { usePermission } from "@/hooks/use-permission"
 import { ROLES } from "@/utils/permissions"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
+import { toast } from "@/utils/toast"
 import type { PurchaseOrder } from "@/utils/types"
 
 const statusConfig: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
@@ -20,6 +21,7 @@ const statusConfig: Record<string, { label: string; variant: "default" | "second
 export function POListPage() {
   const navigate = useNavigate()
   const perm = usePermission()
+  const cancelMut = useCancelPurchaseOrder()
   const [searchParams, setSearchParams] = useSearchParams()
   const page = Number(searchParams.get("page") ?? "0")
   const [pageSize, setPageSize] = useState(20)
@@ -77,16 +79,39 @@ export function POListPage() {
     },
     {
       header: "Thao tác",
-      className: "w-[70px]",
+      className: "w-[120px]",
       render: (p) => (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" onClick={() => navigate(`/stock/purchase-orders/${p.id}`)}>
-              <Eye className="size-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Xem chi tiết</TooltipContent>
-        </Tooltip>
+        <div className="flex items-center gap-1">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" onClick={() => navigate(`/stock/purchase-orders/${p.id}`)}>
+                <Eye className="size-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Xem chi tiết</TooltipContent>
+          </Tooltip>
+          {p.status !== "CANCELLED" && p.status !== "COMPLETED" && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="text-destructive hover:text-destructive"
+                  onClick={() => {
+                    cancelMut.mutate(p.id, {
+                      onSuccess: () => toast.success(`Đã hủy ${p.poCode}`),
+                      onError: (e) => toast.error(e.message),
+                    })
+                  }}
+                  disabled={cancelMut.isPending}
+                >
+                  <X className="size-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Hủy đơn hàng</TooltipContent>
+            </Tooltip>
+          )}
+        </div>
       ),
     },
   ]

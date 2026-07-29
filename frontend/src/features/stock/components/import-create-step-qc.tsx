@@ -65,7 +65,7 @@ export function ImportStepQc({ items, note, setNote, onQcStatus, onQcRecordsChan
 
   return (
     <div className="space-y-4">
-      <h2 className="text-sm font-semibold text-muted-foreground">Bước 4/4 — Kiểm tra chất lượng & xác nhận</h2>
+      <h2 className="text-sm font-semibold text-muted-foreground">Bước 3/3 — Kiểm tra chất lượng & xác nhận</h2>
 
       {qcRecords.length > 0 && (
         <div className="rounded-lg border bg-muted/30 px-4 py-3">

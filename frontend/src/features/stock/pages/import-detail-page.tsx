@@ -126,23 +126,14 @@ export function ImportDetailPage() {
           <Badge variant={s.variant}>{s.label}</Badge>
         </div>
         <div className="flex items-center gap-2">
-          {receipt.status === IMPORT_RECEIPT_STATUS.PENDING_APPROVAL && (
+          {receipt.status === IMPORT_RECEIPT_STATUS.PENDING_APPROVAL && perm.canApprove() && (
             <ButtonGroup>
-              {perm.canApprove() && (
-                <>
-                  <Button variant="outline" className="text-destructive" onClick={() => setConfirmAction("cancel")}>
-                    <X className="size-4 mr-1" /> Từ chối
-                  </Button>
-                  <Button onClick={() => setConfirmAction("approve")}>
-                    <Check className="size-4 mr-1" /> Duyệt
-                  </Button>
-                </>
-              )}
-              {perm.canCancel() && (
-                <Button variant="outline" className="text-destructive" onClick={() => setConfirmAction("cancel")}>
-                  <X className="size-4 mr-1" /> Hủy phiếu
-                </Button>
-              )}
+              <Button variant="outline" className="text-destructive" onClick={() => setConfirmAction("cancel")}>
+                <X className="size-4 mr-1" /> Từ chối
+              </Button>
+              <Button onClick={() => setConfirmAction("approve")}>
+                <Check className="size-4 mr-1" /> Duyệt
+              </Button>
             </ButtonGroup>
           )}
           {perm.canCancel() && receipt.status === IMPORT_RECEIPT_STATUS.DRAFT && (
@@ -150,7 +141,7 @@ export function ImportDetailPage() {
               <X className="size-4 mr-1" /> Hủy phiếu
             </Button>
           )}
-          {(receipt.status === IMPORT_RECEIPT_STATUS.DRAFT || receipt.status === IMPORT_RECEIPT_STATUS.PENDING_APPROVAL) && (
+          {receipt.status === IMPORT_RECEIPT_STATUS.DRAFT && (
             <Button variant="secondary" onClick={() => navigate(`/stock/imports/new?id=${receipt.id}`)}>
               <ScanLine className="size-4 mr-1" /> Nhập serial
             </Button>
