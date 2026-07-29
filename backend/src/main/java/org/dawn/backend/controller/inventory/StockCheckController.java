@@ -9,6 +9,7 @@ import org.dawn.backend.controller.inventory.request.CreateStockCheckRequest;
 import org.dawn.backend.controller.inventory.request.ImportSerialsRequest;
 import org.dawn.backend.controller.inventory.request.StockCheckItemRequest;
 import org.dawn.backend.controller.inventory.response.StockCheckResponse;
+import org.dawn.backend.service.inventory.stockcheck.StockCheckAdjustmentService;
 import org.dawn.backend.service.inventory.stockcheck.StockCheckService;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -20,6 +21,7 @@ import org.springframework.web.bind.annotation.*;
 public class StockCheckController {
 
     private final StockCheckService stockCheckService;
+    private final StockCheckAdjustmentService stockCheckAdjustmentService;
 
     @GetMapping("/stock-check/my")
     @PreAuthorize(AuthorizationExpressions.CAN_VIEW_INVENTORY)
@@ -82,7 +84,7 @@ public class StockCheckController {
     public ResponseObject<StockCheckResponse> approve(
             @PathVariable Long id,
             @RequestBody(required = false) ApproveStockCheckRequest request) {
-        return ResponseObject.success(stockCheckService.approve(id, request));
+        return ResponseObject.success(stockCheckAdjustmentService.approve(id, request));
     }
 
     @PutMapping("/stock-check/{id}/reject")
@@ -90,6 +92,6 @@ public class StockCheckController {
     public ResponseObject<StockCheckResponse> reject(
             @PathVariable Long id,
             @RequestBody(required = false) ApproveStockCheckRequest request) {
-        return ResponseObject.success(stockCheckService.reject(id, request));
+        return ResponseObject.success(stockCheckAdjustmentService.reject(id, request));
     }
 }

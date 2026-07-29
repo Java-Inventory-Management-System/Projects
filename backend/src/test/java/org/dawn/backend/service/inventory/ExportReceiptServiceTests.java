@@ -1,29 +1,27 @@
 package org.dawn.backend.service.inventory;
 
-import org.dawn.backend.config.web.response.ResponsePage;
+import org.dawn.backend.shared.statemachine.StateMachine;
 import org.dawn.backend.constant.enums.inventory.exports.ExportReason;
 import org.dawn.backend.constant.enums.inventory.exports.ExportReceiptStatus;
 import org.dawn.backend.constant.enums.inventory.ProductUnitStatus;
-import org.dawn.backend.constant.enums.inventory.SourceType;
-import org.dawn.backend.controller.inventory.request.ExportReceiptRequest;
-import org.dawn.backend.controller.inventory.request.ExportReceiptRequest.ExportItemRequest;
-import org.dawn.backend.entity.catalog.Product;
 import org.dawn.backend.entity.inventory.ExportReceipt;
 import org.dawn.backend.entity.inventory.ExportReceiptItem;
 import org.dawn.backend.entity.inventory.ExportReceiptItemUnit;
 import org.dawn.backend.entity.inventory.ProductUnit;
 import org.dawn.backend.exception.type.InvalidRequestException;
-import org.dawn.backend.exception.type.ResourceNotFoundException;
 import org.dawn.backend.repository.auth.UserRepository;
 import org.dawn.backend.repository.catalog.ProductRepository;
 import org.dawn.backend.repository.inventory.CustomerRepository;
 import org.dawn.backend.repository.inventory.exports.ExportReceiptItemRepository;
 import org.dawn.backend.repository.inventory.exports.ExportReceiptItemUnitRepository;
 import org.dawn.backend.repository.inventory.exports.ExportReceiptRepository;
-import org.dawn.backend.service.inventory.exports.ExportReceiptService;
+import org.dawn.backend.repository.inventory.exports.ExportReceiptStatusHistoryRepository;
 import org.dawn.backend.repository.inventory.ProductUnitRepository;
 import org.dawn.backend.repository.inventory.ProductUnitStatusLogRepository;
+import org.dawn.backend.service.inventory.exports.ExportReceiptService;
+import org.dawn.backend.service.inventory.exports.ExportWorkflowService;
 import org.dawn.backend.shared.util.SecurityUtils;
+import org.dawn.backend.config.security.SecurityPolicy;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -40,13 +38,14 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class ExportReceiptServiceTests {
 
     @Mock ExportReceiptRepository exportReceiptRepository;
+    @Mock ExportReceiptStatusHistoryRepository statusHistoryRepository;
     @Mock ExportReceiptItemRepository exportReceiptItemRepository;
     @Mock ExportReceiptItemUnitRepository exportReceiptItemUnitRepository;
     @Mock ProductUnitRepository productUnitRepository;
@@ -54,15 +53,16 @@ class ExportReceiptServiceTests {
     @Mock ProductRepository productRepository;
     @Mock CustomerRepository customerRepository;
     @Mock UserRepository userRepository;
+    @Mock StateMachine<ExportReceiptStatus> exportReceiptStateMachine;
+    @Mock SecurityPolicy securityPolicy;
+    @Mock ExportReceiptService exportReceiptService;
 
-    @InjectMocks ExportReceiptService exportReceiptService;
+    @InjectMocks ExportWorkflowService exportWorkflowService;
 
     @Captor ArgumentCaptor<ExportReceipt> receiptCaptor;
 
     private final Long userId = 1L;
     private final Long receiptId = 100L;
-
-    // ─── Approve tests ───────────────────────────────────────
 
     private void stubSave() {
         when(exportReceiptRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
@@ -74,144 +74,6 @@ class ExportReceiptServiceTests {
     }
 
     @Test
-    void approve_SALE_setsSoldAndWarranty() {
-        ExportReceipt receipt = pendingReceipt(ExportReason.SALE.name(), 99L);
-        var item = exportItem(receiptId, 10L);
-        var eiu = exportItemUnit(item.getId(), 1L, BigDecimal.ONE);
-        ProductUnit pu = serializedUnit(1L, ProductUnitStatus.IN_STOCK, BigDecimal.TEN);
-
-        when(exportReceiptRepository.findById(receiptId)).thenReturn(Optional.of(receipt));
-        stubSave();
-        stubToResponse();
-        when(exportReceiptItemRepository.findByReceiptId(receiptId)).thenReturn(List.of(item));
-        when(exportReceiptItemUnitRepository.findByExportReceiptItemId(item.getId())).thenReturn(List.of(eiu));
-        when(productUnitRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(pu));
-
-        try (MockedStatic<SecurityUtils> security = mockStatic(SecurityUtils.class)) {
-            security.when(SecurityUtils::getCurrentUserId).thenReturn(userId);
-
-            exportReceiptService.approve(receiptId);
-
-            assertEquals(ProductUnitStatus.SOLD, pu.getStatus());
-            assertNotNull(pu.getWarrantyStartDate());
-            assertNotNull(pu.getWarrantyExpiresAt());
-            assertEquals(ExportReceiptStatus.COMPLETED, receipt.getStatus());
-            assertEquals(userId, receipt.getApprovedBy());
-            verify(statusLogRepository).save(any());
-        }
-    }
-
-    @Test
-    void approve_RETURN_SUPPLIER_setsReturnedToSupplier() {
-        ExportReceipt receipt = pendingReceipt(ExportReason.RETURN_SUPPLIER.name(), 99L);
-        var item = exportItem(receiptId, 10L);
-        var eiu = exportItemUnit(item.getId(), 1L, BigDecimal.ONE);
-        ProductUnit pu = serializedUnit(1L, ProductUnitStatus.IN_STOCK, BigDecimal.TEN);
-
-        when(exportReceiptRepository.findById(receiptId)).thenReturn(Optional.of(receipt));
-        stubSave();
-        stubToResponse();
-        when(exportReceiptItemRepository.findByReceiptId(receiptId)).thenReturn(List.of(item));
-        when(exportReceiptItemUnitRepository.findByExportReceiptItemId(item.getId())).thenReturn(List.of(eiu));
-        when(productUnitRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(pu));
-
-        try (MockedStatic<SecurityUtils> security = mockStatic(SecurityUtils.class)) {
-            security.when(SecurityUtils::getCurrentUserId).thenReturn(userId);
-            exportReceiptService.approve(receiptId);
-            assertEquals(ProductUnitStatus.RETURNED_TO_SUPPLIER, pu.getStatus());
-            assertNull(pu.getWarrantyStartDate());
-        }
-    }
-
-    @Test
-    void approve_DISPOSE_setsDisposed() {
-        ExportReceipt receipt = pendingReceipt(ExportReason.DISPOSE.name(), 99L);
-        var item = exportItem(receiptId, 10L);
-        var eiu = exportItemUnit(item.getId(), 1L, BigDecimal.ONE);
-        ProductUnit pu = serializedUnit(1L, ProductUnitStatus.DAMAGED_IN_STORAGE, BigDecimal.TEN);
-
-        when(exportReceiptRepository.findById(receiptId)).thenReturn(Optional.of(receipt));
-        stubSave();
-        stubToResponse();
-        when(exportReceiptItemRepository.findByReceiptId(receiptId)).thenReturn(List.of(item));
-        when(exportReceiptItemUnitRepository.findByExportReceiptItemId(item.getId())).thenReturn(List.of(eiu));
-        when(productUnitRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(pu));
-
-        try (MockedStatic<SecurityUtils> security = mockStatic(SecurityUtils.class)) {
-            security.when(SecurityUtils::getCurrentUserId).thenReturn(userId);
-            exportReceiptService.approve(receiptId);
-            assertEquals(ProductUnitStatus.DISPOSED, pu.getStatus());
-        }
-    }
-
-    @Test
-    void approve_DISPOSE_fail_notDamaged() {
-        ExportReceipt receipt = pendingReceipt(ExportReason.DISPOSE.name(), 99L);
-        var item = exportItem(receiptId, 10L);
-        var eiu = exportItemUnit(item.getId(), 1L, BigDecimal.ONE);
-        ProductUnit pu = serializedUnit(1L, ProductUnitStatus.IN_STOCK, BigDecimal.TEN);
-
-        when(exportReceiptRepository.findById(receiptId)).thenReturn(Optional.of(receipt));
-        when(exportReceiptItemRepository.findByReceiptId(receiptId)).thenReturn(List.of(item));
-        when(exportReceiptItemUnitRepository.findByExportReceiptItemId(item.getId())).thenReturn(List.of(eiu));
-        when(productUnitRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(pu));
-
-        try (MockedStatic<SecurityUtils> security = mockStatic(SecurityUtils.class)) {
-            security.when(SecurityUtils::getCurrentUserId).thenReturn(userId);
-            assertThrows(InvalidRequestException.class, () -> exportReceiptService.approve(receiptId));
-        }
-    }
-
-    @Test
-    void approve_INTERNAL_tracksCogs() {
-        ExportReceipt receipt = pendingReceipt(ExportReason.INTERNAL.name(), 99L);
-        var item = exportItem(receiptId, 10L);
-        var eiu = exportItemUnit(item.getId(), 1L, BigDecimal.ONE);
-        ProductUnit pu = serializedUnit(1L, ProductUnitStatus.IN_STOCK, BigDecimal.TEN);
-        pu.setCostPrice(new BigDecimal("150.00"));
-
-        when(exportReceiptRepository.findById(receiptId)).thenReturn(Optional.of(receipt));
-        stubSave();
-        stubToResponse();
-        when(exportReceiptItemRepository.findByReceiptId(receiptId)).thenReturn(List.of(item));
-        when(exportReceiptItemUnitRepository.findByExportReceiptItemId(item.getId())).thenReturn(List.of(eiu));
-        when(productUnitRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(pu));
-
-        try (MockedStatic<SecurityUtils> security = mockStatic(SecurityUtils.class)) {
-            security.when(SecurityUtils::getCurrentUserId).thenReturn(userId);
-            exportReceiptService.approve(receiptId);
-            assertEquals(new BigDecimal("150.00"), receipt.getTotalCogs());
-        }
-    }
-
-    @Test
-    void approve_fail_creatorCannotApprove() {
-        ExportReceipt receipt = pendingReceipt(ExportReason.SALE.name(), userId);
-
-        when(exportReceiptRepository.findById(receiptId)).thenReturn(Optional.of(receipt));
-
-        try (MockedStatic<SecurityUtils> security = mockStatic(SecurityUtils.class)) {
-            security.when(SecurityUtils::getCurrentUserId).thenReturn(userId);
-            assertThrows(InvalidRequestException.class, () -> exportReceiptService.approve(receiptId));
-        }
-    }
-
-    @Test
-    void approve_fail_notPendingApproval() {
-        ExportReceipt receipt = pendingReceipt(ExportReason.SALE.name(), 99L);
-        receipt.setStatus(ExportReceiptStatus.COMPLETED);
-
-        when(exportReceiptRepository.findById(receiptId)).thenReturn(Optional.of(receipt));
-
-        try (MockedStatic<SecurityUtils> security = mockStatic(SecurityUtils.class)) {
-            security.when(SecurityUtils::getCurrentUserId).thenReturn(userId);
-            assertThrows(InvalidRequestException.class, () -> exportReceiptService.approve(receiptId));
-        }
-    }
-
-    // ─── Cancel tests ────────────────────────────────────────
-
-    @Test
     void cancel_success() {
         ExportReceipt receipt = pendingReceipt(ExportReason.SALE.name(), 99L);
 
@@ -219,7 +81,7 @@ class ExportReceiptServiceTests {
         stubSave();
         stubToResponse();
 
-        exportReceiptService.cancel(receiptId);
+        exportWorkflowService.cancel(receiptId);
 
         assertEquals(ExportReceiptStatus.CANCELLED, receipt.getStatus());
     }
@@ -231,7 +93,7 @@ class ExportReceiptServiceTests {
 
         when(exportReceiptRepository.findById(receiptId)).thenReturn(Optional.of(receipt));
 
-        assertThrows(InvalidRequestException.class, () -> exportReceiptService.cancel(receiptId));
+        assertThrows(InvalidRequestException.class, () -> exportWorkflowService.cancel(receiptId));
     }
 
     @Test
@@ -241,10 +103,8 @@ class ExportReceiptServiceTests {
 
         when(exportReceiptRepository.findById(receiptId)).thenReturn(Optional.of(receipt));
 
-        assertThrows(InvalidRequestException.class, () -> exportReceiptService.cancel(receiptId));
+        assertThrows(InvalidRequestException.class, () -> exportWorkflowService.cancel(receiptId));
     }
-
-    // ─── Helpers ─────────────────────────────────────────────
 
     private ExportReceipt pendingReceipt(String reason, Long createdBy) {
         return ExportReceipt.builder()

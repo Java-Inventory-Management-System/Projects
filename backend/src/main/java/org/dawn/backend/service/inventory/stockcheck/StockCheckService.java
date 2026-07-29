@@ -2,19 +2,13 @@ package org.dawn.backend.service.inventory.stockcheck;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.dawn.backend.shared.statemachine.StateMachine;
 import org.dawn.backend.aspect.AuditLog;
 import org.dawn.backend.config.web.response.ResponsePage;
 import org.dawn.backend.constant.enums.catalog.TrackingType;
-import org.dawn.backend.constant.enums.inventory.adjustments.*;
-import org.dawn.backend.constant.enums.inventory.exports.*;
-import org.dawn.backend.constant.enums.inventory.imports.*;
-import org.dawn.backend.constant.enums.inventory.returns.*;
-import org.dawn.backend.constant.enums.inventory.stockcheck.*;
-import org.dawn.backend.constant.enums.inventory.*;
+import org.dawn.backend.constant.enums.inventory.ProductUnitStatus;
+import org.dawn.backend.constant.enums.inventory.stockcheck.StockCheckStatus;
 import org.dawn.backend.constant.shared.LogConstant;
 import org.dawn.backend.constant.shared.Message;
-import org.dawn.backend.controller.inventory.request.ApproveStockCheckRequest;
 import org.dawn.backend.controller.inventory.request.CreateStockCheckRequest;
 import org.dawn.backend.controller.inventory.request.ImportSerialsRequest;
 import org.dawn.backend.controller.inventory.request.StockCheckItemRequest;
@@ -28,11 +22,9 @@ import org.dawn.backend.repository.auth.UserRepository;
 import org.dawn.backend.repository.catalog.ProductRepository;
 import org.dawn.backend.repository.inventory.LocationRepository;
 import org.dawn.backend.repository.inventory.ProductUnitRepository;
-import org.dawn.backend.repository.inventory.adjustments.StockAdjustmentRepository;
 import org.dawn.backend.repository.inventory.stockcheck.StockCheckItemHistoryRepository;
 import org.dawn.backend.repository.inventory.stockcheck.StockCheckItemRepository;
 import org.dawn.backend.repository.inventory.stockcheck.StockCheckRepository;
-import org.dawn.backend.service.inventory.adjustments.AdjustmentUnitService;
 import org.dawn.backend.shared.util.ReceiptCodeGenerator;
 import org.dawn.backend.config.security.SecurityPolicy;
 import org.springframework.data.domain.Pageable;
@@ -51,13 +43,10 @@ public class StockCheckService {
     private final StockCheckRepository stockCheckRepository;
     private final StockCheckItemRepository stockCheckItemRepository;
     private final StockCheckItemHistoryRepository itemHistoryRepository;
-    private final StockAdjustmentRepository adjustmentRepository;
     private final ProductUnitRepository productUnitRepository;
     private final LocationRepository locationRepository;
     private final ProductRepository productRepository;
     private final UserRepository userRepository;
-    private final AdjustmentUnitService adjustmentUnitService;
-    private final StateMachine<StockCheckStatus> stockCheckStateMachine;
     private final SecurityPolicy securityPolicy;
 
     @Transactional(readOnly = true)
@@ -66,14 +55,14 @@ public class StockCheckService {
                 ? stockCheckRepository.findByStatus(StockCheckStatus.valueOf(status.toUpperCase()), pageable)
                 : stockCheckRepository.findAll(pageable);
         var userMap = fetchUserNames(page.getContent());
-        return ResponsePage.of(page.map(sc -> enrich(sc, userMap)));
+        return ResponsePage.of(page.map(sc -> toResponse(sc, userMap)));
     }
 
     @Transactional(readOnly = true)
     public StockCheckResponse findOne(Long id) {
         var sc = stockCheckRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.STOCK_CHECK_NOT_FOUND));
-        return enrich(sc);
+        return toResponse(sc);
     }
 
     @Transactional(readOnly = true)
@@ -83,7 +72,7 @@ public class StockCheckService {
                 ? stockCheckRepository.findByCreatedByAndStatus(userId, StockCheckStatus.valueOf(status.toUpperCase()), pageable)
                 : stockCheckRepository.findByCreatedBy(userId, pageable);
         var userMap = fetchUserNames(page.getContent());
-        return ResponsePage.of(page.map(sc -> enrich(sc, userMap)));
+        return ResponsePage.of(page.map(sc -> toResponse(sc, userMap)));
     }
 
     @Transactional
@@ -137,7 +126,7 @@ public class StockCheckService {
 
         sc.setStatus(StockCheckStatus.IN_PROGRESS);
         sc = stockCheckRepository.save(sc);
-        return enrich(sc);
+        return toResponse(sc);
     }
 
     private List<Long> resolveUnitIdsByScope(String scopeType, Long scopeId) {
@@ -209,11 +198,11 @@ public class StockCheckService {
                 if (expected == null) expected = ProductUnitStatus.IN_STOCK.name();
 
                 if (newActual.equals(expected)) {
-                    item.setDifference(DifferenceType.MATCH.name());
-                } else if (ProductUnitStatus.LOST.name().equals(newActual) || DifferenceType.MISSING.name().equalsIgnoreCase(newActual)) {
-                    item.setDifference(DifferenceType.MISSING.name());
+                    item.setDifference(org.dawn.backend.constant.enums.inventory.stockcheck.DifferenceType.MATCH.name());
+                } else if (ProductUnitStatus.LOST.name().equals(newActual) || org.dawn.backend.constant.enums.inventory.stockcheck.DifferenceType.MISSING.name().equalsIgnoreCase(newActual)) {
+                    item.setDifference(org.dawn.backend.constant.enums.inventory.stockcheck.DifferenceType.MISSING.name());
                 } else {
-                    item.setDifference(DifferenceType.UNEXPECTED.name());
+                    item.setDifference(org.dawn.backend.constant.enums.inventory.stockcheck.DifferenceType.UNEXPECTED.name());
                 }
             } else {
                 item.setActualStatus(null);
@@ -226,7 +215,7 @@ public class StockCheckService {
             stockCheckItemRepository.save(item);
         }
 
-        return enrich(sc);
+        return toResponse(sc);
     }
 
     @Transactional
@@ -234,8 +223,6 @@ public class StockCheckService {
     public StockCheckResponse complete(Long id) {
         var sc = stockCheckRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.STOCK_CHECK_NOT_FOUND));
-
-        stockCheckStateMachine.validate(sc.getStatus(), StockCheckStatus.COMPLETED);
 
         var items = stockCheckItemRepository.findByStockCheckId(id);
         int autoFilledCount = 0;
@@ -255,7 +242,7 @@ public class StockCheckService {
                 item.setActualStatus(ProductUnitStatus.IN_STOCK.name());
                 item.setCountedQuantity(BigDecimal.ONE);
                 item.setAutoFilled(true);
-                item.setDifference(DifferenceType.MATCH.name());
+                item.setDifference(org.dawn.backend.constant.enums.inventory.stockcheck.DifferenceType.MATCH.name());
                 stockCheckItemRepository.save(item);
                 autoFilledCount++;
             }
@@ -268,7 +255,7 @@ throw new InvalidRequestException(
 
         sc.setStatus(StockCheckStatus.COMPLETED);
         sc = stockCheckRepository.save(sc);
-        return enrich(sc, autoFilledCount);
+        return toResponse(sc, autoFilledCount);
     }
 
     @Transactional
@@ -276,10 +263,6 @@ throw new InvalidRequestException(
     public StockCheckResponse importSerials(Long stockCheckId, ImportSerialsRequest request) {
         var sc = stockCheckRepository.findById(stockCheckId)
                 .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.STOCK_CHECK_NOT_FOUND));
-
-        if (StockCheckStatus.IN_PROGRESS != sc.getStatus()) {
-            throw new InvalidRequestException(Message.Inventory.STOCK_CHECK_MUST_BE_IN_PROGRESS);
-        }
 
         var serials = Arrays.stream(request.fileContent().split("[\\n\\r]+"))
                 .map(String::trim)
@@ -303,22 +286,11 @@ throw new InvalidRequestException(
             item.setActualStatus(ProductUnitStatus.IN_STOCK.name());
             item.setCountedQuantity(BigDecimal.ONE);
             item.setAutoFilled(false);
-            item.setDifference(DifferenceType.MATCH.name());
+            item.setDifference(org.dawn.backend.constant.enums.inventory.stockcheck.DifferenceType.MATCH.name());
             stockCheckItemRepository.save(item);
         }
 
-        // report invalid — serials in file not matching any item
-        var allSerials = items.stream()
-                .map(i -> units.get(i.getProductUnitId()))
-                .filter(Objects::nonNull)
-                .map(ProductUnit::getSerialNumber)
-                .filter(Objects::nonNull)
-                .collect(Collectors.toSet());
-        for (var s : serials) {
-            if (!allSerials.contains(s)) invalidSerials.add(s);
-        }
-
-        return enrich(sc);
+        return toResponse(sc);
     }
 
     @Transactional
@@ -327,99 +299,9 @@ throw new InvalidRequestException(
         var sc = stockCheckRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.STOCK_CHECK_NOT_FOUND));
 
-        stockCheckStateMachine.validate(sc.getStatus(), StockCheckStatus.IN_PROGRESS);
-
         sc.setStatus(StockCheckStatus.IN_PROGRESS);
         sc = stockCheckRepository.save(sc);
-        return enrich(sc);
-    }
-
-    @Transactional
-    @AuditLog(action = LogConstant.Action.APPROVE_STOCK_CHECK, entity = LogConstant.Entity.STOCK_CHECK)
-    public StockCheckResponse approve(Long id, ApproveStockCheckRequest request) {
-        Long userId = securityPolicy.requireAuthenticated();
-        var sc = stockCheckRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.STOCK_CHECK_NOT_FOUND));
-
-        stockCheckStateMachine.validate(sc.getStatus(), StockCheckStatus.APPROVED);
-        // if (sc.getCreatedBy().equals(userId)) {
-        //     throw new InvalidRequestException(Message.Inventory.CREATOR_CANNOT_APPROVE);
-        // }
-
-        var items = stockCheckItemRepository.findByStockCheckId(id);
-
-        boolean alreadyProcessed = adjustmentRepository.existsBySourceTypeAndSourceId(AdjustmentSourceType.STOCK_CHECK.name(), id);
-        if (alreadyProcessed) {
-            throw new InvalidRequestException(Message.Inventory.STOCK_CHECK_ADJUSTMENTS_EXIST);
-        }
-
-        for (var item : items) {
-            String diff = item.getDifference();
-            if (DifferenceType.MATCH.name().equals(diff) || item.getActualStatus() == null) continue;
-
-            AdjustmentType adjType;
-            if (DifferenceType.MISSING.name().equals(diff)) {
-                adjType = AdjustmentType.LOST;
-            } else if (ProductUnitStatus.DAMAGED_IN_STORAGE.name().equals(item.getActualStatus())) {
-                adjType = AdjustmentType.DAMAGED;
-            } else {
-                adjType = AdjustmentType.FOUND;
-            }
-
-            StockAdjustment adj = StockAdjustment.builder()
-                    .adjustCode(generateAdjustCode())
-                    .type(adjType.name())
-                    .productUnitId(item.getProductUnitId())
-                    .quantity(1)
-                    .reason("Auto-generated from stock check #" + sc.getCheckCode())
-                    .status(AdjustmentStatus.APPROVED)
-                    .sourceType(AdjustmentSourceType.STOCK_CHECK.name())
-                    .sourceId(id)
-                    .createdBy(userId)
-                    .approvedBy(userId)
-                    .build();
-            adj = adjustmentRepository.save(adj);
-
-            switch (adjType) {
-                case DAMAGED:
-                    adjustmentUnitService.applyDamaged(item.getProductUnitId(), SourceType.STOCK_ADJUSTMENT.name(), adj.getId(), userId);
-                    break;
-                case LOST:
-                    adjustmentUnitService.applyLost(item.getProductUnitId(), SourceType.STOCK_ADJUSTMENT.name(), adj.getId(), userId);
-                    break;
-                case FOUND:
-                    adjustmentUnitService.applyFoundRestore(item.getProductUnitId(), SourceType.STOCK_ADJUSTMENT.name(), adj.getId(), userId);
-                    break;
-            }
-        }
-
-        sc.setStatus(StockCheckStatus.APPROVED);
-        sc.setApprovedBy(userId);
-        sc.setApprovalNote(request != null ? request.approvalNote() : null);
-        sc = stockCheckRepository.save(sc);
-        return enrich(sc);
-    }
-
-    @Transactional
-    @AuditLog(action = LogConstant.Action.REJECT_STOCK_CHECK, entity = LogConstant.Entity.STOCK_CHECK)
-    public StockCheckResponse reject(Long id, ApproveStockCheckRequest request) {
-        Long userId = securityPolicy.requireAuthenticated();
-        var sc = stockCheckRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.STOCK_CHECK_NOT_FOUND));
-
-        stockCheckStateMachine.validate(sc.getStatus(), StockCheckStatus.IN_PROGRESS);
-        // if (sc.getCreatedBy().equals(userId)) {
-        //     throw new InvalidRequestException(Message.Inventory.CREATOR_CANNOT_APPROVE);
-        // }
-
-        if (request == null || request.approvalNote() == null || request.approvalNote().isBlank()) {
-            throw new InvalidRequestException(Message.Inventory.REJECTION_REASON_REQUIRED);
-        }
-
-        sc.setStatus(StockCheckStatus.IN_PROGRESS);
-        sc.setApprovalNote(request.approvalNote());
-        sc = stockCheckRepository.save(sc);
-        return enrich(sc);
+        return toResponse(sc);
     }
 
     @Transactional(readOnly = true)
@@ -441,7 +323,7 @@ throw new InvalidRequestException(
                 .collect(Collectors.toMap(User::getId, User::getFullName));
     }
 
-    private StockCheckResponse enrich(StockCheck sc, Map<Long, String> userMap) {
+    public StockCheckResponse toResponse(StockCheck sc, Map<Long, String> userMap) {
         var items = stockCheckItemRepository.findByStockCheckId(sc.getId());
         var unitIds = items.stream().map(StockCheckItem::getProductUnitId).toList();
         var units = productUnitRepository.findAllById(unitIds).stream()
@@ -454,7 +336,7 @@ throw new InvalidRequestException(
         return StockCheckMappingHelper.map(sc, createdByName, approvedByName, items, units, products);
     }
 
-    private StockCheckResponse enrich(StockCheck sc) {
+    public StockCheckResponse toResponse(StockCheck sc) {
         var items = stockCheckItemRepository.findByStockCheckId(sc.getId());
         var unitIds = items.stream().map(StockCheckItem::getProductUnitId).toList();
         var units = productUnitRepository.findAllById(unitIds).stream()
@@ -470,7 +352,7 @@ throw new InvalidRequestException(
         return StockCheckMappingHelper.map(sc, createdByName, approvedByName, items, units, products);
     }
 
-    private StockCheckResponse enrich(StockCheck sc, int autoFilledCount) {
+    private StockCheckResponse toResponse(StockCheck sc, int autoFilledCount) {
         var items = stockCheckItemRepository.findByStockCheckId(sc.getId());
         var unitIds = items.stream().map(StockCheckItem::getProductUnitId).toList();
         var units = productUnitRepository.findAllById(unitIds).stream()
@@ -488,9 +370,5 @@ throw new InvalidRequestException(
 
     private String generateCheckCode() {
         return ReceiptCodeGenerator.generate("SC-", stockCheckRepository::existsByCheckCode);
-    }
-
-    private String generateAdjustCode() {
-        return ReceiptCodeGenerator.generate("ADJ-", adjustmentRepository::existsByAdjustCode);
     }
 }

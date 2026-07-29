@@ -9,7 +9,9 @@ import org.dawn.backend.controller.inventory.request.FulfillExportRequest;
 import org.dawn.backend.controller.inventory.request.RejectExportRequest;
 import org.dawn.backend.controller.inventory.response.ExportReceiptResponse;
 import org.dawn.backend.controller.inventory.response.ProductUnitResponse;
+import org.dawn.backend.service.inventory.exports.ExportFulfillmentService;
 import org.dawn.backend.service.inventory.exports.ExportReceiptService;
+import org.dawn.backend.service.inventory.exports.ExportWorkflowService;
 import org.springframework.data.domain.Pageable;
 import org.springframework.web.bind.annotation.RequestParam;
 
@@ -23,6 +25,8 @@ import org.springframework.web.bind.annotation.*;
 public class ExportReceiptController {
 
     private final ExportReceiptService exportReceiptService;
+    private final ExportWorkflowService exportWorkflowService;
+    private final ExportFulfillmentService exportFulfillmentService;
 
     @GetMapping("/export-receipt")
     @PreAuthorize(AuthorizationExpressions.CAN_OPERATE)
@@ -47,25 +51,25 @@ public class ExportReceiptController {
     @PutMapping("/export-receipt/{id}/approve")
     @PreAuthorize(AuthorizationExpressions.CAN_APPROVE)
     public ResponseObject<ExportReceiptResponse> approve(@PathVariable Long id) {
-        return ResponseObject.success(exportReceiptService.approve(id));
+        return ResponseObject.success(exportWorkflowService.approve(id));
     }
 
     @PutMapping("/export-receipt/{id}/reject")
     @PreAuthorize(AuthorizationExpressions.CAN_APPROVE)
     public ResponseObject<ExportReceiptResponse> reject(@PathVariable Long id, @RequestBody RejectExportRequest request) {
-        return ResponseObject.success(exportReceiptService.reject(id, request));
+        return ResponseObject.success(exportWorkflowService.reject(id, request));
     }
 
     @PutMapping("/export-receipt/{id}/fulfill")
     @PreAuthorize(AuthorizationExpressions.CAN_OPERATE)
     public ResponseObject<ExportReceiptResponse> fulfill(@PathVariable Long id, @RequestBody FulfillExportRequest request) {
-        return ResponseObject.success(exportReceiptService.fulfill(id, request));
+        return ResponseObject.success(exportFulfillmentService.fulfill(id, request));
     }
 
     @PutMapping("/export-receipt/{id}/cancel")
     @PreAuthorize(AuthorizationExpressions.CAN_APPROVE)
     public ResponseObject<ExportReceiptResponse> cancel(@PathVariable Long id) {
-        return ResponseObject.success(exportReceiptService.cancel(id));
+        return ResponseObject.success(exportWorkflowService.cancel(id));
     }
 
     @GetMapping("/export-receipt/{id}/units")

@@ -15,7 +15,9 @@ import org.dawn.backend.controller.inventory.request.ConfirmImportRequest;
 import org.dawn.backend.controller.inventory.request.ImportReceiptRequest;
 import org.dawn.backend.controller.inventory.response.ImportReceiptResponse;
 import org.dawn.backend.controller.inventory.response.ProductUnitResponse;
+import org.dawn.backend.service.inventory.imports.ImportConfirmationService;
 import org.dawn.backend.service.inventory.imports.ImportReceiptService;
+import org.dawn.backend.service.inventory.imports.ImportWorkflowService;
 import org.dawn.backend.service.inventory.ProductUnitService;
 
 @RestController
@@ -24,6 +26,8 @@ import org.dawn.backend.service.inventory.ProductUnitService;
 public class ImportReceiptController {
 
     private final ImportReceiptService importReceiptService;
+    private final ImportConfirmationService importConfirmationService;
+    private final ImportWorkflowService importWorkflowService;
     private final ProductUnitService productUnitService;
 
     @GetMapping("/import-receipt")
@@ -47,19 +51,19 @@ public class ImportReceiptController {
     @PutMapping("/import-receipt/{id}/confirm")
     @PreAuthorize(AuthorizationExpressions.CAN_OPERATE_STOCK)
     public ResponseObject<ImportReceiptResponse> confirm(@PathVariable Long id, @RequestBody ConfirmImportRequest request) {
-        return ResponseObject.success(importReceiptService.confirm(id, request));
+        return ResponseObject.success(importConfirmationService.confirm(id, request));
     }
 
     @PutMapping("/import-receipt/{id}/approve")
     @PreAuthorize(AuthorizationExpressions.CAN_APPROVE)
     public ResponseObject<ImportReceiptResponse> approve(@PathVariable Long id) {
-        return ResponseObject.success(importReceiptService.approve(id));
+        return ResponseObject.success(importWorkflowService.approve(id));
     }
 
     @PutMapping("/import-receipt/{id}/cancel")
     @PreAuthorize(AuthorizationExpressions.CAN_APPROVE)
     public ResponseObject<ImportReceiptResponse> cancel(@PathVariable Long id) {
-        return ResponseObject.success(importReceiptService.cancel(id));
+        return ResponseObject.success(importWorkflowService.cancel(id));
     }
 
     @GetMapping("/import-receipt/{id}/units")
