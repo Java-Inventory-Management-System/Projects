@@ -136,6 +136,17 @@ public interface ProductUnitRepository extends JpaRepository<ProductUnit, Long> 
             """, nativeQuery = true)
     List<Object[]> aggregateInStockByProductIdIn(@Param("productIds") List<Long> productIds);
 
+    @Query(value = "SELECT pu.location_id, p.sku FROM product_units pu JOIN products p ON pu.product_id = p.id WHERE pu.status = 'IN_STOCK' AND pu.location_id IS NOT NULL", nativeQuery = true)
+    List<Object[]> findSkuByLocationIdRaw();
+
+    default Map<Long, List<String>> findSkuByLocationId() {
+        return findSkuByLocationIdRaw().stream()
+            .collect(Collectors.groupingBy(
+                row -> (Long) row[0],
+                Collectors.mapping(row -> (String) row[1], Collectors.toList())
+            ));
+    }
+
     default Map<Long, Long> countByLocation() {
         return countByLocationRaw().stream()
             .collect(Collectors.toMap(row -> (Long) row[0], row -> (Long) row[1]));

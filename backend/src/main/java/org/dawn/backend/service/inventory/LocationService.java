@@ -24,11 +24,12 @@ import org.dawn.backend.exception.type.ResourceNotFoundException;
 import org.dawn.backend.repository.inventory.LocationRepository;
 import org.dawn.backend.repository.inventory.ProductUnitRepository;
 import org.dawn.backend.repository.inventory.ProductUnitStatusLogRepository;
-import org.dawn.backend.shared.util.SecurityUtils;
+import org.dawn.backend.config.security.SecurityPolicy;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -43,6 +44,7 @@ public class LocationService {
     private final LocationRepository locationRepository;
     private final ProductUnitRepository productUnitRepository;
     private final ProductUnitStatusLogRepository productUnitStatusLogRepository;
+    private final SecurityPolicy securityPolicy;
 
     @Transactional(readOnly = true)
     public LocationMapResponse getMap() {
@@ -171,14 +173,23 @@ public class LocationService {
             throw new InvalidRequestException(Message.Inventory.SOURCE_BIN_EMPTY);
         }
 
-        long currentUserId = SecurityUtils.getCurrentUserId();
+        int quantity = request.quantity() != null ? request.quantity() : units.size();
+        if (quantity <= 0 || quantity > units.size()) {
+            throw new InvalidRequestException("Invalid quantity: " + quantity);
+        }
 
-        for (ProductUnit unit : units) {
+        List<ProductUnit> toMove = quantity < units.size()
+                ? new ArrayList<>(units.subList(0, quantity))
+                : units;
+
+        long currentUserId = securityPolicy.requireAuthenticated();
+
+        for (ProductUnit unit : toMove) {
             unit.setLocationId(destId);
         }
-        productUnitRepository.saveAll(units);
+        productUnitRepository.saveAll(toMove);
 
-        List<ProductUnitStatusLog> logs = units.stream().<ProductUnitStatusLog>map(unit ->
+        List<ProductUnitStatusLog> logs = toMove.stream().<ProductUnitStatusLog>map(unit ->
             ProductUnitStatusLog.builder()
                     .productUnitId(unit.getId())
                     .fromStatus(ProductUnitStatus.IN_STOCK.name())
@@ -190,6 +201,6 @@ public class LocationService {
         ).toList();
         productUnitStatusLogRepository.saveAll(logs);
 
-        log.info("Relocated {} units from location {} to location {}", units.size(), sourceId, destId);
+        log.info("Relocated {} units from location {} to location {}", toMove.size(), sourceId, destId);
     }
 }

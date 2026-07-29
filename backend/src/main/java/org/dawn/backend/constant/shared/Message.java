@@ -91,6 +91,8 @@ public class Message {
         public static final String LOCATION_CODE_EXISTS = "Location code already exists";
         public static final String LOCATION_CODE_REQUIRED = "Zone code, shelf code, and bin code are required";
         public static final String CANNOT_DELETE_LOCATION_WITH_UNITS = "Cannot delete location with {0} product unit(s)";
+        public static final String SOURCE_BIN_EMPTY = "Source bin has no product units to relocate";
+        public static final String RELOCATE_SAME_BIN = "Cannot relocate to the same bin";
         public static final String CUSTOMER_NOT_FOUND = "Customer not found";
         public static final String IMPORT_RECEIPT_NOT_FOUND = "Import receipt not found";
         public static final String IMPORT_ITEM_NOT_FOUND = "Import receipt item not found";
