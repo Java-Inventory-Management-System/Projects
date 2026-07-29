@@ -73,7 +73,7 @@ services:
       context: ./frontend
       args:
         VITE_BASE_API_URL: http://localhost:8888/api/v1
-        VITE_SKIP_AUTH: "true"
+        VITE_SKIP_AUTH: ${APP_SECURITY_ENABLED:-true}
     ports:
       - '5173:80'
     networks:

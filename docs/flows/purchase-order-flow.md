@@ -6,10 +6,10 @@
 
 | Method | Endpoint | Role Guard |
 |--------|----------|------------|
-| `GET` | `/purchase-order` | `CAN_VIEW_INVENTORY` |
-| `GET` | `/purchase-order/{id}` | `CAN_VIEW_INVENTORY` |
-| `POST` | `/purchase-order` | `CAN_MANAGE_CATALOG` |
-| `PUT` | `/purchase-order/{id}/cancel` | `CAN_MANAGE_CATALOG` |
+| `GET` | `/purchase-order` | `ROLE_MANAGER` |
+| `GET` | `/purchase-order/{id}` | `ROLE_MANAGER` |
+| `POST` | `/purchase-order` | `ROLE_MANAGER` |
+| `PUT` | `/purchase-order/{id}/cancel` | `ROLE_MANAGER` |
 
 ### Service — `PurchaseOrderService`
 
