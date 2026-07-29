@@ -1,3 +1,6 @@
+-- V1: Authentication & Authorization
+
+-- User roles: ADMIN, MANAGER, SALES, STOCK
 CREATE TABLE roles (
     id          BIGINT PRIMARY KEY AUTO_INCREMENT,
     name        VARCHAR(50) NOT NULL UNIQUE,
@@ -6,12 +9,13 @@ CREATE TABLE roles (
     updated_at  TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
+-- System users: login, password reset, role-based access
 CREATE TABLE users (
     id                BIGINT PRIMARY KEY AUTO_INCREMENT,
     username          VARCHAR(100) NOT NULL UNIQUE,
     full_name         VARCHAR(255),
     password          VARCHAR(255) NOT NULL,
-    gender            SMALLINT,
+    gender            SMALLINT,                         -- 0=male 1=female 2=other
     date_of_birth     DATE,
     phone_number      VARCHAR(20) UNIQUE,
     email             VARCHAR(255) UNIQUE,
@@ -27,38 +31,44 @@ CREATE TABLE users (
     CONSTRAINT ck_users_gender CHECK ( gender IN (0, 1, 2))
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
+-- JWT refresh tokens (persistent login)
 CREATE TABLE refresh_tokens (
     id          BIGINT AUTO_INCREMENT,
     user_id     BIGINT       NOT NULL,
     token       VARCHAR(500) NOT NULL,
     expiry_date TIMESTAMP    NOT NULL,
     CONSTRAINT pk_refresh_token PRIMARY KEY (id),
+    INDEX idx_rt_token (token),
+    INDEX idx_rt_user (user_id),
     CONSTRAINT fk_token_user FOREIGN KEY (user_id) REFERENCES users (id)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
+-- Password reset tokens (email-based)
 CREATE TABLE password_reset_tokens (
     id          BIGINT PRIMARY KEY AUTO_INCREMENT,
     user_id     BIGINT       NOT NULL,
     token       VARCHAR(255) NOT NULL UNIQUE,
     expiry_date TIMESTAMP    NOT NULL,
     used        SMALLINT              DEFAULT 0 NOT NULL,
+    INDEX idx_prt_user (user_id),
     created_at  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_prt_user FOREIGN KEY (user_id) REFERENCES users (id)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
+-- Audit trail: logs every action (create/update/delete/approve/login/...)
 CREATE TABLE audit_logs (
     id          BIGINT AUTO_INCREMENT,
     user_id     BIGINT,
     username    VARCHAR(100),
     ip_address  VARCHAR(45),
     request_id  VARCHAR(36),
-    action      VARCHAR(100)  NOT NULL,
-    entity_name VARCHAR(100)  NOT NULL,
-    entity_id   VARCHAR(100),
-    old_value   JSON,
-    new_value   JSON,
-    status      VARCHAR(20)   NOT NULL DEFAULT 'SUCCESS',
+    action      VARCHAR(100)  NOT NULL,                      -- CREATE/UPDATE/APPROVE/LOGIN/...
+    entity_name VARCHAR(100)  NOT NULL,                      -- PRODUCT/IMPORT_RECEIPT/...
+    entity_id   VARCHAR(100),                                -- target entity's ID
+    old_value   JSON,                                        -- before snapshot
+    new_value   JSON,                                        -- after snapshot
+    status      VARCHAR(20)   NOT NULL DEFAULT 'SUCCESS',    -- SUCCESS / FAILED
     error_msg   TEXT,
     created_at  TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT pk_audit_logs PRIMARY KEY (id),
@@ -66,7 +76,8 @@ CREATE TABLE audit_logs (
     INDEX idx_audit_created_at (created_at),
     INDEX idx_audit_entity (entity_name, entity_id),
     INDEX idx_audit_user (user_id),
-    INDEX idx_audit_action (action, created_at)
+    INDEX idx_audit_action (action, created_at),
+    INDEX idx_audit_status (status)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
 INSERT INTO roles (name, description)

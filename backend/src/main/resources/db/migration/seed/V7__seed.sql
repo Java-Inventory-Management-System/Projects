@@ -1,5 +1,9 @@
+-- Seed: master data for dev/test — categories, brands, suppliers, locations, customers,
+-- products, import/export receipts with items/units, returns, warranty, stock checks,
+-- stock adjustments, and price adjustments
 UPDATE users SET password='$2b$10$WUCuZtOYfGNQAgc4/0Xd.uVTfAfw8G/A0zDptAt.xSsfuDrd9welG' WHERE username IN ('admin','manager','sales','stock');
 
+-- Categories
 INSERT INTO categories(id,name,description,is_active)WITH cat(id,name,`desc`,active)AS(
     SELECT 1,'CPU','Bộ vi xử lý Intel, AMD',TRUE
     UNION ALL SELECT 2,'RAM','Bộ nhớ trong DDR4, DDR5',TRUE
@@ -11,8 +15,10 @@ INSERT INTO categories(id,name,description,is_active)WITH cat(id,name,`desc`,act
     UNION ALL SELECT 8,'Cooling','Tản nhiệt, quạt',TRUE
 )SELECT id,name,`desc`,active FROM cat;
 
+-- Category zone assignments (which zone each category is stored in)
 INSERT INTO category_zones(category_id,zone_code)WITH cz(cid,zone)AS(SELECT 1,'A'UNION ALL SELECT 2,'D'UNION ALL SELECT 3,'B'UNION ALL SELECT 4,'E'UNION ALL SELECT 5,'F'UNION ALL SELECT 6,'C'UNION ALL SELECT 7,'G'UNION ALL SELECT 8,'H')SELECT cid,zone FROM cz;
 
+-- Brands
 INSERT INTO brands(id,name,description,is_active)WITH b(id,name,`desc`,active)AS(
     SELECT 1,'ASUS','Mainboard, GPU, linh kiện cao cấp',TRUE
     UNION ALL SELECT 2,'Gigabyte','Mainboard, GPU, linh kiện',TRUE
@@ -29,6 +35,7 @@ INSERT INTO brands(id,name,description,is_active)WITH b(id,name,`desc`,active)AS
     UNION ALL SELECT 13,'Kingston','RAM, SSD',FALSE
 )SELECT id,name,`desc`,active FROM b;
 
+-- Suppliers
 INSERT INTO suppliers(id,name,contact_person,phone,email,address,tax_code,note,is_active)WITH s(id,name,contact,phone,email,address,tax,note,active)AS(
     SELECT 1,'Intel Vietnam','John Smith','02812345678','sales@intel.vn','Số 1, Lê Duẩn, Q.1, TP.HCM','1234567890',NULL,TRUE
     UNION ALL SELECT 2,'Corsair Asia Pte Ltd','Sarah Lee','02823456789','orders@corsair.sg','2 Jurong East, Singapore',NULL,'NCC quốc tế, cần đặt trước 7 ngày',TRUE
@@ -38,6 +45,7 @@ INSERT INTO suppliers(id,name,contact_person,phone,email,address,tax_code,note,i
     UNION ALL SELECT 6,'Gigabyte Technology',NULL,NULL,NULL,NULL,NULL,'NCC mới — chờ cập nhật thông tin',TRUE
 )SELECT id,name,contact,phone,email,address,tax,note,active FROM s;
 
+-- Locations (warehouse bins)
 INSERT INTO locations(zone_code,shelf_code,bin_code,full_code,description,is_active)WITH l(z,s,b,f,d,active)AS(
     SELECT'A','01','01','A-01-01','CPU Intel',TRUE
     UNION ALL SELECT'A','01','02','A-01-02','CPU Intel',TRUE
@@ -155,8 +163,10 @@ INSERT INTO locations(zone_code,shelf_code,bin_code,full_code,description,is_act
     UNION ALL SELECT'Z','01','02','Z-01-02','Hàng mới nhập — chờ phân loại',TRUE
     UNION ALL SELECT'Z','02','01','Z-02-01','Hàng chuyển kho — tạm thời',TRUE
     UNION ALL SELECT'Z','02','02','Z-02-02','Hàng chờ xuất — tạm thời',TRUE
+    UNION ALL SELECT'QC','QC','HOLD','QC-QC-HOLD','QC hold quarantine zone',TRUE,NULL
 )SELECT z,s,b,f,d,active FROM l;
 
+-- Customers
 INSERT INTO customers(id,name,phone,email,address,note,is_active)WITH c(id,name,phone,email,address,note,active)AS(
     SELECT 1,'Công ty TNHH ABC','02812345678','info@abc.vn','123 Nguyễn Huệ, Q.1, TP.HCM',NULL,TRUE
     UNION ALL SELECT 2,'Cửa hàng PC Plus','02823456789',NULL,'456 Lê Lợi, Q.1, TP.HCM','KH quen, thường mua số lượng lớn',TRUE
@@ -166,6 +176,7 @@ INSERT INTO customers(id,name,phone,email,address,note,is_active)WITH c(id,name,
     UNION ALL SELECT 6,'Phạm Hoàng Quân','0978563412',NULL,'654 Lý Tự Trọng, Q.10, TP.HCM',NULL,FALSE
 )SELECT id,name,phone,email,address,note,active FROM c;
 
+-- Products (mix of SERIALIZED and BULK tracking)
 INSERT INTO products(id,name,sku,barcode,brand_id,category_id,description,unit,tracking_type,sell_price,min_stock,is_active)WITH p(id,name,sku,barcode,bid,cid,`desc`,unit,track,price,min,active)AS(
     SELECT 1,'Intel Core i7-14700K','CPU-INT-001','8801791990741',4,1,'20 nhân 28 luồng, 5.6GHz','PIECE','SERIALIZED',11499000,5,TRUE
     UNION ALL SELECT 2,'Intel Core i5-14600K','CPU-INT-002','8801791990758',4,1,'14 nhân 20 luồng, 5.3GHz','PIECE','SERIALIZED',8499000,5,TRUE
@@ -198,12 +209,15 @@ INSERT INTO products(id,name,sku,barcode,brand_id,category_id,description,unit,t
     UNION ALL SELECT 29,'WD Blue SN580 1TB NVMe','STO-WD-002','7180378869318',8,6,'PCIe 4.0 NVMe, đọc 4150MB/s','PIECE','SERIALIZED',2999000,10,TRUE
     UNION ALL SELECT 30,'Noctua NH-D15 chromax.black','CLN-NOC-001','4711176752040',12,8,'Tản nhiệt khí dual tower, black','PIECE','SERIALIZED',2999000,5,TRUE
     UNION ALL SELECT 31,'Cooler Master Hyper 212 Halo','CLN-CM-002','4711176752057',11,8,'Tản nhiệt khí single tower, ARGB','PIECE','SERIALIZED',1599000,10,TRUE
-    UNION ALL SELECT 32,'Corsair Vengeance DDR4 32GB 3200MHz','RAM-COR-003','8435911058902',7,2,'DDR4, 32GB (2x16GB), 3200MHz','PIECE','SERIALIZED',2299000,10,FALSE
+    UNION ALL SELECT 32,'Corsair Vengeance DDR4 32GB 3200MHz','RAM-COR-003','8435911058902',7,2,'DDR4, 32GB (2x16GB), 3200MHz','PIECE','SERIALIZED',2299000,10,TRUE
+    UNION ALL SELECT 33,'Thermal Grizzly Kryonaut 1g','THR-TG-001','4260719050015',12,8,'Thermal paste high-end, 1g tube','PIECE','BULK',199000,20,TRUE
 )SELECT id,name,sku,barcode,bid,cid,`desc`,unit,track,price,min,active FROM p;
 
+-- Import receipts (receiving supplier stock)
 INSERT INTO import_receipts(id,receipt_code,supplier_id,status,note,created_by,approved_by,created_at,updated_at)
 VALUES(1,'INIT-000001',1,'COMPLETED',NULL,4,2,'2026-07-01 08:00:00','2026-07-01 08:30:00');
 
+-- Import receipt line items
 INSERT INTO import_receipt_items(id,receipt_id,product_id,quantity,unit_price,warranty_months)WITH iri(id,rid,pid,qty,price,warranty)AS(
     SELECT 1,1,1,12,9499000,36 UNION ALL SELECT 2,1,2,8,6999000,36
     UNION ALL SELECT 3,1,3,6,10499000,36 UNION ALL SELECT 4,1,4,15,4999000,36
@@ -224,32 +238,127 @@ INSERT INTO import_receipt_items(id,receipt_id,product_id,quantity,unit_price,wa
 )SELECT id,rid,pid,qty,price,warranty FROM iri;
 
 SET FOREIGN_KEY_CHECKS=0;
+-- Product units (serialized inventory items)
 INSERT INTO product_units(serial_number,product_id,tracking_type,import_receipt_item_id,location_id,status,imported_at,warranty_months)
 WITH RECURSIVE seq(n)AS(SELECT 1 UNION ALL SELECT n+1 FROM seq WHERE n<100),loc(pid,loc1,loc2,cnt)AS(SELECT 1,1,2,2 UNION ALL SELECT 2,1,2,2 UNION ALL SELECT 3,3,4,2 UNION ALL SELECT 4,3,4,2 UNION ALL SELECT 5,5,5,1 UNION ALL SELECT 6,6,6,1 UNION ALL SELECT 7,7,7,1 UNION ALL SELECT 8,8,8,1 UNION ALL SELECT 9,9,10,2 UNION ALL SELECT 10,9,10,2 UNION ALL SELECT 11,11,11,1 UNION ALL SELECT 12,14,15,2 UNION ALL SELECT 13,14,15,2 UNION ALL SELECT 14,16,16,1 UNION ALL SELECT 15,17,17,1 UNION ALL SELECT 16,18,18,1 UNION ALL SELECT 17,19,19,1 UNION ALL SELECT 18,20,20,1 UNION ALL SELECT 19,21,21,1 UNION ALL SELECT 20,22,22,1 UNION ALL SELECT 21,23,23,1 UNION ALL SELECT 22,24,24,1 UNION ALL SELECT 23,25,25,1 UNION ALL SELECT 24,26,26,1 UNION ALL SELECT 25,27,27,1 UNION ALL SELECT 26,28,28,1 UNION ALL SELECT 27,29,29,1 UNION ALL SELECT 28,12,12,1 UNION ALL SELECT 29,13,13,1 UNION ALL SELECT 30,30,30,1 UNION ALL SELECT 31,27,28,2)
 SELECT CONCAT('INIT-',i.id,'-',LPAD(ROW_NUMBER()OVER(PARTITION BY i.product_id ORDER BY s.n),3,'0')),i.product_id,'SERIALIZED',i.id,CASE (s.n-1)%loc.cnt WHEN 0 THEN loc.loc1 ELSE loc.loc2 END,'IN_STOCK','2026-07-01 08:00:00',i.warranty_months
 FROM import_receipt_items i JOIN seq s ON s.n<=i.quantity JOIN loc ON loc.pid=i.product_id ORDER BY i.product_id,s.n;
 
+-- Export receipts: #1 (SALE, CPU+DDR4+Win11, approved+fulfilled)
 INSERT INTO export_receipts(id,receipt_code,reason,customer_id,total_amount,status,note,created_by,approved_by,created_at,updated_at)
 VALUES(1,'EXP-20260702-001','SALE',1,58992000,'COMPLETED',NULL,4,2,'2026-07-02 14:00:00','2026-07-02 16:00:00');
 INSERT INTO export_receipt_items VALUES(1,1,1,3,11499000,34497000),(2,1,9,5,4899000,24495000);
 INSERT INTO export_receipt_item_units(export_receipt_item_id,product_unit_id,quantity,sell_price)SELECT 1,id,1,11499000 FROM product_units WHERE product_id=1 AND status='IN_STOCK' ORDER BY imported_at LIMIT 3;
 INSERT INTO export_receipt_item_units(export_receipt_item_id,product_unit_id,quantity,sell_price)SELECT 2,id,1,4899000 FROM product_units WHERE product_id=9 AND status='IN_STOCK' ORDER BY imported_at LIMIT 5;
-UPDATE product_units SET status='SOLD' WHERE id IN(SELECT product_unit_id FROM export_receipt_item_units WHERE export_receipt_item_id IN(1,2));
+UPDATE product_units SET status='EXPORTED',
+    warranty_start_date = '2026-07-02 08:00:00',
+    warranty_expires_at = DATE_ADD('2026-07-02 08:00:00', INTERVAL warranty_months MONTH)
+WHERE id IN(SELECT product_unit_id FROM export_receipt_item_units WHERE export_receipt_item_id IN(1,2));
+-- Export #2 (SALE, CPU+DDR4, waiting approval, pending test)
 INSERT INTO export_receipts(id,receipt_code,reason,customer_id,total_amount,status,note,created_by,created_at,updated_at)
 VALUES(2,'EXP-20260708-001','SALE',3,30598000,'PENDING','Chờ duyệt xuất',3,'2026-07-08 11:00:00','2026-07-08 11:00:00');
 INSERT INTO export_receipt_items VALUES(3,2,5,2,15299000,30598000);
+
+-- ============================================================
+-- Return test data: import/export for BULK + SERIALIZED mix,
+-- multi-serial same product, expired CHANGE_MIND window
+-- ============================================================
+
+INSERT INTO import_receipts (id, receipt_code, supplier_id, status, note, created_by, approved_by, created_at, updated_at)
+VALUES (100, 'INIT-SEED-100', 1, 'COMPLETED', 'Stock cho return tests', 4, 2, '2026-07-25 08:00:00', '2026-07-25 08:30:00');
+
+INSERT INTO import_receipt_items (id, receipt_id, product_id, quantity, unit_price, warranty_months)
+VALUES
+  (100, 100, 1,  5,  9499000, 36),
+  (101, 100, 9, 10,  3899000, 60),
+  (102, 100, 32, 8,  1799000, 24),
+  (103, 100, 33, 100, 150000, 12);
+
+INSERT INTO product_units (serial_number, product_id, tracking_type, import_receipt_item_id, location_id, status, imported_at, warranty_months)
+SELECT CONCAT('RET-CPU-', LPAD(n, 3, '0')), 1, 'SERIALIZED', 100, 1, 'IN_STOCK', '2026-07-25 08:00:00', 36
+FROM (SELECT 1 n UNION SELECT 2 UNION SELECT 3 UNION SELECT 4 UNION SELECT 5) nums;
+
+INSERT INTO product_units (serial_number, product_id, tracking_type, import_receipt_item_id, location_id, status, imported_at, warranty_months)
+SELECT CONCAT('RET-SSD-', LPAD(n, 3, '0')), 9, 'SERIALIZED', 101, 1, 'IN_STOCK', '2026-07-25 08:00:00', 60
+FROM (SELECT 1 n UNION SELECT 2 UNION SELECT 3 UNION SELECT 4 UNION SELECT 5 UNION SELECT 6 UNION SELECT 7 UNION SELECT 8 UNION SELECT 9 UNION SELECT 10) nums;
+
+INSERT INTO product_units (serial_number, product_id, tracking_type, import_receipt_item_id, location_id, status, imported_at, warranty_months)
+SELECT CONCAT('RET-DDR4-', LPAD(n, 3, '0')), 32, 'SERIALIZED', 102, 1, 'IN_STOCK', '2026-07-25 08:00:00', 24
+FROM (SELECT 1 n UNION SELECT 2 UNION SELECT 3 UNION SELECT 4 UNION SELECT 5 UNION SELECT 6 UNION SELECT 7 UNION SELECT 8) nums;
+
+INSERT INTO product_units (serial_number, product_id, tracking_type, initial_quantity, remaining_quantity, import_receipt_item_id, location_id, status, imported_at, warranty_months)
+VALUES (NULL, 33, 'BULK', 100, 100, 103, 1, 'IN_STOCK', '2026-07-25 08:00:00', 12);
+
+-- Export 100 — within 7-day CHANGE_MIND window, BULK + SERIALIZED mix
+INSERT INTO export_receipts (id, receipt_code, reason, customer_id, total_amount, status, note, created_by, approved_by, fulfilled_by, fulfilled_at, created_at, updated_at)
+VALUES (100, 'EXP-20260728-100', 'SALE', 1, 23996000, 'COMPLETED', 'BULK + SERIALIZED mix', 4, 2, 2, '2026-07-28 10:00:00', '2026-07-28 08:00:00', '2026-07-28 10:00:00');
+
+INSERT INTO export_receipt_items (id, receipt_id, product_id, quantity, unit_price, total_price)
+VALUES (100, 100, 1, 2, 11499000, 22998000), (101, 100, 33, 5, 199000, 995000);
+
+SET @cpu1 = (SELECT id FROM product_units WHERE serial_number = 'RET-CPU-001');
+SET @cpu2 = (SELECT id FROM product_units WHERE serial_number = 'RET-CPU-002');
+INSERT INTO export_receipt_item_units (export_receipt_item_id, product_unit_id, quantity, sell_price)
+VALUES (100, @cpu1, 1, 11499000), (100, @cpu2, 1, 11499000);
+
+UPDATE product_units
+SET status = 'EXPORTED',
+    warranty_start_date = '2026-07-28 08:00:00',
+    warranty_expires_at = DATE_ADD('2026-07-28 08:00:00', INTERVAL warranty_months MONTH)
+WHERE id IN (@cpu1, @cpu2);
+
+UPDATE product_units SET remaining_quantity = remaining_quantity - 5
+WHERE product_id = 33 AND tracking_type = 'BULK';
+
+-- Export 101 — multi-serial same product (3 SSDs)
+INSERT INTO export_receipts (id, receipt_code, reason, customer_id, total_amount, status, note, created_by, approved_by, fulfilled_by, fulfilled_at, created_at, updated_at)
+VALUES (101, 'EXP-20260727-101', 'SALE', 1, 14697000, 'COMPLETED', 'Multi-serial SSDs', 4, 2, 2, '2026-07-27 14:00:00', '2026-07-27 10:00:00', '2026-07-27 14:00:00');
+
+INSERT INTO export_receipt_items (id, receipt_id, product_id, quantity, unit_price, total_price)
+VALUES (104, 101, 9, 3, 4899000, 14697000);
+
+SET @ssd1 = (SELECT id FROM product_units WHERE serial_number = 'RET-SSD-001');
+SET @ssd2 = (SELECT id FROM product_units WHERE serial_number = 'RET-SSD-002');
+SET @ssd3 = (SELECT id FROM product_units WHERE serial_number = 'RET-SSD-003');
+INSERT INTO export_receipt_item_units (export_receipt_item_id, product_unit_id, quantity, sell_price)
+VALUES (104, @ssd1, 1, 4899000), (104, @ssd2, 1, 4899000), (104, @ssd3, 1, 4899000);
+
+UPDATE product_units
+SET status = 'EXPORTED',
+    warranty_start_date = '2026-07-27 10:00:00',
+    warranty_expires_at = DATE_ADD('2026-07-27 10:00:00', INTERVAL warranty_months MONTH)
+WHERE id IN (@ssd1, @ssd2, @ssd3);
+
+-- Export 102 — expired CHANGE_MIND window (1 CPU + 1 DDR4)
+INSERT INTO export_receipts (id, receipt_code, reason, customer_id, total_amount, status, note, created_by, approved_by, fulfilled_by, fulfilled_at, created_at, updated_at)
+VALUES (102, 'EXP-20260715-102', 'SALE', 1, 13298000, 'COMPLETED', 'Old export — expired CHANGE_MIND', 4, 2, 2, '2026-07-15 14:00:00', '2026-07-15 10:00:00', '2026-07-15 14:00:00');
+
+INSERT INTO export_receipt_items (id, receipt_id, product_id, quantity, unit_price, total_price)
+VALUES (105, 102, 1, 1, 11499000, 11499000), (106, 102, 32, 1, 1799000, 1799000);
+
+SET @cpu3 = (SELECT id FROM product_units WHERE serial_number = 'RET-CPU-003');
+SET @ddr4_1 = (SELECT id FROM product_units WHERE serial_number = 'RET-DDR4-001');
+INSERT INTO export_receipt_item_units (export_receipt_item_id, product_unit_id, quantity, sell_price)
+VALUES (105, @cpu3, 1, 11499000), (106, @ddr4_1, 1, 1799000);
+
+UPDATE product_units
+SET status = 'EXPORTED',
+    warranty_start_date = '2026-07-15 10:00:00',
+    warranty_expires_at = DATE_ADD('2026-07-15 10:00:00', INTERVAL warranty_months MONTH)
+WHERE id IN (@cpu3, @ddr4_1);
+
 SET FOREIGN_KEY_CHECKS=1;
 
 -- ============================================================
--- Demo seed cho 6 flows: warranty, return, stock check,
+-- Demo seed for 6 flows: warranty, return, stock check,
 -- stock adjustment, price adjustment
--- Mỗi flow có 1 record terminal + 1 PENDING để thao tác
+-- Each flow has 1 terminal record + 1 PENDING record for manual testing
 -- ============================================================
 
-SET @sold1 = (SELECT id FROM product_units WHERE status = 'SOLD' ORDER BY id LIMIT 1 OFFSET 0);
-SET @sold2 = (SELECT id FROM product_units WHERE status = 'SOLD' ORDER BY id LIMIT 1 OFFSET 1);
-SET @sold3 = (SELECT id FROM product_units WHERE status = 'SOLD' ORDER BY id LIMIT 1 OFFSET 2);
-SET @sold4 = (SELECT id FROM product_units WHERE status = 'SOLD' ORDER BY id LIMIT 1 OFFSET 3);
+SET @sold1 = (SELECT id FROM product_units WHERE status = 'EXPORTED' ORDER BY id LIMIT 1 OFFSET 0);
+SET @sold2 = (SELECT id FROM product_units WHERE status = 'EXPORTED' ORDER BY id LIMIT 1 OFFSET 1);
+SET @sold3 = (SELECT id FROM product_units WHERE status = 'EXPORTED' ORDER BY id LIMIT 1 OFFSET 2);
+SET @sold4 = (SELECT id FROM product_units WHERE status = 'EXPORTED' ORDER BY id LIMIT 1 OFFSET 3);
 SET @stock1 = (SELECT id FROM product_units WHERE status = 'IN_STOCK' ORDER BY id LIMIT 1 OFFSET 0);
 SET @stock2 = (SELECT id FROM product_units WHERE status = 'IN_STOCK' ORDER BY id LIMIT 1 OFFSET 1);
 SET @stock3 = (SELECT id FROM product_units WHERE status = 'IN_STOCK' ORDER BY id LIMIT 1 OFFSET 2);
@@ -259,11 +368,10 @@ SET @stock6 = (SELECT id FROM product_units WHERE status = 'IN_STOCK' ORDER BY i
 SET @product1 = (SELECT product_id FROM product_units WHERE id = @sold1);
 SET @product9 = (SELECT product_id FROM product_units WHERE id = @sold2);
 
--- Gán warranty dates cho SOLD units (seed V7 không set 2 cột này)
 UPDATE product_units
 SET warranty_start_date = imported_at,
     warranty_expires_at = DATE_ADD(imported_at, INTERVAL warranty_months MONTH)
-WHERE status = 'SOLD' AND warranty_start_date IS NULL;
+WHERE status = 'EXPORTED' AND warranty_start_date IS NULL;
 
 -- Warranty requests
 INSERT INTO warranty_requests (request_code, product_unit_id, customer_id, issue_description, resolution_type, status, handled_by, completed_at, note, created_at)
