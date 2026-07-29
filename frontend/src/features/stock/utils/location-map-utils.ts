@@ -1,4 +1,5 @@
 export type FilterMode = "all" | "empty" | "stocked" | "full"
+export type FillLevel = "empty" | "low" | "medium" | "full"
 
 export interface DetailBin {
   id: number
@@ -7,27 +8,50 @@ export interface DetailBin {
   binCode: string
   productCount: number
   maxCapacity: number | null
+  productSkuList?: string[]
 }
 
-export const LEVELS = [
-  { threshold: 0, label: "Trống", bg: "bg-blue-50", border: "border-blue-200", text: "text-blue-400" },
-  { threshold: 1, label: "Ít", bg: "bg-blue-100", border: "border-blue-300", text: "text-blue-600" },
-  { threshold: 10, label: "Có hàng", bg: "bg-blue-200", border: "border-blue-400", text: "text-blue-700" },
-  { threshold: 50, label: "Đầy", bg: "bg-blue-300", border: "border-blue-500", text: "text-blue-800" },
+export interface LevelStyle {
+  key: FillLevel
+  label: string
+  bg: string
+  border: string
+  text: string
+}
+
+export const LEVELS: LevelStyle[] = [
+  { key: "empty", label: "Còn trống", bg: "bg-sky-50", border: "border-sky-200", text: "text-sky-600" },
+  { key: "low", label: "Còn chỗ", bg: "bg-sky-100", border: "border-sky-300", text: "text-sky-700" },
+  { key: "medium", label: "Gần đầy", bg: "bg-sky-200", border: "border-sky-400", text: "text-sky-800" },
+  { key: "full", label: "Đầy", bg: "bg-sky-300", border: "border-sky-500 border-2", text: "text-sky-900" },
 ] as const
 
-export function binColor(count: number, maxCapacity?: number | null) {
+/** Ngưỡng % capacity (dùng chung cho filter + màu) */
+export const CAPACITY_THRESHOLDS = {
+  empty: 0,
+  low: 0.7,
+  medium: 0.9,
+  full: 1.0,
+} as const
+
+const COUNT_THRESHOLDS = { empty: 0, low: 10, medium: 50, full: Infinity }
+
+export function fillLevel(count: number, maxCapacity?: number | null): FillLevel {
   if (maxCapacity != null && maxCapacity > 0) {
-    if (count === 0) return LEVELS[0]
     const pct = count / maxCapacity
-    if (pct < 0.5) return LEVELS[1]
-    if (pct < 0.9) return LEVELS[2]
-    return LEVELS[3]
+    if (pct === 0) return "empty"
+    if (pct < CAPACITY_THRESHOLDS.low) return "low"
+    if (pct < CAPACITY_THRESHOLDS.medium) return "medium"
+    return "full"
   }
-  if (count === 0) return LEVELS[0]
-  if (count < 10) return LEVELS[1]
-  if (count < 50) return LEVELS[2]
-  return LEVELS[3]
+  if (count === 0) return "empty"
+  if (count < COUNT_THRESHOLDS.low) return "low"
+  if (count < COUNT_THRESHOLDS.medium) return "medium"
+  return "full"
+}
+
+export function binColor(count: number, maxCapacity?: number | null) {
+  return LEVELS.find((l) => l.key === fillLevel(count, maxCapacity)) ?? LEVELS[0]
 }
 
 export const FILTERS: { key: FilterMode; label: string }[] = [
@@ -36,6 +60,13 @@ export const FILTERS: { key: FilterMode; label: string }[] = [
   { key: "stocked", label: "Có hàng" },
   { key: "full", label: "Đầy" },
 ]
+
+/** Convert FillLevel → FilterMode for matching */
+export function fillLevelToFilter(level: FillLevel): FilterMode {
+  if (level === "empty") return "empty"
+  if (level === "full") return "full"
+  return "stocked"
+}
 
 export function nextCode(existing: string[]): string {
   const nums = existing.map((c) => parseInt(c, 10)).filter((n) => !Number.isNaN(n))

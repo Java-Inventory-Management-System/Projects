@@ -149,6 +149,7 @@ export interface LocationMapBin {
   fullCode: string
   productCount: number
   maxCapacity: number | null
+  productSkuList: string[]
 }
 
 export interface LocationMapShelf {

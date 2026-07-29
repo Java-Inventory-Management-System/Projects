@@ -50,6 +50,6 @@ export async function deleteLocation(id: number): Promise<void> {
   await http.delete(`/location/${id}`)
 }
 
-export async function relocateProductUnits(sourceBinId: number, destBinId: number): Promise<void> {
-  await http.post("/location/relocate", { sourceBinId, destBinId })
+export async function relocateProductUnits(sourceBinId: number, destBinId: number, quantity?: number): Promise<void> {
+  await http.post("/location/relocate", { sourceBinId, destBinId, quantity })
 }
