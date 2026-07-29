@@ -34,6 +34,7 @@ import org.dawn.backend.entity.inventory.Location;
 import org.dawn.backend.entity.inventory.ProductUnit;
 import org.dawn.backend.entity.inventory.PurchaseOrder;
 import org.dawn.backend.exception.type.InvalidRequestException;
+import org.dawn.backend.exception.type.ResourceAlreadyExistedException;
 import org.dawn.backend.exception.type.ResourceNotFoundException;
 import org.dawn.backend.repository.auth.UserRepository;
 import org.dawn.backend.repository.catalog.ProductRepository;
@@ -106,7 +107,7 @@ public class ImportReceiptService {
 
         String receiptCode = request.receiptCode() != null ? request.receiptCode() : generateReceiptCode();
         if (importReceiptRepository.existsByReceiptCode(receiptCode)) {
-            throw new ResourceNotFoundException(Message.Inventory.RECEIPT_CODE_EXISTS);
+            throw new ResourceAlreadyExistedException(Message.Inventory.RECEIPT_CODE_EXISTS);
         }
 
         ImportReceipt receipt = ImportReceipt.builder()

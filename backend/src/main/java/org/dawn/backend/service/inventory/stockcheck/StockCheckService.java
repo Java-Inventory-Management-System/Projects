@@ -27,6 +27,7 @@ import org.dawn.backend.repository.inventory.stockcheck.StockCheckItemRepository
 import org.dawn.backend.repository.inventory.stockcheck.StockCheckRepository;
 import org.dawn.backend.shared.util.ReceiptCodeGenerator;
 import org.dawn.backend.config.security.SecurityPolicy;
+import org.dawn.backend.shared.statemachine.StateMachine;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -48,6 +49,7 @@ public class StockCheckService {
     private final ProductRepository productRepository;
     private final UserRepository userRepository;
     private final SecurityPolicy securityPolicy;
+    private final StateMachine<StockCheckStatus> stockCheckStateMachine;
 
     @Transactional(readOnly = true)
     public ResponsePage<StockCheckResponse> findAll(Pageable pageable, String status) {
@@ -253,6 +255,7 @@ throw new InvalidRequestException(
                     Message.format(Message.Inventory.STOCK_CHECK_BULK_MISSING_QTY, bulkMissing.size(), String.join(", ", bulkMissing)));
         }
 
+        stockCheckStateMachine.validate(sc.getStatus(), StockCheckStatus.COMPLETED);
         sc.setStatus(StockCheckStatus.COMPLETED);
         sc = stockCheckRepository.save(sc);
         return toResponse(sc, autoFilledCount);
@@ -299,6 +302,7 @@ throw new InvalidRequestException(
         var sc = stockCheckRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.STOCK_CHECK_NOT_FOUND));
 
+        stockCheckStateMachine.validate(sc.getStatus(), StockCheckStatus.IN_PROGRESS);
         sc.setStatus(StockCheckStatus.IN_PROGRESS);
         sc = stockCheckRepository.save(sc);
         return toResponse(sc);
