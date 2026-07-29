@@ -55,7 +55,7 @@ services:
       context: ./frontend
       args:
         VITE_BASE_API_URL: /api/v1
-        VITE_SKIP_AUTH: "false"
+        VITE_ENABLED_AUTH: "true"
 
   nginx:
     depends_on:
