@@ -1,4 +1,5 @@
 import { useRef } from "react"
+import { useTranslation } from "react-i18next"
 import { PRODUCT_UNIT_STATUS, STOCK_CHECK_DIFF, type StockCheckItem } from "@/utils/types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -9,31 +10,6 @@ import { Search, Upload, Camera, Image, Loader2 } from "lucide-react"
 import { ButtonGroup } from "@/components/ui/button-group"
 import { cn } from "@/utils/cn"
 import { useFileUpload } from "@/hooks/use-file-upload"
-
-const statusOptions = [
-  PRODUCT_UNIT_STATUS.IN_STOCK,
-  PRODUCT_UNIT_STATUS.DEFECTIVE,
-  PRODUCT_UNIT_STATUS.DAMAGED_IN_STORAGE,
-  PRODUCT_UNIT_STATUS.LOST,
-  PRODUCT_UNIT_STATUS.REMOVED,
-  PRODUCT_UNIT_STATUS.DISPOSED,
-] as const
-
-const statusLabels: Record<string, string> = {
-  [PRODUCT_UNIT_STATUS.IN_STOCK]: "Còn trong kho",
-  [PRODUCT_UNIT_STATUS.DEFECTIVE]: "Lỗi sản xuất",
-  [PRODUCT_UNIT_STATUS.DAMAGED_IN_STORAGE]: "Hư hỏng",
-  [PRODUCT_UNIT_STATUS.LOST]: "Mất",
-  [PRODUCT_UNIT_STATUS.REMOVED]: "Đã loại bỏ",
-  [PRODUCT_UNIT_STATUS.DISPOSED]: "Đã huỷ",
-}
-
-const diffLabels: Record<string, string> = {
-  [STOCK_CHECK_DIFF.MATCH]: "Khớp",
-  [STOCK_CHECK_DIFF.MISSING]: "Thiếu",
-  [STOCK_CHECK_DIFF.UNEXPECTED]: "Bất thường",
-  [STOCK_CHECK_DIFF.PARTIAL_SHORTAGE]: "Thiếu một phần",
-}
 
 interface Props {
   items: StockCheckItem[]
@@ -54,10 +30,36 @@ export function StockCheckItemsTable({
   onSearchChange,
   onImportSerials,
 }: Props) {
+  const { t } = useTranslation()
   const fileRef = useRef<HTMLInputElement>(null)
   const photoTargetRef = useRef<number | null>(null)
   const mismatchCount = items.filter((i) => i.difference && i.difference !== STOCK_CHECK_DIFF.MATCH).length
   const { upload, uploadingItemId } = useFileUpload()
+
+  const statusOptions = [
+    PRODUCT_UNIT_STATUS.IN_STOCK,
+    PRODUCT_UNIT_STATUS.DEFECTIVE,
+    PRODUCT_UNIT_STATUS.DAMAGED_IN_STORAGE,
+    PRODUCT_UNIT_STATUS.LOST,
+    PRODUCT_UNIT_STATUS.REMOVED,
+    PRODUCT_UNIT_STATUS.DISPOSED,
+  ] as const
+
+  const statusLabels: Record<string, string> = {
+    [PRODUCT_UNIT_STATUS.IN_STOCK]: t("stockCheckItems.statusInStock"),
+    [PRODUCT_UNIT_STATUS.DEFECTIVE]: t("stockCheckItems.statusDefective"),
+    [PRODUCT_UNIT_STATUS.DAMAGED_IN_STORAGE]: t("stockCheckItems.statusDamagedInStorage"),
+    [PRODUCT_UNIT_STATUS.LOST]: t("stockCheckItems.statusLost"),
+    [PRODUCT_UNIT_STATUS.REMOVED]: t("stockCheckItems.statusRemoved"),
+    [PRODUCT_UNIT_STATUS.DISPOSED]: t("stockCheckItems.statusDisposed"),
+  }
+
+  const diffLabels: Record<string, string> = {
+    [STOCK_CHECK_DIFF.MATCH]: t("stockCheckItems.diffMatch"),
+    [STOCK_CHECK_DIFF.MISSING]: t("stockCheckItems.diffMissing"),
+    [STOCK_CHECK_DIFF.UNEXPECTED]: t("stockCheckItems.diffUnexpected"),
+    [STOCK_CHECK_DIFF.PARTIAL_SHORTAGE]: t("stockCheckItems.diffPartialShortage"),
+  }
 
   const filtered = items.filter((item) => {
     if (!searchQuery.trim()) return true
@@ -77,13 +79,13 @@ export function StockCheckItemsTable({
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
           <Input
-            placeholder="Tìm theo serial, sản phẩm, SKU..."
+            placeholder={t("stockCheckItems.searchPlaceholder")}
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
             className="h-9 pl-8"
           />
         </div>
-        {mismatchCount > 0 && <span className="text-xs text-destructive">{mismatchCount} chênh lệch</span>}
+        {mismatchCount > 0 && <span className="text-xs text-destructive">{t("stockCheckItems.mismatchCount", { count: mismatchCount })}</span>}
         {canEdit && (
           <ButtonGroup>
             <input ref={fileRef} type="file" accept=".txt,.csv,.png,.jpg,.jpeg" className="hidden"
@@ -106,7 +108,7 @@ export function StockCheckItemsTable({
               photoTargetRef.current = null
               fileRef.current?.click()
             }}>
-              <Upload className="size-3" /> Import serials
+              <Upload className="size-3" /> {t('common.importSerials')}
             </Button>
             <Button
               variant="outline"
@@ -114,10 +116,10 @@ export function StockCheckItemsTable({
               className="text-xs"
               onClick={() => onBulkSet(PRODUCT_UNIT_STATUS.IN_STOCK)}
             >
-              All In Stock
+              {t('common.allInStock')}
             </Button>
             <Button variant="outline" size="sm" className="text-xs" onClick={() => onBulkSet(PRODUCT_UNIT_STATUS.LOST)}>
-              All Lost
+              {t('common.allLost')}
             </Button>
           </ButtonGroup>
         )}
@@ -127,20 +129,20 @@ export function StockCheckItemsTable({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="min-w-[120px]">Serial</TableHead>
-              <TableHead className="min-w-[160px]">Product</TableHead>
-              <TableHead className="w-24">Expected</TableHead>
-              <TableHead className="w-44">Actual</TableHead>
-              {hasBulk && <TableHead className="w-20 text-right">Count</TableHead>}
-              <TableHead className="w-24">Diff</TableHead>
-              <TableHead className="min-w-[140px]">Note</TableHead>
+              <TableHead className="min-w-[120px]">{t('stockCheck.serial')}</TableHead>
+              <TableHead className="min-w-[160px]">{t('stockCheck.product')}</TableHead>
+              <TableHead className="w-24">{t('stockCheck.expected')}</TableHead>
+              <TableHead className="w-44">{t('stockCheck.actual')}</TableHead>
+              {hasBulk && <TableHead className="w-20 text-right">{t('stockCheck.count')}</TableHead>}
+              <TableHead className="w-24">{t('stockCheck.diff')}</TableHead>
+              <TableHead className="min-w-[140px]">{t('stockCheck.note')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filtered.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={hasBulk ? 7 : 6} className="text-center text-muted-foreground py-8">
-                  Không có kết quả
+                  {t('stockCheck.noResult')}
                 </TableCell>
               </TableRow>
             ) : (
@@ -164,7 +166,7 @@ export function StockCheckItemsTable({
                       <span className="font-medium">{item.productName}</span>
                       <span className="text-xs text-muted-foreground ml-1">{item.productSku}</span>
                       {item.autoFilled && (
-                        <Badge variant="outline" className="ml-2 text-[10px] text-muted-foreground">Tự động</Badge>
+                        <Badge variant="outline" className="ml-2 text-[10px] text-muted-foreground">{t("stockCheckItems.autoFilled")}</Badge>
                       )}
                     </TableCell>
                     <TableCell className="text-xs">{item.expectedStatus}</TableCell>
@@ -190,10 +192,10 @@ export function StockCheckItemsTable({
                               }}
                             >
                               <SelectTrigger className={cn("h-8 text-xs flex-1", !item.actualStatus && "text-muted-foreground")}>
-                                <SelectValue placeholder="— Chưa kiểm —" />
+                                <SelectValue placeholder={t("stockCheckItems.unchecked")} />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="__unchecked__" className="text-muted-foreground italic">— Chưa kiểm —</SelectItem>
+                                <SelectItem value="__unchecked__" className="text-muted-foreground italic">{t("stockCheckItems.unchecked")}</SelectItem>
                                 {statusOptions.map((st) => (
                                   <SelectItem key={st} value={st} className="text-xs">
                                     {statusLabels[st]}
@@ -225,7 +227,7 @@ export function StockCheckItemsTable({
                           </>
                         ) : (
                           <span className={cn(!item.actualStatus && "text-muted-foreground italic")}>
-                            {item.actualStatus ? statusLabels[item.actualStatus] ?? item.actualStatus : "— Chưa kiểm —"}
+                            {item.actualStatus ? statusLabels[item.actualStatus] ?? item.actualStatus : t("stockCheckItems.unchecked")}
                           </span>
                         )}
                       </div>

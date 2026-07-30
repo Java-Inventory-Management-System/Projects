@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react"
+import { t } from "i18next"
 import { uploadFile as uploadFileService } from "@/services/file-service"
 import { toast } from "@/utils/toast"
 
@@ -11,7 +12,7 @@ export function useFileUpload() {
       const url = await uploadFileService(file)
       return url
     } catch (err) {
-      toast.error((err as Error).message || "Upload ảnh thất bại")
+      toast.error((err as Error).message || t("fileUpload.uploadFailed"))
       return null
     } finally {
       setUploadingItemId(null)

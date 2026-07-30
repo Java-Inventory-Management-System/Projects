@@ -1,4 +1,5 @@
 import { useMemo } from "react"
+import { useTranslation } from "react-i18next"
 import { useLocationMap } from "@/hooks/use-location-map"
 import { binColor } from "@/features/stock/utils/location-map-utils"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -14,6 +15,7 @@ interface LocationPickerProps {
 }
 
 export function LocationPicker({ value, onSelect, suggestedLocationId }: LocationPickerProps) {
+  const { t } = useTranslation()
   const { data, isLoading } = useLocationMap()
 
   const selectedLocation = useMemo(() => {
@@ -35,7 +37,7 @@ export function LocationPicker({ value, onSelect, suggestedLocationId }: Locatio
           className={cn("h-9 text-xs w-full justify-start font-normal", !value && "text-muted-foreground")}
         >
           <MapPin className="size-3 mr-1 shrink-0" />
-          {selectedLocation ? selectedLocation.fullCode : "Chọn vị trí..."}
+          {selectedLocation ? selectedLocation.fullCode : t("locPicker.selectLocation")}
         </Button>
       </PopoverTrigger>
       <PopoverContent className="sm:w-[520px] w-[90vw] p-3 max-h-96 overflow-y-auto" align="start">
@@ -54,7 +56,7 @@ export function LocationPicker({ value, onSelect, suggestedLocationId }: Locatio
             </div>
           </div>
         ) : !data ? (
-          <p className="text-xs text-muted-foreground text-center py-4">Không thể tải bản đồ kho</p>
+          <p className="text-xs text-muted-foreground text-center py-4">{t("locPicker.loadError")}</p>
         ) : (
           <div className="space-y-2">
             {data.zones.map((zone) => {
@@ -62,7 +64,7 @@ export function LocationPicker({ value, onSelect, suggestedLocationId }: Locatio
               if (allBins.length === 0) return null
               return (
                 <div key={zone.zoneCode} className="rounded-md border p-2">
-                  <p className="text-[11px] font-semibold text-muted-foreground mb-1.5">Khu {zone.zoneCode}</p>
+                  <p className="text-[11px] font-semibold text-muted-foreground mb-1.5">{t("locPicker.zone")} {zone.zoneCode}</p>
                   <div className="space-y-1">
                     {zone.shelves.map((shelf) => (
                       <div key={shelf.shelfCode} className="flex items-center gap-1">
@@ -86,7 +88,7 @@ export function LocationPicker({ value, onSelect, suggestedLocationId }: Locatio
                                   isSelected && "ring-2 ring-primary",
                                   isSuggested && !isSelected && "ring-1 ring-blue-400",
                                 )}
-                                title={`${bin.fullCode}${bin.maxCapacity != null ? ` (${bin.productCount}/${bin.maxCapacity})` : bin.productCount > 0 ? ` (${bin.productCount} sp)` : " (trống)"}`}
+                                title={`${bin.fullCode}${bin.maxCapacity != null ? ` (${bin.productCount}/${bin.maxCapacity})` : bin.productCount > 0 ? ` (${bin.productCount} ${t("locPicker.units")})` : ` (${t("locPicker.empty")})`}`}
                               >
                                 {bin.binCode}
                               </button>

@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react"
+import { useTranslation } from "react-i18next"
 import { useForm, Controller } from "react-hook-form"
 import { useNavigate, useLocation } from "react-router-dom"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
@@ -32,11 +33,11 @@ import { ADJUSTMENT_TYPE, STOCK_CHECK_DIFF, type ProductUnit } from "@/utils/typ
 import { backgroundBatch } from "@/utils/background-batch"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
-const presetReasons: Record<string, string[]> = {
-  DAMAGED: ["Hàng bị va đập trong quá trình di chuyển", "Hàng bị ẩm mốc do điều kiện bảo quản", "Sản phẩm lỗi từ nhà cung cấp"],
-  LOST: ["Không tìm thấy hàng trong quá trình kiểm kê", "Thất lạc trong quá trình xuất nhập"],
-  FOUND: ["Kiểm kê phát hiện thừa", "Hàng trả lại không cập nhật hệ thống", "Nhập hàng quên ghi nhận"],
-}
+const getPresetReasons = (t: (key: string) => string): Record<string, string[]> => ({
+  DAMAGED: [t("stockAdjCreate.reasonDamaged1"), t("stockAdjCreate.reasonDamaged2"), t("stockAdjCreate.reasonDamaged3")],
+  LOST: [t("stockAdjCreate.reasonLost1"), t("stockAdjCreate.reasonLost2")],
+  FOUND: [t("stockAdjCreate.reasonFound1"), t("stockAdjCreate.reasonFound2"), t("stockAdjCreate.reasonFound3")],
+})
 
 interface AdjustmentForm {
   type: string
@@ -57,17 +58,17 @@ interface BatchResult {
   error?: string
 }
 
-const typeOptions = [
-  { value: ADJUSTMENT_TYPE.DAMAGED, label: "Hư hỏng", desc: "Sản phẩm bị hư hỏng trong kho" },
-  { value: ADJUSTMENT_TYPE.LOST, label: "Mất", desc: "Sản phẩm bị mất / thất lạc" },
-  { value: ADJUSTMENT_TYPE.FOUND, label: "Thừa", desc: "Phát hiện hàng thừa ngoài kiểm kê" },
-]
-
 export const StockAdjustmentCreatePage = () => {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const qc = useQueryClient()
   const location = useLocation()
   const perm = usePermission()
+  const typeOptions = [
+    { value: ADJUSTMENT_TYPE.DAMAGED, label: t('adjustmentType.damaged'), desc: t('stockAdjCreate.damagedDesc') },
+    { value: ADJUSTMENT_TYPE.LOST, label: t('adjustmentType.lost'), desc: t('stockAdjCreate.lostDesc') },
+    { value: ADJUSTMENT_TYPE.FOUND, label: t('adjustmentType.found'), desc: t('stockAdjCreate.foundDesc') },
+  ]
   const submittingRef = useRef(false)
   const locationState = location.state as {
     reason?: string
@@ -171,9 +172,9 @@ export const StockAdjustmentCreatePage = () => {
       form.reset()
       setFoundMode(null)
       setScanInput("")
-      toast.success("Tạo phiếu điều chỉnh thành công")
+      toast.success(t("stockAdjCreate.createSuccess"))
     },
-    onError: (err: Error) => toast.error(err.message || "Có lỗi xảy ra"),
+    onError: (err: Error) => toast.error(err.message || t("common.error")),
   })
 
   const showResultRef = useRef(showResult)
@@ -194,25 +195,25 @@ export const StockAdjustmentCreatePage = () => {
     form.clearErrors()
     const values = form.getValues()
     let valid = true
-    if (!values.type) { form.setError("type", { message: "Vui lòng chọn loại điều chỉnh" }); valid = false }
-    if (!values.reason.trim()) { form.setError("reason", { message: "Vui lòng nhập lý do" }); valid = false }
+    if (!values.type) { form.setError("type", { message: t("stockAdjCreate.requireType") }); valid = false }
+    if (!values.reason.trim()) { form.setError("reason", { message: t("stockAdjCreate.requireReason") }); valid = false }
     if ((values.type === ADJUSTMENT_TYPE.DAMAGED || values.type === ADJUSTMENT_TYPE.LOST) && !values.selectedUnitId) {
-      form.setError("selectedUnitId", { message: "Vui lòng chọn sản phẩm" }); valid = false
+      form.setError("selectedUnitId", { message: t("stockAdjCreate.requireProduct") }); valid = false
     }
     if (values.type === ADJUSTMENT_TYPE.DAMAGED && !values.imageUrl.trim()) {
-      form.setError("imageUrl", { message: "Ảnh là bắt buộc cho hàng hỏng" }); valid = false
+      form.setError("imageUrl", { message: t("stockAdjCreate.requireImage") }); valid = false
     }
     if (values.type === ADJUSTMENT_TYPE.FOUND && foundMode === "existing" && !values.selectedUnitId) {
-      form.setError("selectedUnitId", { message: "Vui lòng chọn sản phẩm" }); valid = false
+      form.setError("selectedUnitId", { message: t("stockAdjCreate.requireProduct") }); valid = false
     }
     if (values.type === ADJUSTMENT_TYPE.FOUND && foundMode === "new" && !values.selectedProductId) {
-      form.setError("selectedProductId", { message: "Vui lòng chọn sản phẩm" }); valid = false
+      form.setError("selectedProductId", { message: t("stockAdjCreate.requireProduct") }); valid = false
     }
     if (values.type === ADJUSTMENT_TYPE.FOUND && foundMode === "new" && !values.foundSerialNumber.trim()) {
-      form.setError("foundSerialNumber", { message: "Vui lòng nhập serial number" }); valid = false
+      form.setError("foundSerialNumber", { message: t("stockAdjCreate.requireSerial") }); valid = false
     }
     if (values.type === ADJUSTMENT_TYPE.FOUND && foundMode === "new" && !values.foundLocationId) {
-      form.setError("foundLocationId", { message: "Vui lòng chọn vị trí" }); valid = false
+      form.setError("foundLocationId", { message: t("stockAdjCreate.requireLocation") }); valid = false
     }
     return valid
   }
@@ -286,7 +287,7 @@ export const StockAdjustmentCreatePage = () => {
       form.setValue("selectedProductId", null)
       form.clearErrors("selectedUnitId")
       setScanInput("")
-      toast.success(`Đã chọn: ${match.productName}`)
+      toast.success(t("stockAdjCreate.selected", { product: match.productName }))
     }
   }, [unitsData, form])
 
@@ -306,17 +307,17 @@ export const StockAdjustmentCreatePage = () => {
           <div className="rounded-full bg-green-100 p-3">
             <CheckCircle2 className="size-10 text-green-600" />
           </div>
-          <h2 className="text-xl font-semibold">Tạo phiếu điều chỉnh thành công</h2>
+          <h2 className="text-xl font-semibold">{t("stockAdjCreate.createSuccess")}</h2>
           {successResult.adjustCode && (
-            <p className="font-mono text-sm text-muted-foreground">Mã phiếu: {successResult.adjustCode}</p>
+            <p className="font-mono text-sm text-muted-foreground">{t("stockAdjCreate.receiptCode")}: {successResult.adjustCode}</p>
           )}
-          <p className="text-sm text-muted-foreground max-w-sm">Bạn có thể tạo phiếu mới hoặc về danh sách để xem.</p>
+          <p className="text-sm text-muted-foreground max-w-sm">{t("stockAdjCreate.createSuccessDesc")}</p>
           <div className="flex gap-3 pt-2">
             <Button onClick={() => { setSuccessResult(null); form.reset(); setFoundMode(null); setScanInput("") }}>
-              <Plus className="size-4 mr-1" /> Tạo phiếu khác
+              <Plus className="size-4 mr-1" /> {t("stockAdjCreate.createAnother")}
             </Button>
             <Button variant="outline" onClick={() => navigate("/stock/adjustments")}>
-              <List className="size-4 mr-1" /> Về danh sách
+              <List className="size-4 mr-1" /> {t("stockAdjCreate.backToList")}
             </Button>
           </div>
         </div>
@@ -330,12 +331,12 @@ export const StockAdjustmentCreatePage = () => {
         <Button variant="ghost" size={density === "spacious" ? "default" : "sm"} onClick={() => navigate("/stock/adjustments")}>
           <ArrowLeft className="size-4" />
         </Button>
-        <h1 className={cn("font-semibold tracking-tight", density === "spacious" ? "text-2xl" : "text-xl")}>Tạo phiếu điều chỉnh tồn kho</h1>
+        <h1 className={cn("font-semibold tracking-tight", density === "spacious" ? "text-2xl" : "text-xl")}>{t("stockAdjCreate.title")}</h1>
       </div>
 
       <div className="space-y-2">
         <Label>
-          Loại điều chỉnh <span className="text-destructive">*</span>
+          {t("stockAdjCreate.adjustmentType")} <span className="text-destructive">*</span>
         </Label>
         <Controller
           control={form.control}
@@ -377,7 +378,7 @@ export const StockAdjustmentCreatePage = () => {
         <>
           {needsProduct && (
             <div className="space-y-2">
-              <Label>Sản phẩm này đã có trong hệ thống chưa? <span className="text-destructive">*</span></Label>
+              <Label>{t("stockAdjCreate.productExists")} <span className="text-destructive">*</span></Label>
 <div className="flex flex-wrap gap-2">
                 <Button
                   type="button"
@@ -392,7 +393,7 @@ export const StockAdjustmentCreatePage = () => {
                     form.clearErrors()
                   }}
                 >
-                  Đã có trong hệ thống
+                  {t("stockAdjCreate.exists")}
                 </Button>
                 <Button
                   type="button"
@@ -405,7 +406,7 @@ export const StockAdjustmentCreatePage = () => {
                     form.clearErrors()
                   }}
                 >
-                  Chưa có trong hệ thống
+                  {t("stockAdjCreate.notExists")}
                 </Button>
               </div>
             </div>
@@ -413,7 +414,7 @@ export const StockAdjustmentCreatePage = () => {
 
           <div className="space-y-2">
             <Label>
-              {needsUnit ? "Chọn sản phẩm (serial)" : needsProduct && foundMode === "existing" ? "Chọn sản phẩm (serial)" : needsProduct && foundMode === "new" ? "Chọn sản phẩm" : ""}{" "}
+              {needsUnit ? t("stockAdjCreate.selectSerialProduct") : needsProduct && foundMode === "existing" ? t("stockAdjCreate.selectSerialProduct") : needsProduct && foundMode === "new" ? t("stockAdjCreate.selectProduct") : ""}{" "}
               <span className="text-destructive">*</span>
             </Label>
 
@@ -423,7 +424,7 @@ export const StockAdjustmentCreatePage = () => {
                   <div className="relative flex-1">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
                     <Input
-                      placeholder={(needsUnit || foundMode === "existing") ? "Tìm theo serial, tên sản phẩm hoặc SKU..." : "Tìm sản phẩm..."}
+                      placeholder={(needsUnit || foundMode === "existing") ? t("stockAdjCreate.searchSerialPlaceholder") : t("stockAdjCreate.searchProductPlaceholder")}
                       value={searchUnit}
                       onChange={(e) => setSearchUnit(e.target.value)}
                       className="pl-9"
@@ -432,7 +433,7 @@ export const StockAdjustmentCreatePage = () => {
                   <div className="relative w-full sm:w-48">
                     <ScanLine className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
                     <Input
-                      placeholder="Quét mã..."
+                      placeholder={t("stockAdjCreate.scanPlaceholder")}
                       value={scanInput}
                       onChange={(e) => handleScan(e.target.value)}
                       className="pl-9 font-mono text-xs"
@@ -448,17 +449,17 @@ export const StockAdjustmentCreatePage = () => {
                     </div>
                   ) : !unitsData || unitsData.content.length === 0 ? (
                     <Empty className="py-4">
-                      <EmptyTitle>Không tìm thấy sản phẩm.</EmptyTitle>
+                      <EmptyTitle>{t("stockAdjCreate.noProductsFound")}</EmptyTitle>
                     </Empty>
                   ) : (
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="border-b bg-muted/50 text-left">
                           <th className="w-8 px-2 py-1"></th>
-                          <th className="px-2 py-1 font-medium">Serial</th>
-                          <th className="px-2 py-1 font-medium">Sản phẩm</th>
-                          <th className="px-2 py-1 font-medium">Trạng thái</th>
-                          <th className="px-2 py-1 font-medium">Vị trí</th>
+                          <th className="px-2 py-1 font-medium">{t('adjustment.serial')}</th>
+                          <th className="px-2 py-1 font-medium">{t('table.product')}</th>
+                          <th className="px-2 py-1 font-medium">{t('table.status')}</th>
+                          <th className="px-2 py-1 font-medium">{t('table.location')}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -499,15 +500,15 @@ export const StockAdjustmentCreatePage = () => {
                 {formState.errors.selectedUnitId?.message && <p className="text-xs text-destructive">{formState.errors.selectedUnitId.message}</p>}
                 {selectedUnitId && unitAdjustments && unitAdjustments.content.length > 0 && (
                   <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs space-y-0.5">
-                    <p className="font-medium text-amber-800">Lịch sử điều chỉnh của unit này:</p>
+                    <p className="font-medium text-amber-800">{t("stockAdjCreate.unitHistory")}</p>
                     {unitAdjustments.content.slice(0, 3).map((a) => (
                       <p key={a.id} className="text-amber-700">
-                        {a.type === "DAMAGED" ? "Hư hỏng" : a.type === "LOST" ? "Mất" : "Thừa"} — {a.status === "PENDING" ? "Chờ duyệt" : a.status === "APPROVED" ? "Đã duyệt" : "Từ chối"}
+                        {a.type === "DAMAGED" ? t("adjustmentType.damaged") : a.type === "LOST" ? t("adjustmentType.lost") : t("adjustmentType.found")} — {a.status === "PENDING" ? t("status.pendingApproval") : a.status === "APPROVED" ? t("status.approved") : t("status.rejected")}
                         {" · "}{new Date(a.createdAt).toLocaleDateString("vi-VN")}
                       </p>
                     ))}
                     {unitAdjustments.content.some((a) => a.status === "PENDING") && (
-                      <p className="text-amber-800 font-medium mt-1">⚠ Unit này đang có phiếu chờ duyệt — cần kiểm tra tránh điều chỉnh trùng</p>
+                      <p className="text-amber-800 font-medium mt-1">⚠ {t("stockAdjCreate.pendingWarning")}</p>
                     )}
                   </div>
                 )}
@@ -519,7 +520,7 @@ export const StockAdjustmentCreatePage = () => {
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
                   <Input
-                    placeholder="Tìm sản phẩm..."
+                    placeholder={t("stockAdjCreate.searchProductPlaceholder2")}
                     value={searchProduct}
                     onChange={(e) => setSearchProduct(e.target.value)}
                     className="pl-9"
@@ -534,15 +535,15 @@ export const StockAdjustmentCreatePage = () => {
                     </div>
                   ) : !productsData || productsData.content.length === 0 ? (
                     <Empty className="py-4">
-                      <EmptyTitle>Không tìm thấy sản phẩm.</EmptyTitle>
+                      <EmptyTitle>{t("stockAdjCreate.noProductsFound")}</EmptyTitle>
                     </Empty>
                   ) : (
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="border-b bg-muted/50 text-left">
                           <th className="w-8 px-2 py-1"></th>
-                          <th className="px-2 py-1 font-medium">SKU</th>
-                          <th className="px-2 py-1 font-medium">Sản phẩm</th>
+                          <th className="px-2 py-1 font-medium">{t('adjustment.sku')}</th>
+                          <th className="px-2 py-1 font-medium">{t('table.product')}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -580,7 +581,7 @@ export const StockAdjustmentCreatePage = () => {
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="quantity">
-                  Số lượng <span className="text-destructive">*</span>
+                  {t("stockAdjCreate.quantity")} <span className="text-destructive">*</span>
                 </Label>
                 <Input
                   id="quantity"
@@ -593,11 +594,11 @@ export const StockAdjustmentCreatePage = () => {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="foundSerialNumber">
-                  Serial number <span className="text-destructive">*</span>
+                  {t('adjustment.serialNumberLabel')} <span className="text-destructive">*</span>
                 </Label>
                 <Input
                   id="foundSerialNumber"
-                  placeholder="Nhập serial number của sản phẩm tìm thấy..."
+                  placeholder={t("stockAdjCreate.foundSerialPlaceholder")}
                   {...form.register("foundSerialNumber")}
                   className={formState.errors.foundSerialNumber ? "border-destructive" : ""}
                 />
@@ -605,7 +606,7 @@ export const StockAdjustmentCreatePage = () => {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="foundLocationId">
-                  Vị trí <span className="text-destructive">*</span>
+                  {t("stockAdjCreate.location")} <span className="text-destructive">*</span>
                 </Label>
                 <Controller
                   name="foundLocationId"
@@ -613,7 +614,7 @@ export const StockAdjustmentCreatePage = () => {
                   render={({ field }) => (
                     <Select value={field.value} onValueChange={field.onChange}>
                       <SelectTrigger className={formState.errors.foundLocationId ? "border-destructive" : ""}>
-                        <SelectValue placeholder="Chọn vị trí" />
+                        <SelectValue placeholder={t("stockAdjCreate.selectLocation")} />
                       </SelectTrigger>
                       <SelectContent className="max-h-[50vh]">
                         {(Array.isArray(locations) ? locations : []).map((loc: { id: number; fullCode: string }) => (
@@ -626,17 +627,17 @@ export const StockAdjustmentCreatePage = () => {
                 {formState.errors.foundLocationId?.message && <p className="text-xs text-destructive">{formState.errors.foundLocationId.message}</p>}
               </div>
               <p className="text-xs text-muted-foreground flex items-center gap-1">
-                <Info className="size-3" /> Dùng khi tìm thấy sản phẩm chưa từng được ghi nhận trong hệ thống
+                <Info className="size-3" /> {t("stockAdjCreate.foundInfo")}
               </p>
             </div>
           )}
 
           <div className="space-y-2">
             <Label htmlFor="reason">
-              Lý do <span className="text-destructive">*</span>
+              {t("stockAdjCreate.reason")} <span className="text-destructive">*</span>
             </Label>
             <div className="flex flex-wrap gap-1.5">
-              {presetReasons[watchedType]?.map((r) => (
+              {getPresetReasons(t)[watchedType]?.map((r) => (
                 <Badge
                   key={r}
                   variant="outline"
@@ -649,7 +650,7 @@ export const StockAdjustmentCreatePage = () => {
             </div>
             <Textarea
               id="reason"
-              placeholder="Mô tả chi tiết lý do điều chỉnh..."
+              placeholder={t("stockAdjCreate.reasonPlaceholder")}
               {...form.register("reason")}
               rows={3}
               className={formState.errors.reason ? "border-destructive" : ""}
@@ -659,7 +660,7 @@ export const StockAdjustmentCreatePage = () => {
 
           <div className="space-y-2">
             <Label>
-              Ảnh minh chứng{needsUnit && watchedType === ADJUSTMENT_TYPE.DAMAGED ? <span className="text-destructive"> *</span> : " (không bắt buộc)"}
+              {t("stockAdjCreate.evidenceImages")}{needsUnit && watchedType === ADJUSTMENT_TYPE.DAMAGED ? <span className="text-destructive"> *</span> : " " + t("stockAdjCreate.optional")}
             </Label>
             <ImageUpload value={form.watch("imageUrl")} onChange={(v) => form.setValue("imageUrl", v)} />
             {formState.errors.imageUrl?.message && <p className="text-xs text-destructive">{formState.errors.imageUrl.message}</p>}
@@ -669,19 +670,19 @@ export const StockAdjustmentCreatePage = () => {
 
       <div className="flex justify-end gap-3">
         <Button variant="outline" onClick={() => navigate("/stock/adjustments")}>
-          Hủy
+          {t("common.cancel")}
         </Button>
         <Button
           onClick={handleSubmit}
           disabled={createMut.isPending || backgroundBatch.isRunning() || (!locationState?.batch && !watchedType)}
         >
           {createMut.isPending
-            ? "Đang tạo..."
+            ? t("stockAdjCreate.creating")
             : backgroundBatch.isRunning()
-              ? `Đang xử lý ${batchProgress?.current ?? 0}/${batchProgress?.total ?? 0}... (chạy nền)`
+              ? t("stockAdjCreate.batchProgress", { current: batchProgress?.current ?? 0, total: batchProgress?.total ?? 0 })
               : locationState?.batch
-                ? `Tạo Adjustment (${locationState.mismatches?.length ?? 0})`
-                : "Tạo phiếu điều chỉnh"}
+                ? t("stockAdjCreate.createBatch", { count: locationState.mismatches?.length ?? 0 })
+                : t("stockAdjCreate.create")}
         </Button>
       </div>
 
@@ -696,9 +697,9 @@ export const StockAdjustmentCreatePage = () => {
       >
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle>Khôi phục dữ liệu</DialogTitle>
+            <DialogTitle>{t("stockAdjCreate.draftTitle")}</DialogTitle>
             <DialogDescription>
-              Bạn có dữ liệu điều chỉnh chưa lưu từ lần trước. Chỉ khôi phục được loại điều chỉnh và lý do (không khôi phục được sản phẩm đã chọn). Muốn khôi phục?
+              {t("stockAdjCreate.draftDesc")}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2">
@@ -709,7 +710,7 @@ export const StockAdjustmentCreatePage = () => {
                 dismiss()
               }}
             >
-              Bỏ qua
+              {t("dialog.discard")}
             </Button>
             <Button
               onClick={() => {
@@ -717,7 +718,7 @@ export const StockAdjustmentCreatePage = () => {
                 restore()
               }}
             >
-              Khôi phục
+              {t("dialog.restore")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -731,12 +732,12 @@ export const StockAdjustmentCreatePage = () => {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Xác nhận tạo hàng loạt</DialogTitle>
+            <DialogTitle>{t("stockAdjCreate.batchConfirmTitle")}</DialogTitle>
           </DialogHeader>
           <div className="space-y-2 text-sm">
             <div className="flex gap-2">
-              <span className="text-muted-foreground w-28 shrink-0">Số lượng:</span>
-              <span className="font-medium">{locationState?.mismatches?.length ?? 0} phiếu</span>
+              <span className="text-muted-foreground w-28 shrink-0">{t("stockAdjCreate.quantity")}:</span>
+              <span className="font-medium">{locationState?.mismatches?.length ?? 0} {t("stockAdjCreate.receipts")}</span>
             </div>
             <div className="rounded-lg border max-h-32 overflow-y-auto divide-y text-xs">
               {locationState?.mismatches?.map((m, i) => (
@@ -753,20 +754,20 @@ export const StockAdjustmentCreatePage = () => {
               ))}
             </div>
             <div>
-              <span className="text-muted-foreground">Lý do:</span>
+              <span className="text-muted-foreground">{t("stockAdjCreate.reason")}:</span>
               <Input
                 className="mt-1 h-8 text-sm"
                 {...form.register("reason")}
-                placeholder="Lý do (dùng chung cho tất cả)"
+                placeholder={t("stockAdjCreate.batchReasonPlaceholder")}
               />
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowConfirm(false)}>
-              Quay lại
+              {t("dialog.back")}
             </Button>
             <Button onClick={confirmBatch} disabled={backgroundBatch.isRunning()}>
-              {backgroundBatch.isRunning() ? "Đang tạo..." : "Xác nhận"}
+              {backgroundBatch.isRunning() ? t("stockAdjCreate.creating") : t("dialog.confirm")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -775,7 +776,7 @@ export const StockAdjustmentCreatePage = () => {
       <Dialog open={showResult} onOpenChange={(v) => { if (!v) { setShowResult(false); navigate("/stock/adjustments") } }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Kết quả tạo hàng loạt</DialogTitle>
+            <DialogTitle>{t("stockAdjCreate.batchResultTitle")}</DialogTitle>
           </DialogHeader>
           <div className="space-y-2 max-h-64 overflow-y-auto">
             {batchResults.map((r) => (
@@ -797,7 +798,7 @@ export const StockAdjustmentCreatePage = () => {
           </div>
           <DialogFooter>
             <Button onClick={() => { setShowResult(false); navigate("/stock/adjustments") }}>
-              {batchResults.filter((r) => r.success).length}/{batchResults.length} thành công — Về danh sách
+              {t("stockAdjCreate.batchResultSummary", { success: batchResults.filter((r) => r.success).length, total: batchResults.length })}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -806,23 +807,23 @@ export const StockAdjustmentCreatePage = () => {
       <Dialog open={showManualConfirm} onOpenChange={(v) => { if (!v) setShowManualConfirm(false) }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Xác nhận tạo phiếu điều chỉnh</DialogTitle>
+            <DialogTitle>{t("stockAdjCreate.confirmTitle")}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3 text-sm">
             {(() => {
               const v = form.getValues()
-              const t = typeOptions.find(o => o.value === v.type)
+              const typeOpt = typeOptions.find(o => o.value === v.type)
               return (
                 <>
                   <div className="flex gap-2">
-                    <span className="text-muted-foreground w-28 shrink-0">Loại:</span>
-                    <span className="font-medium">{t?.label ?? v.type}</span>
+                    <span className="text-muted-foreground w-28 shrink-0">{t("stockAdjCreate.type")}:</span>
+                    <span className="font-medium">{typeOpt?.label ?? v.type}</span>
                   </div>
                   {v.selectedUnitId && (() => {
                     const u = unitsData?.content.find((x: ProductUnit) => x.id === v.selectedUnitId)
                     return u ? (
                       <div className="flex gap-2">
-                        <span className="text-muted-foreground w-28 shrink-0">Sản phẩm:</span>
+                        <span className="text-muted-foreground w-28 shrink-0">{t("stockAdjCreate.product")}:</span>
                         <span><span className="font-medium">{u.productName}</span><span className="text-xs text-muted-foreground ml-1 font-mono">{u.serialNumber}</span></span>
                       </div>
                     ) : null
@@ -830,23 +831,23 @@ export const StockAdjustmentCreatePage = () => {
                   {v.type === ADJUSTMENT_TYPE.FOUND && foundMode === "new" && (
                     <>
                       <div className="flex gap-2">
-                        <span className="text-muted-foreground w-28 shrink-0">Số lượng:</span>
+                        <span className="text-muted-foreground w-28 shrink-0">{t("stockAdjCreate.quantity")}:</span>
                         <span className="font-medium">{v.quantity}</span>
                       </div>
                       <div className="flex gap-2">
-                        <span className="text-muted-foreground w-28 shrink-0">Serial:</span>
+                        <span className="text-muted-foreground w-28 shrink-0">{t("adjustment.serialNumberLabel")}:</span>
                         <span className="font-mono text-xs">{v.foundSerialNumber}</span>
                       </div>
                     </>
                   )}
                   <div className="flex gap-2">
-                    <span className="text-muted-foreground w-28 shrink-0">Lý do:</span>
+                    <span className="text-muted-foreground w-28 shrink-0">{t("stockAdjCreate.reason")}:</span>
                     <span className="text-muted-foreground">{v.reason}</span>
                   </div>
                   {v.imageUrl && (
                     <div className="flex gap-2">
-                      <span className="text-muted-foreground w-28 shrink-0">Ảnh:</span>
-                      <span className="text-xs text-muted-foreground">{v.imageUrl.split(",").filter(Boolean).length} ảnh</span>
+                      <span className="text-muted-foreground w-28 shrink-0">{t("stockAdjCreate.image")}:</span>
+                      <span className="text-xs text-muted-foreground">{v.imageUrl.split(",").filter(Boolean).length} {t("stockAdjCreate.images")}</span>
                     </div>
                   )}
                 </>
@@ -855,10 +856,10 @@ export const StockAdjustmentCreatePage = () => {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowManualConfirm(false)}>
-              Quay lại
+              {t("dialog.back")}
             </Button>
             <Button onClick={confirmManual} disabled={createMut.isPending}>
-              {createMut.isPending ? "Đang tạo..." : "Xác nhận"}
+              {createMut.isPending ? t("stockAdjCreate.creating") : t("dialog.confirm")}
             </Button>
           </DialogFooter>
         </DialogContent>

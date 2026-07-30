@@ -10,10 +10,10 @@ export const exportLineItemSchema = z.object({
 })
 
 export const exportFormSchema = z.object({
-  reason: z.string().min(1, "Vui lòng chọn lý do xuất"),
+  reason: z.string().min(1, "exportSchema.requiredReason"),
   customerId: z.string().optional(),
   note: z.string().optional(),
-  items: z.array(exportLineItemSchema).min(1, "Chưa có sản phẩm nào"),
+  items: z.array(exportLineItemSchema).min(1, "exportSchema.requiredItems"),
 })
 
 export type ExportFormData = z.infer<typeof exportFormSchema>

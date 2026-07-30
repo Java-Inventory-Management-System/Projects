@@ -1,5 +1,7 @@
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from "axios"
+import { t } from "i18next"
 import { toast } from "./toast"
+import { toApiError } from "./api-error"
 
 const STORAGE_KEY_TOKEN = "accessToken"
 const BASE_URL = (import.meta.env.VITE_BASE_API_URL as string) ?? "http://localhost:8888/api/v1"
@@ -36,7 +38,7 @@ http.interceptors.response.use(
     const body = response.data
     if (body && typeof body === "object" && "code" in body && "data" in body) {
       if (body.code >= 200 && body.code < 300) return body.data
-      return Promise.reject(new Error(body.message || "Lỗi không xác định"))
+      return Promise.reject(new Error(body.message || t("error.unknown")))
     }
     return body
   },
@@ -68,14 +70,14 @@ http.interceptors.response.use(
       } catch {
         localStorage.removeItem(STORAGE_KEY_TOKEN)
         processQueue(error, null)
-        toast.error("Phiên đăng nhập hết hạn")
+        toast.error(t("error.sessionExpired"))
       } finally {
         isRefreshing = false
       }
     }
 
-    const message = (error.response?.data as { message?: string })?.message || error.message || "Lỗi kết nối"
-    return Promise.reject(new Error(message))
+    const message = (error.response?.data as { message?: string })?.message || error.message || t("error.connectionError")
+    return Promise.reject(toApiError(error))
   },
 )
 

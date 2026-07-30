@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
+import { useTranslation } from "react-i18next"
 import { usePermission } from "@/hooks/use-permission"
 import { useStockChecks, useMyStockChecks } from "@/hooks/use-stock-checks"
 import { Button } from "@/components/ui/button"
@@ -10,22 +11,8 @@ import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip
 import { DataTable, type Column } from "@/components/ui/data-table"
 import type { StockCheck } from "@/utils/types"
 
-const statusLabel: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
-  PENDING: { label: "Chờ xử lý", variant: "secondary" },
-  IN_PROGRESS: { label: "Đang kiểm", variant: "outline" },
-  COMPLETED: { label: "Chờ duyệt", variant: "default" },
-  APPROVED: { label: "Đã duyệt", variant: "default" },
-}
-
-const statusOptions = [
-  { value: "all", label: "Tất cả" },
-  { value: "PENDING", label: "Chờ xử lý" },
-  { value: "IN_PROGRESS", label: "Đang kiểm" },
-  { value: "COMPLETED", label: "Chờ duyệt" },
-  { value: "APPROVED", label: "Đã duyệt" },
-]
-
 export const StockCheckListPage = () => {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const perm = usePermission()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -34,6 +21,21 @@ export const StockCheckListPage = () => {
   const [pageSize, setPageSize] = useState(10)
   const [sort, setSort] = useState<{ key: string; dir: "asc" | "desc" } | undefined>(undefined)
   const sortStr = sort ? `${sort.key},${sort.dir}` : undefined
+
+  const statusLabel: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
+    PENDING: { label: t("stockCheckList.pending"), variant: "secondary" },
+    IN_PROGRESS: { label: t("stockCheckList.inProgress"), variant: "outline" },
+    COMPLETED: { label: t("stockCheckList.completed"), variant: "default" },
+    APPROVED: { label: t("stockCheckList.approved"), variant: "default" },
+  }
+
+  const statusOptions = [
+    { value: "all", label: t("common.all") },
+    { value: "PENDING", label: t("stockCheckList.pending") },
+    { value: "IN_PROGRESS", label: t("stockCheckList.inProgress") },
+    { value: "COMPLETED", label: t("stockCheckList.completed") },
+    { value: "APPROVED", label: t("stockCheckList.approved") },
+  ]
 
   const handleSort = useCallback((key: string) => {
     setSort((prev) => {
@@ -63,37 +65,37 @@ export const StockCheckListPage = () => {
 
   const columns: Column<StockCheck>[] = [
     {
-      header: "Mã phiếu",
+      header: t("stockCheckList.checkCode"),
       sortKey: "checkCode",
       render: (r) => <span className="font-mono text-xs">{r.checkCode}</span>,
     },
     {
-      header: "Trạng thái",
+      header: t("common.status"),
       render: (r) => {
         const s = statusLabel[r.status] ?? { label: r.status, variant: "secondary" as const }
         return <Badge variant={s.variant}>{s.label}</Badge>
       },
     },
-    { header: "Người tạo", render: (r) => <span className="text-muted-foreground">{r.createdByName}</span> },
+    { header: t("stockCheckList.creator"), render: (r) => <span className="text-muted-foreground">{r.createdByName}</span> },
     {
-      header: "Ngày tạo",
+      header: t("stockCheckList.createdDate"),
       sortKey: "createdAt",
       render: (r) => (
         <span className="text-muted-foreground text-xs">{new Date(r.createdAt).toLocaleDateString("vi-VN")}</span>
       ),
     },
     {
-      header: "Số items",
+      header: t("stockCheckList.itemCount"),
       className: "text-right",
       render: (r) => <span className="tabular-nums">{r.totalItems}</span>,
     },
     {
-      header: "Số lỗi",
+      header: t("stockCheckList.errorCount"),
       className: "text-right",
       render: (r) => <span className="tabular-nums text-destructive">{r.missingCount + r.unexpectedCount || "—"}</span>,
     },
     {
-      header: "Thao tác",
+      header: t("common.actions"),
       className: "w-[80px]",
       render: (r) => (
         <Tooltip>
@@ -102,7 +104,7 @@ export const StockCheckListPage = () => {
               <Eye className="size-4" />
             </Button>
           </TooltipTrigger>
-          <TooltipContent>Xem chi tiết</TooltipContent>
+          <TooltipContent>{t("common.viewDetail")}</TooltipContent>
         </Tooltip>
       ),
     },
@@ -111,11 +113,11 @@ export const StockCheckListPage = () => {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-xl font-semibold tracking-tight">Kiểm kho</h1>
+        <h1 className="text-xl font-semibold tracking-tight">{t("nav.stockChecks")}</h1>
         <div className="flex items-center gap-2">
           <Select value={statusFilter} onValueChange={(v) => updateParams({ status: v || undefined, page: undefined })}>
             <SelectTrigger className="w-40">
-              <SelectValue placeholder="Trạng thái" />
+              <SelectValue placeholder={t("stockCheckList.statusFilter")} />
             </SelectTrigger>
             <SelectContent className="max-h-[50vh]">
               {statusOptions.map((o) => (
@@ -124,7 +126,7 @@ export const StockCheckListPage = () => {
             </SelectContent>
           </Select>
           <Button onClick={() => navigate("/stock/checks/new")}>
-            <Plus className="size-4 mr-1" /> Tạo phiếu kiểm
+            <Plus className="size-4 mr-1" /> {t("stockCheckList.create")}
           </Button>
         </div>
       </div>
@@ -133,7 +135,7 @@ export const StockCheckListPage = () => {
         columns={columns}
         data={data?.content ?? []}
         isLoading={isLoading}
-        emptyMessage="Chưa có phiếu kiểm nào"
+        emptyMessage={t("stockCheckList.empty")}
         sort={sort}
         onSort={handleSort}
         totalElements={data?.pagination.totalElements}

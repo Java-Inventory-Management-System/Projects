@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { useParams, useNavigate } from "react-router-dom"
+import { useTranslation } from "react-i18next"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { getImportReceiptById, approveImportReceipt, cancelImportReceipt } from "@/services/import-service"
 import { usePermission } from "@/hooks/use-permission"
@@ -8,7 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Empty, EmptyTitle } from "@/components/ui/empty"
 import { ButtonGroup } from "@/components/ui/button-group"
-import { Check, X, ScanLine } from "lucide-react"
+import { Check, X, ScanLine, FileDown } from "lucide-react"
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -33,21 +34,21 @@ import { toast } from "@/utils/toast"
 import { downloadCsv } from "@/utils/download-csv"
 import { IMPORT_RECEIPT_STATUS } from "@/utils/types"
 import { PrintReceiptButton } from "../components/print-receipt"
-import { FileDown } from "lucide-react"
-
-const statusLabel: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
-  DRAFT: { label: "Bản nháp", variant: "secondary" },
-  PENDING_APPROVAL: { label: "Chờ duyệt", variant: "outline" },
-  COMPLETED: { label: "Hoàn tất", variant: "default" },
-  CANCELLED: { label: "Đã hủy", variant: "destructive" },
-}
 
 export function ImportDetailPage() {
+  const { t } = useTranslation()
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const qc = useQueryClient()
   const perm = usePermission()
   const [confirmAction, setConfirmAction] = useState<"approve" | "cancel" | null>(null)
+
+  const statusLabel: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
+    DRAFT: { label: t("importStatus.draft"), variant: "secondary" },
+    PENDING_APPROVAL: { label: t("importStatus.pendingApproval"), variant: "outline" },
+    COMPLETED: { label: t("importStatus.completed"), variant: "default" },
+    CANCELLED: { label: t("importStatus.cancelled"), variant: "destructive" },
+  }
 
   const { data: receipt, isLoading } = useQuery({
     queryKey: ["import-receipt", id],
@@ -66,7 +67,7 @@ export function ImportDetailPage() {
       qc.invalidateQueries({ queryKey: ["inventory"] })
       qc.invalidateQueries({ queryKey: ["inventory-summary"] })
       qc.invalidateQueries({ queryKey: ["low-stock"] })
-      toast.success("Thao tác thành công")
+      toast.success(t("importDetail.actionSuccess"))
       setConfirmAction(null)
     },
     onError: (e: Error) => {
@@ -85,7 +86,7 @@ export function ImportDetailPage() {
   if (!receipt)
     return (
       <Empty>
-        <EmptyTitle>Không tìm thấy phiếu nhập</EmptyTitle>
+        <EmptyTitle>{t("importDetail.notFound")}</EmptyTitle>
       </Empty>
     )
 
@@ -94,13 +95,13 @@ export function ImportDetailPage() {
   const handleDownloadCsv = () => {
     downloadCsv(
       `${receipt.receiptCode}.csv`,
-      ["Sản phẩm", "SKU", "Số lượng", "Đơn giá", "Bảo hành", "Thành tiền"],
+      [t("table.product"), t("table.sku"), t("table.quantity"), t("table.unitPrice"), t("table.warranty"), t("table.total")],
       receipt.items.map((item) => [
         item.productName,
         item.productSku ?? "",
         String(item.quantity),
         (item.unitPrice ?? 0).toLocaleString("vi-VN"),
-        item.warrantyMonths ? `${item.warrantyMonths} tháng` : "—",
+        item.warrantyMonths ? t("importDetail.warrantyMonths", { months: item.warrantyMonths }) : "—",
         ((item.quantity ?? 0) * (item.unitPrice ?? 0)).toLocaleString("vi-VN"),
       ]),
     )
@@ -111,7 +112,7 @@ export function ImportDetailPage() {
       <Breadcrumb>
         <BreadcrumbList>
           <BreadcrumbItem>
-            <BreadcrumbLink onClick={() => navigate("/stock/imports")}>Nhập kho</BreadcrumbLink>
+            <BreadcrumbLink onClick={() => navigate("/stock/imports")}>{t("nav.imports")}</BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator />
           <BreadcrumbItem>
@@ -129,21 +130,21 @@ export function ImportDetailPage() {
           {receipt.status === IMPORT_RECEIPT_STATUS.PENDING_APPROVAL && perm.canApprove() && (
             <ButtonGroup>
               <Button variant="outline" className="text-destructive" onClick={() => setConfirmAction("cancel")}>
-                <X className="size-4 mr-1" /> Từ chối
+                <X className="size-4 mr-1" /> {t("importDetail.reject")}
               </Button>
               <Button onClick={() => setConfirmAction("approve")}>
-                <Check className="size-4 mr-1" /> Duyệt
+                <Check className="size-4 mr-1" /> {t("importDetail.approve")}
               </Button>
             </ButtonGroup>
           )}
           {perm.canCancel() && receipt.status === IMPORT_RECEIPT_STATUS.DRAFT && (
             <Button variant="outline" className="text-destructive" onClick={() => setConfirmAction("cancel")}>
-              <X className="size-4 mr-1" /> Hủy phiếu
+              <X className="size-4 mr-1" /> {t("importDetail.cancelReceipt")}
             </Button>
           )}
           {receipt.status === IMPORT_RECEIPT_STATUS.DRAFT && (
             <Button variant="secondary" onClick={() => navigate(`/stock/imports/new?id=${receipt.id}`)}>
-              <ScanLine className="size-4 mr-1" /> Nhập serial
+              <ScanLine className="size-4 mr-1" /> {t("importDetail.enterSerials")}
             </Button>
           )}
           <PrintReceiptButton
@@ -171,19 +172,19 @@ export function ImportDetailPage() {
         <CardContent className="pt-6">
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
-              <span className="text-muted-foreground">Nhà cung cấp:</span>
+              <span className="text-muted-foreground">{t("label.supplier")}</span>
               <p className="font-medium">{receipt.supplierName || "—"}</p>
             </div>
             <div>
-              <span className="text-muted-foreground">Ngày tạo:</span>
+              <span className="text-muted-foreground">{t("label.createdDate")}</span>
               <p className="font-medium">{new Date(receipt.createdAt).toLocaleString("vi-VN")}</p>
             </div>
             <div>
-              <span className="text-muted-foreground">Người tạo:</span>
+              <span className="text-muted-foreground">{t("label.creator")}</span>
               <p className="font-medium">{receipt.createdByName || "—"}</p>
             </div>
             <div>
-              <span className="text-muted-foreground">Người duyệt:</span>
+              <span className="text-muted-foreground">{t("label.approver")}</span>
               <p className="font-medium">{receipt.approvedByName ?? "—"}</p>
             </div>
           </div>
@@ -192,7 +193,7 @@ export function ImportDetailPage() {
 
       {receipt.note && (
         <div className="rounded-md border bg-muted/20 px-3 py-2.5 text-sm">
-          <span className="text-xs font-medium text-muted-foreground tracking-wide">GHI CHÚ</span>
+          <span className="text-xs font-medium text-muted-foreground tracking-wide">{t("label.note")}</span>
           <p className="mt-1">{receipt.note}</p>
         </div>
       )}
@@ -202,11 +203,11 @@ export function ImportDetailPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Sản phẩm</TableHead>
-                <TableHead className="w-16 text-right">SL</TableHead>
-                <TableHead className="w-24 text-right">Đơn giá</TableHead>
-                <TableHead className="w-14 text-center">BH</TableHead>
-                <TableHead className="w-24 text-right">Thành tiền</TableHead>
+                <TableHead>{t("table.product")}</TableHead>
+                <TableHead className="w-16 text-right">{t("table.qty")}</TableHead>
+                <TableHead className="w-24 text-right">{t("table.unitPrice")}</TableHead>
+                <TableHead className="w-14 text-center">{t("table.warranty")}</TableHead>
+                <TableHead className="w-24 text-right">{t("table.total")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -221,7 +222,7 @@ export function ImportDetailPage() {
                     {(item.unitPrice ?? 0).toLocaleString("vi-VN")}₫
                   </TableCell>
                   <TableCell className="text-center text-xs tabular-nums text-muted-foreground">
-                    {item.warrantyMonths ? `${item.warrantyMonths}t` : "—"}
+                    {item.warrantyMonths ? t("importDetail.warrantyAbbr", { count: item.warrantyMonths }) : "—"}
                   </TableCell>
                   <TableCell className="text-right tabular-nums">
                     {((item.quantity ?? 0) * (item.unitPrice ?? 0)).toLocaleString("vi-VN")}₫
@@ -234,7 +235,7 @@ export function ImportDetailPage() {
       </Card>
 
       <div className="flex justify-end">
-        <span className="text-lg font-semibold">Tổng: {(receipt.totalAmount ?? 0).toLocaleString("vi-VN")}₫</span>
+        <span className="text-lg font-semibold">{t("importDetail.total")}: {(receipt.totalAmount ?? 0).toLocaleString("vi-VN")}₫</span>
       </div>
 
       <AlertDialog
@@ -246,21 +247,21 @@ export function ImportDetailPage() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {confirmAction === "approve" ? "Duyệt phiếu nhập" : "Hủy phiếu nhập"}
+              {confirmAction === "approve" ? t("importDetail.approveConfirmTitle") : t("importDetail.cancelConfirmTitle")}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {confirmAction === "approve"
-                ? "Xác nhận duyệt phiếu nhập này? Hàng sẽ được nhập kho."
-                : "Xác nhận hủy phiếu nhập này? Hàng sẽ bị xóa khỏi kho."}
+                ? t("importDetail.approveConfirmDescription")
+                : t("importDetail.cancelConfirmDescription")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Không</AlertDialogCancel>
+            <AlertDialogCancel>{t("dialog.no")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => confirmAction && action.mutate(confirmAction)}
               disabled={action.isPending}
             >
-              {action.isPending ? "Đang xử lý..." : "Xác nhận"}
+              {action.isPending ? t("dialog.processing") : t("dialog.confirm")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

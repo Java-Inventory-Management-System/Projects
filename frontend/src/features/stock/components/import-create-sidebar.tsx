@@ -1,9 +1,11 @@
 import { useMemo } from "react"
+import { useTranslation } from "react-i18next"
 import { useImportReceipts } from "@/hooks/use-import-receipts"
 import { useInventory } from "@/hooks/use-inventory"
 import { Package, AlertTriangle } from "lucide-react"
 
 export function ImportCreateSidebar() {
+  const { t } = useTranslation()
   const { data: recentReceiptsRes } = useImportReceipts(0, 5)
   const { data: inventoryRes } = useInventory(0, 100)
 
@@ -45,10 +47,10 @@ export function ImportCreateSidebar() {
       <div className="rounded-lg border p-3 space-y-2">
         <h3 className="text-xs font-semibold flex items-center gap-1.5">
           <Package className="size-3.5 text-muted-foreground" />
-          Sản phẩm nhập gần đây
+          {t("importSidebar.recentProducts")}
         </h3>
         {recentProducts.length === 0 ? (
-          <p className="text-[11px] text-muted-foreground">Chưa có dữ liệu</p>
+          <p className="text-[11px] text-muted-foreground">{t("importSidebar.noData")}</p>
         ) : (
           <div className="space-y-1.5">
             {recentProducts.map((p) => (
@@ -69,10 +71,10 @@ export function ImportCreateSidebar() {
       <div className="rounded-lg border border-amber-200 dark:border-amber-800 p-3 space-y-2">
         <h3 className="text-xs font-semibold flex items-center gap-1.5 text-red-600 dark:text-red-400">
           <AlertTriangle className="size-3.5" />
-          Hàng sắp hết
+          {t("importSidebar.lowStock")}
         </h3>
         {lowStockItems.length === 0 ? (
-          <p className="text-[11px] text-muted-foreground">Không có sản phẩm nào dưới mức cảnh báo</p>
+          <p className="text-[11px] text-muted-foreground">{t("importSidebar.noLowStock")}</p>
         ) : (
           <div className="space-y-1.5">
             {lowStockItems.map((item) => (

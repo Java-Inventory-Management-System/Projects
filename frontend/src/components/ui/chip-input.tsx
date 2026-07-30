@@ -1,4 +1,5 @@
 import { useState, useRef, type KeyboardEvent, type ClipboardEvent } from "react"
+import { useTranslation } from "react-i18next"
 import { cn } from "@/utils/cn"
 import { X } from "lucide-react"
 
@@ -11,7 +12,8 @@ interface ChipInputProps {
   className?: string
 }
 
-export function ChipInput({ value, onChange, onDuplicate, placeholder = "Nhập...", disabled, className }: ChipInputProps) {
+export function ChipInput({ value, onChange, onDuplicate, placeholder, disabled, className }: ChipInputProps) {
+  const { t } = useTranslation()
   const [input, setInput] = useState("")
   const ref = useRef<HTMLInputElement>(null)
 
@@ -85,7 +87,7 @@ export function ChipInput({ value, onChange, onDuplicate, placeholder = "Nhập.
         onChange={(e) => setInput(e.target.value)}
         onKeyDown={handleKeyDown}
         onPaste={handlePaste}
-        placeholder={value.length === 0 ? placeholder : ""}
+        placeholder={value.length === 0 ? (placeholder ?? t('chipInput.placeholder')) : ""}
         disabled={disabled}
         className="flex-1 min-w-[100px] border-none bg-transparent px-1 py-0.5 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed"
       />

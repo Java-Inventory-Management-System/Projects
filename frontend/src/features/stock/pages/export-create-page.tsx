@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react"
+import { useTranslation } from "react-i18next"
 import { useForm, useFieldArray, Controller } from "react-hook-form"
 import { useNavigate } from "react-router-dom"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
@@ -42,15 +43,15 @@ interface ExportFormFields {
   }[]
 }
 
-const reasons: { value: ExportReason; label: string }[] = [
-  { value: EXPORT_REASON.SALE, label: "Bán hàng" },
-  { value: EXPORT_REASON.INTERNAL, label: "Xuất nội bộ" },
-  { value: EXPORT_REASON.RETURN_SUPPLIER, label: "Trả nhà cung cấp" },
-  { value: EXPORT_REASON.DISPOSE, label: "Hủy hàng" },
-]
-
 export const ExportCreatePage = () => {
+  const { t } = useTranslation()
   const navigate = useNavigate()
+  const reasons: { value: ExportReason; label: string }[] = [
+    { value: EXPORT_REASON.SALE, label: t("exportReason.sale") },
+    { value: EXPORT_REASON.INTERNAL, label: t("exportReason.internal") },
+    { value: EXPORT_REASON.RETURN_SUPPLIER, label: t("exportReason.returnSupplier") },
+    { value: EXPORT_REASON.DISPOSE, label: t("exportReason.dispose") },
+  ]
   const qc = useQueryClient()
   const [customerName, setCustomerName] = useState("")
   const [selectModalOpen, setSelectModalOpen] = useState(false)
@@ -120,10 +121,10 @@ export const ExportCreatePage = () => {
     onSuccess: () => {
       clearDraft("/stock/exports/new")
       qc.invalidateQueries({ queryKey: ["export-receipts"] })
-      toast.success("Tạo phiếu xuất thành công")
+      toast.success(t("exportCreate.createSuccess"))
       navigate("/stock/exports")
     },
-    onError: (err: Error) => toast.error(err.message || "Có lỗi xảy ra"),
+    onError: (err: Error) => toast.error(err.message || t("exportCreate.createError")),
   })
 
   const openOverrideDialog = useCallback(async (tempId: number, productId: number) => {
@@ -163,11 +164,11 @@ export const ExportCreatePage = () => {
     const parsed = exportFormSchema.safeParse(raw)
     if (!parsed.success) {
       const first = parsed.error.issues[0]
-      toast.error(first.message)
+      toast.error(t(first.message))
       return
     }
     if (values.reason === EXPORT_REASON.SALE && !values.customerId) {
-      toast.error("Vui lòng chọn khách hàng")
+      toast.error(t("exportCreate.selectCustomerRequired"))
       return
     }
     createMut.mutate({
@@ -187,10 +188,10 @@ export const ExportCreatePage = () => {
       onSuccess: (data) => {
         clearDraft("/stock/exports/new")
         qc.invalidateQueries({ queryKey: ["export-receipts"] })
-        toast.success("Tạo phiếu xuất thành công")
+        toast.success(t("exportCreate.createSuccess"))
         navigate(`/stock/exports/${data.id}`)
       },
-      onError: (err: Error) => toast.error(err.message || "Có lỗi xảy ra"),
+      onError: (err: Error) => toast.error(err.message || t("exportCreate.createError")),
     })
   })
 
@@ -206,21 +207,21 @@ export const ExportCreatePage = () => {
     <div className="mx-auto max-w-4xl space-y-4 lg:space-y-6">
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="sm" onClick={() => navigate("/stock/exports")}>
-          &larr; Quay lại
+          &larr; {t("common.back")}
         </Button>
-        <h1 className="text-xl font-semibold tracking-tight">Tạo phiếu xuất kho</h1>
+        <h1 className="text-xl font-semibold tracking-tight">{t("exportCreate.title")}</h1>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
-          <Label htmlFor="reason">Lý do xuất</Label>
+          <Label htmlFor="reason">{t("exportCreate.reason")}</Label>
           <Controller
             control={form.control}
             name="reason"
             render={({ field }) => (
               <Select value={field.value} onValueChange={field.onChange}>
                 <SelectTrigger id="reason">
-                  <SelectValue placeholder="Chọn lý do" />
+                  <SelectValue placeholder={t("exportCreate.reasonPlaceholder")} />
                 </SelectTrigger>
                 <SelectContent>
                   {reasons.map((r) => (
@@ -235,7 +236,7 @@ export const ExportCreatePage = () => {
         </div>
         {watchedReason === EXPORT_REASON.SALE && (
           <div className="space-y-2">
-            <Label htmlFor="customer">Khách hàng</Label>
+            <Label htmlFor="customer">{t("exportCreate.customer")}</Label>
             <div className="flex gap-2">
               <Button
                 variant="outline"
@@ -247,7 +248,7 @@ export const ExportCreatePage = () => {
                 ) : (
                   <span className="text-muted-foreground flex items-center gap-2">
                     <Search className="size-4" />
-                    Tìm kiếm / Chọn khách hàng...
+                    {t("exportCreate.searchCustomer")}
                   </span>
                 )}
               </Button>
@@ -269,11 +270,11 @@ export const ExportCreatePage = () => {
       </div>
 
       <div className="space-y-2">
-        <Label>Thêm sản phẩm</Label>
+        <Label>{t("exportCreate.addProductLabel")}</Label>
         <div className="flex gap-2">
           <Select value={selectedProductId} onValueChange={setSelectedProductId}>
             <SelectTrigger className="flex-1">
-              <SelectValue placeholder="Chọn sản phẩm..." />
+              <SelectValue placeholder={t("exportCreate.selectProductPlaceholder")} />
             </SelectTrigger>
             <SelectContent>
               {products.map((p) => (
@@ -284,7 +285,7 @@ export const ExportCreatePage = () => {
             </SelectContent>
           </Select>
           <Button onClick={addItem} disabled={!selectedProductId}>
-            <Plus className="size-4 mr-1" /> Thêm
+            <Plus className="size-4 mr-1" /> {t("common.add")}
           </Button>
         </div>
       </div>
@@ -294,10 +295,10 @@ export const ExportCreatePage = () => {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Sản phẩm</TableHead>
-                <TableHead className="w-20 text-right">SL</TableHead>
-                <TableHead className="w-28 text-right">Đơn giá</TableHead>
-                <TableHead className="w-28 text-right">Thành tiền</TableHead>
+                <TableHead>{t("table.product")}</TableHead>
+                <TableHead className="w-20 text-right">{t("table.qty")}</TableHead>
+                <TableHead className="w-28 text-right">{t("table.unitPrice")}</TableHead>
+                <TableHead className="w-28 text-right">{t("table.total")}</TableHead>
                 <TableHead className="w-10" />
               </TableRow>
             </TableHeader>
@@ -339,16 +340,16 @@ export const ExportCreatePage = () => {
       {fields.length > 0 && hasSerials && (
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold">Serial dự kiến xuất</h3>
+            <h3 className="text-sm font-semibold">{t("exportCreate.expectedSerials")}</h3>
           </div>
           <div className="rounded-lg border overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Sản phẩm</TableHead>
-                  <TableHead>Serial</TableHead>
-                  <TableHead>Vị trí</TableHead>
-                  <TableHead>Ngày nhập</TableHead>
+                  <TableHead>{t("table.product")}</TableHead>
+                  <TableHead>{t("table.serial")}</TableHead>
+                  <TableHead>{t("table.location")}</TableHead>
+                  <TableHead>{t("table.importDate")}</TableHead>
                   <TableHead className="w-10" />
                 </TableRow>
               </TableHeader>
@@ -375,7 +376,7 @@ export const ExportCreatePage = () => {
                                 className="text-[11px] h-7 px-2"
                                 onClick={() => openOverrideDialog(item.tempId, item.productId)}
                               >
-                                {overridden ? "Sửa" : "Đổi"}
+                                {overridden ? t("exportCreate.editSerial") : t("exportCreate.changeSerial")}
                               </Button>
                             </TableCell>
                           )}
@@ -392,22 +393,22 @@ export const ExportCreatePage = () => {
 
       <div className="flex items-center justify-between">
         <span className="text-sm font-semibold">
-          Tổng: {fields.reduce((s, i) => s + i.quantity * i.unitPrice, 0).toLocaleString("vi-VN")}₫
+          {t("exportCreate.total")}: {fields.reduce((s, i) => s + i.quantity * i.unitPrice, 0).toLocaleString("vi-VN")}₫
         </span>
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="note">Ghi chú</Label>
+        <Label htmlFor="note">{t("exportCreate.note")}</Label>
         <Textarea
           id="note"
-          placeholder="Ghi chú (không bắt buộc)"
+          placeholder={t("form.noteOptional")}
           {...form.register("note")}
         />
       </div>
 
       <div className="flex gap-2 justify-end">
         <Button variant="outline" onClick={() => navigate("/stock/exports")}>
-          Hủy
+          {t("common.cancel")}
         </Button>
         <Button
           onClick={onSubmit}
@@ -415,7 +416,7 @@ export const ExportCreatePage = () => {
             !watchedReason || fields.length === 0 || createMut.isPending || (watchedReason === EXPORT_REASON.SALE && !watchedCustomerId)
           }
         >
-          {createMut.isPending ? "Đang tạo..." : "Tạo phiếu xuất"}
+          {createMut.isPending ? t("common.processing") : t("exportCreate.submit")}
         </Button>
       </div>
 
@@ -430,8 +431,8 @@ export const ExportCreatePage = () => {
       >
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle>Khôi phục dữ liệu</DialogTitle>
-            <DialogDescription>Bạn có dữ liệu xuất kho chưa lưu từ lần trước. Muốn khôi phục?</DialogDescription>
+            <DialogTitle>{t("exportCreate.restoreTitle")}</DialogTitle>
+            <DialogDescription>{t("exportCreate.restoreDescription")}</DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2">
             <Button
@@ -441,7 +442,7 @@ export const ExportCreatePage = () => {
                 dismiss()
               }}
             >
-              Bỏ qua
+              {t("dialog.discard")}
             </Button>
             <Button
               onClick={() => {
@@ -449,7 +450,7 @@ export const ExportCreatePage = () => {
                 restore()
               }}
             >
-              Khôi phục
+              {t("dialog.restore")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -458,15 +459,15 @@ export const ExportCreatePage = () => {
       <Dialog open={overrideDialog != null} onOpenChange={(v) => { if (!v) setOverrideDialog(null) }}>
         <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Chọn serial xuất kho</DialogTitle>
+            <DialogTitle>{t("exportCreate.selectSerialTitle")}</DialogTitle>
             <DialogDescription>
-              Chọn serial cụ thể cho sản phẩm này. Có thể bỏ chọn serial không muốn xuất.
+              {t("exportCreate.selectSerialDescription")}
             </DialogDescription>
           </DialogHeader>
           {overrideLoading ? (
-            <div className="py-8 text-center text-sm text-muted-foreground">Đang tải...</div>
+            <div className="py-8 text-center text-sm text-muted-foreground">{t("common.loading")}</div>
           ) : allProductSerials.length === 0 ? (
-            <div className="py-8 text-center text-sm text-muted-foreground">Không còn serial tồn kho</div>
+            <div className="py-8 text-center text-sm text-muted-foreground">{t("exportCreate.noSerials")}</div>
           ) : (
             <div className="space-y-1">
               {allProductSerials.map((s) => {
@@ -501,14 +502,14 @@ export const ExportCreatePage = () => {
           )}
           <DialogFooter className="gap-2 flex-col sm:flex-row">
             <Button variant="outline" onClick={() => setOverrideDialog(null)} className="w-full sm:w-auto">
-              Hủy
+              {t("common.cancel")}
             </Button>
             <Button
               onClick={confirmOverride}
               disabled={overrideSelectedIds.length === 0}
               className="w-full sm:w-auto"
             >
-              Xác nhận ({overrideSelectedIds.length} serial)
+              {t("exportCreate.confirmSerial", { count: overrideSelectedIds.length })}
             </Button>
           </DialogFooter>
         </DialogContent>

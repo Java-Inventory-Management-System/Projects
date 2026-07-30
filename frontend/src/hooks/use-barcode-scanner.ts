@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react"
+import { t } from "i18next"
 import { toast } from "@/utils/toast"
 
 interface BarcodeDetectorAPI {
@@ -50,7 +51,7 @@ export function useBarcodeScanner(onDetect: (value: string) => void) {
         detectLoop()
       }
     } catch {
-      toast.error("Không thể mở camera")
+      toast.error(t("barcodeScanner.cameraError"))
     }
   }, [scanning, stopCamera, detectLoop])
 

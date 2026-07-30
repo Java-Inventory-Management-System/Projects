@@ -1,4 +1,5 @@
 import { useEffect } from "react"
+import { useTranslation } from "react-i18next"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -29,6 +30,7 @@ import { useLocationMapPage } from "@/features/stock/hooks/use-location-map-page
 import { toast } from "@/utils/toast"
 
 export function LocationsMapPage() {
+  const { t } = useTranslation()
   const {
     data,
     loading,
@@ -87,21 +89,21 @@ export function LocationsMapPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
-          <h1 className="text-lg font-semibold tracking-tight">Bản đồ kho</h1>
+          <h1 className="text-lg font-semibold tracking-tight">{t("locMap.title")}</h1>
           {!loading && data && (
             <p className="text-xs text-muted-foreground mt-0.5">
-              {data.zones.length} khu vực · {totalBins} vị trí
+              {t("locMap.zoneCount", { zones: data.zones.length, bins: totalBins })}
             </p>
           )}
         </div>
         <div className="flex gap-2">
           <Button size="sm" variant={managing ? "default" : "outline"} onClick={() => setManaging((m: boolean) => !m)}>
             <Settings2 className="size-3.5 mr-1" />
-            {managing ? "Xong" : "Quản lý vị trí"}
+            {managing ? t("locMap.done") : t("locMap.manageLocations")}
           </Button>
           <Button variant="outline" size="sm" onClick={() => fetchMap()} disabled={loading || refreshing}>
             <RefreshCw className={`size-3.5 mr-1 ${refreshing ? "animate-spin" : ""}`} />
-            Làm mới
+            {t("locMap.refresh")}
           </Button>
         </div>
       </div>
@@ -110,7 +112,7 @@ export function LocationsMapPage() {
         <div className="relative w-72">
           <Search className="absolute left-2 top-2 size-3.5 text-muted-foreground" />
           <Input
-            placeholder="Nhập tên SP hoặc SKU..."
+            placeholder={t("locMap.searchPlaceholder")}
             className="pl-7 h-8 text-xs"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -127,7 +129,7 @@ export function LocationsMapPage() {
                   : "bg-muted text-muted-foreground hover:bg-accent"
               }`}
             >
-              {f.label}
+              {t(`locMap.filter${f.key.charAt(0).toUpperCase() + f.key.slice(1)}`)}
             </button>
           ))}
         </div>
@@ -137,7 +139,7 @@ export function LocationsMapPage() {
         {LEVELS.map((c, i) => (
           <span key={i} className="inline-flex items-center gap-1.5 whitespace-nowrap">
             <span className={`inline-block size-3 rounded-sm ${c.bg} ${c.border} border`} />
-            {c.label}
+            {t(`locMap.level${c.key.charAt(0).toUpperCase() + c.key.slice(1)}`)}
           </span>
         ))}
       </div>
@@ -145,15 +147,15 @@ export function LocationsMapPage() {
       {zoomStage !== "idle" && zoomedShelfData ? (
         <div className="space-y-3">
           <Button variant="ghost" size="sm" onClick={() => openZoom(null)}>
-            <ArrowLeft className="size-3.5 mr-1" /> Về tổng quan
+            <ArrowLeft className="size-3.5 mr-1" /> {t("locMap.backToOverview")}
           </Button>
           <div className="rounded-lg border bg-card p-4 space-y-3">
             <div className="flex items-center justify-between">
               <h2 className="text-sm font-semibold">
-                Khu {zoomedShelf.zoneCode} · Kệ {zoomedShelf.shelfCode}
+                {t("locMap.zoomedHeader", { zone: zoomedShelf.zoneCode, shelf: zoomedShelf.shelfCode })}
               </h2>
               <span className="text-[10px] text-muted-foreground tabular-nums">
-                {zoomedShelfData.bins.length} ngăn
+                {t("locMap.binCount", { count: zoomedShelfData.bins.length })}
               </span>
             </div>
             <div className="flex flex-wrap items-center gap-4" onDragOver={(e) => { e.preventDefault() }}>
@@ -198,8 +200,8 @@ export function LocationsMapPage() {
                           </TooltipTrigger>
                           <TooltipContent side="top" className="text-[11px]">
                             <p className="font-mono font-semibold">{bin.fullCode}</p>
-                            <p>{bin.productCount} sản phẩm</p>
-                            <p className="text-muted-foreground">{active && bin.productCount > 0 ? "Kéo để di chuyển" : "Nhấp để quản lý"}</p>
+                            <p>{t("locMap.productCountLabel", { count: bin.productCount })}</p>
+                            <p className="text-muted-foreground">{active && bin.productCount > 0 ? t("locMap.dragToMove") : t("locMap.clickToManage")}</p>
                           </TooltipContent>
                         </Tooltip>
                         {active && bin.productCount > 0 && (
@@ -212,7 +214,7 @@ export function LocationsMapPage() {
                                 <GripVertical className="size-2.5 text-muted-foreground" />
                               </button>
                             </TooltipTrigger>
-                            <TooltipContent side="top" className="text-[11px]">Di chuyển sản phẩm</TooltipContent>
+                            <TooltipContent side="top" className="text-[11px]">{t("locMap.moveProducts")}</TooltipContent>
                           </Tooltip>
                         )}
                         {!active && detail.productCount === 0 && (
@@ -225,7 +227,7 @@ export function LocationsMapPage() {
                                 <Undo2 className="size-2.5" />
                               </button>
                             </TooltipTrigger>
-                            <TooltipContent side="top" className="text-[11px]">Kích hoạt lại</TooltipContent>
+                            <TooltipContent side="top" className="text-[11px]">{t("locMap.reactivate")}</TooltipContent>
                           </Tooltip>
                         )}
                         {detail.productCount > 0 ? (
@@ -239,7 +241,7 @@ export function LocationsMapPage() {
                                 <X className="size-2.5" />
                               </button>
                             </TooltipTrigger>
-                            <TooltipContent side="top" className="text-[11px]">Có sản phẩm</TooltipContent>
+                                    <TooltipContent side="top" className="text-[11px]">{t("locMap.hasProducts")}</TooltipContent>
                           </Tooltip>
                         ) : (
                           <Popover open={confirmBinId === bin.id} onOpenChange={(o) => setConfirmBinId(o ? bin.id : null)}>
@@ -254,23 +256,23 @@ export function LocationsMapPage() {
                                   </button>
                                 </PopoverTrigger>
                               </TooltipTrigger>
-                              <TooltipContent side="top" className="text-[11px]">{isBinActive(detail) ? "Vô hiệu hóa" : "Xóa"}</TooltipContent>
+                              <TooltipContent side="top" className="text-[11px]">{isBinActive(detail) ? t("locMap.deactivate") : t("locMap.delete")}</TooltipContent>
                             </Tooltip>
                             <PopoverContent side="top" className="w-auto min-w-[130px] p-2">
                               {isBinActive(detail) ? (
                                 <>
-                                  <p className="text-xs mb-1.5 font-medium">Vô hiệu hóa <span className="font-mono">{bin.binCode}</span>?</p>
+                                  <p className="text-xs mb-1.5 font-medium">{t("locMap.confirmDeactivate", { code: bin.binCode })}</p>
                                   <div className="flex gap-1 justify-end">
-                                    <button onClick={() => setConfirmBinId(null)} className="text-[11px] px-2 py-0.5 rounded hover:bg-accent">Hủy</button>
-                                    <button onClick={(e) => { e.stopPropagation(); setConfirmBinId(null); handleDeactivateBin(detail) }} className="text-[11px] px-2 py-0.5 rounded bg-primary text-primary-foreground hover:bg-primary/90">Vô hiệu hóa</button>
+                                    <button onClick={() => setConfirmBinId(null)} className="text-[11px] px-2 py-0.5 rounded hover:bg-accent">{t("locMap.cancelSmall")}</button>
+                                    <button onClick={(e) => { e.stopPropagation(); setConfirmBinId(null); handleDeactivateBin(detail) }} className="text-[11px] px-2 py-0.5 rounded bg-primary text-primary-foreground hover:bg-primary/90">{t("locMap.deactivate")}</button>
                                   </div>
                                 </>
                               ) : (
                                 <>
-                                  <p className="text-xs mb-1.5 font-medium">Xóa <span className="font-mono">{bin.binCode}</span>?</p>
+                                  <p className="text-xs mb-1.5 font-medium">{t("locMap.confirmDelete", { code: bin.binCode })}</p>
                                   <div className="flex gap-1 justify-end">
-                                    <button onClick={() => setConfirmBinId(null)} className="text-[11px] px-2 py-0.5 rounded hover:bg-accent">Hủy</button>
-                                    <button onClick={(e) => { e.stopPropagation(); handleBinDelete(detail) }} className="text-[11px] px-2 py-0.5 rounded bg-destructive text-destructive-foreground hover:bg-destructive/90">Xóa</button>
+                                    <button onClick={() => setConfirmBinId(null)} className="text-[11px] px-2 py-0.5 rounded hover:bg-accent">{t("locMap.cancelSmall")}</button>
+                                    <button onClick={(e) => { e.stopPropagation(); handleBinDelete(detail) }} className="text-[11px] px-2 py-0.5 rounded bg-destructive text-destructive-foreground hover:bg-destructive/90">{t("locMap.delete")}</button>
                                   </div>
                                 </>
                               )}
@@ -299,7 +301,7 @@ export function LocationsMapPage() {
                         </TooltipTrigger>
                         <TooltipContent side="top" className="text-[11px]">
                           <p className="font-mono font-semibold">{bin.fullCode}</p>
-                          <p>{bin.productCount} sản phẩm</p>
+                          <p>{t("locMap.productCountLabel", { count: bin.productCount })}</p>
                         </TooltipContent>
                       </Tooltip>
                     )}
@@ -317,7 +319,7 @@ export function LocationsMapPage() {
                       <Plus className="size-4 text-blue-400" />
                     </button>
                   </TooltipTrigger>
-                  <TooltipContent side="top" className="text-[11px]">Thêm ngăn</TooltipContent>
+                          <TooltipContent side="top" className="text-[11px]">{t("locMap.addBin")}</TooltipContent>
                 </Tooltip>
               )}
             </div>
@@ -326,16 +328,16 @@ export function LocationsMapPage() {
       ) : zoomStage !== "idle" && zoomedZone ? (
         <div className="space-y-4">
           <Button variant="ghost" size="sm" onClick={() => openZoom(null)}>
-            <ArrowLeft className="size-3.5 mr-1" /> Về tổng quan
+            <ArrowLeft className="size-3.5 mr-1" /> {t("locMap.backToOverview")}
           </Button>
           <div className="rounded-lg border bg-card p-6 space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <DoorOpen className="size-4 text-muted-foreground/40" />
-                <h2 className="text-base font-semibold">Khu {zoomedZone.zoneCode}</h2>
+                <h2 className="text-base font-semibold">{t("locMap.zoneLabel", { code: zoomedZone.zoneCode })}</h2>
               </div>
               <span className="text-xs text-muted-foreground tabular-nums">
-                {zoomedZone.shelves.reduce((s, sh) => s + sh.bins.length, 0)} ngăn
+                {t("locMap.binCount", { count: zoomedZone.shelves.reduce((s, sh) => s + sh.bins.length, 0) })}
               </span>
             </div>
             <div className="grid gap-4 grid-cols-2 lg:grid-cols-3">
@@ -349,7 +351,7 @@ export function LocationsMapPage() {
                       onClick={() => openZoom({ zoneCode: zoomedZone.zoneCode, shelfCode: shelf.shelfCode })}
                       className="text-sm font-semibold hover:text-foreground/80 transition-colors text-left cursor-pointer"
                     >
-                      Kệ {shelf.shelfCode}
+                      {t("locMap.shelfLabel", { code: shelf.shelfCode })}
                     </button>
                       <div className="flex flex-wrap items-start gap-4">
                         {shelf.bins.map((bin) => {
@@ -402,8 +404,8 @@ export function LocationsMapPage() {
                                   </TooltipTrigger>
                                   <TooltipContent side="top" className="text-[11px]">
                                     <p className="font-mono font-semibold">{bin.fullCode}</p>
-                                    <p>{bin.productCount} sản phẩm</p>
-                                    <p className="text-muted-foreground">{active && bin.productCount > 0 ? "Kéo để di chuyển" : "Nhấp để quản lý"}</p>
+                                    <p>{t("locMap.productCountLabel", { count: bin.productCount })}</p>
+                                    <p className="text-muted-foreground">{active && bin.productCount > 0 ? t("locMap.dragToMove") : t("locMap.clickToManage")}</p>
                                   </TooltipContent>
                               </Tooltip>
                               {active && bin.productCount > 0 && (
@@ -416,7 +418,7 @@ export function LocationsMapPage() {
                                       <GripVertical className="size-2.5 text-muted-foreground" />
                                     </button>
                                   </TooltipTrigger>
-                                  <TooltipContent side="top" className="text-[11px]">Di chuyển sản phẩm</TooltipContent>
+                                  <TooltipContent side="top" className="text-[11px]">{t("locMap.moveProducts")}</TooltipContent>
                                 </Tooltip>
                               )}
                               {!active && detail.productCount === 0 && (
@@ -433,7 +435,7 @@ export function LocationsMapPage() {
                                       </button>
                                     </TooltipTrigger>
                                     <TooltipContent side="top" className="text-[11px]">
-                                      Kích hoạt lại
+                                      {t("locMap.reactivate")}
                                     </TooltipContent>
                                   </Tooltip>
                                 )}
@@ -449,7 +451,7 @@ export function LocationsMapPage() {
                                       </button>
                                     </TooltipTrigger>
                                     <TooltipContent side="top" className="text-[11px]">
-                                      Có sản phẩm
+                                      {t("locMap.hasProducts")}
                                     </TooltipContent>
                                   </Tooltip>
                                 ) : (
@@ -469,21 +471,21 @@ export function LocationsMapPage() {
                                         </PopoverTrigger>
                                       </TooltipTrigger>
                                       <TooltipContent side="top" className="text-[11px]">
-                                        {isBinActive(detail) ? "Vô hiệu hóa" : "Xóa"}
+                                        {isBinActive(detail) ? t("locMap.deactivate") : t("locMap.delete")}
                                       </TooltipContent>
                                     </Tooltip>
                                     <PopoverContent side="top" className="w-auto min-w-[130px] p-2">
                                       {isBinActive(detail) ? (
                                         <>
                                           <p className="text-xs mb-1.5 font-medium">
-                                            Vô hiệu hóa <span className="font-mono">{bin.binCode}</span>?
+                                            {t("locMap.confirmDeactivate", { code: bin.binCode })}
                                           </p>
                                           <div className="flex gap-1 justify-end">
                                             <button
                                               onClick={() => setConfirmBinId(null)}
                                               className="text-[11px] px-2 py-0.5 rounded hover:bg-accent"
                                             >
-                                              Hủy
+                                              {t("locMap.cancelSmall")}
                                             </button>
                                             <button
                                               onClick={(e) => {
@@ -493,21 +495,21 @@ export function LocationsMapPage() {
                                               }}
                                               className="text-[11px] px-2 py-0.5 rounded bg-primary text-primary-foreground hover:bg-primary/90"
                                             >
-                                              Vô hiệu hóa
+                                              {t("locMap.deactivate")}
                                             </button>
                                           </div>
                                         </>
                                       ) : (
                                         <>
                                           <p className="text-xs mb-1.5 font-medium">
-                                            Xóa <span className="font-mono">{bin.binCode}</span>?
+                                            {t("locMap.confirmDelete", { code: bin.binCode })}
                                           </p>
                                           <div className="flex gap-1 justify-end">
                                             <button
                                               onClick={() => setConfirmBinId(null)}
                                               className="text-[11px] px-2 py-0.5 rounded hover:bg-accent"
                                             >
-                                              Hủy
+                                              {t("locMap.cancelSmall")}
                                             </button>
                                             <button
                                               onClick={(e) => {
@@ -516,7 +518,7 @@ export function LocationsMapPage() {
                                               }}
                                               className="text-[11px] px-2 py-0.5 rounded bg-destructive text-destructive-foreground hover:bg-destructive/90"
                                             >
-                                              Xóa
+                                              {t("locMap.delete")}
                                             </button>
                                           </div>
                                         </>
@@ -546,7 +548,7 @@ export function LocationsMapPage() {
                                 </TooltipTrigger>
                                 <TooltipContent side="top" className="text-[11px]">
                                   <p className="font-mono font-semibold">{bin.fullCode}</p>
-                                  <p>{bin.productCount} sản phẩm</p>
+                                  <p>{t("locMap.productCountLabel", { count: bin.productCount })}</p>
                                 </TooltipContent>
                               </Tooltip>
                             )}
@@ -565,14 +567,14 @@ export function LocationsMapPage() {
                             </button>
                           </TooltipTrigger>
                           <TooltipContent side="top" className="text-[11px]">
-                            Thêm ngăn
+                            {t("locMap.addBin")}
                           </TooltipContent>
                         </Tooltip>
                       )}
                     </div>
                     <div className="pt-1">
                       <div className="flex items-center justify-between text-[10px] text-muted-foreground mb-1">
-                        <span>{occ + "/" + shelf.bins.length} ngăn có hàng</span>
+                        <span>{t("locMap.occupiedBins", { count: occ, total: shelf.bins.length })}</span>
                         <span>{pct}%</span>
                       </div>
                       <div className="w-full h-1 rounded-full bg-muted-foreground/15 overflow-hidden">
@@ -587,11 +589,11 @@ export function LocationsMapPage() {
                               onClick={() => autoAddShelf(zoomedZone.zoneCode)}
                               className="inline-flex items-center gap-1 text-xs text-blue-500 hover:text-blue-700 transition-colors cursor-pointer"
                             >
-                              <Plus className="size-3.5" /> Thêm kệ
+                              <Plus className="size-3.5" /> {t("locMap.addShelf")}
                             </button>
                           </TooltipTrigger>
                           <TooltipContent side="top" className="text-[11px]">
-                            Thêm kệ mới
+                            {t("locMap.addNewShelf")}
                           </TooltipContent>
                         </Tooltip>
                       </div>
@@ -621,14 +623,14 @@ export function LocationsMapPage() {
         <div className="flex flex-col items-center gap-2 py-16">
           <p className="text-sm text-destructive">{error}</p>
           <Button variant="outline" size="sm" onClick={() => fetchMap()}>
-            <RefreshCw className="size-3 mr-1" /> Thử lại
+            <RefreshCw className="size-3 mr-1" /> {t("locMap.retry")}
           </Button>
         </div>
       ) : filteredZones.length === 0 ? (
         <div className="py-8">
           <Empty>
             <EmptyTitle>
-              {search || filter !== "all" ? "Không tìm thấy bin nào phù hợp" : "Chưa có vị trí nào trong kho"}
+              {search || filter !== "all" ? t("locMap.emptySearch") : t("locMap.emptyWarehouse")}
             </EmptyTitle>
           </Empty>
         </div>
@@ -641,7 +643,7 @@ export function LocationsMapPage() {
                 className="text-[10px] text-muted-foreground/40 font-medium"
                 style={{ writingMode: "vertical-lr", textOrientation: "mixed", transform: "rotate(180deg)", whiteSpace: "nowrap" }}
               >
-                CỬA VÀO
+                {t("locMap.entrance")}
               </span>
             </div>
             <div className="flex-1 p-4 space-y-4">
@@ -670,7 +672,7 @@ export function LocationsMapPage() {
                     className="flex items-center gap-1.5 hover:text-foreground/80 transition-colors text-left"
                   >
                     <DoorOpen className="size-3 text-muted-foreground/40" />
-                    <h2 className="text-xs font-semibold cursor-pointer">Khu {zone.zoneCode}</h2>
+                    <h2 className="text-xs font-semibold cursor-pointer">{t("locMap.zoneLabel", { code: zone.zoneCode })}</h2>
                   </button>
                   <div className="flex items-center gap-1">
                     {managing && (
@@ -685,20 +687,20 @@ export function LocationsMapPage() {
                             </button>
                           </TooltipTrigger>
                           <TooltipContent side="top" className="text-[11px]">
-                            Thêm kệ
+                            {t("locMap.addShelf")}
                           </TooltipContent>
                         </Tooltip>
                         {hasProducts ? (
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <button
-                                onClick={() => toast.error("Không thể xóa khu đang có sản phẩm")}
+                                onClick={() => toast.error(t("locationMap.binHasProducts"))}
                                 className="inline-flex items-center justify-center size-5 rounded bg-muted/30 hover:bg-accent transition-colors opacity-30 cursor-not-allowed"
                               >
                                 <X className="size-3" />
                               </button>
                             </TooltipTrigger>
-                            <TooltipContent side="top" className="text-[11px]">Khu đang có sản phẩm</TooltipContent>
+                            <TooltipContent side="top" className="text-[11px]">{t("locationMap.binHasProducts")}</TooltipContent>
                           </Tooltip>
                         ) : (
                           <Popover
@@ -713,22 +715,22 @@ export function LocationsMapPage() {
                                   </button>
                                 </PopoverTrigger>
                               </TooltipTrigger>
-                              <TooltipContent side="top" className="text-[11px]">Xóa khu</TooltipContent>
+                              <TooltipContent side="top" className="text-[11px]">{t("locMap.deleteZone")}</TooltipContent>
                             </Tooltip>
                             <PopoverContent side="top" className="w-auto min-w-[130px] p-2">
-                              <p className="text-xs mb-1.5 font-medium">Xóa khu {zone.zoneCode}?</p>
+                              <p className="text-xs mb-1.5 font-medium">{t("locMap.confirmDeleteZone", { code: zone.zoneCode })}</p>
                               <div className="flex gap-1 justify-end">
                                 <button
                                   onClick={() => setConfirmZoneCode(null)}
                                   className="text-[11px] px-2 py-0.5 rounded hover:bg-accent"
                                 >
-                                  Hủy
+                                  {t("locMap.cancelSmall")}
                                 </button>
                                 <button
                                   onClick={() => handleZoneDelete(zone.zoneCode)}
                                   className="text-[11px] px-2 py-0.5 rounded bg-destructive text-destructive-foreground hover:bg-destructive/90"
                                 >
-                                  Xóa
+                                  {t("locMap.delete")}
                                 </button>
                               </div>
                             </PopoverContent>
@@ -737,7 +739,7 @@ export function LocationsMapPage() {
                       </>
                     )}
                     <span className="text-[10px] text-muted-foreground tabular-nums">
-                      {occupied}/{allBins.length} có hàng{full > 0 ? ` · ${full} đầy` : ""}
+                      {t("locMap.zoneOccupied", { occupied, total: allBins.length })}{full > 0 ? ` · ${t("locMap.zoneFull", { count: full })}` : ""}
                     </span>
                   </div>
                 </div>
@@ -750,8 +752,8 @@ export function LocationsMapPage() {
                         onClick={() => openZoom({ zoneCode: zone.zoneCode, shelfCode: shelf.shelfCode })}
                         className="text-[10px] text-muted-foreground mb-1 hover:text-foreground transition-colors text-left cursor-pointer"
                       >
-                        Kệ {shelf.shelfCode}
-                        <span className="text-muted-foreground/50 ml-1">({shelf.bins.length} ngăn)</span>
+                      {t("locMap.shelfLabel", { code: shelf.shelfCode })}
+                        <span className="text-muted-foreground/50 ml-1">{t("locMap.binCountCompact", { count: shelf.bins.length })}</span>
                       </button>
                       <div
                         className="flex flex-wrap items-center gap-3"
@@ -804,8 +806,8 @@ export function LocationsMapPage() {
                                     </TooltipTrigger>
                                     <TooltipContent side="top" className="text-[11px]">
                                       <p className="font-mono font-semibold">{bin.fullCode}</p>
-                                      <p>{bin.productCount} sản phẩm</p>
-                                      <p className="text-muted-foreground">{active && bin.productCount > 0 ? "Kéo để di chuyển" : "Nhấp để quản lý"}</p>
+                                      <p>{t("locMap.productCountLabel", { count: bin.productCount })}</p>
+                                      <p className="text-muted-foreground">{active && bin.productCount > 0 ? t("locMap.dragToMove") : t("locMap.clickToManage")}</p>
                                     </TooltipContent>
                                   </Tooltip>
                                   {active && bin.productCount > 0 && (
@@ -818,7 +820,7 @@ export function LocationsMapPage() {
                                           <GripVertical className="size-2.5 text-muted-foreground" />
                                         </button>
                                       </TooltipTrigger>
-                                      <TooltipContent side="top" className="text-[11px]">Di chuyển sản phẩm</TooltipContent>
+                                      <TooltipContent side="top" className="text-[11px]">{t("locMap.moveProducts")}</TooltipContent>
                                     </Tooltip>
                                   )}
                                   {!active && detail.productCount === 0 && (
@@ -835,7 +837,7 @@ export function LocationsMapPage() {
                                         </button>
                                       </TooltipTrigger>
                                       <TooltipContent side="top" className="text-[11px]">
-                                        Kích hoạt lại
+                                        {t("locMap.reactivate")}
                                       </TooltipContent>
                                     </Tooltip>
                                   )}
@@ -851,7 +853,7 @@ export function LocationsMapPage() {
                                         </button>
                                       </TooltipTrigger>
                                       <TooltipContent side="top" className="text-[11px]">
-                                        Có sản phẩm
+                                        {t("locMap.hasProducts")}
                                       </TooltipContent>
                                     </Tooltip>
                                   ) : (
@@ -871,21 +873,21 @@ export function LocationsMapPage() {
                                           </PopoverTrigger>
                                         </TooltipTrigger>
                                         <TooltipContent side="top" className="text-[11px]">
-                                          {isBinActive(detail) ? "Vô hiệu hóa" : "Xóa"}
+                                          {isBinActive(detail) ? t("locMap.deactivate") : t("locMap.delete")}
                                         </TooltipContent>
                                       </Tooltip>
                                       <PopoverContent side="top" className="w-auto min-w-[130px] p-2">
                                         {isBinActive(detail) ? (
                                           <>
                                             <p className="text-xs mb-1.5 font-medium">
-                                              Vô hiệu hóa <span className="font-mono">{bin.binCode}</span>?
+                                              {t("locMap.deactivateConfirm", { code: bin.binCode })}
                                             </p>
                                             <div className="flex gap-1 justify-end">
                                               <button
                                                 onClick={() => setConfirmBinId(null)}
                                                 className="text-[11px] px-2 py-0.5 rounded hover:bg-accent"
                                               >
-                                                Hủy
+                                                {t("common.cancel")}
                                               </button>
                                               <button
                                                 onClick={(e) => {
@@ -895,21 +897,21 @@ export function LocationsMapPage() {
                                                 }}
                                                 className="text-[11px] px-2 py-0.5 rounded bg-primary text-primary-foreground hover:bg-primary/90"
                                               >
-                                                Vô hiệu hóa
+                                                {t("locMap.deactivate")}
                                               </button>
                                             </div>
                                           </>
                                         ) : (
                                           <>
                                             <p className="text-xs mb-1.5 font-medium">
-                                              Xóa <span className="font-mono">{bin.binCode}</span>?
+                                              {t("locMap.deleteConfirm", { code: bin.binCode })}
                                             </p>
                                             <div className="flex gap-1 justify-end">
                                               <button
                                                 onClick={() => setConfirmBinId(null)}
                                                 className="text-[11px] px-2 py-0.5 rounded hover:bg-accent"
                                               >
-                                                Hủy
+                                                {t("common.cancel")}
                                               </button>
                                               <button
                                                 onClick={(e) => {
@@ -918,7 +920,7 @@ export function LocationsMapPage() {
                                                 }}
                                                 className="text-[11px] px-2 py-0.5 rounded bg-destructive text-destructive-foreground hover:bg-destructive/90"
                                               >
-                                                Xóa
+                                                {t("locMap.delete")}
                                               </button>
                                             </div>
                                           </>
@@ -947,8 +949,8 @@ export function LocationsMapPage() {
                                   </TooltipTrigger>
                                   <TooltipContent side="top" className="text-[11px]">
                                     <p className="font-mono font-semibold">{bin.fullCode}</p>
-                                    <p>{bin.productCount} sản phẩm</p>
-                                    <p className="text-muted-foreground">Nhấp để quản lý</p>
+                                    <p>{t("locMap.productCountLabel", { count: bin.productCount })}</p>
+                                    <p className="text-muted-foreground">{t("locMap.clickToManage")}</p>
                                   </TooltipContent>
                                 </Tooltip>
                               )}
@@ -968,7 +970,7 @@ export function LocationsMapPage() {
                               </button>
                             </TooltipTrigger>
                             <TooltipContent side="top" className="text-[11px]">
-                              Thêm ngăn
+                              {t("locMap.addBin")}
                             </TooltipContent>
                           </Tooltip>
                         )}
@@ -984,11 +986,11 @@ export function LocationsMapPage() {
                             onClick={() => autoAddShelf(zone.zoneCode)}
                             className="inline-flex items-center gap-1 text-[11px] text-blue-500 hover:text-blue-700 transition-colors cursor-pointer"
                           >
-                            <Plus className="size-3" /> Thêm kệ
-                          </button>
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="text-[11px]">
-                          Thêm kệ mới
+                            <Plus className="size-3" /> {t("locMap.addShelf")}
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="text-[11px]">
+                            {t("locMap.addNewShelf")}
                         </TooltipContent>
                       </Tooltip>
                     </div>
@@ -1003,7 +1005,7 @@ export function LocationsMapPage() {
                             className="rounded-lg border-2 border-dashed bg-card/50 p-3 flex items-center justify-center gap-2 text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors cursor-pointer min-h-[120px]"
                           >
                             <Plus className="size-5" />
-                            <span className="text-sm font-medium">Thêm khu</span>
+                            <span className="text-sm font-medium">{t("locMap.addZone")}</span>
                           </button>
                         )}
                       </div>
@@ -1013,7 +1015,7 @@ export function LocationsMapPage() {
                             <div className="w-full border-t border-dashed border-muted-foreground/20" />
                           </div>
                           <div className="relative flex justify-center">
-                            <span className="bg-card px-2 text-[10px] text-muted-foreground/40 font-medium tracking-wider uppercase">LỐI ĐI</span>
+                            <span className="bg-card px-2 text-[10px] text-muted-foreground/40 font-medium tracking-wider uppercase">{t("locMap.aisle")}</span>
                           </div>
                         </div>
                       )}
@@ -1031,18 +1033,18 @@ export function LocationsMapPage() {
         <SheetContent className="w-[400px] sm:w-[480px]" hideClose>
           <SheetHeader>
             <SheetTitle>{selectedBin?.fullCode}</SheetTitle>
-            <SheetDescription>Thông tin vị trí</SheetDescription>
+            <SheetDescription>{t("locMap.binInfo")}</SheetDescription>
           </SheetHeader>
 
           {selectedBin && (
             <div className="px-4 py-4 space-y-4">
               <div className="rounded-lg bg-muted p-3 space-y-1.5 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Sản phẩm</span>
+                  <span className="text-muted-foreground">{t("locMap.products")}</span>
                   <span className="font-medium">
                     {selectedBin.maxCapacity != null
-                      ? `${selectedBin.productCount}/${selectedBin.maxCapacity} đơn vị`
-                      : `${selectedBin.productCount} đơn vị`}
+                      ? t("locMap.capacityFraction", { count: selectedBin.productCount, max: selectedBin.maxCapacity })
+                      : t("locMap.productCount", { count: selectedBin.productCount })}
                   </span>
                 </div>
                 {selectedBin.maxCapacity != null && selectedBin.maxCapacity > 0 && (
@@ -1060,14 +1062,14 @@ export function LocationsMapPage() {
                   </div>
                 )}
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Trạng thái</span>
+                  <span className="text-muted-foreground">{t("locMap.status")}</span>
                   <span className={isBinActive(selectedBin) ? "text-green-600" : "text-muted-foreground"}>
-                    {isBinActive(selectedBin) ? "Đang hoạt động" : "Ngừng hoạt động"}
+                    {isBinActive(selectedBin) ? t("locMap.active") : t("locMap.inactive")}
                   </span>
                 </div>
                 {selectedBin.productSkuList && selectedBin.productSkuList.length > 0 && (
                   <div className="pt-2 border-t border-border">
-                    <span className="text-muted-foreground text-xs">Sản phẩm trong ngăn</span>
+                    <span className="text-muted-foreground text-xs">{t("locMap.productsInBin")}</span>
                     <ul className="mt-1 space-y-0.5">
                       {selectedBin.productSkuList.map((sku) => (
                         <li key={sku} className="text-xs font-mono text-foreground/80">
@@ -1084,7 +1086,7 @@ export function LocationsMapPage() {
           <SheetFooter>
             <SheetClose asChild>
               <Button variant="outline" className="w-full">
-                Đóng
+                {t("common.close")}
               </Button>
             </SheetClose>
           </SheetFooter>
@@ -1097,15 +1099,14 @@ export function LocationsMapPage() {
       >
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle>Di chuyển sản phẩm</DialogTitle>
+            <DialogTitle>{t("locMap.relocateTitle")}</DialogTitle>
             <DialogDescription>
-              Từ <span className="font-mono font-semibold">{relocateTarget?.source.fullCode}</span> ({relocateTarget?.source.productCount} SP) →{" "}
-              <span className="font-mono font-semibold">{relocateTarget?.dest.fullCode}</span> ({relocateTarget?.dest.productCount} SP)
+              {t("locMap.relocateDesc", { source: relocateTarget?.source.fullCode, sourceCount: relocateTarget?.source.productCount, dest: relocateTarget?.dest.fullCode, destCount: relocateTarget?.dest.productCount })}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
             <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground shrink-0">Số lượng:</span>
+              <span className="text-xs text-muted-foreground shrink-0">{t("locMap.quantity")}:</span>
               <div className="flex items-center gap-1">
                 <button
                   onClick={() => setRelocateQuantity(Math.max(1, relocateQuantity - 1))}
@@ -1144,30 +1145,29 @@ export function LocationsMapPage() {
                   onClick={() => setRelocateQuantity(relocateTarget?.source.productCount ?? 0)}
                   className="text-[10px] px-1.5 py-0.5 rounded border hover:bg-accent transition-colors cursor-pointer text-muted-foreground"
                 >
-                  Tối đa
+                  {t("locMap.max")}
                 </button>
               </div>
             </div>
             {relocateTarget && (
               <p className="text-[11px] text-muted-foreground text-center">
-                Còn lại <span className="font-medium">{relocateTarget.source.productCount - relocateQuantity}</span> ở{" "}
-                <span className="font-mono">{relocateTarget.source.fullCode}</span> · Sau{" "}
-                <span className="font-medium">{relocateTarget.dest.productCount + relocateQuantity}</span> ở{" "}
-                <span className="font-mono">{relocateTarget.dest.fullCode}</span>
+                {t("locMap.relocateRemaining", { count: relocateTarget.source.productCount - relocateQuantity, code: relocateTarget.source.fullCode })} · {t("locMap.relocateAfter", { count: relocateTarget.dest.productCount + relocateQuantity, code: relocateTarget.dest.fullCode })}
               </p>
             )}
           </div>
           <div className="text-center pb-1">
             <span className="text-[11px] text-muted-foreground">
-              Tự động hủy sau {relocateCountdown}s
+              {t("locMap.autoCancel", { countdown: relocateCountdown })}
             </span>
           </div>
           <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={handleRelocateCancel}>Hủy</Button>
-            <Button onClick={handleRelocateConfirm}>Xác nhận</Button>
+            <Button variant="outline" onClick={handleRelocateCancel}>{t("common.cancel")}</Button>
+            <Button onClick={handleRelocateConfirm}>{t("common.confirm")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
   )
 }
+
+

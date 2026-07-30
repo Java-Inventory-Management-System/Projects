@@ -64,23 +64,47 @@
   --sidebar-accent: oklch(0.92 0.005 210);
   --sidebar-accent-foreground: oklch(0.5 0.14 215);
   --sidebar-border: oklch(0.9 0.003 210);
-  --chart-1: 221 83% 53%;               /* blue — categories */
-  --chart-2: 142 71% 45%;               /* green — healthy */
-  --chart-3: 48 95% 55%;                /* yellow — low-stock / cảnh báo */
-  --chart-4: 271 81% 56%;               /* purple — categories */
-  --chart-5: 340 82% 52%;               /* red/pink — out-of-stock / cần chú ý */
-  --chart-6: 199 89% 48%;               /* cyan — categories */
-  --chart-7: 24 95% 53%;                /* orange — categories */
+  --chart-1: 221 83% 53%;
+  --chart-2: 142 71% 45%;
+  --chart-3: 48 95% 55%;
+  --chart-4: 271 81% 56%;
+  --chart-5: 340 82% 52%;
+  --chart-6: 199 89% 48%;
+  --chart-7: 24 95% 53%;
 }
 
 .dark {
-  --chart-1: 221 70% 65%;               /* blue */
-  --chart-2: 142 60% 55%;               /* green */
-  --chart-3: 48 90% 63%;                /* yellow */
-  --chart-4: 271 70% 68%;               /* purple */
-  --chart-5: 340 70% 62%;               /* red/pink */
-  --chart-6: 199 75% 60%;               /* cyan */
-  --chart-7: 24 85% 63%;                /* orange */
+  --background: oklch(0.12 0.005 210);
+  --foreground: oklch(0.92 0.005 210);
+  --card: oklch(0.16 0.005 210);
+  --card-foreground: oklch(0.92 0.005 210);
+  --popover: oklch(0.16 0.005 210);
+  --popover-foreground: oklch(0.92 0.005 210);
+  --primary: oklch(0.55 0.14 215);
+  --primary-foreground: oklch(0.98 0 0);
+  --secondary: oklch(0.22 0.005 210);
+  --secondary-foreground: oklch(0.92 0.005 210);
+  --muted: oklch(0.22 0.005 210);
+  --muted-foreground: oklch(0.6 0.005 210);
+  --accent: oklch(0.25 0.005 210);
+  --accent-foreground: oklch(0.92 0.005 210);
+  --destructive: oklch(0.6 0.18 30);
+  --destructive-foreground: oklch(1 0 0);
+  --border: oklch(0.28 0.005 210);
+  --input: oklch(0.28 0.005 210);
+  --ring: oklch(0.55 0.14 215);
+  --sidebar: oklch(0.14 0.005 215);
+  --sidebar-foreground: oklch(0.92 0.005 210);
+  --sidebar-accent: oklch(0.22 0.005 210);
+  --sidebar-accent-foreground: oklch(0.55 0.14 215);
+  --sidebar-border: oklch(0.28 0.005 210);
+  --chart-1: 221 70% 65%;
+  --chart-2: 142 60% 55%;
+  --chart-3: 48 90% 63%;
+  --chart-4: 271 70% 68%;
+  --chart-5: 340 70% 62%;
+  --chart-6: 199 75% 60%;
+  --chart-7: 24 85% 63%;
 }
 
 @layer base {

@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react"
+import { useTranslation } from "react-i18next"
 import type { LineItem } from "@/utils/types"
 import type { ProductResponse } from "@/utils/types"
 import type { ItemAction } from "../reducers/import-create-reducer"
@@ -20,6 +21,7 @@ interface Props {
 }
 
 export function ImportStepProducts({ items, dispatch, products, isManager }: Props) {
+  const { t } = useTranslation()
   const [selectedProductIds, setSelectedProductIds] = useState<number[]>([])
   const [productPopoverOpen, setProductPopoverOpen] = useState(false)
 
@@ -33,7 +35,7 @@ export function ImportStepProducts({ items, dispatch, products, isManager }: Pro
     const existing = new Set(items.map((i) => i.productId))
     const toAdd = products.filter((p) => selectedProductIds.includes(p.id) && !existing.has(p.id))
     if (toAdd.length === 0) {
-      toast.error("Tất cả sản phẩm đã có trong phiếu")
+      toast.error(t("importStepProducts.allProductsAdded"))
       setSelectedProductIds([])
       return
     }
@@ -68,10 +70,10 @@ export function ImportStepProducts({ items, dispatch, products, isManager }: Pro
 
   return (
     <div className="space-y-4">
-      <h2 className="text-sm font-semibold text-muted-foreground">Bước 2/4 — Chọn sản phẩm & số lượng</h2>
+      <h2 className="text-sm font-semibold text-muted-foreground">{t("importStepProducts.heading")}</h2>
 
       <div className="space-y-2">
-        <Label>Thêm sản phẩm</Label>
+        <Label>{t("importStepProducts.addProduct")}</Label>
         <div className="flex gap-2">
           <Popover open={productPopoverOpen} onOpenChange={setProductPopoverOpen}>
             <PopoverTrigger asChild>
@@ -93,16 +95,16 @@ export function ImportStepProducts({ items, dispatch, products, isManager }: Pro
                     )}
                   </div>
                 ) : (
-                  <span className="text-muted-foreground">Chọn sản phẩm...</span>
+                  <span className="text-muted-foreground">{t("importStepProducts.selectProduct")}</span>
                 )}
                 <ChevronsUpDown className="size-4 shrink-0 opacity-50" />
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-[90vw] max-w-[400px] p-0" align="start">
               <Command>
-                <CommandInput placeholder="Tìm sản phẩm..." />
+                <CommandInput placeholder={t("importStepProducts.searchProduct")} />
                 <CommandList>
-                  <CommandEmpty>Không tìm thấy sản phẩm</CommandEmpty>
+                  <CommandEmpty>{t("importStepProducts.noProductFound")}</CommandEmpty>
                   <CommandGroup>
                     {products.map((p) => {
                       const alreadyAdded = items.some((i) => i.productId === p.id)
@@ -128,7 +130,7 @@ export function ImportStepProducts({ items, dispatch, products, isManager }: Pro
                           </div>
                           <span>{p.name}</span>
                           <span className="text-xs text-muted-foreground ml-2">{p.sku}</span>
-                          {alreadyAdded && <span className="text-xs text-muted-foreground ml-auto">Đã thêm</span>}
+                          {alreadyAdded && <span className="text-xs text-muted-foreground ml-auto">{t("importStepProducts.alreadyAdded")}</span>}
                         </CommandItem>
                       )
                     })}
@@ -138,7 +140,7 @@ export function ImportStepProducts({ items, dispatch, products, isManager }: Pro
             </PopoverContent>
           </Popover>
           <Button onClick={addItems} disabled={selectedProductIds.length === 0}>
-            <Plus className="size-4 mr-1" /> Thêm
+            <Plus className="size-4 mr-1" /> {t("common.add")}
             {selectedProductIds.length > 0 ? ` (${selectedProductIds.length})` : ""}
           </Button>
         </div>
@@ -149,11 +151,11 @@ export function ImportStepProducts({ items, dispatch, products, isManager }: Pro
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="min-w-[200px]">Sản phẩm</TableHead>
-                <TableHead className="w-20 text-right">SL</TableHead>
-                {isManager && <TableHead className="w-28 text-right">Đơn giá</TableHead>}
-                {isManager && <TableHead className="w-16 text-right">BH(th)</TableHead>}
-                {isManager && <TableHead className="w-28 text-right">Thành tiền</TableHead>}
+                <TableHead className="min-w-[200px]">{t("importStepProducts.product")}</TableHead>
+                <TableHead className="w-20 text-right">{t("importStepProducts.qty")}</TableHead>
+                {isManager && <TableHead className="w-28 text-right">{t("importStepProducts.unitPrice")}</TableHead>}
+                {isManager && <TableHead className="w-16 text-right">{t("importStepProducts.warranty")}</TableHead>}
+                {isManager && <TableHead className="w-28 text-right">{t("importStepProducts.total")}</TableHead>}
                 <TableHead className="w-10" />
               </TableRow>
             </TableHeader>

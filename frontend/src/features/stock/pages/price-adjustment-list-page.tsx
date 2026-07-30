@@ -25,13 +25,7 @@ import {
 import type { PriceAdjustment } from "@/utils/types"
 import { ADJUSTMENT_STATUS } from "@/utils/types"
 import { toast } from "@/utils/toast"
-
-const statusLabel: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
-  [ADJUSTMENT_STATUS.PENDING]: { label: "Chờ duyệt", variant: "outline" },
-  [ADJUSTMENT_STATUS.APPROVED]: { label: "Đã duyệt", variant: "default" },
-  [ADJUSTMENT_STATUS.REJECTED]: { label: "Từ chối", variant: "destructive" },
-  [ADJUSTMENT_STATUS.CANCELLED]: { label: "Đã huỷ", variant: "secondary" },
-}
+import { useTranslation } from "react-i18next"
 
 function PriceDiff({ oldPrice, newPrice }: { oldPrice: number; newPrice: number }) {
   const diff = newPrice - oldPrice
@@ -52,6 +46,7 @@ function PriceDiff({ oldPrice, newPrice }: { oldPrice: number; newPrice: number 
 
 export function PriceAdjustmentListPage() {
   const navigate = useNavigate()
+  const { t } = useTranslation()
   const qc = useQueryClient()
   const [searchParams, setSearchParams] = useSearchParams()
   const perm = usePermission()
@@ -101,11 +96,18 @@ export function PriceAdjustmentListPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["price-adjustments"] })
       qc.invalidateQueries({ queryKey: ["my-price-adjustments"] })
-      toast.success("Đã huỷ phiếu điều chỉnh giá")
+      toast.success(t("priceAdjList.cancelSuccess"))
       setCancelTarget(null)
     },
     onError: (e: Error) => toast.error(e.message),
   })
+
+  const statusLabel: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
+    [ADJUSTMENT_STATUS.PENDING]: { label: t("priceAdjStatus.pending"), variant: "outline" },
+    [ADJUSTMENT_STATUS.APPROVED]: { label: t("priceAdjStatus.approved"), variant: "default" },
+    [ADJUSTMENT_STATUS.REJECTED]: { label: t("priceAdjStatus.rejected"), variant: "destructive" },
+    [ADJUSTMENT_STATUS.CANCELLED]: { label: t("priceAdjStatus.cancelled"), variant: "secondary" },
+  }
 
   const filtered = (data?.content ?? []).filter((r) => {
     if (!searchTerm) return true
@@ -130,12 +132,12 @@ export function PriceAdjustmentListPage() {
 
   const columns: Column<PriceAdjustment>[] = [
     {
-      header: "Mã phiếu",
+      header: t("table.checkCode"),
       sortKey: "adjustCode",
       render: (r) => <span className="font-mono text-xs">{r.adjustCode}</span>,
     },
     {
-      header: "Sản phẩm",
+      header: t("table.product"),
       render: (r) => (
         <div className="text-sm">
           <span>{r.productName ?? "—"}</span>
@@ -144,16 +146,16 @@ export function PriceAdjustmentListPage() {
       ),
     },
     {
-      header: "Giá cũ → Giá mới",
+      header: t("priceAdjList.oldToNewPrice"),
       className: "w-56",
       render: (r) => <PriceDiff oldPrice={r.oldPrice ?? 0} newPrice={r.newPrice ?? 0} />,
     },
     {
-      header: "Người tạo",
+      header: t("table.creator"),
       render: (r) => <span className="text-sm text-muted-foreground">{r.createdByName ?? "—"}</span>,
     },
     {
-      header: "Trạng thái",
+      header: t("table.status"),
       className: "w-28 text-center",
       render: (r) => {
         const s = statusLabel[r.status] ?? { label: r.status, variant: "secondary" as const }
@@ -165,7 +167,7 @@ export function PriceAdjustmentListPage() {
                 <TooltipTrigger asChild>
                   <span className="size-1.5 rounded-full bg-amber-500 inline-block animate-pulse" />
                 </TooltipTrigger>
-                <TooltipContent>Đang chờ bạn duyệt</TooltipContent>
+                <TooltipContent>{t("priceAdjList.pendingYourApproval")}</TooltipContent>
               </Tooltip>
             )}
           </div>
@@ -173,7 +175,7 @@ export function PriceAdjustmentListPage() {
       },
     },
     {
-      header: "Thao tác",
+      header: t("table.actions"),
       className: "w-[120px]",
       render: (r) => (
         <div className="flex items-center gap-1">
@@ -183,7 +185,7 @@ export function PriceAdjustmentListPage() {
                 <Eye className="size-4" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent>Xem chi tiết</TooltipContent>
+            <TooltipContent>{t("common.viewDetail")}</TooltipContent>
           </Tooltip>
           {r.status === ADJUSTMENT_STATUS.PENDING && r.createdBy === perm.user?.id && (
             <Tooltip>
@@ -192,7 +194,7 @@ export function PriceAdjustmentListPage() {
                   <XCircle className="size-4" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>Huỷ phiếu</TooltipContent>
+              <TooltipContent>{t("priceAdjList.cancel")}</TooltipContent>
             </Tooltip>
           )}
         </div>
@@ -203,9 +205,9 @@ export function PriceAdjustmentListPage() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-xl font-semibold tracking-tight">Điều chỉnh giá bán</h1>
+        <h1 className="text-xl font-semibold tracking-tight">{t("priceAdjList.title")}</h1>
         <Button onClick={() => navigate("/stock/price-adjustments/new")}>
-          <Plus className="size-4 mr-1" /> Tạo phiếu
+          <Plus className="size-4 mr-1" /> {t("priceAdjList.create")}
         </Button>
       </div>
 
@@ -214,7 +216,7 @@ export function PriceAdjustmentListPage() {
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
           <Input
             className="pl-8 w-56"
-            placeholder="Tìm mã phiếu, tên sản phẩm..."
+            placeholder={t("priceAdjList.searchPlaceholder")}
             value={searchInput}
             onChange={(e) => handleSearch(e.target.value)}
           />
@@ -230,23 +232,23 @@ export function PriceAdjustmentListPage() {
           }}
         >
           <SelectTrigger className="w-36">
-            <SelectValue placeholder="Tất cả" />
+            <SelectValue placeholder={t("common.all")} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Tất cả</SelectItem>
-            <SelectItem value={ADJUSTMENT_STATUS.PENDING}>Chờ duyệt</SelectItem>
-            <SelectItem value={ADJUSTMENT_STATUS.APPROVED}>Đã duyệt</SelectItem>
-            <SelectItem value={ADJUSTMENT_STATUS.REJECTED}>Từ chối</SelectItem>
-            <SelectItem value={ADJUSTMENT_STATUS.CANCELLED}>Đã huỷ</SelectItem>
+            <SelectItem value="all">{t("common.all")}</SelectItem>
+            <SelectItem value={ADJUSTMENT_STATUS.PENDING}>{t("priceAdjStatus.pending")}</SelectItem>
+            <SelectItem value={ADJUSTMENT_STATUS.APPROVED}>{t("priceAdjStatus.approved")}</SelectItem>
+            <SelectItem value={ADJUSTMENT_STATUS.REJECTED}>{t("priceAdjStatus.rejected")}</SelectItem>
+            <SelectItem value={ADJUSTMENT_STATUS.CANCELLED}>{t("priceAdjStatus.cancelled")}</SelectItem>
           </SelectContent>
         </Select>
       </div>
 
       {isError ? (
         <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-6 text-center space-y-2">
-          <p className="text-sm text-destructive">Không thể tải danh sách phiếu điều chỉnh giá</p>
+          <p className="text-sm text-destructive">{t("priceAdjList.loadError")}</p>
           <Button variant="outline" size="sm" onClick={() => refetch()}>
-            <RefreshCw className="size-3 mr-1" /> Thử lại
+            <RefreshCw className="size-3 mr-1" /> {t("priceAdjList.retry")}
           </Button>
         </div>
       ) : (
@@ -256,8 +258,8 @@ export function PriceAdjustmentListPage() {
           isLoading={isLoading}
           emptyMessage={
             searchTerm || statusFilter
-              ? "Không có phiếu nào khớp bộ lọc"
-              : "Chưa có phiếu điều chỉnh giá nào"
+              ? t("priceAdjList.emptyFilter")
+              : t("priceAdjList.empty")
           }
           sort={sort}
           onSort={handleSort}
@@ -276,16 +278,16 @@ export function PriceAdjustmentListPage() {
       {(searchTerm || statusFilter) && (
         <div className="text-center">
           <Button variant="link" size="sm" onClick={clearFilters}>
-            Xoá bộ lọc
+            {t("common.clear")}
           </Button>
         </div>
       )}
 
       {filtered.length === 0 && !isError && !isLoading && !searchTerm && !statusFilter && (
         <div className="text-center py-8">
-          <p className="text-muted-foreground mb-3">Chưa có phiếu điều chỉnh giá nào</p>
+          <p className="text-muted-foreground mb-3">{t("priceAdjList.empty")}</p>
           <Button onClick={() => navigate("/stock/price-adjustments/new")}>
-            <Plus className="size-4 mr-1" /> Tạo phiếu đầu tiên
+            <Plus className="size-4 mr-1" /> {t("priceAdjList.createFirst")}
           </Button>
         </div>
       )}
@@ -293,19 +295,19 @@ export function PriceAdjustmentListPage() {
       <AlertDialog open={!!cancelTarget} onOpenChange={(v) => { if (!v) setCancelTarget(null) }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Huỷ phiếu điều chỉnh giá</AlertDialogTitle>
+            <AlertDialogTitle>{t("priceAdjList.cancelDialogTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
-              Xác nhận huỷ phiếu <span className="font-mono font-medium">{cancelTarget?.adjustCode}</span>?
-              Hành động này không thể hoàn tác.
+              {t("priceAdjList.cancelDialogDesc", { code: cancelTarget?.adjustCode })}
+              {" "}{t("priceAdjList.cannotUndo")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Không</AlertDialogCancel>
+            <AlertDialogCancel>{t("dialog.no")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => cancelTarget && cancelMutation.mutate(cancelTarget.id)}
               disabled={cancelMutation.isPending}
             >
-              {cancelMutation.isPending ? "Đang huỷ..." : "Xác nhận huỷ"}
+              {cancelMutation.isPending ? t("priceAdjList.cancelProcessing") : t("priceAdjList.cancelConfirm")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

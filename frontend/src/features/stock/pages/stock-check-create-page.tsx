@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react"
+import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router-dom"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createStockCheck } from "@/services/stock-check-service"
@@ -14,6 +15,7 @@ import { toast } from "@/utils/toast"
 import type { StockCheckScopeType } from "@/utils/types"
 
 export const StockCheckCreatePage = () => {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const qc = useQueryClient()
   const [scopeType, setScopeType] = useState<StockCheckScopeType | "">("")
@@ -60,7 +62,7 @@ export const StockCheckCreatePage = () => {
 
   const handleSubmit = () => {
     if (!scopeType || !scopeId) {
-      toast.error("Vui lòng chọn phạm vi kiểm")
+      toast.error(t("stockCheckCreate.requireScope"))
       return
     }
     createMut.mutate({
@@ -74,10 +76,10 @@ export const StockCheckCreatePage = () => {
     mutationFn: createStockCheck,
     onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: ["stock-checks"] })
-      toast.success("Tạo phiếu kiểm thành công")
+      toast.success(t("stockCheckCreate.createSuccess"))
       navigate(`/stock/checks/${res.id}`)
     },
-    onError: (err: Error) => toast.error(err.message || "Có lỗi xảy ra"),
+    onError: (err: Error) => toast.error(err.message || t("stockCheckCreate.error")),
   })
 
   return (
@@ -86,34 +88,34 @@ export const StockCheckCreatePage = () => {
         <Button variant="ghost" size="sm" onClick={() => navigate("/stock/checks")}>
           <ArrowLeft className="size-4" />
         </Button>
-        <h1 className="text-xl font-semibold tracking-tight">Tạo phiếu kiểm kho</h1>
+        <h1 className="text-xl font-semibold tracking-tight">{t("stockCheckCreate.title")}</h1>
       </div>
 
       <div className="space-y-4 rounded-lg border p-4">
-        <h2 className="text-sm font-medium">Phạm vi kiểm</h2>
+        <h2 className="text-sm font-medium">{t("stockCheckCreate.scope")}</h2>
 
         <div className="space-y-2">
-          <Label>Loại phạm vi</Label>
+          <Label>{t("stockCheckCreate.scopeType")}</Label>
           <Select value={scopeType} onValueChange={(v) => { setScopeType(v as StockCheckScopeType); setScopeId("") }}>
             <SelectTrigger>
-              <SelectValue placeholder="Chọn loại phạm vi..." />
+              <SelectValue placeholder={t("stockCheckCreate.selectScopeType")} />
             </SelectTrigger>
             <SelectContent className="max-h-[50vh]">
-              <SelectItem value="ZONE">Khu vực (Zone)</SelectItem>
-              <SelectItem value="CATEGORY">Danh mục (Category)</SelectItem>
+              <SelectItem value="ZONE">{t("stockCheckCreate.zone")}</SelectItem>
+              <SelectItem value="CATEGORY">{t("stockCheckCreate.category")}</SelectItem>
             </SelectContent>
           </Select>
         </div>
 
         {scopeType === "ZONE" && (
           <div className="space-y-2">
-            <Label>Khu vực</Label>
+            <Label>{t("stockCheckCreate.zone")}</Label>
             {!locations ? (
               <Skeleton className="h-10 w-full" />
             ) : (
               <Select value={scopeId} onValueChange={setScopeId}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Chọn khu vực..." />
+                  <SelectValue placeholder={t("stockCheckCreate.selectZone")} />
                 </SelectTrigger>
                 <SelectContent className="max-h-[50vh]">
                   {zones.map((z) => (
@@ -129,13 +131,13 @@ export const StockCheckCreatePage = () => {
 
         {scopeType === "CATEGORY" && (
           <div className="space-y-2">
-            <Label>Danh mục</Label>
+            <Label>{t("stockCheckCreate.category")}</Label>
             {!categories ? (
               <Skeleton className="h-10 w-full" />
             ) : (
               <Select value={scopeId} onValueChange={setScopeId}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Chọn danh mục..." />
+                  <SelectValue placeholder={t("stockCheckCreate.selectCategory")} />
                 </SelectTrigger>
                 <SelectContent className="max-h-[50vh]">
                   {(categories.content ?? []).map((c) => (
@@ -151,16 +153,16 @@ export const StockCheckCreatePage = () => {
 
         {scopeId && (
           <p className="text-sm flex items-center gap-1.5 text-muted-foreground">
-            <Info className="size-3.5" /> Sẽ kiểm tra tất cả sản phẩm IN_STOCK trong phạm vi đã chọn
+            <Info className="size-3.5" /> {t("stockCheckCreate.scopeHint")}
           </p>
         )}
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="note">Ghi chú</Label>
+        <Label htmlFor="note">{t("stockCheckCreate.note")}</Label>
         <Textarea
           id="note"
-          placeholder="Không bắt buộc"
+          placeholder={t("stockCheckCreate.notePlaceholder")}
           value={note}
           onChange={(e) => setNote(e.target.value)}
           rows={3}
@@ -169,10 +171,10 @@ export const StockCheckCreatePage = () => {
 
       <div className="flex justify-end gap-3">
         <Button variant="outline" onClick={() => navigate("/stock/checks")}>
-          Hủy
+          {t("common.cancel")}
         </Button>
         <Button onClick={handleSubmit} disabled={createMut.isPending || !scopeType || !scopeId}>
-          {createMut.isPending ? "Đang tạo..." : "Bắt đầu kiểm kê"}
+          {createMut.isPending ? t("stockCheckCreate.creating") : t("stockCheckCreate.start")}
         </Button>
       </div>
     </div>

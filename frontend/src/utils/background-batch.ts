@@ -1,3 +1,4 @@
+import { t } from "i18next"
 import { createStockAdjustment } from "@/services/stock-adjustment-service"
 
 export interface BatchItem {
@@ -54,7 +55,7 @@ export const backgroundBatch = {
           await createStockAdjustment({ type, productUnitId: item.productUnitId, reason: reason || `Batch from stock check` })
           results.push({ index: i, serialNumber: item.serialNumber, productName: item.productName, success: true })
         } catch (err) {
-          results.push({ index: i, serialNumber: item.serialNumber, productName: item.productName, success: false, error: err instanceof Error ? err.message : "Lỗi không xác định" })
+          results.push({ index: i, serialNumber: item.serialNumber, productName: item.productName, success: false, error: err instanceof Error ? err.message : t("error.unknown") })
         }
         notify()
       }

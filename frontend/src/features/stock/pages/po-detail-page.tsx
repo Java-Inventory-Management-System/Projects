@@ -1,4 +1,5 @@
 import { useParams, useNavigate } from "react-router-dom"
+import { useTranslation } from "react-i18next"
 import { usePurchaseOrderById, useCancelPurchaseOrder } from "@/hooks/use-purchase-orders"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -18,18 +19,19 @@ import { ArrowDownToLine, X } from "lucide-react"
 import { toast } from "@/utils/toast"
 import { PURCHASE_ORDER_STATUS } from "@/utils/types"
 
-const statusConfig: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
-  DRAFT: { label: "Nháp", variant: "secondary" },
-  PARTIAL: { label: "Giao một phần", variant: "default" },
-  COMPLETED: { label: "Hoàn tất", variant: "default" },
-  CANCELLED: { label: "Đã hủy", variant: "destructive" },
-}
-
 export function PODetailPage() {
+  const { t } = useTranslation()
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { data: po, isLoading } = usePurchaseOrderById(Number(id))
   const cancelMut = useCancelPurchaseOrder()
+
+  const statusConfig: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
+    DRAFT: { label: t("poStatus.draft"), variant: "secondary" },
+    PARTIAL: { label: t("poStatus.partial"), variant: "default" },
+    COMPLETED: { label: t("poStatus.completed"), variant: "default" },
+    CANCELLED: { label: t("poStatus.cancelled"), variant: "destructive" },
+  }
 
   if (isLoading)
     return (
@@ -38,7 +40,7 @@ export function PODetailPage() {
         <Skeleton className="h-64 w-full" />
       </div>
     )
-  if (!po) return <p className="text-sm text-muted-foreground">Không tìm thấy đơn hàng</p>
+  if (!po) return <p className="text-sm text-muted-foreground">{t("poDetail.notFound")}</p>
 
   const s = statusConfig[po.status] ?? { label: po.status, variant: "secondary" }
 
@@ -47,7 +49,7 @@ export function PODetailPage() {
       <Breadcrumb>
         <BreadcrumbList>
           <BreadcrumbItem>
-            <BreadcrumbLink onClick={() => navigate("/stock/purchase-orders")}>Đơn đặt hàng</BreadcrumbLink>
+            <BreadcrumbLink onClick={() => navigate("/stock/purchase-orders")}>{t("nav.purchaseOrders")}</BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator />
           <BreadcrumbItem>
@@ -68,17 +70,17 @@ export function PODetailPage() {
               className="text-destructive"
               onClick={() => {
                 cancelMut.mutate(po.id, {
-                  onSuccess: () => toast.success("Đã hủy đơn hàng"),
+                  onSuccess: () => toast.success(t("poDetail.cancelSuccess")),
                   onError: (e) => toast.error(e.message),
                 })
               }}
               disabled={cancelMut.isPending}
             >
-              <X className="size-4 mr-1" /> Hủy
+              <X className="size-4 mr-1" /> {t("poDetail.cancel")}
             </Button>
           )}
           <Button onClick={() => navigate(`/stock/imports/new?poId=${po.id}`)}>
-            <ArrowDownToLine className="size-4 mr-1" /> Tạo phiếu nhập
+            <ArrowDownToLine className="size-4 mr-1" /> {t("poDetail.createImport")}
           </Button>
         </ButtonGroup>
       </div>
@@ -87,25 +89,25 @@ export function PODetailPage() {
         <CardContent className="pt-6">
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
-              <span className="text-muted-foreground">NCC:</span>
+              <span className="text-muted-foreground">{t("label.supplier")}</span>
               <p className="font-medium">{po.supplierName}</p>
             </div>
             <div>
-              <span className="text-muted-foreground">Ngày giao dự kiến:</span>
+              <span className="text-muted-foreground">{t("poDetail.expectedDate")}</span>
               <p className="font-medium">{new Date(po.expectedDate).toLocaleDateString("vi-VN")}</p>
             </div>
             <div>
-              <span className="text-muted-foreground">Người tạo:</span>
+              <span className="text-muted-foreground">{t("label.creator")}</span>
               <p className="font-medium">{po.createdByName}</p>
             </div>
             <div>
-              <span className="text-muted-foreground">Ngày tạo:</span>
+              <span className="text-muted-foreground">{t("label.createdDate")}</span>
               <p className="font-medium">{new Date(po.createdAt).toLocaleDateString("vi-VN")}</p>
             </div>
           </div>
           {po.note && (
             <div className="mt-4 rounded-md border bg-muted/20 px-3 py-2.5 text-sm">
-              <span className="text-xs font-medium text-muted-foreground tracking-wide">GHI CHÚ</span>
+              <span className="text-xs font-medium text-muted-foreground tracking-wide">{t("label.note")}</span>
               <p className="mt-1">{po.note}</p>
             </div>
           )}
@@ -114,16 +116,16 @@ export function PODetailPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Sản phẩm</CardTitle>
+          <CardTitle className="text-base">{t("poDetail.products")}</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Sản phẩm</TableHead>
-                <TableHead className="w-20 text-right">SL</TableHead>
-                <TableHead className="w-28 text-right">Đơn giá</TableHead>
-                <TableHead className="w-28 text-right">Thành tiền</TableHead>
+                <TableHead>{t("table.product")}</TableHead>
+                <TableHead className="w-20 text-right">{t("table.qty")}</TableHead>
+                <TableHead className="w-28 text-right">{t("table.unitPrice")}</TableHead>
+                <TableHead className="w-28 text-right">{t("table.total")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -148,7 +150,7 @@ export function PODetailPage() {
       </Card>
 
       <div className="flex justify-end">
-        <span className="text-lg font-semibold">Tổng: {(po.totalAmount ?? 0).toLocaleString("vi-VN")}₫</span>
+        <span className="text-lg font-semibold">{t("poDetail.total")}: {(po.totalAmount ?? 0).toLocaleString("vi-VN")}₫</span>
       </div>
     </div>
   )

@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react"
+import { useTranslation } from "react-i18next"
 import { useSearchParams } from "react-router-dom"
 import { useForm, Controller } from "react-hook-form"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
@@ -31,17 +32,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "@/utils/toast"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 
-const roleOptions: { value: URole; label: string }[] = [
-  { value: "ADMIN", label: "Admin" },
-  { value: "MANAGER", label: "Manager" },
-  { value: "STOCK", label: "Stock" },
-  { value: "SALES", label: "Sales" },
-]
+const roleOptions: URole[] = ["ADMIN", "MANAGER", "STOCK", "SALES"]
 
-const statusLabel: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
-  [USER_STATUS.NEW]: { label: "Mới", variant: "outline" },
-  [USER_STATUS.ACTIVE]: { label: "Hoạt động", variant: "default" },
-  [USER_STATUS.INACTIVE]: { label: "Ngưng", variant: "secondary" },
+const statusLabel: Record<string, { labelKey: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
+  [USER_STATUS.NEW]: { labelKey: "usersPage.statusNew", variant: "outline" },
+  [USER_STATUS.ACTIVE]: { labelKey: "usersPage.statusActive", variant: "default" },
+  [USER_STATUS.INACTIVE]: { labelKey: "usersPage.statusInactive", variant: "secondary" },
 }
 
 function fmt(d: string) {
@@ -49,6 +45,7 @@ function fmt(d: string) {
 }
 
 export const UsersPage = () => {
+  const { t } = useTranslation()
   const qc = useQueryClient()
   const [searchParams, setSearchParams] = useSearchParams()
   const page = Number(searchParams.get("page") ?? "0")
@@ -116,15 +113,15 @@ export const UsersPage = () => {
 
   const handleCreate = createForm.handleSubmit(async (values) => {
     if (!values.fullName.trim() || !values.email.trim()) {
-      toast.error("Vui lòng nhập họ tên và email")
+      toast.error(t('usersPage.validateNameEmail'))
       return
     }
     try {
       const res = await createMut.mutateAsync(values)
       setTempPassword(res.tempPassword)
-      toast.success("Tạo người dùng thành công")
+      toast.success(t('usersPage.createSuccessToast'))
     } catch (err) {
-      toast.error((err as Error).message || "Có lỗi xảy ra")
+      toast.error((err as Error).message || t('usersPage.errorOccurred'))
     }
   })
 
@@ -138,10 +135,10 @@ export const UsersPage = () => {
     if (!editUser) return
     try {
       await updateMut.mutateAsync({ id: editUser.id, data: { fullName: values.fullName, phoneNumber: values.phoneNumber || null, gender: values.gender ? Number(values.gender) : null } })
-      toast.success("Cập nhật thông tin thành công")
+      toast.success(t('usersPage.updateSuccessToast'))
       setEditOpen(false)
     } catch (err) {
-      toast.error((err as Error).message || "Có lỗi xảy ra")
+      toast.error((err as Error).message || t('usersPage.errorOccurred'))
     }
   })
 
@@ -149,57 +146,57 @@ export const UsersPage = () => {
     if (!roleUserId || !roleVal) return
     try {
       await roleMut.mutateAsync({ id: roleUserId, role: roleVal })
-      toast.success("Đã thay đổi vai trò")
+      toast.success(t('usersPage.roleChangeSuccess'))
       setRoleOpen(false)
     } catch (err) {
-      toast.error((err as Error).message || "Có lỗi xảy ra")
+      toast.error((err as Error).message || t('usersPage.errorOccurred'))
     }
   }
 
   const handleToggleStatus = async (u: UserResponse) => {
     try {
       await toggleStatusMut.mutateAsync([u.id, u.isDeleted])
-      toast.success(u.isDeleted ? "Đã kích hoạt người dùng" : "Đã vô hiệu hóa người dùng")
+      toast.success(u.isDeleted ? t('usersPage.activateSuccess') : t('usersPage.deactivateSuccess'))
     } catch (err) {
-      toast.error((err as Error).message || "Có lỗi xảy ra")
+      toast.error((err as Error).message || t('usersPage.errorOccurred'))
     }
   }
 
   const handleResetPassword = async (id: number) => {
     try {
       const pwd = await resetPwdMut.mutateAsync(id)
-      toast.success(`Mật khẩu mới: ${pwd}`)
+      toast.success(t('usersPage.resetPwdSuccess', { password: pwd }))
     } catch (err) {
-      toast.error((err as Error).message || "Có lỗi xảy ra")
+      toast.error((err as Error).message || t('usersPage.errorOccurred'))
     }
   }
 
   const columns: Column<UserResponse>[] = [
     { header: "Username", sortKey: "username", render: (u) => <span className="font-mono text-xs">{u.username}</span> },
-    { header: "Họ tên", sortKey: "fullName", render: (u) => <span className="font-medium">{u.fullName}</span> },
-    { header: "Email", sortKey: "email", render: (u) => <span className="text-muted-foreground">{u.email}</span> },
+    { header: t('usersPage.colFullName'), sortKey: "fullName", render: (u) => <span className="font-medium">{u.fullName}</span> },
+    { header: t('usersPage.colEmail'), sortKey: "email", render: (u) => <span className="text-muted-foreground">{u.email}</span> },
     {
-      header: "Vai trò",
+      header: t('usersPage.colRole'),
       render: (u) => (
         <Badge variant="outline" className="text-xs">
-          {u.role}
+          {t('roleLabel.' + u.role)}
         </Badge>
       ),
     },
     {
-      header: "Trạng thái",
+      header: t('usersPage.colStatus'),
       render: (u) => {
-        const st = statusLabel[u.status] ?? { label: u.status, variant: "secondary" as const }
-        return <Badge variant={st.variant}>{st.label}</Badge>
+        const st = statusLabel[u.status] ?? { labelKey: undefined, variant: "secondary" as const }
+        return <Badge variant={st.variant}>{st.labelKey ? t(st.labelKey) : u.status}</Badge>
       },
     },
     {
-      header: "Ngày tạo",
+      header: t('usersPage.colCreatedAt'),
       sortKey: "createdAt",
       render: (u) => <span className="text-xs text-muted-foreground">{fmt(u.createdAt)}</span>,
     },
     {
-      header: "Thao tác",
+      header: t('usersPage.colActions'),
       className: "w-[140px]",
       render: (u) => (
         <div className="flex gap-1">
@@ -209,7 +206,7 @@ export const UsersPage = () => {
                 <UserCog className="size-4" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent>Sửa thông tin</TooltipContent>
+            <TooltipContent>{t('usersPage.editTooltip')}</TooltipContent>
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -225,7 +222,7 @@ export const UsersPage = () => {
                 <Shield className="size-4" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent>Đổi vai trò</TooltipContent>
+            <TooltipContent>{t('usersPage.changeRoleTooltip')}</TooltipContent>
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -233,7 +230,7 @@ export const UsersPage = () => {
                 <KeyRound className="size-4" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent>Reset mật khẩu</TooltipContent>
+            <TooltipContent>{t('usersPage.resetPwdTooltip')}</TooltipContent>
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -245,7 +242,7 @@ export const UsersPage = () => {
                 )}
               </Button>
             </TooltipTrigger>
-            <TooltipContent>{u.isDeleted ? "Kích hoạt" : "Vô hiệu hoá"}</TooltipContent>
+            <TooltipContent>{u.isDeleted ? t('usersPage.activateTooltip') : t('usersPage.deactivateTooltip')}</TooltipContent>
           </Tooltip>
         </div>
       ),
@@ -255,7 +252,7 @@ export const UsersPage = () => {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-xl font-semibold tracking-tight">Quản lý người dùng</h1>
+        <h1 className="text-xl font-semibold tracking-tight">{t('usersPage.title')}</h1>
         <Button
           onClick={() => {
             createForm.reset()
@@ -263,7 +260,7 @@ export const UsersPage = () => {
             setCreateOpen(true)
           }}
         >
-          <Plus className="size-4 mr-1" /> Thêm người dùng
+          <Plus className="size-4 mr-1" /> {t('usersPage.addUser')}
         </Button>
       </div>
 
@@ -271,7 +268,7 @@ export const UsersPage = () => {
         <div className="relative w-64">
           <Search className="absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
           <Input
-            placeholder="Tìm theo tên, username, email..."
+            placeholder={t('usersPage.searchPlaceholder')}
             className="pl-8"
             value={search}
             onChange={(e) => updateParams({ search: e.target.value || undefined, page: undefined })}
@@ -281,9 +278,9 @@ export const UsersPage = () => {
 
       {fetchError ? (
         <div className="rounded-lg border p-8 text-center">
-          <p className="text-sm text-destructive mb-2">{fetchError instanceof Error ? fetchError.message : "Không thể tải danh sách"}</p>
+          <p className="text-sm text-destructive mb-2">{fetchError instanceof Error ? fetchError.message : t('usersPage.loadError')}</p>
           <Button variant="outline" size="sm" onClick={invalidate}>
-            <RefreshCw className="size-3 mr-1" /> Thử lại
+            <RefreshCw className="size-3 mr-1" /> {t('usersPage.retry')}
           </Button>
         </div>
       ) : (
@@ -291,7 +288,7 @@ export const UsersPage = () => {
           columns={columns}
           data={filtered}
           isLoading={isLoading}
-          emptyMessage={debouncedSearch ? "Không tìm thấy người dùng nào" : "Chưa có người dùng nào"}
+          emptyMessage={debouncedSearch ? t('usersPage.emptySearch') : t('usersPage.empty')}
           sort={sort}
           onSort={handleSort}
           totalElements={totalEl}
@@ -319,17 +316,17 @@ export const UsersPage = () => {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Thêm người dùng mới</DialogTitle>
-            {!tempPassword && <DialogDescription>Username và mật khẩu tạm sẽ được tạo tự động.</DialogDescription>}
+            <DialogTitle>{t('usersPage.createDialogTitle')}</DialogTitle>
+            {!tempPassword && <DialogDescription>{t('usersPage.createDialogDesc')}</DialogDescription>}
           </DialogHeader>
           {tempPassword ? (
             <div className="space-y-4 py-4">
               <div className="rounded-md border border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950/20 px-4 py-3 text-sm text-green-800 dark:text-green-200">
-                <p className="font-medium">Tạo người dùng thành công!</p>
-                <p className="mt-2 text-xs">Chuyển mật khẩu này cho người dùng:</p>
+                <p className="font-medium">{t('usersPage.createSuccess')}</p>
+                <p className="mt-2 text-xs">{t('usersPage.passwordNote')}</p>
                 <p className="mt-1 font-mono text-lg font-bold tracking-wider select-all">{tempPassword}</p>
                 <p className="mt-2 text-xs text-muted-foreground">
-                  Người dùng sẽ được yêu cầu đổi mật khẩu khi đăng nhập lần đầu.
+                  {t('usersPage.passwordHint')}
                 </p>
               </div>
               <DialogFooter>
@@ -339,7 +336,7 @@ export const UsersPage = () => {
                     setTempPassword(null)
                   }}
                 >
-                  Đóng
+                  {t('usersPage.close')}
                 </Button>
               </DialogFooter>
             </div>
@@ -347,15 +344,15 @@ export const UsersPage = () => {
             <>
               <div className="grid gap-4 py-2">
                 <div className="space-y-2">
-                  <Label htmlFor="fullName">Họ tên</Label>
-                  <Input id="fullName" placeholder="Nguyễn Văn A" {...createForm.register("fullName")} />
+                  <Label htmlFor="fullName">{t('usersPage.fullName')}</Label>
+                  <Input id="fullName" placeholder={t('usersPage.fullNamePlaceholder')} {...createForm.register("fullName")} />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input id="email" type="email" placeholder="a@example.com" {...createForm.register("email")} />
+                  <Label htmlFor="email">{t('usersPage.email')}</Label>
+                  <Input id="email" type="email" placeholder={t('form.emailPlaceholder')} {...createForm.register("email")} />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="role">Vai trò</Label>
+                  <Label htmlFor="role">{t('usersPage.role')}</Label>
                   <Controller
                     name="roleName"
                     control={createForm.control}
@@ -366,8 +363,8 @@ export const UsersPage = () => {
                         </SelectTrigger>
                         <SelectContent>
                           {roleOptions.map((o) => (
-                            <SelectItem key={o.value} value={o.value}>
-                              {o.label}
+                            <SelectItem key={o} value={o}>
+                              {t('roleLabel.' + o)}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -378,10 +375,10 @@ export const UsersPage = () => {
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setCreateOpen(false)}>
-                  Hủy
+                  {t('usersPage.cancel')}
                 </Button>
                 <Button onClick={handleCreate} disabled={createMut.isPending}>
-                  {createMut.isPending ? "Đang tạo..." : "Tạo"}
+                  {createMut.isPending ? t('usersPage.creating') : t('usersPage.create')}
                 </Button>
               </DialogFooter>
             </>
@@ -392,34 +389,34 @@ export const UsersPage = () => {
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Sửa thông tin người dùng</DialogTitle>
+            <DialogTitle>{t('usersPage.editDialogTitle')}</DialogTitle>
             <DialogDescription>
               {editUser?.username} — {editUser?.email}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-2">
             <div className="space-y-2">
-              <Label htmlFor="editName">Họ tên</Label>
+              <Label htmlFor="editName">{t('usersPage.fullName')}</Label>
               <Input id="editName" {...editForm.register("fullName")} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="editPhone">Số điện thoại</Label>
-              <Input id="editPhone" placeholder="Không bắt buộc" {...editForm.register("phoneNumber")} />
+              <Label htmlFor="editPhone">{t('usersPage.phoneNumber')}</Label>
+              <Input id="editPhone" placeholder={t('usersPage.phoneOptional')} {...editForm.register("phoneNumber")} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="editGender">Giới tính</Label>
+              <Label htmlFor="editGender">{t('usersPage.gender')}</Label>
               <Controller
                 name="gender"
                 control={editForm.control}
                 render={({ field }) => (
                   <Select value={field.value} onValueChange={field.onChange}>
                     <SelectTrigger id="editGender">
-                      <SelectValue placeholder="Chọn..." />
+                      <SelectValue placeholder={t('usersPage.genderPlaceholder')} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="0">Nam</SelectItem>
-                      <SelectItem value="1">Nữ</SelectItem>
-                      <SelectItem value="2">Khác</SelectItem>
+                      <SelectItem value="0">{t('usersPage.male')}</SelectItem>
+                      <SelectItem value="1">{t('usersPage.female')}</SelectItem>
+                      <SelectItem value="2">{t('usersPage.other')}</SelectItem>
                     </SelectContent>
                   </Select>
                 )}
@@ -428,10 +425,10 @@ export const UsersPage = () => {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditOpen(false)}>
-              Hủy
+              {t('usersPage.cancel')}
             </Button>
             <Button onClick={handleEdit} disabled={updateMut.isPending}>
-              {updateMut.isPending ? "Đang lưu..." : "Lưu"}
+              {updateMut.isPending ? t('usersPage.saving') : t('usersPage.save')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -440,8 +437,8 @@ export const UsersPage = () => {
       <Dialog open={roleOpen} onOpenChange={setRoleOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Đổi vai trò</DialogTitle>
-            <DialogDescription>Chọn vai trò mới cho người dùng.</DialogDescription>
+            <DialogTitle>{t('usersPage.roleDialogTitle')}</DialogTitle>
+            <DialogDescription>{t('usersPage.roleDialogDesc')}</DialogDescription>
           </DialogHeader>
           <div className="py-4">
             <Select value={roleVal} onValueChange={setRoleVal}>
@@ -450,8 +447,8 @@ export const UsersPage = () => {
               </SelectTrigger>
               <SelectContent>
                 {roleOptions.map((o) => (
-                  <SelectItem key={o.value} value={o.value}>
-                    {o.label}
+                  <SelectItem key={o} value={o}>
+                    {t('roleLabel.' + o)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -459,9 +456,9 @@ export const UsersPage = () => {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setRoleOpen(false)}>
-              Hủy
+              {t('usersPage.cancel')}
             </Button>
-            <Button onClick={handleRoleChange}>Lưu</Button>
+            <Button onClick={handleRoleChange}>{t('usersPage.roleSave')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

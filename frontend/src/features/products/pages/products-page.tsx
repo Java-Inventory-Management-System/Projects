@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react"
+import { useTranslation } from "react-i18next"
 import { useDebounce } from "@/hooks/use-debounce"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import { Search, Plus, Eye, Pencil } from "lucide-react"
@@ -17,6 +18,7 @@ import { ROLES } from "@/utils/permissions"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 
 export const ProductsPage = () => {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const brandFilter = searchParams.get("brandId") ? Number(searchParams.get("brandId")) : undefined
@@ -56,36 +58,36 @@ export const ProductsPage = () => {
 
   const columns: Column<ProductResponse>[] = [
     {
-      header: "SKU",
+      header: t("form.sku"),
       sortKey: "sku",
       className: "w-[110px]",
       render: (p) => <span className="font-mono text-xs">{p.sku}</span>,
     },
-    { header: "Tên", sortKey: "name", render: (p) => <span className="font-medium">{p.name}</span> },
+    { header: t("common.name"), sortKey: "name", render: (p) => <span className="font-medium">{p.name}</span> },
     {
-      header: "Thương hiệu",
+      header: t("nav.brands"),
       className: "w-[120px]",
       render: (p) => <span className="text-muted-foreground">{p.brandName}</span>,
     },
     {
-      header: "Danh mục",
+      header: t("nav.categories"),
       className: "w-[120px]",
       render: (p) => <span className="text-muted-foreground">{p.categoryName}</span>,
     },
-    { header: "ĐVT", className: "w-[60px]", render: (p) => <span>{p.unit}</span> },
+    { header: t("productForm.unit"), className: "w-[60px]", render: (p) => <span>{p.unit}</span> },
     {
-      header: "Giá",
+      header: t("productForm.sellPrice"),
       sortKey: "sellPrice",
       className: "w-[80px] text-right",
       render: (p) => <span className="tabular-nums">{p.sellPrice?.toLocaleString("vi-VN")}</span>,
     },
     {
-      header: "Trạng thái",
+      header: t("common.status"),
       className: "w-[70px] text-center",
-      render: (p) => <Badge variant={p.isActive ? "default" : "secondary"}>{p.isActive ? "Hoạt động" : "Ngừng"}</Badge>,
+      render: (p) => <Badge variant={p.isActive ? "default" : "secondary"}>{p.isActive ? t("common.active") : t("common.inactive")}</Badge>,
     },
     {
-      header: "Thao tác",
+      header: t("common.actions"),
       className: "w-[100px]",
       render: (p) => (
         <div className="flex gap-1">
@@ -95,7 +97,7 @@ export const ProductsPage = () => {
                 <Eye className="size-4" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent>Xem chi tiết</TooltipContent>
+            <TooltipContent>{t("common.viewDetail")}</TooltipContent>
           </Tooltip>
           {perm.hasRole(...ROLES.MANAGER) && (
             <Tooltip>
@@ -104,7 +106,7 @@ export const ProductsPage = () => {
                   <Pencil className="size-3.5" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>Chỉnh sửa</TooltipContent>
+              <TooltipContent>{t("common.edit")}</TooltipContent>
             </Tooltip>
           )}
         </div>
@@ -115,9 +117,9 @@ export const ProductsPage = () => {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-xl font-semibold tracking-tight">Sản phẩm</h1>
+        <h1 className="text-xl font-semibold tracking-tight">{t("nav.products")}</h1>
         <Button onClick={() => navigate("/products/new")}>
-          <Plus className="size-4 mr-1" /> Thêm sản phẩm
+          <Plus className="size-4 mr-1" /> {t("productsPage.addProduct")}
         </Button>
       </div>
 
@@ -125,7 +127,7 @@ export const ProductsPage = () => {
         <div className="relative flex-1 min-w-[200px] max-w-sm">
           <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Tìm tên hoặc SKU..."
+            placeholder={t("productsPage.searchPlaceholder")}
             className="pl-8"
             value={searchInput}
             onChange={(e) => {
@@ -145,10 +147,10 @@ export const ProductsPage = () => {
           }}
         >
           <SelectTrigger className="w-[140px]">
-            <SelectValue placeholder="Thương hiệu" />
+            <SelectValue placeholder={t("productsPage.brandFilter")} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Tất cả</SelectItem>
+            <SelectItem value="all">{t("common.all")}</SelectItem>
             {brands.map((b) => (
               <SelectItem key={b.id} value={String(b.id)}>
                 {b.name}
@@ -167,10 +169,10 @@ export const ProductsPage = () => {
           }}
         >
           <SelectTrigger className="w-[160px]">
-            <SelectValue placeholder="Danh mục" />
+            <SelectValue placeholder={t("productsPage.categoryFilter")} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Tất cả</SelectItem>
+            <SelectItem value="all">{t("common.all")}</SelectItem>
             {categories.map((c) => (
               <SelectItem key={c.id} value={String(c.id)}>
                 {c.name}
@@ -188,7 +190,7 @@ export const ProductsPage = () => {
               setPage(0)
             }}
           >
-            Xoá
+            {t("common.clear")}
           </Button>
         )}
       </div>
@@ -197,7 +199,7 @@ export const ProductsPage = () => {
         columns={columns}
         data={data?.content ?? []}
         isLoading={isLoading}
-        emptyMessage={hasFilters ? "Không tìm thấy sản phẩm nào" : "Không có sản phẩm nào"}
+        emptyMessage={hasFilters ? t("productsPage.emptySearch") : t("productsPage.empty")}
         sort={sort}
         onSort={handleSort}
         totalElements={data?.pagination.totalElements}

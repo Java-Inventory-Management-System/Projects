@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from "react"
+import { useTranslation } from "react-i18next"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { useStockAdjustments, useMyStockAdjustments } from "@/hooks/use-stock-adjustments"
@@ -17,11 +18,11 @@ import { ADJUSTMENT_STATUS, ADJUSTMENT_TYPE } from "@/utils/types"
 import { toast } from "@/utils/toast"
 import { backgroundBatch } from "@/utils/background-batch"
 
-const typeLabel: Record<string, string> = {
-  [ADJUSTMENT_TYPE.DAMAGED]: "Hư hỏng",
-  [ADJUSTMENT_TYPE.LOST]: "Mất",
-  [ADJUSTMENT_TYPE.FOUND]: "Thừa",
-}
+const getTypeLabel = (t: (k: string) => string) => ({
+  [ADJUSTMENT_TYPE.DAMAGED]: t("adjustmentType.damaged"),
+  [ADJUSTMENT_TYPE.LOST]: t("adjustmentType.lost"),
+  [ADJUSTMENT_TYPE.FOUND]: t("adjustmentType.found"),
+})
 
 const typeColor: Record<string, "destructive" | "outline" | "default"> = {
   [ADJUSTMENT_TYPE.DAMAGED]: "destructive",
@@ -29,13 +30,14 @@ const typeColor: Record<string, "destructive" | "outline" | "default"> = {
   [ADJUSTMENT_TYPE.FOUND]: "default",
 }
 
-const statusLabel: Record<string, { label: string; variant: "default" | "secondary" | "destructive" }> = {
-  PENDING: { label: "Chờ duyệt", variant: "secondary" },
-  APPROVED: { label: "Đã duyệt", variant: "default" },
-  REJECTED: { label: "Từ chối", variant: "destructive" },
-}
+const getStatusLabel = (t: (k: string) => string) => ({
+  PENDING: { label: t("status.pending"), variant: "secondary" as const },
+  APPROVED: { label: t("status.approved"), variant: "default" as const },
+  REJECTED: { label: t("status.rejected"), variant: "destructive" as const },
+})
 
 export const StockAdjustmentListPage = () => {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const perm = usePermission()
@@ -63,18 +65,18 @@ export const StockAdjustmentListPage = () => {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["stock-adjustments"] })
       qc.invalidateQueries({ queryKey: ["my-stock-adjustments"] })
-      toast.success("Đã duyệt phiếu điều chỉnh")
+      toast.success(t("stockAdjList.approveSuccess"))
     },
-    onError: (e: Error) => toast.error(e.message || "Không thể duyệt"),
+    onError: (e: Error) => toast.error(e.message || t("stockAdjList.approveError")),
   })
   const rejectMut = useMutation({
-    mutationFn: (id: number) => rejectStockAdjustment(id, "Manager từ chối"),
+    mutationFn: (id: number) => rejectStockAdjustment(id, t("stockAdjList.defaultRejectReason")),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["stock-adjustments"] })
       qc.invalidateQueries({ queryKey: ["my-stock-adjustments"] })
-      toast.success("Đã từ chối phiếu điều chỉnh")
+      toast.success(t("stockAdjList.rejectSuccess"))
     },
-    onError: (e: Error) => toast.error(e.message || "Không thể từ chối"),
+    onError: (e: Error) => toast.error(e.message || t("stockAdjList.rejectError")),
   })
 
   const [batchDone, setBatchDone] = useState(false)
@@ -86,14 +88,14 @@ export const StockAdjustmentListPage = () => {
         const ok = backgroundBatch.getResults().filter((r) => r.success).length
         const total = backgroundBatch.getResults().length
         if (ok === total) {
-          toast.success(`Batch hoàn thành: ${ok}/${total} thành công`)
+          toast.success(t("stockAdjList.batchSuccess", { ok, total }))
         } else {
-          toast.warning(`Batch hoàn thành: ${ok}/${total} thành công, ${total - ok} lỗi — xem chi tiết`)
+          toast.warning(t("stockAdjList.batchWarning", { ok, total, fail: total - ok }))
         }
       }
     })
     return unsub
-  }, [batchDone])
+  }, [batchDone, t])
 
   const handleClearBatch = useCallback(() => {
     backgroundBatch.reset()
@@ -103,7 +105,6 @@ export const StockAdjustmentListPage = () => {
 
   const canApprove = perm.hasRole(...ROLES.CAN_APPROVE)
 
-  // STOCK → own adjustments only; MANAGER/ADMIN → all adjustments
   const isStock = perm.hasRole("STOCK")
   const myAdj = useMyStockAdjustments(page, pageSize, sortStr, typeFilter || undefined, statusFilter || undefined)
   const allAdj = useStockAdjustments(page, pageSize, sortStr, typeFilter || undefined, statusFilter || undefined)
@@ -121,18 +122,21 @@ export const StockAdjustmentListPage = () => {
     [searchParams, setSearchParams],
   )
 
+  const tl = getTypeLabel(t)
+  const sl = getStatusLabel(t)
+
   const columns: Column<StockAdjustment>[] = [
     {
-      header: "Mã phiếu",
+      header: t("table.checkCode"),
       sortKey: "adjustCode",
       render: (r) => <span className="font-mono text-xs">{r.adjustCode}</span>,
     },
     {
-      header: "Loại",
-      render: (r) => <Badge variant={typeColor[r.type] ?? "outline"}>{typeLabel[r.type] ?? r.type}</Badge>,
+      header: t("stockAdjList.type"),
+      render: (r) => <Badge variant={typeColor[r.type] ?? "outline"}>{tl[r.type] ?? r.type}</Badge>,
     },
     {
-      header: "Sản phẩm",
+      header: t("table.product"),
       render: (r) => (
         <>
           <span className="font-medium">{r.productName ?? "—"}</span>
@@ -140,24 +144,24 @@ export const StockAdjustmentListPage = () => {
         </>
       ),
     },
-    { header: "Lý do", render: (r) => <span className="max-w-[200px] truncate text-sm">{r.reason}</span> },
+    { header: t("table.reason"), render: (r) => <span className="max-w-[200px] truncate text-sm">{r.reason}</span> },
     {
-      header: "Trạng thái",
+      header: t("table.status"),
       render: (r) => {
-        const st = statusLabel[r.status] ?? { label: r.status, variant: "secondary" as const }
+        const st = sl[r.status] ?? { label: r.status, variant: "secondary" as const }
         return <Badge variant={st.variant}>{st.label}</Badge>
       },
     },
-    { header: "Người tạo", render: (r) => <span className="text-muted-foreground">{r.createdByName}</span> },
+    { header: t("table.creator"), render: (r) => <span className="text-muted-foreground">{r.createdByName}</span> },
     {
-      header: "Ngày tạo",
+      header: t("table.createdDate"),
       sortKey: "createdAt",
       render: (r) => (
         <span className="text-muted-foreground text-xs">{new Date(r.createdAt).toLocaleDateString("vi-VN")}</span>
       ),
     },
     {
-      header: "Thao tác",
+      header: t("table.actions"),
       className: "w-[160px]",
       render: (r) => (
         <div className="flex items-center gap-1">
@@ -169,7 +173,7 @@ export const StockAdjustmentListPage = () => {
                     <Check className="size-4" />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>Duyệt</TooltipContent>
+                <TooltipContent>{t("stockAdjList.approve")}</TooltipContent>
               </Tooltip>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -177,7 +181,7 @@ export const StockAdjustmentListPage = () => {
                     <X className="size-4" />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>Từ chối</TooltipContent>
+                <TooltipContent>{t("stockAdjList.reject")}</TooltipContent>
               </Tooltip>
             </>
           )}
@@ -187,7 +191,7 @@ export const StockAdjustmentListPage = () => {
                 <Eye className="size-4" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent>Xem chi tiết</TooltipContent>
+            <TooltipContent>{t("stockAdjList.viewDetail")}</TooltipContent>
           </Tooltip>
         </div>
       ),
@@ -199,22 +203,22 @@ export const StockAdjustmentListPage = () => {
       {backgroundBatch.isRunning() && (
         <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-800">
           <Loader2 className="size-4 animate-spin" />
-          Batch đang chạy nền: {backgroundBatch.getProgress()?.current ?? "?"}/{backgroundBatch.getProgress()?.total ?? "?"}
+          {t("stockAdjList.batchRunning", { current: backgroundBatch.getProgress()?.current ?? "?", total: backgroundBatch.getProgress()?.total ?? "?" })}
         </div>
       )}
       {batchDone && backgroundBatch.getResults().length > 0 && (
         <div className="flex items-center justify-between rounded-lg border border-green-200 bg-green-50 px-4 py-2 text-sm text-green-800">
           <span>
-            Batch hoàn thành: {backgroundBatch.getResults().filter((r) => r.success).length}/{backgroundBatch.getResults().length} phiếu
+            {t("stockAdjList.batchDone", { ok: backgroundBatch.getResults().filter((r) => r.success).length, total: backgroundBatch.getResults().length })}
           </span>
-          <Button variant="ghost" size="sm" onClick={handleClearBatch}>Ẩn</Button>
+          <Button variant="ghost" size="sm" onClick={handleClearBatch}>{t("stockAdjList.hide")}</Button>
         </div>
       )}
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-xl font-semibold tracking-tight">Điều chỉnh tồn kho</h1>
+        <h1 className="text-xl font-semibold tracking-tight">{t("stockAdjList.title")}</h1>
         {perm.hasRole(...ROLES.CAN_OPERATE_STOCK) && (
           <Button onClick={() => navigate("/stock/adjustments/new")}>
-            <Plus className="size-4 mr-1" /> Tạo phiếu điều chỉnh
+            <Plus className="size-4 mr-1" /> {t("stockAdjList.create")}
           </Button>
         )}
       </div>
@@ -224,21 +228,21 @@ export const StockAdjustmentListPage = () => {
           <CollapsibleTrigger asChild>
             <Button variant="outline" size="sm" className="gap-1">
               {filterOpen ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
-              Bộ lọc
+              {t("stockAdjList.filter")}
             </Button>
           </CollapsibleTrigger>
         </div>
         <CollapsibleContent className="mt-2">
           <div className="flex flex-wrap items-center gap-2">
-            <Select value={typeFilter} onValueChange={(v) => updateParams({ type: v || undefined, page: undefined })}>
+            <Select value={typeFilter} onValueChange={(v) => updateParams({ type: v === "all" ? undefined : v, page: undefined })}>
               <SelectTrigger className="w-36">
-                <SelectValue placeholder="Tất cả loại" />
+                <SelectValue placeholder={t("stockAdjList.allTypes")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Tất cả loại</SelectItem>
-                <SelectItem value={ADJUSTMENT_TYPE.DAMAGED}>Hư hỏng</SelectItem>
-                <SelectItem value={ADJUSTMENT_TYPE.LOST}>Mất</SelectItem>
-                <SelectItem value={ADJUSTMENT_TYPE.FOUND}>Thừa</SelectItem>
+                <SelectItem value="all">{t("stockAdjList.allTypes")}</SelectItem>
+                <SelectItem value={ADJUSTMENT_TYPE.DAMAGED}>{t("adjustmentType.damaged")}</SelectItem>
+                <SelectItem value={ADJUSTMENT_TYPE.LOST}>{t("adjustmentType.lost")}</SelectItem>
+                <SelectItem value={ADJUSTMENT_TYPE.FOUND}>{t("adjustmentType.found")}</SelectItem>
               </SelectContent>
             </Select>
             <Select
@@ -246,13 +250,13 @@ export const StockAdjustmentListPage = () => {
               onValueChange={(v) => updateParams({ status: v || undefined, page: undefined })}
             >
               <SelectTrigger className="w-36">
-                <SelectValue placeholder="Tất cả trạng thái" />
+                <SelectValue placeholder={t("stockAdjList.allStatuses")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Tất cả trạng thái</SelectItem>
-                <SelectItem value={ADJUSTMENT_STATUS.PENDING}>Chờ duyệt</SelectItem>
-                <SelectItem value={ADJUSTMENT_STATUS.APPROVED}>Đã duyệt</SelectItem>
-                <SelectItem value={ADJUSTMENT_STATUS.REJECTED}>Từ chối</SelectItem>
+                <SelectItem value="all">{t("stockAdjList.allStatuses")}</SelectItem>
+                <SelectItem value={ADJUSTMENT_STATUS.PENDING}>{t("status.pending")}</SelectItem>
+                <SelectItem value={ADJUSTMENT_STATUS.APPROVED}>{t("status.approved")}</SelectItem>
+                <SelectItem value={ADJUSTMENT_STATUS.REJECTED}>{t("status.rejected")}</SelectItem>
               </SelectContent>
             </Select>
             {(typeFilter || statusFilter) && (
@@ -262,7 +266,7 @@ export const StockAdjustmentListPage = () => {
                 className="text-xs"
                 onClick={() => setSearchParams(new URLSearchParams())}
               >
-                Xoá bộ lọc
+                {t("stockAdjList.clearFilter")}
               </Button>
             )}
           </div>
@@ -273,7 +277,7 @@ export const StockAdjustmentListPage = () => {
         columns={columns}
         data={data?.content ?? []}
         isLoading={isLoading}
-        emptyMessage="Không có phiếu điều chỉnh nào"
+        emptyMessage={t("stockAdjList.empty")}
         sort={sort}
         onSort={handleSort}
         totalElements={data?.pagination.totalElements}

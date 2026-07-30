@@ -1,5 +1,6 @@
 import { useMemo } from "react"
 import { useNavigate } from "react-router-dom"
+import { useTranslation } from "react-i18next"
 import { useImportReceipts } from "@/hooks/use-import-receipts"
 import { cancelImportReceipt, approveImportReceipt } from "@/services/import-service"
 import { ViewImportModal } from "../components/view-import-modal"
@@ -8,18 +9,18 @@ import { Badge } from "@/components/ui/badge"
 import type { Column } from "@/components/ui/data-table"
 import { IMPORT_RECEIPT_STATUS, type ImportReceipt } from "@/utils/types"
 
-const statusLabel: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
-  DRAFT: { label: "Bản nháp", variant: "secondary" },
-  PENDING_APPROVAL: { label: "Chờ duyệt", variant: "outline" },
-  COMPLETED: { label: "Hoàn tất", variant: "default" },
-  CANCELLED: { label: "Đã hủy", variant: "destructive" },
-}
-
 export function ImportListPage() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
+  const statusLabel: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
+    DRAFT: { label: t("importStatus.draft"), variant: "secondary" },
+    PENDING_APPROVAL: { label: t("importStatus.pendingApproval"), variant: "outline" },
+    COMPLETED: { label: t("importStatus.completed"), variant: "default" },
+    CANCELLED: { label: t("importStatus.cancelled"), variant: "destructive" },
+  }
   const columns = useMemo<Column<ImportReceipt>[]>(() => [
     {
-      header: "Mã phiếu",
+      header: t("table.checkCode"),
       sortKey: "receiptCode",
       render: (r) => (
         <button type="button" className="font-mono text-xs underline-offset-2 hover:underline cursor-pointer text-left" onClick={() => navigate(`/stock/imports/${r.id}`)}>
@@ -27,35 +28,35 @@ export function ImportListPage() {
         </button>
       ),
     },
-    { header: "Nhà cung cấp", render: (r) => <span className="font-medium">{r.supplierName || "—"}</span> },
+    { header: t("table.supplier"), render: (r) => <span className="font-medium">{r.supplierName || "—"}</span> },
     {
-      header: "Tổng tiền",
+      header: t("table.totalAmount"),
       sortKey: "totalAmount",
       className: "text-right",
       render: (r) => <span className="tabular-nums">{(r.totalAmount ?? 0).toLocaleString("vi-VN")}₫</span>,
     },
     {
-      header: "Trạng thái",
+      header: t("table.status"),
       render: (r) => {
         const s = statusLabel[r.status] ?? { label: r.status, variant: "secondary" as const }
         return <Badge variant={s.variant}>{s.label}</Badge>
       },
     },
-    { header: "Người tạo", render: (r) => <span className="text-muted-foreground">{r.createdByName || "—"}</span> },
+    { header: t("table.creator"), render: (r) => <span className="text-muted-foreground">{r.createdByName || "—"}</span> },
     {
-      header: "Ngày tạo",
+      header: t("table.createdDate"),
       sortKey: "createdAt",
       render: (r) => (
         <span className="text-muted-foreground text-xs">{new Date(r.createdAt).toLocaleDateString("vi-VN")}</span>
       ),
     },
-    { header: "Người duyệt", render: (r) => <span className="text-muted-foreground">{r.approvedByName ?? "—"}</span> },
-  ], [navigate])
+    { header: t("table.approver"), render: (r) => <span className="text-muted-foreground">{r.approvedByName ?? "—"}</span> },
+  ], [navigate, t])
   return (
     <ReceiptListPage<ImportReceipt>
-      title="Nhập kho"
+      title={t("importList.title")}
       newRoute="/stock/imports/new"
-      emptyMessage="Chưa có phiếu nhập nào"
+      emptyMessage={t("importList.empty")}
       queryKey="import-receipts"
       useHook={useImportReceipts}
       cancelService={cancelImportReceipt}

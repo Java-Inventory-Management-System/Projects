@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react"
 import { useNavigate } from "react-router-dom"
+import { useTranslation } from "react-i18next"
 import { useMutation, useQuery } from "@tanstack/react-query"
 import { useForm } from "react-hook-form"
 import { createReturnReceipt, lookupReturnUnit } from "@/services/return-service"
@@ -43,6 +44,7 @@ interface ReturnFormItem {
 
 export const ReturnCreatePage = () => {
   const navigate = useNavigate()
+  const { t } = useTranslation()
 
   const [customerQuery, setCustomerQuery] = useState("")
   const [selectedCustomerId, setSelectedCustomerId] = useState<number | null>(null)
@@ -97,10 +99,10 @@ export const ReturnCreatePage = () => {
   const createMut = useMutation({
     mutationFn: createReturnReceipt,
     onSuccess: () => {
-      toast.success("Tạo phiếu trả hàng thành công")
+      toast.success(t("returnCreate.createSuccess"))
       navigate("/returns")
     },
-    onError: (err: Error) => toast.error(err.message || "Có lỗi xảy ra"),
+    onError: (err: Error) => toast.error(err.message || t("returnCreate.createError")),
   })
 
   const changeMindInfo = useMemo(() => {
@@ -195,7 +197,7 @@ export const ReturnCreatePage = () => {
       const units = await getExportUnits(selectedExportId, exportItem.productId)
       setSerialPickerUnits(units)
     } catch {
-      toast.error("Lỗi tải danh sách serial")
+      toast.error(t("returnCreate.serialLoadError"))
       setSerialPickerUnits([])
     } finally {
       setSerialPickerLoading(false)
@@ -277,7 +279,7 @@ export const ReturnCreatePage = () => {
       }
       return next
     })
-    toast.success("Đã áp dụng cho tất cả")
+    toast.success(t("returnCreate.applyAllSuccess"))
   }
 
   const doSearchSerial = async () => {
@@ -306,7 +308,7 @@ export const ReturnCreatePage = () => {
         setSearchSerialResult({ found: false, inExport: false, productId: null, productName: null, serialNumber: null })
       }
     } catch {
-      toast.error("Lỗi tra cứu serial")
+      toast.error(t("returnCreate.serialLookupError"))
     } finally {
       setSearchSerialLoading(false)
     }
@@ -344,7 +346,7 @@ export const ReturnCreatePage = () => {
       (i) => i.trackingType === "SERIALIZED" && (!i.productUnitId || i.productUnitId <= 0),
     )
     if (missingSerial) {
-      toast.error(`Vui lòng chọn serial cho "${missingSerial.productName}"`)
+      toast.error(t("returnCreate.missingSerial", { name: missingSerial.productName }))
       return
     }
     createMut.mutate({
@@ -363,10 +365,10 @@ export const ReturnCreatePage = () => {
   })
 
   const reasonOptions = [
-    { value: RETURN_REASON.DEFECTIVE, label: "Hàng lỗi" },
-    { value: RETURN_REASON.CHANGE_MIND, label: "Đổi ý" },
-    { value: RETURN_REASON.WRONG_ITEM, label: "Sai hàng" },
-    { value: RETURN_REASON.WARRANTY_CLAIM, label: "Bảo hành" },
+    { value: RETURN_REASON.DEFECTIVE, label: t("returnReason.defective") },
+    { value: RETURN_REASON.CHANGE_MIND, label: t("returnReason.changeMind") },
+    { value: RETURN_REASON.WRONG_ITEM, label: t("returnReason.wrongItem") },
+    { value: RETURN_REASON.WARRANTY_CLAIM, label: t("returnReason.warrantyClaim") },
   ]
 
   const changeMindExpired = exportCreatedDaysSince !== null && exportCreatedDaysSince >= 7
@@ -377,13 +379,13 @@ export const ReturnCreatePage = () => {
         <Button variant="ghost" size="sm" onClick={() => navigate("/returns")}>
           <ArrowLeft className="size-4" />
         </Button>
-        <h1 className="text-xl font-semibold tracking-tight">Tạo phiếu trả hàng</h1>
+        <h1 className="text-xl font-semibold tracking-tight">{t("returnCreate.title")}</h1>
       </div>
 
       <div className="space-y-4 rounded-lg border p-6">
         <div className="space-y-2">
           <Label>
-            Khách hàng <span className="text-destructive">*</span>
+            {t("returnCreate.customer")} <span className="text-destructive">*</span>
           </Label>
           {selectedCustomerId ? (
             <div className="flex items-center gap-2 rounded-lg border px-3 py-2">
@@ -398,7 +400,7 @@ export const ReturnCreatePage = () => {
               <Input
                 value={customerQuery}
                 onChange={(e) => setCustomerQuery(e.target.value)}
-                placeholder="Tìm khách hàng..."
+                placeholder={t("returnCreate.searchCustomerPlaceholder")}
                 className="pl-9"
               />
             </div>
@@ -422,7 +424,7 @@ export const ReturnCreatePage = () => {
                 ))
               ) : (
                 <div className="px-3 py-2 text-xs text-muted-foreground">
-                  {customerQuery ? "Không tìm thấy khách hàng" : "Gõ tên để tìm khách hàng..."}
+                  {customerQuery ? t("returnCreate.noCustomerFound") : t("returnCreate.typeToSearchCustomer")}
                 </div>
               )}
             </div>
@@ -431,7 +433,7 @@ export const ReturnCreatePage = () => {
 
         <div className="space-y-2">
           <Label>
-            Đơn xuất gốc <span className="text-destructive">*</span>
+            {t("returnCreate.originalExport")} <span className="text-destructive">*</span>
           </Label>
           {selectedExportId ? (
             <div className="flex items-center gap-2 rounded-lg border px-3 py-2">
@@ -444,8 +446,8 @@ export const ReturnCreatePage = () => {
                   )}
                 >
                   {exportCreatedDaysSince >= 7
-                    ? `Đã ${exportCreatedDaysSince} ngày — hết hạn đổi ý`
-                    : `Còn ${7 - exportCreatedDaysSince} ngày để đổi ý`}
+                    ? t("returnCreate.changeMindExpired", { days: exportCreatedDaysSince })
+                    : t("returnCreate.changeMindRemaining", { days: 7 - exportCreatedDaysSince })}
                 </span>
               )}
               <Button variant="ghost" size="icon" className="size-6" onClick={clearExport}>
@@ -459,7 +461,7 @@ export const ReturnCreatePage = () => {
                 <Input
                   value={exportQuery}
                   onChange={(e) => setExportQuery(e.target.value)}
-                  placeholder="Tìm mã đơn xuất..."
+                  placeholder={t("returnCreate.searchExportPlaceholder")}
                   className="pl-9"
                 />
               </div>
@@ -475,7 +477,7 @@ export const ReturnCreatePage = () => {
                   </div>
                 ))}
                 {exportsData && exportsData.content.length === 0 && (
-                  <div className="px-3 py-2 text-xs text-muted-foreground">Không có đơn xuất nào</div>
+                  <div className="px-3 py-2 text-xs text-muted-foreground">{t("returnCreate.noExports")}</div>
                 )}
               </div>
             </div>
@@ -485,14 +487,14 @@ export const ReturnCreatePage = () => {
         {selectedExportId && exportDetail?.items && exportDetail.items.length > 0 && (
           <div className="space-y-2 rounded-lg border p-3 bg-muted/10">
             <Label className="text-xs text-muted-foreground">
-              Sản phẩm trong đơn xuất
+              {t("returnCreate.exportProducts")}
             </Label>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
               <Input
                 value={productSearchQuery}
                 onChange={(e) => setProductSearchQuery(e.target.value)}
-                placeholder="Tìm theo tên sản phẩm hoặc SKU..."
+                placeholder={t("returnCreate.searchProductPlaceholder")}
                 className="pl-9 h-8 text-xs"
               />
             </div>
@@ -518,7 +520,7 @@ export const ReturnCreatePage = () => {
                         )}>
                           {isSerialized ? "SERIALIZED" : "BULK"}
                         </span>
-                        <span className="text-muted-foreground shrink-0">Đã mua: {item.quantity}</span>
+                        <span className="text-muted-foreground shrink-0">{t("returnCreate.purchased")}: {item.quantity}</span>
                         {isSerialized ? (
                           <Button
                             variant="outline"
@@ -526,7 +528,7 @@ export const ReturnCreatePage = () => {
                             className="h-7 text-xs shrink-0"
                             onClick={() => openSerialPicker(item)}
                           >
-                            Chọn serial
+                            {t("returnCreate.selectSerial")}
                             {serialCount > 0 && (
                               <span className="ml-1.5 text-blue-500 font-semibold">
                                 {serialCount}/{item.quantity}
@@ -535,7 +537,7 @@ export const ReturnCreatePage = () => {
                           </Button>
                         ) : (
                           <div className="flex items-center gap-1.5 shrink-0">
-                            <span className="text-muted-foreground">Trả:</span>
+                            <span className="text-muted-foreground">{t("returnCreate.return")}:</span>
                             <Input
                               type="number"
                               min={0}
@@ -556,8 +558,8 @@ export const ReturnCreatePage = () => {
               ) : (
                 <div className="px-3 py-2 text-xs text-muted-foreground">
                   {productSearchQuery
-                    ? "Không tìm thấy sản phẩm phù hợp"
-                    : "Đơn xuất không có sản phẩm"}
+                    ? t("returnCreate.noProductMatch")
+                    : t("returnCreate.noExportProducts")}
                 </div>
               )}
             </div>
@@ -572,7 +574,7 @@ export const ReturnCreatePage = () => {
                     setSearchSerialResult(null)
                   }}
                   onKeyDown={(e) => e.key === "Enter" && doSearchSerial()}
-                  placeholder="Tra nhanh serial..."
+                  placeholder={t("returnCreate.quickSerialSearch")}
                   className="h-7 text-xs flex-1"
                 />
                 <Button
@@ -582,7 +584,7 @@ export const ReturnCreatePage = () => {
                   onClick={doSearchSerial}
                   disabled={searchSerialLoading || !searchSerialInput.trim()}
                 >
-                  {searchSerialLoading ? "Đang tra..." : "Tra"}
+                  {searchSerialLoading ? t("returnCreate.searching") : t("returnCreate.search")}
                 </Button>
               </div>
             )}
@@ -602,7 +604,7 @@ export const ReturnCreatePage = () => {
                       {searchSerialResult.productName && (
                         <span className="ml-2 text-muted-foreground">— {searchSerialResult.productName}</span>
                       )}
-                      <span className="ml-1 text-green-600">(thuộc đơn xuất này)</span>
+                      <span className="ml-1 text-green-600">{t("returnCreate.inThisExport")}</span>
                     </span>
                     <Button
                       variant="outline"
@@ -614,20 +616,20 @@ export const ReturnCreatePage = () => {
                         setSearchSerialResult(null)
                         setSearchSerialInput("")
                         toast.success(
-                          `Đã tìm thấy "${searchResult.serialNumber}", bấm "Chọn serial" để xem`,
+                          t("returnCreate.serialFound", { serial: searchResult.serialNumber }),
                         )
                       }}
                     >
-                      Tìm SP
+                      {t("returnCreate.findProduct")}
                     </Button>
                   </div>
                 ) : searchSerialResult.found && !searchSerialResult.inExport ? (
                   <p>
-                    Serial <span className="font-mono">{searchSerialResult.serialNumber}</span> không thuộc đơn xuất này
+                    {t("returnCreate.serialNotInExport", { serial: searchSerialResult.serialNumber })}
                   </p>
                 ) : (
                   <p>
-                    Không tìm thấy serial <span className="font-mono">{searchSerialInput}</span>
+                    {t("returnCreate.serialNotFound", { serial: searchSerialInput })}
                   </p>
                 )}
               </div>
@@ -637,7 +639,7 @@ export const ReturnCreatePage = () => {
 
         <div className="space-y-2">
           <Label>
-            Lý do trả <span className="text-destructive">*</span>
+            {t("returnCreate.reason")} <span className="text-destructive">*</span>
           </Label>
           <div className="flex flex-wrap gap-2">
             {reasonOptions.map((opt) => {
@@ -679,8 +681,8 @@ export const ReturnCreatePage = () => {
               )}
             >
               {changeMindInfo.expired
-                ? `Đã quá hạn đổi ý — ${changeMindInfo.daysSince} ngày kể từ xuất kho`
-                : `Còn ${changeMindInfo.remaining} ngày để đổi ý (${changeMindInfo.daysSince} ngày kể từ xuất kho)`}
+                ? t("returnCreate.changeMindExpiredDetail", { days: changeMindInfo.daysSince })
+                : t("returnCreate.changeMindRemainingDetail", { remaining: changeMindInfo.remaining, days: changeMindInfo.daysSince })}
             </div>
           )}
         </div>
@@ -688,10 +690,10 @@ export const ReturnCreatePage = () => {
 
       <div className="space-y-4 rounded-lg border p-6">
         <div className="flex items-center justify-between">
-          <Label className="text-base">Sản phẩm trả</Label>
+          <Label className="text-base">{t("returnCreate.returnProducts")}</Label>
           {returnItems.length > 1 && (
             <Button variant="ghost" size="sm" className="text-xs h-7" onClick={applyAllConfig}>
-              <Sparkles className="size-3 mr-1" /> Áp dụng cho tất cả
+              <Sparkles className="size-3 mr-1" /> {t("returnCreate.applyAll")}
             </Button>
           )}
         </div>
@@ -726,7 +728,7 @@ export const ReturnCreatePage = () => {
                   <div className="flex items-center gap-2">
                     {item.trackingType === "SERIALIZED" && (
                       <span className="text-[10px] text-blue-500 border border-blue-200 rounded px-1">
-                        Có serial
+                        {t("returnCreate.hasSerial")}
                       </span>
                     )}
                     <select
@@ -748,8 +750,8 @@ export const ReturnCreatePage = () => {
                       }}
                       className="h-7 text-xs rounded-md border border-input bg-background px-2"
                     >
-                      <option value={RETURN_ITEM_CONDITION.GOOD}>Còn nguyên</option>
-                      <option value={RETURN_ITEM_CONDITION.DEFECTIVE}>Lỗi</option>
+                      <option value={RETURN_ITEM_CONDITION.GOOD}>{t("returnCondition.good")}</option>
+                      <option value={RETURN_ITEM_CONDITION.DEFECTIVE}>{t("returnCondition.defective")}</option>
                     </select>
                     <select
                       value={item.resultingAction}
@@ -758,10 +760,10 @@ export const ReturnCreatePage = () => {
                     >
                       {validActions.map((act) => (
                         <option key={act} value={act}>
-                          {act === RETURN_RESULTING_ACTION.RESTOCK && "Nhập lại kho"}
-                          {act === RETURN_RESULTING_ACTION.SCRAP && "Hủy"}
-                          {act === RETURN_RESULTING_ACTION.REJECT && "Từ chối"}
-                          {act === RETURN_RESULTING_ACTION.WARRANTY_TRANSFER && "Chuyển BH"}
+                          {act === RETURN_RESULTING_ACTION.RESTOCK && t("returnAction.restock")}
+                          {act === RETURN_RESULTING_ACTION.SCRAP && t("returnAction.scrap")}
+                          {act === RETURN_RESULTING_ACTION.REJECT && t("returnAction.reject")}
+                          {act === RETURN_RESULTING_ACTION.WARRANTY_TRANSFER && t("returnAction.warrantyTransfer")}
                         </option>
                       ))}
                     </select>
@@ -780,24 +782,24 @@ export const ReturnCreatePage = () => {
           </div>
         ) : (
           <p className="text-xs text-muted-foreground py-2 text-center">
-            Chưa chọn sản phẩm nào để trả
+            {t("returnCreate.noProductsSelected")}
           </p>
         )}
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="note">Ghi chú</Label>
+        <Label htmlFor="note">{t("returnCreate.note")}</Label>
         <Textarea
           id="note"
           {...form.register("note")}
-          placeholder="Ghi chú (không bắt buộc)..."
+          placeholder={t("form.notePlaceholder")}
           rows={2}
         />
       </div>
 
       <div className="flex justify-end gap-3">
         <Button variant="outline" onClick={() => navigate("/returns")}>
-          Hủy
+          {t("common.cancel")}
         </Button>
         <Button
           onClick={onSubmit}
@@ -809,8 +811,8 @@ export const ReturnCreatePage = () => {
           }
         >
           {createMut.isPending
-            ? "Đang tạo..."
-            : `Tạo phiếu (${returnItems.length} SP)`}
+            ? t("returnCreate.creating")
+            : t("returnCreate.create", { count: returnItems.length })}
         </Button>
       </div>
 
@@ -823,7 +825,7 @@ export const ReturnCreatePage = () => {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="text-base">
-              Chọn serial
+              {t("returnCreate.selectSerialTitle")}
               {serialPickerExportItemId !== null && (
                 <span className="text-muted-foreground font-normal ml-1">
                   — {exportDetail?.items.find((i) => i.id === serialPickerExportItemId)?.productName}
@@ -832,17 +834,17 @@ export const ReturnCreatePage = () => {
             </DialogTitle>
           </DialogHeader>
           {serialPickerLoading ? (
-            <p className="text-sm text-muted-foreground py-4 text-center">Đang tải...</p>
+            <p className="text-sm text-muted-foreground py-4 text-center">{t("common.loading")}</p>
           ) : serialPickerUnits.length === 0 ? (
             <p className="text-sm text-muted-foreground py-4 text-center">
-              Không có serial khả dụng
+              {t("returnCreate.noSerialsAvailable")}
             </p>
           ) : (
             <div className="space-y-3">
               <Input
                 value={serialSearchQuery}
                 onChange={(e) => setSerialSearchQuery(e.target.value)}
-                placeholder="Tìm serial..."
+                placeholder={t("returnCreate.searchSerialPlaceholder")}
                 className="h-8 text-sm"
               />
               <div className="max-h-48 overflow-y-auto space-y-1">
@@ -884,25 +886,25 @@ export const ReturnCreatePage = () => {
                     u.serialNumber.toLowerCase().includes(serialSearchQuery.toLowerCase()),
                 ).length === 0 && (
                   <p className="text-xs text-muted-foreground text-center py-2">
-                    Không tìm thấy serial phù hợp
+                    {t("returnCreate.noSerialMatch")}
                   </p>
                 )}
               </div>
               <p className="text-xs text-muted-foreground">
-                Đã chọn: {serialPickerSelection.size} / {serialPickerUnits.length}
+                {t("returnCreate.selected", { count: serialPickerSelection.size, total: serialPickerUnits.length })}
               </p>
             </div>
           )}
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={closeSerialPicker}>
-              Hủy
+              {t("common.cancel")}
             </Button>
             <Button
               size="sm"
               onClick={confirmSerialPicker}
               disabled={serialPickerSelection.size === 0}
             >
-              Xác nhận
+              {t("dialog.confirm")}
             </Button>
           </DialogFooter>
         </DialogContent>

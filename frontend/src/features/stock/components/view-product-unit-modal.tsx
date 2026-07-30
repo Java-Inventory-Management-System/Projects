@@ -1,21 +1,8 @@
 import { PRODUCT_UNIT_STATUS, TRACKING_TYPE, type ProductUnit } from "@/utils/types"
+import { useTranslation } from "react-i18next"
 import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-
-const statusLabel: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
-  [PRODUCT_UNIT_STATUS.IN_STOCK]: { label: "Trong kho", variant: "default" },
-  [PRODUCT_UNIT_STATUS.SOLD]: { label: "Đã bán", variant: "secondary" },
-  [PRODUCT_UNIT_STATUS.DEFECTIVE]: { label: "Lỗi", variant: "destructive" },
-  [PRODUCT_UNIT_STATUS.DAMAGED_IN_STORAGE]: { label: "Hư trong kho", variant: "destructive" },
-  [PRODUCT_UNIT_STATUS.LOST]: { label: "Mất", variant: "destructive" },
-  [PRODUCT_UNIT_STATUS.UNDER_REPAIR]: { label: "Đang sửa", variant: "outline" },
-  [PRODUCT_UNIT_STATUS.SENT_TO_MANUFACTURER]: { label: "Gửi NSX", variant: "outline" },
-  [PRODUCT_UNIT_STATUS.RETURNED]: { label: "Trả lại", variant: "secondary" },
-  [PRODUCT_UNIT_STATUS.RETURNED_TO_SUPPLIER]: { label: "Trả NCC", variant: "secondary" },
-  [PRODUCT_UNIT_STATUS.REMOVED]: { label: "Đã xóa", variant: "outline" },
-  [PRODUCT_UNIT_STATUS.DISPOSED]: { label: "Hủy", variant: "destructive" },
-}
 
 function fmt(d: string | null) {
   if (!d) return "—"
@@ -36,6 +23,20 @@ export const ViewProductUnitModal = ({
   onOpenChange: (v: boolean) => void
 }) => {
   if (!unit) return null
+  const { t } = useTranslation()
+  const statusLabel: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
+    [PRODUCT_UNIT_STATUS.IN_STOCK]: { label: t("unitStatus.inStock"), variant: "default" },
+    [PRODUCT_UNIT_STATUS.SOLD]: { label: t("unitStatus.sold"), variant: "secondary" },
+    [PRODUCT_UNIT_STATUS.DEFECTIVE]: { label: t("unitStatus.defective"), variant: "destructive" },
+    [PRODUCT_UNIT_STATUS.DAMAGED_IN_STORAGE]: { label: t("unitStatus.damagedInStorage"), variant: "destructive" },
+    [PRODUCT_UNIT_STATUS.LOST]: { label: t("unitStatus.lost"), variant: "destructive" },
+    [PRODUCT_UNIT_STATUS.UNDER_REPAIR]: { label: t("unitStatus.underRepair"), variant: "outline" },
+    [PRODUCT_UNIT_STATUS.SENT_TO_MANUFACTURER]: { label: t("unitStatus.sentToManufacturer"), variant: "outline" },
+    [PRODUCT_UNIT_STATUS.RETURNED]: { label: t("unitStatus.returned"), variant: "secondary" },
+    [PRODUCT_UNIT_STATUS.RETURNED_TO_SUPPLIER]: { label: t("unitStatus.returnedToSupplier"), variant: "secondary" },
+    [PRODUCT_UNIT_STATUS.REMOVED]: { label: t("unitStatus.removed"), variant: "outline" },
+    [PRODUCT_UNIT_STATUS.DISPOSED]: { label: t("unitStatus.disposed"), variant: "destructive" },
+  }
   const s = statusLabel[unit.status] ?? { label: unit.status, variant: "secondary" }
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -48,40 +49,40 @@ export const ViewProductUnitModal = ({
         </DialogHeader>
         <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
           <div>
-            <span className="text-muted-foreground">Sản phẩm</span>
+            <span className="text-muted-foreground">{t("viewProductUnitModal.product")}</span>
             <p className="font-medium">{unit.productName}</p>
             <p className="text-xs text-muted-foreground">{unit.productSku}</p>
           </div>
           <div>
-            <span className="text-muted-foreground">Tracking</span>
+            <span className="text-muted-foreground">{t('productUnit.tracking')}</span>
             <p className="font-medium">
               {unit.trackingType === TRACKING_TYPE.SERIALIZED ? TRACKING_TYPE.SERIALIZED : TRACKING_TYPE.BULK}
             </p>
           </div>
           <div>
-            <span className="text-muted-foreground">Vị trí</span>
-            <p className="font-medium">{unit.locationCode ?? "Chưa gán"}</p>
+            <span className="text-muted-foreground">{t("viewProductUnitModal.location")}</span>
+            <p className="font-medium">{unit.locationCode ?? t("viewProductUnitModal.notAssigned")}</p>
           </div>
           <div>
-            <span className="text-muted-foreground">Ngày nhập</span>
+            <span className="text-muted-foreground">{t("viewProductUnitModal.importDate")}</span>
             <p className="font-medium">{fmtFull(unit.importedAt)}</p>
           </div>
           {unit.trackingType === "BULK" && (
             <div>
-              <span className="text-muted-foreground">Số lượng</span>
+              <span className="text-muted-foreground">{t("viewProductUnitModal.quantity")}</span>
               <p className="font-medium">
                 {unit.initialQuantity} → {unit.remainingQuantity}
               </p>
             </div>
           )}
           <div>
-            <span className="text-muted-foreground">Bảo hành</span>
+            <span className="text-muted-foreground">{t("viewProductUnitModal.warranty")}</span>
             {unit.warrantyMonths > 0 ? (
               <p className="font-medium">
-                {unit.warrantyMonths} tháng
+                {t("viewProductUnitModal.warrantyMonths", { months: unit.warrantyMonths })}
                 <br />
                 <span className="text-xs text-muted-foreground">
-                  BĐ: {fmt(unit.warrantyStartDate)} — Hết: {fmt(unit.warrantyExpiresAt)}
+                  {t("viewProductUnitModal.warrantyPeriod", { start: fmt(unit.warrantyStartDate), end: fmt(unit.warrantyExpiresAt) })}
                 </span>
               </p>
             ) : (
@@ -91,7 +92,7 @@ export const ViewProductUnitModal = ({
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Đóng
+            {t("viewProductUnitModal.close")}
           </Button>
         </DialogFooter>
       </DialogContent>

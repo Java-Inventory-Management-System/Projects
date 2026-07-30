@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { useTranslation } from "react-i18next"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
@@ -22,6 +23,7 @@ interface Props {
 }
 
 export function ApprovalDialog({ open, onOpenChange, id, title, actions, invalidateKeys }: Props) {
+  const { t } = useTranslation()
   const qc = useQueryClient()
   const [note, setNote] = useState("")
   const [activeIdx, setActiveIdx] = useState<number | null>(null)
@@ -30,11 +32,11 @@ export function ApprovalDialog({ open, onOpenChange, id, title, actions, invalid
     mutationFn: ({ idx }: { idx: number }) => actions[idx].service(id, note || undefined),
     onSuccess: () => {
       if (invalidateKeys) invalidateKeys.forEach((k) => qc.invalidateQueries({ queryKey: k }))
-      toast.success("Thao tác thành công")
+      toast.success(t("approvalDialog.success"))
       onOpenChange(false)
       setNote("")
     },
-    onError: (err: Error) => toast.error(err.message || "Thao tác thất bại"),
+    onError: (err: Error) => toast.error(err.message || t("approvalDialog.failure")),
   })
 
   return (
@@ -52,12 +54,12 @@ export function ApprovalDialog({ open, onOpenChange, id, title, actions, invalid
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
         <div className="space-y-2">
-          <label className="text-sm text-muted-foreground">Note (optional)</label>
-          <Textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="Enter note..." rows={3} />
+          <label className="text-sm text-muted-foreground">{t('form.noteOptional')}</label>
+          <Textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder={t('form.enterNote')} rows={3} />
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
+            {t('common.cancel')}
           </Button>
           {actions.map((a, i) => (
             <Button
@@ -69,7 +71,7 @@ export function ApprovalDialog({ open, onOpenChange, id, title, actions, invalid
               }}
               disabled={mutation.isPending}
             >
-              {mutation.isPending && activeIdx === i ? "Processing..." : a.confirmLabel}
+              {mutation.isPending && activeIdx === i ? t('common.processing') : a.confirmLabel}
             </Button>
           ))}
         </DialogFooter>

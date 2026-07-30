@@ -14,22 +14,24 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { useTranslation } from "react-i18next"
 import { Check, ChevronLeft, ChevronRight } from "lucide-react"
 import { ImportStepSerials } from "../components/import-create-step-serials"
 import { ImportStepQc } from "../components/import-create-step-qc"
 import { itemReducer } from "../reducers/import-create-reducer"
 import { Label } from "@/components/ui/label"
 
-const steps = [
-  { num: 1, label: "Chọn đơn hàng" },
-  { num: 2, label: "Nhập serial" },
-  { num: 3, label: "QC & Xác nhận" },
+const steps = (t: (k: string) => string) => [
+  { num: 1, label: t("importCreate.stepSelectOrder") },
+  { num: 2, label: t("importCreate.stepSerials") },
+  { num: 3, label: t("importCreate.stepQcConfirm") },
 ]
 
 function StepIndicator({ current }: { current: number }) {
+  const { t } = useTranslation()
   return (
     <div className="flex items-center gap-0">
-      {steps.map((s, i) => (
+      {steps(t).map((s, i) => (
         <div key={s.num} className="flex items-center">
           <div
             className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
@@ -53,7 +55,7 @@ function StepIndicator({ current }: { current: number }) {
             </span>
             {s.label}
           </div>
-          {i < steps.length - 1 && (
+          {i < steps(t).length - 1 && (
             <div className={`mx-1.5 h-px w-6 ${current > s.num ? "bg-primary/40" : "bg-border"}`} />
           )}
         </div>
@@ -63,6 +65,7 @@ function StepIndicator({ current }: { current: number }) {
 }
 
 export const ImportCreatePage = () => {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [searchParams] = useSearchParams()
@@ -185,10 +188,10 @@ export const ImportCreatePage = () => {
       setReceiptId(data.id)
       setStep(2)
       queryClient.invalidateQueries({ queryKey: ["import-receipts"] })
-      toast.success("Tạo phiếu nhập thành công")
+      toast.success(t("importCreate.createSuccess"))
     },
     onError: (err: Error) => {
-      toast.error(err.message || "Có lỗi xảy ra khi tạo phiếu nhập")
+      toast.error(err.message || t("importCreate.createError"))
     },
   })
 
@@ -198,12 +201,12 @@ export const ImportCreatePage = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["import-receipts"] })
       queryClient.invalidateQueries({ queryKey: ["import-receipt", receiptId] })
-      toast.success("Gửi duyệt thành công")
+      toast.success(t("importCreate.submitSuccess"))
       navigatingAfterMut.current = true
       navigate("/stock/imports")
     },
     onError: (err: Error) => {
-      toast.error(err.message || "Có lỗi xảy ra")
+      toast.error(err.message || t("importCreate.error"))
     },
   })
 
@@ -230,7 +233,7 @@ export const ImportCreatePage = () => {
     const missingItems = items.filter((i) => i.serials.length === 0 && i.itemStatus !== "NOT_RECEIVED")
     if (missingItems.length > 0) {
       toast.error(
-        `Còn sản phẩm chưa nhập serial và chưa đánh dấu NOT_RECEIVED: ${missingItems.map((i) => i.productName).join(", ")}`,
+        t("importCreate.missingSerials", { products: missingItems.map((i) => i.productName).join(", ") }),
       )
       return
     }
@@ -264,9 +267,9 @@ export const ImportCreatePage = () => {
     <div className="mx-auto w-full max-w-5xl space-y-4">
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="sm" onClick={() => navigate("/stock/imports")}>
-          &larr; Quay lại
+          &larr; {t("common.back")}
         </Button>
-        <h1 className="text-xl font-semibold tracking-tight">Nhập kho</h1>
+        <h1 className="text-xl font-semibold tracking-tight">{t("importCreate.title")}</h1>
         {receiptId && receipt && (
           <span className="text-sm font-mono text-muted-foreground">{receipt.receiptCode}</span>
         )}
@@ -278,19 +281,19 @@ export const ImportCreatePage = () => {
       {step === 1 && (
         <div className="space-y-4">
           <h2 className="text-sm font-semibold text-muted-foreground">
-            {receiptId ? "Đơn hàng đã chọn" : "Bước 1/3 — Chọn đơn hàng"}
+            {receiptId ? t("importCreate.orderSelected") : t("importCreate.stepIndicator")}
           </h2>
 
           {!receiptId ? (
             <>
               <div className="max-w-sm space-y-2">
-                <Label htmlFor="po">Chọn đơn đặt hàng</Label>
+                <Label htmlFor="po">{t("importCreate.selectPOrder")}</Label>
                 <Select
                   value={selectedPoId ? String(selectedPoId) : ""}
                   onValueChange={(v) => setSelectedPoId(Number(v))}
                 >
                   <SelectTrigger id="po">
-                    <SelectValue placeholder="Chọn đơn hàng" />
+                    <SelectValue placeholder={t("importCreate.selectPOrderPlaceholder")} />
                   </SelectTrigger>
                   <SelectContent>
                     {availablePOs.map((po) => (
@@ -300,7 +303,7 @@ export const ImportCreatePage = () => {
                     ))}
                     {availablePOs.length === 0 && (
                       <div className="px-2 py-4 text-xs text-muted-foreground text-center">
-                        Không có đơn hàng nào
+                        {t("importCreate.noOrders")}
                       </div>
                     )}
                   </SelectContent>
@@ -308,23 +311,23 @@ export const ImportCreatePage = () => {
               </div>
 
               {po && (
-                <Card>
+                  <Card>
                   <CardContent className="pt-4 pb-3">
                     <div className="grid grid-cols-2 gap-2 text-sm">
                       <div>
-                        <span className="text-muted-foreground text-xs">Mã đơn hàng:</span>
+                        <span className="text-muted-foreground text-xs">{t("importCreate.orderCode")}</span>
                         <p className="font-medium font-mono">{po.poCode}</p>
                       </div>
                       <div>
-                        <span className="text-muted-foreground text-xs">Nhà cung cấp:</span>
+                        <span className="text-muted-foreground text-xs">{t("label.supplier")}</span>
                         <p className="font-medium">{po.supplierName}</p>
                       </div>
                       <div>
-                        <span className="text-muted-foreground text-xs">Ngày dự kiến:</span>
+                        <span className="text-muted-foreground text-xs">{t("importCreate.expectedDate")}</span>
                         <p className="font-medium">{new Date(po.expectedDate).toLocaleDateString("vi-VN")}</p>
                       </div>
                       <div>
-                        <span className="text-muted-foreground text-xs">Tổng tiền:</span>
+                        <span className="text-muted-foreground text-xs">{t("importCreate.totalAmount")}</span>
                         <p className="font-medium">{Number(po.totalAmount).toLocaleString("vi-VN")}đ</p>
                       </div>
                     </div>
@@ -335,13 +338,13 @@ export const ImportCreatePage = () => {
               {po && (
                 <div className="rounded-lg border overflow-x-auto">
                   <Table>
-                    <TableHeader>
+                      <TableHeader>
                       <TableRow>
-                        <TableHead>Sản phẩm</TableHead>
-                        <TableHead className="w-24">SKU</TableHead>
-                        <TableHead className="w-20 text-right">Số lượng</TableHead>
-                        <TableHead className="w-24 text-right">Đơn giá</TableHead>
-                        <TableHead className="w-20 text-right">Thành tiền</TableHead>
+                        <TableHead>{t("table.product")}</TableHead>
+                        <TableHead className="w-24">{t("table.sku")}</TableHead>
+                        <TableHead className="w-20 text-right">{t("table.quantity")}</TableHead>
+                        <TableHead className="w-24 text-right">{t("table.unitPrice")}</TableHead>
+                        <TableHead className="w-20 text-right">{t("table.total")}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -368,29 +371,29 @@ export const ImportCreatePage = () => {
             po && (
               <>
                 <div className="rounded-md border border-green-200 bg-green-50 px-4 py-2.5 text-sm text-green-800">
-                  Đã tạo phiếu nhập từ đơn hàng <span className="font-mono font-medium">{po.poCode}</span>
+                  {t("importCreate.createdFrom")} <span className="font-mono font-medium">{po.poCode}</span>
                 </div>
                 <Card>
                   <CardContent className="pt-4 pb-3">
-                    <div className="grid grid-cols-2 gap-2 text-sm">
-                      <div>
-                        <span className="text-muted-foreground text-xs">Mã đơn hàng:</span>
-                        <p className="font-medium font-mono">{po.poCode}</p>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground text-xs">Nhà cung cấp:</span>
-                        <p className="font-medium">{po.supplierName}</p>
-                      </div>
-                    </div>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div>
+                    <span className="text-muted-foreground text-xs">{t("importCreate.orderCode")}</span>
+                    <p className="font-medium font-mono">{po.poCode}</p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground text-xs">{t("label.supplier")}</span>
+                    <p className="font-medium">{po.supplierName}</p>
+                  </div>
+                </div>
                   </CardContent>
                 </Card>
                 <div className="rounded-lg border overflow-x-auto">
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Sản phẩm</TableHead>
-                        <TableHead className="w-24">SKU</TableHead>
-                        <TableHead className="w-20 text-right">Số lượng</TableHead>
+                        <TableHead>{t("table.product")}</TableHead>
+                        <TableHead className="w-24">{t("table.sku")}</TableHead>
+                        <TableHead className="w-20 text-right">{t("table.quantity")}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -418,19 +421,19 @@ export const ImportCreatePage = () => {
               <CardContent className="pt-4 pb-3">
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   <div>
-                    <span className="text-muted-foreground text-xs">NCC:</span>
+                    <span className="text-muted-foreground text-xs">{t("label.supplier")}</span>
                     <p className="font-medium">{receipt.supplierName}</p>
                   </div>
                   <div>
-                    <span className="text-muted-foreground text-xs">Ngày tạo:</span>
+                    <span className="text-muted-foreground text-xs">{t("label.createdDate")}</span>
                     <p className="font-medium">{new Date(receipt.createdAt).toLocaleString("vi-VN")}</p>
                   </div>
                   <div>
-                    <span className="text-muted-foreground text-xs">Người tạo:</span>
+                    <span className="text-muted-foreground text-xs">{t("label.creator")}</span>
                     <p className="font-medium">{receipt.createdByName}</p>
                   </div>
                   <div>
-                    <span className="text-muted-foreground text-xs">Ghi chú:</span>
+                    <span className="text-muted-foreground text-xs">{t("label.note")}</span>
                     <p className="font-medium">{receipt.note ?? "—"}</p>
                   </div>
                 </div>
@@ -471,18 +474,18 @@ export const ImportCreatePage = () => {
         <div>
           {step > 1 && (!isResume || step > 2) ? (
             <Button variant="outline" onClick={() => setStep(step - 1)}>
-              <ChevronLeft className="size-4 mr-1" /> Quay lại
+              <ChevronLeft className="size-4 mr-1" /> {t("importCreate.back")}
             </Button>
           ) : (
             <Button variant="outline" onClick={() => navigate("/stock/imports")}>
-              Hủy
+              {t("importCreate.cancel")}
             </Button>
           )}
         </div>
         <div className="flex gap-2">
           {step > 1 && (
             <Button variant="ghost" onClick={() => navigate("/stock/imports")}>
-              Hủy
+              {t("importCreate.cancel")}
             </Button>
           )}
           {!isResume && step === 1 && (
@@ -490,20 +493,20 @@ export const ImportCreatePage = () => {
               <TooltipTrigger asChild>
                 <span>
                   <Button onClick={handleCreate} disabled={!selectedPoId || createMut.isPending}>
-                    {createMut.isPending ? "Đang tạo..." : "Tạo phiếu"}
+                    {createMut.isPending ? t("importCreate.creating") : t("importCreate.createReceipt")}
                   </Button>
                 </span>
               </TooltipTrigger>
               {!selectedPoId && (
                 <TooltipContent side="top" className="text-xs">
-                  <p>● Chưa chọn đơn hàng</p>
+                  <p>{t("importCreate.noOrderSelected")}</p>
                 </TooltipContent>
               )}
             </Tooltip>
           )}
           {step === 2 && (
             <Button onClick={() => setStep(3)}>
-              Tiếp theo <ChevronRight className="size-4 ml-1" />
+              {t("importCreate.next")} <ChevronRight className="size-4 ml-1" />
             </Button>
           )}
           {step === 3 && (
@@ -514,14 +517,14 @@ export const ImportCreatePage = () => {
                     onClick={handleConfirm}
                     disabled={!itemsReadyForSubmit || submitMut.isPending || qcBlocked}
                   >
-                    {submitMut.isPending ? "Đang gửi..." : "Xác nhận"}
+                    {submitMut.isPending ? t("importCreate.sending") : t("importCreate.confirm")}
                   </Button>
                 </span>
               </TooltipTrigger>
               {(!itemsReadyForSubmit || qcBlocked) && (
                 <TooltipContent side="top" className="text-xs">
-                  {!itemsReadyForSubmit && <p>● Còn sản phẩm chưa nhập serial hoặc chưa đánh dấu NOT_RECEIVED</p>}
-                  {qcBlocked && <p>● Còn serial QC fail chưa nhập lý do</p>}
+                  {!itemsReadyForSubmit && <p>{t("importCreate.missingSerialsNote")}</p>}
+                  {qcBlocked && <p>{t("importCreate.qcFailNote")}</p>}
                 </TooltipContent>
               )}
             </Tooltip>

@@ -7,6 +7,7 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { useTranslation } from "react-i18next"
 
 interface PaginationBarProps {
   page: number
@@ -29,13 +30,14 @@ function pages(current: number, total: number) {
 }
 
 export function PaginationBar({ page, totalPages, onChange, pageSize, onPageSizeChange }: PaginationBarProps) {
+  const { t } = useTranslation()
   if (totalPages <= 1) return null
   return (
     <div className="flex items-center justify-between gap-2">
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
         {pageSize && onPageSizeChange && (
           <>
-            <span>Hiển thị</span>
+            <span>{t('paginationBar.show')}</span>
             <Select value={String(pageSize)} onValueChange={(v) => onPageSizeChange(Number(v))}>
               <SelectTrigger className="h-8 w-16 text-xs">
                 <SelectValue />
@@ -48,7 +50,7 @@ export function PaginationBar({ page, totalPages, onChange, pageSize, onPageSize
                 ))}
               </SelectContent>
             </Select>
-            <span>kết quả</span>
+            <span>{t('paginationBar.results')}</span>
           </>
         )}
       </div>
