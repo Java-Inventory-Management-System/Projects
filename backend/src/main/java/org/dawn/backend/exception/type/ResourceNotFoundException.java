@@ -1,5 +1,6 @@
 package org.dawn.backend.exception.type;
 
+import org.dawn.backend.constant.shared.ErrorCode;
 import org.dawn.backend.exception.ApiException;
 import org.springframework.http.HttpStatus;
 
@@ -9,6 +10,11 @@ public class ResourceNotFoundException extends ApiException {
     @Serial
     private static final long serialVersionUID = 1L;
 
+    public ResourceNotFoundException(ErrorCode errorCode, Object... args) {
+        super(HttpStatus.NOT_FOUND, errorCode, args);
+    }
+
+    @Deprecated
     public ResourceNotFoundException(String message) {
         super(HttpStatus.NOT_FOUND, message);
     }
