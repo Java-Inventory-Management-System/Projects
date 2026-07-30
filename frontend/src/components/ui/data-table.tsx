@@ -1,4 +1,5 @@
-import { memo, type ReactNode } from "react"
+import { memo, useRef, useEffect, useState, type ReactNode } from "react"
+import { useTranslation } from "react-i18next"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Empty, EmptyTitle } from "@/components/ui/empty"
@@ -34,7 +35,7 @@ function DataTableInner<T>({
   columns,
   data,
   isLoading,
-  emptyMessage = "Chưa có dữ liệu",
+  emptyMessage,
   skeletonRows = 5,
   sort,
   onSort,
@@ -46,15 +47,31 @@ function DataTableInner<T>({
   onPageSizeChange,
   rowKey,
 }: DataTableProps<T>) {
+  const { t } = useTranslation()
   const hasPagination = page !== undefined && totalPages !== undefined && onPageChange !== undefined
+  const bottomSentinelRef = useRef<HTMLDivElement>(null)
+  const [sentinelVisible, setSentinelVisible] = useState(true)
 
-  const toolbar = hasPagination && (
+  useEffect(() => {
+    const el = bottomSentinelRef.current
+    if (!el) return
+    const observer = new IntersectionObserver(
+      ([entry]) => setSentinelVisible(entry.isIntersecting),
+      { rootMargin: "100px" },
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+
+  const hasSimpleResult = totalElements != null && !hasPagination
+
+  const fullToolbar = hasPagination && (
     <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        {totalElements != null && <span>{totalElements.toLocaleString("vi-VN")} kết quả</span>}
+        {totalElements != null && <span>{t('dataTable.results', { count: totalElements })}</span>}
         {pageSize !== undefined && onPageSizeChange && (
           <>
-            <span>Hiển thị</span>
+            <span>{t('dataTable.show')}</span>
             <select
               value={String(pageSize)}
               onChange={(e) => {
@@ -78,9 +95,15 @@ function DataTableInner<T>({
     </div>
   )
 
+  const simpleBar = hasSimpleResult && (
+    <div className="flex items-center gap-2 text-xs text-muted-foreground px-0.5">
+      {t('dataTable.results', { count: totalElements })}
+    </div>
+  )
+
   return (
     <div className="space-y-2">
-      {toolbar}
+      {!sentinelVisible && fullToolbar}
       <div className="rounded-lg border overflow-x-auto">
         <Table>
           <TableHeader>
@@ -124,7 +147,7 @@ function DataTableInner<T>({
               <TableRow>
                 <TableCell colSpan={columns.length} className="text-center py-8">
                   <Empty>
-                    <EmptyTitle>{emptyMessage}</EmptyTitle>
+                    <EmptyTitle>{emptyMessage ?? t('dataTable.empty')}</EmptyTitle>
                   </Empty>
                 </TableCell>
               </TableRow>
@@ -142,7 +165,9 @@ function DataTableInner<T>({
           </TableBody>
         </Table>
       </div>
-      {toolbar}
+      <div ref={bottomSentinelRef} className="h-0" />
+      {sentinelVisible && fullToolbar}
+      {simpleBar}
     </div>
   )
 }
