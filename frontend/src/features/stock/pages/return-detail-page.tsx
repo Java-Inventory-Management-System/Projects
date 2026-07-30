@@ -22,31 +22,10 @@ import { Check, X, Printer, ExternalLink, Circle } from "lucide-react"
 import { toast } from "@/utils/toast"
 import { RETURN_RECEIPT_STATUS } from "@/utils/types"
 import { cn } from "@/utils/cn"
-
-const reasonLabel: Record<string, string> = {
-  CHANGE_MIND: "Đổi ý",
-  DEFECTIVE: "Hàng lỗi",
-  WRONG_ITEM: "Sai hàng",
-}
-
-const statusLabel: Record<string, { label: string; variant: "default" | "secondary" | "destructive" }> = {
-  PENDING_APPROVAL: { label: "Chờ duyệt", variant: "secondary" },
-  COMPLETED: { label: "Đã duyệt", variant: "default" },
-  CANCELLED: { label: "Đã hủy", variant: "destructive" },
-}
-
-const conditionLabel: Record<string, string> = {
-  GOOD: "Còn nguyên",
-  DEFECTIVE: "Lỗi",
-}
-
-const actionLabel: Record<string, string> = {
-  RESTOCK: "Nhập lại kho",
-  SCRAP: "Hủy",
-  WARRANTY_TRANSFER: "Chuyển BH",
-}
+import { useTranslation } from "react-i18next"
 
 export const ReturnDetailPage = () => {
+  const { t } = useTranslation()
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const qc = useQueryClient()
@@ -67,9 +46,10 @@ export const ReturnDetailPage = () => {
       qc.invalidateQueries({ queryKey: ["return-receipt", id] })
       qc.invalidateQueries({ queryKey: ["return-receipts"] })
       qc.invalidateQueries({ queryKey: ["inventory"] })
-      toast.success("Đã duyệt phiếu trả hàng")
+      setShowApprove(false)
+      toast.success(t("returnDetail.approveSuccess"))
     },
-    onError: (err: Error) => toast.error(err.message || "Duyệt thất bại"),
+    onError: (err: Error) => toast.error(err.message || t("returnDetail.approveFail")),
   })
 
   const cancelMut = useMutation({
@@ -78,10 +58,33 @@ export const ReturnDetailPage = () => {
       qc.invalidateQueries({ queryKey: ["return-receipt", id] })
       qc.invalidateQueries({ queryKey: ["return-receipts"] })
       setShowCancel(false)
-      toast.success("Đã hủy phiếu trả hàng")
+      toast.success(t("returnDetail.cancelSuccess"))
     },
-    onError: (err: Error) => toast.error(err.message || "Hủy thất bại"),
+    onError: (err: Error) => toast.error(err.message || t("returnDetail.cancelFail")),
   })
+
+  const reasonLabel: Record<string, string> = {
+    CHANGE_MIND: t("returnReason.changeMind"),
+    DEFECTIVE: t("returnReason.defective"),
+    WRONG_ITEM: t("returnReason.wrongItem"),
+  }
+
+  const statusLabel: Record<string, { label: string; variant: "default" | "secondary" | "destructive" }> = {
+    PENDING_APPROVAL: { label: t("returnStatus.pendingApproval"), variant: "secondary" },
+    COMPLETED: { label: t("returnStatus.completed"), variant: "default" },
+    CANCELLED: { label: t("returnStatus.cancelled"), variant: "destructive" },
+  }
+
+  const conditionLabel: Record<string, string> = {
+    GOOD: t("returnCondition.good"),
+    DEFECTIVE: t("returnCondition.defective"),
+  }
+
+  const actionLabel: Record<string, string> = {
+    RESTOCK: t("returnAction.restock"),
+    SCRAP: t("returnAction.scrap"),
+    WARRANTY_TRANSFER: t("returnAction.warrantyTransfer"),
+  }
 
   if (isLoading)
     return (
@@ -95,7 +98,7 @@ export const ReturnDetailPage = () => {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
         <Empty>
-          <EmptyTitle>Không tìm thấy phiếu trả hàng.</EmptyTitle>
+          <EmptyTitle>{t("returnDetail.notFound")}</EmptyTitle>
         </Empty>
       </div>
     )
@@ -109,7 +112,7 @@ export const ReturnDetailPage = () => {
       <Breadcrumb>
         <BreadcrumbList>
           <BreadcrumbItem>
-            <BreadcrumbLink onClick={() => navigate("/returns")}>Trả hàng</BreadcrumbLink>
+            <BreadcrumbLink onClick={() => navigate("/returns")}>{t("returnDetail.breadcrumb")}</BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator />
           <BreadcrumbItem>
@@ -127,7 +130,7 @@ export const ReturnDetailPage = () => {
         <div className="flex items-center gap-2">
           <Circle className={cn("size-3 fill-current", receipt.status !== RETURN_RECEIPT_STATUS.CANCELLED ? "text-blue-500" : "text-muted-foreground")} />
           <div>
-            <p className="font-medium">Tạo phiếu</p>
+            <p className="font-medium">{t("returnDetail.createReceipt")}</p>
             <p className="text-muted-foreground">{new Date(receipt.createdAt).toLocaleString("vi-VN")}</p>
             <p className="text-muted-foreground">{receipt.createdByName}</p>
           </div>
@@ -136,14 +139,14 @@ export const ReturnDetailPage = () => {
         <div className="flex items-center gap-2">
           <Circle className={cn("size-3 fill-current", receipt.status === RETURN_RECEIPT_STATUS.COMPLETED ? "text-green-500" : receipt.status === RETURN_RECEIPT_STATUS.CANCELLED ? "text-red-500" : "text-muted-foreground")} />
           <div>
-            <p className="font-medium">{receipt.status === RETURN_RECEIPT_STATUS.CANCELLED ? "Đã hủy" : "Duyệt"}</p>
+            <p className="font-medium">{receipt.status === RETURN_RECEIPT_STATUS.CANCELLED ? t("returnStatus.cancelled") : t("returnDetail.approve")}</p>
             {receipt.approvedAt ? (
               <>
                 <p className="text-muted-foreground">{new Date(receipt.approvedAt).toLocaleString("vi-VN")}</p>
                 <p className="text-muted-foreground">{receipt.approvedByName}</p>
               </>
             ) : (
-              <p className="text-muted-foreground italic">{receipt.status === RETURN_RECEIPT_STATUS.CANCELLED ? "" : "Chờ duyệt"}</p>
+              <p className="text-muted-foreground italic">{receipt.status === RETURN_RECEIPT_STATUS.CANCELLED ? "" : t("returnStatus.pendingApproval")}</p>
             )}
           </div>
         </div>
@@ -152,15 +155,15 @@ export const ReturnDetailPage = () => {
       <div className="rounded-lg border p-6 space-y-4">
         <div className="grid grid-cols-2 gap-6 text-sm">
           <div>
-            <span className="text-muted-foreground">Khách hàng</span>
+            <span className="text-muted-foreground">{t("label.customer")}</span>
             <p className="font-medium mt-0.5">{receipt.customerName ?? "—"}</p>
           </div>
           <div>
-            <span className="text-muted-foreground">Lý do</span>
+            <span className="text-muted-foreground">{t("table.reason")}</span>
             <p className="font-medium mt-0.5">{reasonLabel[receipt.reason] ?? receipt.reason}</p>
           </div>
           <div>
-            <span className="text-muted-foreground">Đơn xuất gốc</span>
+            <span className="text-muted-foreground">{t("returnDetail.originalExport")}</span>
             <p className="font-mono text-xs mt-0.5">
               {receipt.originalExportReceiptId
                 ? <a className="inline-flex items-center gap-1 text-blue-600 hover:underline cursor-pointer" onClick={() => navigate(`/stock/exports/${receipt.originalExportReceiptId}`)}>
@@ -170,16 +173,16 @@ export const ReturnDetailPage = () => {
             </p>
           </div>
           <div>
-            <span className="text-muted-foreground">Ngày tạo</span>
+            <span className="text-muted-foreground">{t("label.createdDate")}</span>
             <p className="mt-0.5">{new Date(receipt.createdAt).toLocaleString("vi-VN")}</p>
           </div>
           <div>
-            <span className="text-muted-foreground">Người tạo</span>
+            <span className="text-muted-foreground">{t("label.creator")}</span>
             <p className="font-medium mt-0.5">{receipt.createdByName}</p>
           </div>
           {receipt.approvedByName && (
             <div>
-              <span className="text-muted-foreground">Người duyệt</span>
+              <span className="text-muted-foreground">{t("label.approver")}</span>
               <p className="font-medium mt-0.5">{receipt.approvedByName}</p>
             </div>
           )}
@@ -187,14 +190,14 @@ export const ReturnDetailPage = () => {
 
         {receipt.note && (
           <div>
-            <span className="text-sm text-muted-foreground">Ghi chú</span>
+            <span className="text-sm text-muted-foreground">{t("returnDetail.note")}</span>
             <p className="mt-1 text-sm leading-relaxed rounded-md border bg-muted/20 px-4 py-3">{receipt.note}</p>
           </div>
         )}
 
         <Separator />
         <div className="space-y-2">
-          <span className="text-sm font-medium">Sản phẩm trả ({receipt.items.length})</span>
+          <span className="text-sm font-medium">{t("returnDetail.returnProducts", { count: receipt.items.length })}</span>
           <div className="rounded-lg border divide-y text-sm">
             {receipt.items.map((item) => (
               <div key={item.id} className="flex flex-wrap items-center gap-3 px-4 py-2.5">
@@ -218,16 +221,16 @@ export const ReturnDetailPage = () => {
 
       <div className="flex justify-end gap-2">
         <Button variant="outline" onClick={() => window.print()}>
-          <Printer className="size-4 mr-1" /> In phiếu
+          <Printer className="size-4 mr-1" /> {t("returnDetail.print")}
         </Button>
         {canCancel && (
           <Button variant="outline" className="text-destructive" onClick={() => setShowCancel(true)}>
-            <X className="size-4 mr-1" /> Hủy phiếu
+            <X className="size-4 mr-1" /> {t("returnDetail.cancelReceipt")}
           </Button>
         )}
         {canApprove && (
           <Button onClick={() => setShowApprove(true)} disabled={approveMut.isPending}>
-            <Check className="size-4 mr-1" /> Duyệt
+            <Check className="size-4 mr-1" /> {t("returnDetail.approve")}
           </Button>
         )}
       </div>
@@ -235,17 +238,17 @@ export const ReturnDetailPage = () => {
       <Dialog open={showApprove} onOpenChange={(v) => { if (!v) setShowApprove(false) }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Duyệt phiếu trả hàng</DialogTitle>
+            <DialogTitle>{t("returnDetail.approveDialogTitle")}</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
-            Xác nhận duyệt phiếu {receipt.receiptCode}? Hàng trả sẽ được cập nhật vào kho.
+            {t("returnDetail.approveDialogDesc", { code: receipt.receiptCode })}
           </p>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowApprove(false)}>
-              Quay lại
+              {t("dialog.back")}
             </Button>
-            <Button onClick={() => { approveMut.mutate(); setShowApprove(false) }} disabled={approveMut.isPending}>
-              {approveMut.isPending ? "Đang duyệt..." : "Xác nhận duyệt"}
+            <Button onClick={() => approveMut.mutate()} disabled={approveMut.isPending}>
+              {approveMut.isPending ? t("returnDetail.approving") : t("dialog.approve")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -259,15 +262,15 @@ export const ReturnDetailPage = () => {
       >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Hủy phiếu trả hàng</DialogTitle>
+            <DialogTitle>{t("returnDetail.cancelDialogTitle")}</DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-muted-foreground">Bạn có chắc muốn hủy phiếu trả hàng này?</p>
+          <p className="text-sm text-muted-foreground">{t("returnDetail.cancelDialogDesc")}</p>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowCancel(false)}>
-              Quay lại
+              {t("dialog.back")}
             </Button>
             <Button variant="destructive" onClick={() => cancelMut.mutate()} disabled={cancelMut.isPending}>
-              {cancelMut.isPending ? "Đang hủy..." : "Xác nhận hủy"}
+              {cancelMut.isPending ? t("returnDetail.cancelling") : t("returnDetail.cancelConfirm")}
             </Button>
           </DialogFooter>
         </DialogContent>
