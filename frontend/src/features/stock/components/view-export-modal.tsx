@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router-dom"
 import type { ExportReceipt } from "@/utils/types"
 import { Badge } from "@/components/ui/badge"
@@ -6,18 +7,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Eye, ArrowRightFromLine } from "lucide-react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
-const statusLabel: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
-  PENDING: { label: "Chờ duyệt", variant: "outline" },
-  APPROVED: { label: "Đã duyệt", variant: "secondary" },
-  COMPLETED: { label: "Hoàn tất", variant: "default" },
-  CANCELLED: { label: "Đã hủy", variant: "destructive" },
-}
-
-const reasonLabel: Record<string, string> = {
-  SALE: "Bán hàng",
-  INTERNAL: "Nội bộ",
-  RETURN_SUPPLIER: "Trả NCC",
-  DISPOSE: "Hủy",
+const getStatusLabel = (status: string, t: (k: string) => string): { label: string; variant: "default" | "secondary" | "outline" | "destructive" } => {
+  const map: Record<string, "outline" | "secondary" | "default" | "destructive"> = {
+    PENDING: "outline", APPROVED: "secondary", COMPLETED: "default", CANCELLED: "destructive",
+  }
+  const key = `exportStatus.${status.toLowerCase()}`
+  return { label: t(key, status), variant: map[status] ?? "secondary" }
 }
 
 export const ViewExportModal = ({
@@ -29,9 +24,10 @@ export const ViewExportModal = ({
   open: boolean
   onOpenChange: (v: boolean) => void
 }) => {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   if (!receipt) return null
-  const s = statusLabel[receipt.status] ?? { label: receipt.status, variant: "secondary" as const }
+  const s = getStatusLabel(receipt.status, t)
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[min(95vw,80rem)]">
@@ -43,16 +39,16 @@ export const ViewExportModal = ({
         </DialogHeader>
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4 text-sm">
-            <div><span className="text-muted-foreground">Lý do:</span><p className="font-medium">{reasonLabel[receipt.reason] ?? receipt.reason}</p></div>
-            <div><span className="text-muted-foreground">Khách hàng:</span><p className="font-medium">{receipt.customerName ?? "—"}</p></div>
-            <div><span className="text-muted-foreground">Ngày tạo:</span><p className="font-medium">{new Date(receipt.createdAt).toLocaleString("vi-VN")}</p></div>
-            <div><span className="text-muted-foreground">Người tạo:</span><p className="font-medium">{receipt.createdByName}</p></div>
-            <div><span className="text-muted-foreground">Người duyệt:</span><p className="font-medium">{receipt.approvedByName ?? "—"}</p></div>
-            {receipt.fulfilledByName && <div><span className="text-muted-foreground">Người xuất:</span><p className="font-medium">{receipt.fulfilledByName}</p></div>}
+            <div><span className="text-muted-foreground">{t("table.reason")}:</span><p className="font-medium">{t(`exportReason.${receipt.reason.toLowerCase()}`, receipt.reason)}</p></div>
+            <div><span className="text-muted-foreground">{t("table.customer")}:</span><p className="font-medium">{receipt.customerName ?? "—"}</p></div>
+            <div><span className="text-muted-foreground">{t("label.createdDate")}</span><p className="font-medium">{new Date(receipt.createdAt).toLocaleString("vi-VN")}</p></div>
+            <div><span className="text-muted-foreground">{t("label.creator")}</span><p className="font-medium">{receipt.createdByName}</p></div>
+            <div><span className="text-muted-foreground">{t("label.approver")}</span><p className="font-medium">{receipt.approvedByName ?? "—"}</p></div>
+            {receipt.fulfilledByName && <div><span className="text-muted-foreground">{t("label.exporter")}</span><p className="font-medium">{receipt.fulfilledByName}</p></div>}
           </div>
           {receipt.note && (
             <div className="rounded-md border bg-muted/20 px-3 py-2.5 text-sm">
-              <span className="text-xs font-medium text-muted-foreground tracking-wide">GHI CHÚ</span>
+              <span className="text-xs font-medium text-muted-foreground tracking-wide">{t("label.note")}</span>
               <p className="mt-1 leading-relaxed">{receipt.note}</p>
             </div>
           )}
@@ -60,10 +56,10 @@ export const ViewExportModal = ({
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Sản phẩm</TableHead>
-                  <TableHead className="w-16 text-right">SL</TableHead>
-                  <TableHead className="w-24 text-right">Đơn giá</TableHead>
-                  <TableHead className="w-24 text-right">Thành tiền</TableHead>
+                  <TableHead>{t("table.product")}</TableHead>
+                  <TableHead className="w-16 text-right">{t("table.qty")}</TableHead>
+                  <TableHead className="w-24 text-right">{t("table.unitPrice")}</TableHead>
+                  <TableHead className="w-24 text-right">{t("table.total")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -82,16 +78,16 @@ export const ViewExportModal = ({
             </Table>
           </div>
           <div className="flex justify-end">
-            <span className="text-lg font-semibold">Tổng: {(receipt.totalAmount ?? 0).toLocaleString("vi-VN")}₫</span>
+            <span className="text-lg font-semibold">{t("viewExportModal.total")}: {(receipt.totalAmount ?? 0).toLocaleString("vi-VN")}₫</span>
           </div>
         </div>
         <DialogFooter className="gap-2">
           <Button variant="outline" onClick={() => navigate(`/stock/exports/${receipt.id}`)}>
-            <Eye className="size-4 mr-1" /> Xem chi tiết
+            <Eye className="size-4 mr-1" /> {t("viewExportModal.viewDetail")}
           </Button>
           {receipt.status === "APPROVED" && (
             <Button onClick={() => navigate(`/stock/exports/${receipt.id}/fulfill`)}>
-              <ArrowRightFromLine className="size-4 mr-1" /> Xuất kho
+              <ArrowRightFromLine className="size-4 mr-1" /> {t("viewExportModal.export")}
             </Button>
           )}
         </DialogFooter>

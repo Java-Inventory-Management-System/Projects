@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from "react"
+import { useTranslation } from "react-i18next"
 import { Search, Plus, CheckCircle, UserPlus, ArrowLeft, Phone, Mail, MapPin, Loader2 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -26,6 +27,7 @@ interface CustomerSelectModalProps {
 }
 
 export const CustomerSelectModal = ({ open, onOpenChange, onSelect, selectedCustomerId }: CustomerSelectModalProps) => {
+  const { t } = useTranslation()
   const [view, setView] = useState<"select" | "create">("select")
   const [search, setSearch] = useState("")
   const [debouncedSearch, setDebouncedSearch] = useState("")
@@ -74,7 +76,7 @@ export const CustomerSelectModal = ({ open, onOpenChange, onSelect, selectedCust
 
   const handleCreateCustomer = async () => {
     if (!newName.trim()) {
-      toast.error("Vui lòng nhập tên khách hàng")
+      toast.error(t("customerSelect.requireName"))
       return
     }
     setCreating(true)
@@ -86,11 +88,11 @@ export const CustomerSelectModal = ({ open, onOpenChange, onSelect, selectedCust
         address: newAddress.trim() || null,
         note: null,
       })
-      toast.success(`Đã thêm KH "${created.name}"`)
+      toast.success(t("customerSelect.created", { name: created.name }))
       onSelect(created.id, created.name)
       onOpenChange(false)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Không thể tạo KH")
+      toast.error(err instanceof Error ? err.message : t("customerSelect.createError"))
     } finally {
       setCreating(false)
     }
@@ -113,10 +115,10 @@ export const CustomerSelectModal = ({ open, onOpenChange, onSelect, selectedCust
                 <Button variant="ghost" size="icon" className="-ml-2 size-8" onClick={() => setView("select")}>
                   <ArrowLeft className="size-4" />
                 </Button>
-                Thêm khách hàng mới
+                {t("customerSelect.addNew")}
               </div>
             ) : (
-              "Chọn khách hàng"
+              t("customerSelect.title")
             )}
           </DialogTitle>
         </DialogHeader>
@@ -127,7 +129,7 @@ export const CustomerSelectModal = ({ open, onOpenChange, onSelect, selectedCust
               <div className="relative flex-1">
                 <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
-                  placeholder="Tìm tên, SĐT, email..."
+                  placeholder={t("customerSelect.searchPlaceholder")}
                   className="pl-8"
                   value={search}
                   onChange={(e) => {
@@ -139,7 +141,7 @@ export const CustomerSelectModal = ({ open, onOpenChange, onSelect, selectedCust
               </div>
               <Button variant="outline" onClick={() => setView("create")} className="gap-1 shrink-0">
                 <UserPlus className="size-4" />
-                Thêm mới
+                {t("customerSelect.addNew")}
               </Button>
             </div>
 
@@ -158,7 +160,7 @@ export const CustomerSelectModal = ({ open, onOpenChange, onSelect, selectedCust
                 </div>
               ) : !data || data.content.length === 0 ? (
                 <p className="text-center text-sm text-muted-foreground py-12">
-                  {debouncedSearch ? "Không tìm thấy khách hàng nào." : "Chưa có khách hàng nào."}
+                  {debouncedSearch ? t("customerSelect.noSearchResults") : t("customerSelect.empty")}
                 </p>
               ) : (
                 data.content.map((c) => {
@@ -261,10 +263,10 @@ export const CustomerSelectModal = ({ open, onOpenChange, onSelect, selectedCust
 
             <div className="flex justify-end gap-2 pt-2 border-t">
               <Button variant="outline" onClick={() => onOpenChange(false)}>
-                Hủy
+                {t("common.cancel")}
               </Button>
               <Button onClick={handleSelect} disabled={!selectedId}>
-                Chọn
+                {t("customerSelect.select")}
               </Button>
             </div>
           </div>
@@ -272,58 +274,58 @@ export const CustomerSelectModal = ({ open, onOpenChange, onSelect, selectedCust
           <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="new-name">
-                Tên khách hàng <span className="text-destructive">*</span>
+                {t("customerSelect.name")} <span className="text-destructive">*</span>
               </Label>
               <Input
                 id="new-name"
                 required
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
-                placeholder="Nhập tên..."
+                placeholder={t("customerSelect.namePlaceholder")}
                 autoFocus
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="new-phone">Số điện thoại</Label>
+              <Label htmlFor="new-phone">{t("customerSelect.phone")}</Label>
               <Input
                 id="new-phone"
                 value={newPhone}
                 onChange={(e) => setNewPhone(e.target.value.replace(/[^0-9]/g, "").slice(0, 11))}
-                placeholder="090xxxxxxx"
+                placeholder={t("customerSelect.phonePlaceholder")}
                 inputMode="numeric"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="new-email">Email</Label>
+              <Label htmlFor="new-email">{t("customerSelect.email")}</Label>
               <Input
                 id="new-email"
                 type="email"
                 value={newEmail}
                 onChange={(e) => setNewEmail(e.target.value)}
-                placeholder="khachhang@email.com"
+                placeholder={t("customerSelect.emailPlaceholder")}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="new-address">Địa chỉ</Label>
+              <Label htmlFor="new-address">{t("customerSelect.address")}</Label>
               <Input
                 id="new-address"
                 value={newAddress}
                 onChange={(e) => setNewAddress(e.target.value)}
-                placeholder="Số nhà, đường, phường..."
+                placeholder={t("customerSelect.addressPlaceholder")}
               />
             </div>
             <div className="flex justify-end gap-2 pt-2 border-t">
               <Button variant="outline" onClick={() => setView("select")}>
-                Quay lại
+                {t("common.back")}
               </Button>
               <Button onClick={handleCreateCustomer} disabled={creating}>
                 {creating ? (
                   <>
-                    <Loader2 className="size-4 mr-1 animate-spin" /> Đang tạo...
+                    <Loader2 className="size-4 mr-1 animate-spin" /> {t("customerSelect.creating")}
                   </>
                 ) : (
                   <>
-                    <Plus className="size-4 mr-1" /> Thêm khách hàng
+                    <Plus className="size-4 mr-1" /> {t("customerSelect.addCustomer")}
                   </>
                 )}
               </Button>

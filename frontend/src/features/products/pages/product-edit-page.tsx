@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react"
+import { useTranslation } from "react-i18next"
 import { useForm, Controller } from "react-hook-form"
 import { useParams, useNavigate } from "react-router-dom"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
@@ -64,6 +65,7 @@ interface FormData {
 }
 
 export function ProductEditPage() {
+  const { t } = useTranslation()
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const qc = useQueryClient()
@@ -120,7 +122,7 @@ export function ProductEditPage() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["products"] })
-      toast.success("Cập nhật thành công")
+      toast.success(t("productForm.updateSuccess"))
       navigate("/products")
     },
     onError: (e: Error) => toast.error(e.message),
@@ -130,7 +132,7 @@ export function ProductEditPage() {
     mutationFn: () => toggleProductActive(productId),
     onSuccess: () => {
       setIsActive(!isActive)
-      toast.success(isActive ? "Đã vô hiệu hóa" : "Đã kích hoạt")
+      toast.success(isActive ? t("productForm.deactivated") : t("productForm.activated"))
       qc.invalidateQueries({ queryKey: ["products"] })
     },
     onError: (e: Error) => toast.error(e.message),
@@ -140,7 +142,7 @@ export function ProductEditPage() {
     mutationFn: (url: string) => createProductImage({ productId, url, isPrimary: images.length === 0 }),
     onSuccess: (img) => {
       setImages((prev) => [...prev, img])
-      toast.success("Đã thêm ảnh")
+      toast.success(t("productForm.imageAdded"))
     },
     onError: (e: Error) => toast.error(e.message),
   })
@@ -149,20 +151,20 @@ export function ProductEditPage() {
     mutationFn: (imageId: number) => deleteProductImage(imageId),
     onSuccess: () => {
       setImages((prev) => prev.filter((i) => i.id !== showDeleteImgDialog))
-      toast.success("Đã xóa ảnh")
+      toast.success(t("productForm.imageDeleted"))
       setShowDeleteImgDialog(null)
     },
     onError: (e: Error) => toast.error(e.message),
   })
 
   const handleImageUpload = () => {
-    const url = prompt("Nhập URL ảnh:")
+    const url = prompt(t("productForm.imageUrlPrompt"))
     if (url?.trim()) addImage.mutate(url.trim())
   }
 
   const onSubmit = handleSubmit((values) => {
-    if (!values.name.trim()) { toast.error("Tên sản phẩm là bắt buộc"); return }
-    if (values.sku && !/^[A-Za-z0-9-]+$/.test(values.sku)) { toast.error("SKU chỉ gồm chữ, số và dấu gạch"); return }
+    if (!values.name.trim()) { toast.error(t("productForm.productNameRequired")); return }
+    if (values.sku && !/^[A-Za-z0-9-]+$/.test(values.sku)) { toast.error(t("productForm.skuPattern")); return }
     save.mutate(values)
   })
 
@@ -181,15 +183,15 @@ export function ProductEditPage() {
           <Breadcrumb>
             <BreadcrumbList>
               <BreadcrumbItem>
-                <BreadcrumbLink onClick={() => navigate("/products")}>Sản phẩm</BreadcrumbLink>
+                <BreadcrumbLink onClick={() => navigate("/products")}>{t("productForm.product")}</BreadcrumbLink>
               </BreadcrumbItem>
               <BreadcrumbSeparator />
               <BreadcrumbItem>
-                <BreadcrumbPage>Sửa</BreadcrumbPage>
+                <BreadcrumbPage>{t("common.edit")}</BreadcrumbPage>
               </BreadcrumbItem>
             </BreadcrumbList>
           </Breadcrumb>
-          <h1 className="text-xl font-semibold tracking-tight">Sửa sản phẩm</h1>
+          <h1 className="text-xl font-semibold tracking-tight">{t("common.edit")} {t("productForm.product")}</h1>
         </div>
         <Switch checked={isActive} onCheckedChange={() => toggleActive.mutate()} disabled={toggleActive.isPending} />
       </div>
@@ -200,26 +202,26 @@ export function ProductEditPage() {
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2 sm:col-span-2">
                 <Label htmlFor="name">
-                  Tên sản phẩm <span className="text-destructive">*</span>
+                  {t("productForm.productName")} <span className="text-destructive">*</span>
                 </Label>
-                <Input id="name" required {...register("name", { required: "Tên sản phẩm là bắt buộc" })} />
+                <Input id="name" required {...register("name", { required: t("productForm.productNameRequired") })} />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="sku">SKU</Label>
-                <Input id="sku" {...register("sku", { pattern: { value: /^[A-Za-z0-9-]*$/, message: "SKU chỉ gồm chữ, số và dấu gạch" } })} />
+                <Label htmlFor="sku">{t("form.sku")}</Label>
+                <Input id="sku" {...register("sku", { pattern: { value: /^[A-Za-z0-9-]*$/, message: t("productForm.skuPattern") } })} />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="barcode">Barcode</Label>
+                <Label htmlFor="barcode">{t("productForm.barcode")}</Label>
                 <Input id="barcode" {...register("barcode")} />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="brand">Thương hiệu</Label>
+                <Label htmlFor="brand">{t("productForm.brand")}</Label>
                 <Controller
                   control={control}
                   name="brandId"
                   render={({ field }) => (
                     <Select value={field.value} onValueChange={field.onChange}>
-                      <SelectTrigger id="brand"><SelectValue placeholder="Chọn thương hiệu" /></SelectTrigger>
+                      <SelectTrigger id="brand"><SelectValue placeholder={t("productForm.brandPlaceholder")} /></SelectTrigger>
                       <SelectContent>
                         {brands?.map((b) => (<SelectItem key={b.id} value={String(b.id)}>{b.name}</SelectItem>))}
                       </SelectContent>
@@ -228,13 +230,13 @@ export function ProductEditPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="category">Danh mục</Label>
+                <Label htmlFor="category">{t("productForm.category")}</Label>
                 <Controller
                   control={control}
                   name="categoryId"
                   render={({ field }) => (
                     <Select value={field.value} onValueChange={field.onChange}>
-                      <SelectTrigger id="category"><SelectValue placeholder="Chọn danh mục" /></SelectTrigger>
+                      <SelectTrigger id="category"><SelectValue placeholder={t("productForm.categoryPlaceholder")} /></SelectTrigger>
                       <SelectContent>
                         {categories?.map((c) => (<SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>))}
                       </SelectContent>
@@ -243,13 +245,13 @@ export function ProductEditPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="unit">Đơn vị tính</Label>
+                <Label htmlFor="unit">{t("productForm.unit")}</Label>
                 <Controller
                   control={control}
                   name="unit"
                   render={({ field }) => (
                     <Select value={field.value} onValueChange={field.onChange}>
-                      <SelectTrigger id="unit"><SelectValue placeholder="Chọn ĐVT" /></SelectTrigger>
+                      <SelectTrigger id="unit"><SelectValue placeholder={t("productForm.unitPlaceholder")} /></SelectTrigger>
                       <SelectContent>
                         {UNITS.map((u) => (<SelectItem key={u} value={u}>{u}</SelectItem>))}
                       </SelectContent>
@@ -258,17 +260,17 @@ export function ProductEditPage() {
                 />
               </div>
               <div className="space-y-2 sm:col-span-2">
-                <Label>Kiểu theo dõi</Label>
+                <Label>{t("productForm.trackingType")}</Label>
                 <Controller
                   control={control}
                   name="trackingType"
                   render={({ field }) => (
                     <RadioGroup value={field.value} onValueChange={field.onChange} className="flex gap-6">
-                      {TRACKING_TYPES.map((t) => (
-                        <div key={t} className="flex items-center gap-2">
-                          <RadioGroupItem value={t} id={`edit-tracking-${t}`} />
-                          <Label htmlFor={`edit-tracking-${t}`} className="font-normal">
-                            {t === TRACKING_TYPE.SERIALIZED ? "Theo serial" : "Hàng rời"}
+                      {TRACKING_TYPES.map((tType) => (
+                        <div key={tType} className="flex items-center gap-2">
+                          <RadioGroupItem value={tType} id={`edit-tracking-${tType}`} />
+                          <Label htmlFor={`edit-tracking-${tType}`} className="font-normal">
+                            {tType === TRACKING_TYPE.SERIALIZED ? t("productForm.trackingSerial") : t("productForm.trackingBulk")}
                           </Label>
                         </div>
                       ))}
@@ -277,11 +279,11 @@ export function ProductEditPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="sellPrice">Giá bán</Label>
+                <Label htmlFor="sellPrice">{t("productForm.sellPrice")}</Label>
                 <Input id="sellPrice" type="number" min={0} {...register("sellPrice")} />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="minStock">Tồn tối thiểu</Label>
+                <Label htmlFor="minStock">{t("productForm.minStock")}</Label>
                 <Input id="minStock" type="number" min={0} {...register("minStock")} />
               </div>
             </div>
@@ -291,7 +293,7 @@ export function ProductEditPage() {
         <Card className="mt-4">
           <CardContent className="pt-6">
             <div className="space-y-2">
-              <Label htmlFor="description">Mô tả</Label>
+              <Label htmlFor="description">{t("productForm.description")}</Label>
               <Textarea id="description" {...register("description")} rows={3} />
             </div>
           </CardContent>
@@ -302,15 +304,15 @@ export function ProductEditPage() {
         <CardContent className="pt-6">
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <Label>Hình ảnh</Label>
+              <Label>{t("productImages.heading")}</Label>
               <Button variant="outline" size="sm" onClick={handleImageUpload} disabled={addImage.isPending}>
-                <Upload className="size-3.5 mr-1" /> Thêm URL
+                <Upload className="size-3.5 mr-1" /> {t("productImages.addUrl")}
               </Button>
             </div>
             <div className="flex flex-wrap gap-2">
               {images.length === 0 && (
                 <Empty>
-                  <EmptyTitle>Chưa có ảnh</EmptyTitle>
+                  <EmptyTitle>{t("productImages.noImages")}</EmptyTitle>
                 </Empty>
               )}
               {images.map((img) => (
@@ -318,7 +320,7 @@ export function ProductEditPage() {
                   <AspectRatio ratio={1}>
                     <img
                       src={img.url}
-                      alt={img.isPrimary ? "Ảnh chính của sản phẩm" : "Ảnh sản phẩm"}
+                      alt={img.isPrimary ? t("productImages.primaryAlt") : t("productImages.imageAlt")}
                       className="size-full object-cover rounded-md border"
                       onError={(e) => {
                         ;(e.target as HTMLImageElement).src = ""
@@ -328,7 +330,7 @@ export function ProductEditPage() {
                   </AspectRatio>
                   {img.isPrimary && (
                     <span className="absolute top-0.5 left-0.5 text-[10px] bg-primary text-primary-foreground px-1 rounded">
-                      Chính
+                      {t("productImages.primary")}
                     </span>
                   )}
                   <button
@@ -346,9 +348,9 @@ export function ProductEditPage() {
 
       <div className="flex justify-end">
         <ButtonGroup>
-          <Button variant="outline" onClick={() => navigate("/products")}>Hủy</Button>
+          <Button variant="outline" onClick={() => navigate("/products")}>{t("common.cancel")}</Button>
           <Button onClick={() => onSubmit()} disabled={!watch("name").trim() || save.isPending}>
-            {save.isPending ? "Đang lưu..." : "Lưu"}
+            {save.isPending ? t("common.saving") : t("common.save")}
           </Button>
         </ButtonGroup>
       </div>
@@ -361,17 +363,17 @@ export function ProductEditPage() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Xóa ảnh</AlertDialogTitle>
-            <AlertDialogDescription>Bạn có chắc muốn xóa ảnh này?</AlertDialogDescription>
+            <AlertDialogTitle>{t("common.deleteImageTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>{t("common.deleteConfirm")}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Không</AlertDialogCancel>
+            <AlertDialogCancel>{t("common.no")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => showDeleteImgDialog && removeImage.mutate(showDeleteImgDialog)}
               disabled={removeImage.isPending}
               className="bg-destructive hover:bg-destructive/90"
             >
-              Xóa
+              {t("common.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

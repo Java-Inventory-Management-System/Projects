@@ -5,6 +5,7 @@ import type { LocationMapData } from "@/utils/types"
 import type { DetailBin, FilterMode } from "@/features/stock/utils/location-map-utils"
 import { nextCode } from "@/features/stock/utils/location-map-utils"
 import { createLocation, deleteLocation, relocateProductUnits } from "@/services/location-service"
+import { t } from "i18next"
 import { toast } from "@/utils/toast"
 
 export function useLocationMapPage() {
@@ -45,7 +46,7 @@ export function useLocationMapPage() {
       setFilter("all")
       if (!searchToastShown.current) {
         searchToastShown.current = true
-        toast.info("Đã bỏ bộ lọc để hiển thị kết quả tìm kiếm")
+        toast.info(t("locationMap.searchClearedFilter"))
       }
     }
     if (!value) searchToastShown.current = false
@@ -147,7 +148,7 @@ export function useLocationMapPage() {
   useEffect(() => {
     if (!search || highlightBinId) return
     const timer = setTimeout(() => {
-      toast.info("Không tìm thấy sản phẩm này trong kho")
+      toast.info(t("locationMap.productNotFound"))
     }, 300)
     return () => clearTimeout(timer)
   }, [search, highlightBinId])
@@ -163,7 +164,7 @@ export function useLocationMapPage() {
 
   function handleDeactivateBin(bin: DetailBin) {
     setDeactivatedIds((prev) => ({ ...prev, [bin.id]: true }))
-    toast.success("Đã vô hiệu hóa")
+    toast.success(t("locationMap.binDeactivated"))
   }
 
   function handleReactivateBin(bin: DetailBin) {
@@ -172,7 +173,7 @@ export function useLocationMapPage() {
       delete next[bin.id]
       return next
     })
-    toast.success("Đã kích hoạt lại")
+    toast.success(t("locationMap.binReactivated"))
   }
 
   function handleAddZone() {
@@ -209,13 +210,13 @@ export function useLocationMapPage() {
       })
       .catch((err) => {
         patchZones((prev) => ({ ...prev, zones: prev.zones.filter((z) => z.zoneCode !== zoneCode) }))
-        toast.error((err as Error).message || "Thêm khu thất bại")
+        toast.error((err as Error).message || t("locationMap.addZoneFailed"))
       })
   }
 
   function handleBinDelete(target: DetailBin) {
     if (target.productCount > 0) {
-      toast.error("Vị trí đang có sản phẩm, không thể xóa")
+      toast.error(t("locationMap.binHasProducts"))
       return
     }
     setConfirmBinId(null)
@@ -236,7 +237,7 @@ export function useLocationMapPage() {
       ),
     }))
     deleteLocation(target.id).catch((err) => {
-      toast.error(err?.response?.data?.message || err?.message || "Xóa thất bại")
+      toast.error(err?.response?.data?.message || err?.message || t("locationMap.deleteFailed"))
       refetch()
     })
   }
@@ -247,7 +248,7 @@ export function useLocationMapPage() {
     setConfirmZoneCode(null)
     patchZones((prev) => ({ ...prev, zones: prev.zones.filter((z) => z.zoneCode !== zoneCode) }))
     const ids = zone.shelves.flatMap((s) => s.bins.map((b) => b.id))
-    Promise.all(ids.map((id) => deleteLocation(id).catch(() => {}))).then(() => toast.success(`Đã xóa khu ${zoneCode}`))
+    Promise.all(ids.map((id) => deleteLocation(id).catch(() => {}))).then(() => toast.success(t("locationMap.zoneDeleted", { zoneCode })))
   }
 
   async function autoAddBin(zoneCode: string, shelfCode: string) {
@@ -305,7 +306,7 @@ export function useLocationMapPage() {
               },
         ),
       }))
-      toast.error((err as Error).message || "Thêm thất bại")
+      toast.error((err as Error).message || t("locationMap.addFailed"))
     }
   }
 
@@ -352,7 +353,7 @@ export function useLocationMapPage() {
           z.zoneCode !== zoneCode ? z : { ...z, shelves: z.shelves.filter((s) => s.shelfCode !== shelfCode) },
         ),
       }))
-      toast.error((err as Error).message || "Thêm thất bại")
+      toast.error((err as Error).message || t("locationMap.addFailed"))
     }
   }
 
@@ -409,14 +410,14 @@ export function useLocationMapPage() {
 
     try {
       await relocateProductUnits(sourceId, destId, relocateQuantity || undefined)
-      toast.success(`Đã di chuyển ${relocateQuantity} sản phẩm từ ${target.source.fullCode} sang ${target.dest.fullCode}`)
+      toast.success(t("locationMap.moveSuccess", { quantity: relocateQuantity, source: target.source.fullCode, dest: target.dest.fullCode }))
       qc.invalidateQueries({ queryKey: ["location-map"] })
       qc.invalidateQueries({ queryKey: ["product-units"] })
       qc.invalidateQueries({ queryKey: ["inventory"] })
     } catch (err) {
       const message = (err as { response?: { data?: { message?: string } }; message?: string })?.response?.data?.message
         ?? (err as Error).message
-        ?? "Di chuyển thất bại"
+        ?? t("locationMap.moveFailed")
       toast.error(message)
       refetch()
     }

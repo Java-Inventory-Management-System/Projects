@@ -44,15 +44,10 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { toast } from "@/utils/toast"
-
-const statusLabel: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
-  PENDING: { label: "Chờ duyệt", variant: "outline" },
-  APPROVED: { label: "Đã duyệt", variant: "default" },
-  REJECTED: { label: "Từ chối", variant: "destructive" },
-  CANCELLED: { label: "Đã huỷ", variant: "secondary" },
-}
+import { useTranslation } from "react-i18next"
 
 export function PriceAdjustmentDetailPage() {
+  const { t } = useTranslation()
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const qc = useQueryClient()
@@ -79,20 +74,20 @@ export function PriceAdjustmentDetailPage() {
       qc.invalidateQueries({ queryKey: ["price-adjustment", id] })
       qc.invalidateQueries({ queryKey: ["price-adjustments"] })
       qc.invalidateQueries({ queryKey: ["my-price-adjustments"] })
-      const msg = actionType === "approve" ? `Đã duyệt phiếu ${adj?.adjustCode}` : `Đã từ chối phiếu ${adj?.adjustCode}`
+      const msg = actionType.action === "approve" ? t("priceAdjDetail.approveSuccess", { code: adj?.adjustCode }) : t("priceAdjDetail.rejectSuccess", { code: adj?.adjustCode })
       toast.success(msg)
       setConfirmAction(null)
       setApprovalNote("")
       setRejectReason("")
     },
     onError: (e: Error) => {
-      const msg = e.message || ""
-      if (msg.includes("price has changed") || msg.includes("giá đã thay đổi")) {
+      const err = e as { code?: string; message?: string }
+      if (err.code === 'PRICE_ADJ_PRICE_CHANGED') {
         setConfirmAction(null)
         setShowConflictDialog(true)
-        setCurrentPrice(Number(msg.match(/[\d,]+/)?.[0] ?? 0))
+        setCurrentPrice(Number(err.message?.match(/[\d,]+/)?.[0] ?? 0))
       } else {
-        toast.error(msg)
+        toast.error(err.message || "")
         setConfirmAction(null)
       }
     },
@@ -104,7 +99,7 @@ export function PriceAdjustmentDetailPage() {
       qc.invalidateQueries({ queryKey: ["price-adjustment", id] })
       qc.invalidateQueries({ queryKey: ["price-adjustments"] })
       qc.invalidateQueries({ queryKey: ["my-price-adjustments"] })
-      toast.success(`Đã huỷ phiếu ${adj?.adjustCode}`)
+      toast.success(t("priceAdjDetail.cancelSuccess", { code: adj?.adjustCode }))
       setConfirmAction(null)
     },
     onError: (e: Error) => {
@@ -112,6 +107,13 @@ export function PriceAdjustmentDetailPage() {
       setConfirmAction(null)
     },
   })
+
+  const statusLabel: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
+    PENDING: { label: t("priceAdjStatus.pending"), variant: "outline" },
+    APPROVED: { label: t("priceAdjStatus.approved"), variant: "default" },
+    REJECTED: { label: t("priceAdjStatus.rejected"), variant: "destructive" },
+    CANCELLED: { label: t("priceAdjStatus.cancelled"), variant: "secondary" },
+  }
 
   if (isLoading)
     return (
@@ -127,12 +129,12 @@ export function PriceAdjustmentDetailPage() {
   if (isError || !adj)
     return (
       <Empty>
-        <EmptyTitle>Không tìm thấy phiếu điều chỉnh giá</EmptyTitle>
+        <EmptyTitle>{t("priceAdjDetail.notFound")}</EmptyTitle>
         <EmptyDescription>
-          Phiếu không tồn tại hoặc bạn không có quyền xem phiếu này.
+          {t("priceAdjDetail.notFoundDesc")}
         </EmptyDescription>
         <Button variant="outline" className="mt-4" onClick={() => navigate("/stock/price-adjustments")}>
-          Quay lại danh sách
+          {t("priceAdjDetail.backToList")}
         </Button>
       </Empty>
     )
@@ -152,7 +154,7 @@ export function PriceAdjustmentDetailPage() {
       <Breadcrumb>
         <BreadcrumbList>
           <BreadcrumbItem>
-            <BreadcrumbLink onClick={() => navigate("/stock/price-adjustments")}>Điều chỉnh giá</BreadcrumbLink>
+            <BreadcrumbLink onClick={() => navigate("/stock/price-adjustments")}>{t("priceAdjDetail.breadcrumb")}</BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator />
           <BreadcrumbItem>
@@ -173,21 +175,21 @@ export function PriceAdjustmentDetailPage() {
                 <TooltipTrigger asChild>
                   <span tabIndex={0}>
                     <Button variant="outline" className="text-destructive" onClick={() => setConfirmAction("reject")}>
-                      <X className="size-4 mr-1" /> Từ chối
+                      <X className="size-4 mr-1" /> {t("dialog.reject")}
                     </Button>
                   </span>
                 </TooltipTrigger>
-                <TooltipContent>Từ chối phiếu điều chỉnh này</TooltipContent>
+                <TooltipContent>{t("priceAdjDetail.rejectTooltip")}</TooltipContent>
               </Tooltip>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <span tabIndex={0}>
                     <Button onClick={() => setConfirmAction("approve")}>
-                      <Check className="size-4 mr-1" /> Duyệt
+                      <Check className="size-4 mr-1" /> {t("priceAdjDetail.approve")}
                     </Button>
                   </span>
                 </TooltipTrigger>
-                <TooltipContent>Duyệt phiếu điều chỉnh này</TooltipContent>
+                <TooltipContent>{t("priceAdjDetail.approveTooltip")}</TooltipContent>
               </Tooltip>
             </>
           ) : showSelfBlock ? (
@@ -195,11 +197,11 @@ export function PriceAdjustmentDetailPage() {
               <TooltipTrigger asChild>
                 <span tabIndex={0}>
                   <Button variant="outline" disabled className="cursor-not-allowed">
-                    <Check className="size-4 mr-1" /> Duyệt
+                    <Check className="size-4 mr-1" /> {t("priceAdjDetail.approve")}
                   </Button>
                 </span>
               </TooltipTrigger>
-              <TooltipContent>Bạn là người tạo phiếu này, không thể tự duyệt</TooltipContent>
+              <TooltipContent>{t("priceAdjDetail.selfBlockTooltip")}</TooltipContent>
             </Tooltip>
           ) : null}
           {canCancel && (
@@ -207,11 +209,11 @@ export function PriceAdjustmentDetailPage() {
               <TooltipTrigger asChild>
                 <span tabIndex={0}>
                   <Button variant="outline" className="text-destructive" onClick={() => setConfirmAction("cancel")}>
-                    <Ban className="size-4 mr-1" /> Huỷ phiếu
+                    <Ban className="size-4 mr-1" /> {t("priceAdjDetail.cancel")}
                   </Button>
                 </span>
               </TooltipTrigger>
-              <TooltipContent>Huỷ bỏ yêu cầu điều chỉnh giá này</TooltipContent>
+              <TooltipContent>{t("priceAdjDetail.cancelTooltip")}</TooltipContent>
             </Tooltip>
           )}
         </div>
@@ -221,7 +223,7 @@ export function PriceAdjustmentDetailPage() {
         <Alert variant="default" className="border-blue-200 bg-blue-50">
           <Info className="size-4 text-blue-600" />
           <AlertDescription className="text-blue-800 text-sm">
-            Bạn là người tạo phiếu này, cần một Manager/Admin khác duyệt.
+            {t("priceAdjDetail.selfBlockAlert")}
           </AlertDescription>
         </Alert>
       )}
@@ -230,14 +232,14 @@ export function PriceAdjustmentDetailPage() {
         <CardContent className="pt-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
             <div>
-              <span className="text-muted-foreground">Sản phẩm:</span>
+              <span className="text-muted-foreground">{t("priceAdjDetail.product")}</span>
               <p className="font-medium">
                 {adj.productName ?? "—"}{" "}
                 {adj.productSku && <span className="text-muted-foreground">({adj.productSku})</span>}
               </p>
             </div>
             <div>
-              <span className="text-muted-foreground">Giá cũ → Giá mới:</span>
+              <span className="text-muted-foreground">{t("priceAdjDetail.oldToNewPrice")}</span>
               <p className="font-medium">
                 <span className="text-muted-foreground">{(adj.oldPrice ?? 0).toLocaleString("vi-VN")}₫</span>
                 {" → "}
@@ -250,18 +252,18 @@ export function PriceAdjustmentDetailPage() {
               </p>
             </div>
             <div>
-              <span className="text-muted-foreground">Người tạo:</span>
+              <span className="text-muted-foreground">{t("label.creator")}</span>
               <p className="font-medium">{adj.createdByName ?? "—"}</p>
             </div>
             <div>
-              <span className="text-muted-foreground">Ngày tạo:</span>
+              <span className="text-muted-foreground">{t("label.createdDate")}</span>
               <p className="font-medium">
                 {adj.createdAt ? new Date(adj.createdAt).toLocaleString("vi-VN") : "—"}
               </p>
             </div>
             {adj.approvedByName && (
               <div>
-                <span className="text-muted-foreground">Người duyệt:</span>
+                <span className="text-muted-foreground">{t("label.approver")}</span>
                 <p className="font-medium">{adj.approvedByName}</p>
               </div>
             )}
@@ -272,7 +274,7 @@ export function PriceAdjustmentDetailPage() {
       <Card>
         <CardContent className="pt-6">
           <div className="text-sm">
-            <span className="text-xs font-medium text-muted-foreground tracking-wide">LÝ DO</span>
+            <span className="text-xs font-medium text-muted-foreground tracking-wide">{t("priceAdjDetail.reasonLabel")}</span>
             <p className="mt-1 whitespace-pre-wrap">{adj.reason}</p>
           </div>
         </CardContent>
@@ -282,7 +284,7 @@ export function PriceAdjustmentDetailPage() {
         <Card>
           <CardContent className="pt-6">
             <div className="text-sm">
-              <span className="text-xs font-medium text-muted-foreground tracking-wide">GHI CHÚ DUYỆT</span>
+              <span className="text-xs font-medium text-muted-foreground tracking-wide">{t("priceAdjDetail.approvalNoteLabel")}</span>
               <p className="mt-1 whitespace-pre-wrap">{adj.approvalNote}</p>
             </div>
           </CardContent>
@@ -296,26 +298,26 @@ export function PriceAdjustmentDetailPage() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Duyệt điều chỉnh giá</AlertDialogTitle>
+            <AlertDialogTitle>{t("priceAdjDetail.approveDialogTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
-              Xác nhận duyệt phiếu <span className="font-mono font-medium">{adj.adjustCode}</span>?
+              {t("priceAdjDetail.approveDialogDesc", { code: adj.adjustCode })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="space-y-2">
-            <Label>Ghi chú (không bắt buộc)</Label>
+            <Label>{t("form.noteOptional")}</Label>
             <Input
               value={approvalNote}
               onChange={(e) => setApprovalNote(e.target.value)}
-              placeholder="Nhập ghi chú nếu cần"
+              placeholder={t("priceAdjDetail.approvalNotePlaceholder")}
             />
           </div>
           <AlertDialogFooter>
-            <AlertDialogCancel>Không</AlertDialogCancel>
+            <AlertDialogCancel>{t("dialog.no")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => action.mutate({ action: "approve" })}
               disabled={action.isPending}
             >
-              {action.isPending ? "Đang xử lý..." : "Xác nhận duyệt"}
+              {action.isPending ? t("dialog.processing") : t("dialog.approve")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -328,33 +330,33 @@ export function PriceAdjustmentDetailPage() {
       >
         <AlertDialogContent onOpenAutoFocus={(e) => e.preventDefault()}>
           <AlertDialogHeader>
-            <AlertDialogTitle>Từ chối điều chỉnh giá</AlertDialogTitle>
+            <AlertDialogTitle>{t("priceAdjDetail.rejectDialogTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
-              Xác nhận từ chối phiếu <span className="font-mono font-medium">{adj.adjustCode}</span>?
+              {t("priceAdjDetail.rejectDialogDesc", { code: adj.adjustCode })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="space-y-2">
             <Label>
-              Lý do từ chối <span className="text-destructive">*</span>
+              {t("priceAdjDetail.rejectReason")} <span className="text-destructive">*</span>
             </Label>
             <Input
               id="reject-reason-input"
               value={rejectReason}
               onChange={(e) => setRejectReason(e.target.value)}
-              placeholder="Nhập lý do từ chối"
+              placeholder={t("priceAdjDetail.rejectReasonPlaceholder")}
               autoFocus
             />
             {rejectReason.trim().length > 0 && rejectReason.trim().length < 5 && (
-              <p className="text-xs text-destructive">Lý do phải có ít nhất 5 ký tự</p>
+              <p className="text-xs text-destructive">{t("priceAdjDetail.rejectReasonMin")}</p>
             )}
           </div>
           <AlertDialogFooter>
-            <AlertDialogCancel>Không</AlertDialogCancel>
+            <AlertDialogCancel>{t("dialog.no")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => action.mutate({ action: "reject", reason: rejectReason.trim() })}
               disabled={action.isPending || rejectReason.trim().length < 5}
             >
-              {action.isPending ? "Đang xử lý..." : "Xác nhận từ chối"}
+              {action.isPending ? t("dialog.processing") : t("priceAdjDetail.rejectConfirm")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -367,19 +369,19 @@ export function PriceAdjustmentDetailPage() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Huỷ phiếu điều chỉnh giá</AlertDialogTitle>
+            <AlertDialogTitle>{t("priceAdjDetail.cancelDialogTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
-              Xác nhận huỷ phiếu <span className="font-mono font-medium">{adj.adjustCode}</span>?
-              Hành động này không thể hoàn tác.
+              {t("priceAdjDetail.cancelDialogDesc", { code: adj.adjustCode })}
+              {" "}{t("priceAdjDetail.cannotUndo")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Không</AlertDialogCancel>
+            <AlertDialogCancel>{t("dialog.no")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => cancelMutation.mutate()}
               disabled={cancelMutation.isPending}
             >
-              {cancelMutation.isPending ? "Đang huỷ..." : "Xác nhận huỷ"}
+              {cancelMutation.isPending ? t("priceAdjDetail.cancelProcessing") : t("priceAdjDetail.cancelConfirm")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -390,23 +392,23 @@ export function PriceAdjustmentDetailPage() {
         open={showConflictDialog}
         onOpenChange={(v) => { if (!v) {
           setShowConflictDialog(false)
-          rejectPriceAdjustment(Number(id), "Giá đã thay đổi, phiếu cần tạo lại").catch(() => {})
+          rejectPriceAdjustment(Number(id), t("priceAdjDetail.autoRejectReason")).catch(() => {})
         }}}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Xung đột giá</AlertDialogTitle>
-            <AlertDialogDescription>
-              Giá sản phẩm đã thay đổi kể từ khi tạo phiếu này.
-              {currentPrice > 0 && (
-                <> Giá hiện tại: <span className="font-semibold">{(currentPrice).toLocaleString("vi-VN")}₫</span></>
-              )}
-              <br />
-              Phiếu cần được tạo lại.
+        <AlertDialogTitle>{t("priceAdjDetail.conflictTitle")}</AlertDialogTitle>
+        <AlertDialogDescription>
+          {t("priceAdjDetail.conflictDesc")}
+          {currentPrice > 0 && (
+            <> {t("priceAdjDetail.conflictCurrentPrice")} <span className="font-semibold">{(currentPrice).toLocaleString("vi-VN")}₫</span></>
+          )}
+          <br />
+          {t("priceAdjDetail.conflictNote")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setShowConflictDialog(false)}>Đóng</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => setShowConflictDialog(false)}>{t("priceAdjDetail.close")}</AlertDialogCancel>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

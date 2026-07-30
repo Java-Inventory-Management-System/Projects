@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next"
 import { useInventorySummary, useLowStock } from "@/hooks/use-reports"
 import { useImportReceipts } from "@/hooks/use-import-receipts"
 import { useExportReceipts } from "@/hooks/use-export-receipts"
@@ -5,6 +6,7 @@ import { useLocationMap } from "@/hooks/use-location-map"
 import { Package, AlertTriangle, ArrowDownToLine, ArrowUpFromLine, MapPin, TrendingUp } from "lucide-react"
 
 export function StockOverviewTab() {
+  const { t } = useTranslation()
   const { data: summary } = useInventorySummary()
   const { data: lowStockRes } = useLowStock(0, 5)
   const { data: recentImportsRes } = useImportReceipts(0, 5)
@@ -17,34 +19,41 @@ export function StockOverviewTab() {
   const recentImports = recentImportsRes?.content ?? []
   const recentExports = recentExportsRes?.content ?? []
 
+  const exportReasonLabel: Record<string, string> = {
+    SALE: t("common.sale"),
+    INTERNAL: t("common.internal"),
+    RETURN_SUPPLIER: t("common.returnSupplier"),
+    DISPOSE: t("common.dispose"),
+  }
+
   return (
     <div className="space-y-4">
       <div className="grid gap-3 grid-cols-2 sm:grid-cols-4">
         <div className="rounded-lg border bg-card p-3 space-y-1">
           <div className="flex items-center gap-1.5 text-muted-foreground">
             <Package className="size-3.5" />
-            <span className="text-[11px] font-medium">Sản phẩm</span>
+            <span className="text-[11px] font-medium">{t("overview.products")}</span>
           </div>
           <p className="text-lg font-semibold tabular-nums">{summary?.totalProducts ?? "—"}</p>
         </div>
         <div className="rounded-lg border bg-card p-3 space-y-1">
           <div className="flex items-center gap-1.5 text-muted-foreground">
             <TrendingUp className="size-3.5" />
-            <span className="text-[11px] font-medium">Tổng tồn</span>
+            <span className="text-[11px] font-medium">{t("overview.totalStock")}</span>
           </div>
           <p className="text-lg font-semibold tabular-nums">{summary?.totalUnits ?? "—"}</p>
         </div>
         <div className="rounded-lg border bg-card p-3 space-y-1">
           <div className="flex items-center gap-1.5 text-muted-foreground">
             <MapPin className="size-3.5" />
-            <span className="text-[11px] font-medium">Vị trí</span>
+            <span className="text-[11px] font-medium">{t("overview.locations")}</span>
           </div>
           <p className="text-lg font-semibold tabular-nums">{totalBins}</p>
         </div>
         <div className="rounded-lg border border-amber-200 dark:border-amber-800 bg-card p-3 space-y-1">
           <div className="flex items-center gap-1.5 text-red-600 dark:text-red-400">
             <AlertTriangle className="size-3.5" />
-            <span className="text-[11px] font-medium">Sắp hết</span>
+            <span className="text-[11px] font-medium">{t("overview.lowStock")}</span>
           </div>
           <p className="text-lg font-semibold tabular-nums text-red-600 dark:text-red-400">
             {summary?.lowStockCount ?? "—"}
@@ -56,10 +65,10 @@ export function StockOverviewTab() {
         <div className="rounded-lg border p-3 space-y-2">
           <h3 className="text-xs font-semibold flex items-center gap-1.5 text-muted-foreground">
             <AlertTriangle className="size-3.5 text-red-500" />
-            Hàng sắp hết
+            {t("overview.lowStockHeading")}
           </h3>
           {lowStockItems.length === 0 ? (
-            <p className="text-[11px] text-muted-foreground py-2">Không có sản phẩm nào dưới mức cảnh báo</p>
+            <p className="text-[11px] text-muted-foreground py-2">{t("overview.noLowStock")}</p>
           ) : (
             <div className="space-y-1">
               {lowStockItems.map((item) => (
@@ -80,10 +89,10 @@ export function StockOverviewTab() {
         <div className="rounded-lg border p-3 space-y-2">
           <h3 className="text-xs font-semibold flex items-center gap-1.5 text-muted-foreground">
             <ArrowDownToLine className="size-3.5 text-green-600" />
-            Nhập gần đây
+            {t("overview.recentImports")}
           </h3>
           {recentImports.length === 0 ? (
-            <p className="text-[11px] text-muted-foreground py-2">Chưa có phiếu nhập</p>
+            <p className="text-[11px] text-muted-foreground py-2">{t("overview.noImports")}</p>
           ) : (
             <div className="space-y-1">
               {recentImports.map((receipt) => (
@@ -96,8 +105,8 @@ export function StockOverviewTab() {
                   </div>
                   <p className="truncate text-muted-foreground">{receipt.supplierName}</p>
                   <p className="text-[10px] text-muted-foreground">
-                    {receipt.items.length} SP &middot;{" "}
-                    {receipt.items.reduce((s, i) => s + i.quantity, 0).toLocaleString("vi-VN")} SL
+                    {t("overview.items", { count: receipt.items.length })} &middot;{" "}
+                    {t("overview.qty", { count: receipt.items.reduce((s, i) => s + i.quantity, 0) })}
                   </p>
                 </div>
               ))}
@@ -108,10 +117,10 @@ export function StockOverviewTab() {
         <div className="rounded-lg border p-3 space-y-2">
           <h3 className="text-xs font-semibold flex items-center gap-1.5 text-muted-foreground">
             <ArrowUpFromLine className="size-3.5 text-orange-600" />
-            Xuất gần đây
+            {t("overview.recentExports")}
           </h3>
           {recentExports.length === 0 ? (
-            <p className="text-[11px] text-muted-foreground py-2">Chưa có phiếu xuất</p>
+            <p className="text-[11px] text-muted-foreground py-2">{t("overview.noExports")}</p>
           ) : (
             <div className="space-y-1">
               {recentExports.map((receipt) => (
@@ -123,18 +132,11 @@ export function StockOverviewTab() {
                     </span>
                   </div>
                   <p className="truncate text-muted-foreground">
-                    {receipt.customerName ??
-                      (
-                        { SALE: "Bán hàng", INTERNAL: "Nội bộ", RETURN_SUPPLIER: "Trả NCC", DISPOSE: "Hủy" } as Record<
-                          string,
-                          string
-                        >
-                      )[receipt.reason] ??
-                      receipt.reason}
+                    {receipt.customerName ?? exportReasonLabel[receipt.reason] ?? receipt.reason}
                   </p>
                   <p className="text-[10px] text-muted-foreground">
-                    {receipt.items.length} SP &middot;{" "}
-                    {receipt.items.reduce((s, i) => s + i.quantity, 0).toLocaleString("vi-VN")} SL
+                    {t("overview.items", { count: receipt.items.length })} &middot;{" "}
+                    {t("overview.qty", { count: receipt.items.reduce((s, i) => s + i.quantity, 0) })}
                   </p>
                 </div>
               ))}

@@ -28,20 +28,10 @@ import {
 import { Check, X } from "lucide-react"
 import { Separator } from "@/components/ui/separator"
 import { toast } from "@/utils/toast"
-
-const typeLabel: Record<string, string> = { DAMAGED: "Hư hỏng", LOST: "Mất", FOUND: "Thừa" }
-const typeColor: Record<string, "destructive" | "outline" | "default"> = {
-  DAMAGED: "destructive",
-  LOST: "destructive",
-  FOUND: "default",
-}
-const statusLabel: Record<string, { label: string; variant: "default" | "secondary" | "destructive" }> = {
-  PENDING: { label: "Chờ duyệt", variant: "secondary" },
-  APPROVED: { label: "Đã duyệt", variant: "default" },
-  REJECTED: { label: "Từ chối", variant: "destructive" },
-}
+import { useTranslation } from "react-i18next"
 
 export const StockAdjustmentDetailPage = () => {
+  const { t } = useTranslation()
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const qc = useQueryClient()
@@ -66,9 +56,9 @@ export const StockAdjustmentDetailPage = () => {
       qc.invalidateQueries({ queryKey: ["low-stock"] })
       setApprovalAction(null)
       setApprovalNote("")
-      toast.success("Đã duyệt phiếu điều chỉnh")
+      toast.success(t("stockAdjDetail.approveSuccess"))
     },
-    onError: (err: Error) => toast.error(err.message || "Duyệt thất bại"),
+    onError: (err: Error) => toast.error(err.message || t("stockAdjDetail.approveFail")),
   })
 
   const rejectMut = useMutation({
@@ -78,10 +68,22 @@ export const StockAdjustmentDetailPage = () => {
       qc.invalidateQueries({ queryKey: ["stock-adjustments"] })
       setApprovalAction(null)
       setApprovalNote("")
-      toast.success("Đã từ chối phiếu điều chỉnh")
+      toast.success(t("stockAdjDetail.rejectSuccess"))
     },
-    onError: (err: Error) => toast.error(err.message || "Từ chối thất bại"),
+    onError: (err: Error) => toast.error(err.message || t("stockAdjDetail.rejectFail")),
   })
+
+  const typeLabel: Record<string, string> = { DAMAGED: t("adjustmentType.damaged"), LOST: t("adjustmentType.lost"), FOUND: t("adjustmentType.found") }
+  const typeColor: Record<string, "destructive" | "outline" | "default"> = {
+    DAMAGED: "destructive",
+    LOST: "destructive",
+    FOUND: "default",
+  }
+  const statusLabel: Record<string, { label: string; variant: "default" | "secondary" | "destructive" }> = {
+    PENDING: { label: t("status.pending"), variant: "secondary" },
+    APPROVED: { label: t("status.approved"), variant: "default" },
+    REJECTED: { label: t("status.rejected"), variant: "destructive" },
+  }
 
   if (isLoading) {
     return (
@@ -96,7 +98,7 @@ export const StockAdjustmentDetailPage = () => {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
         <Empty>
-          <EmptyTitle>Không tìm thấy phiếu điều chỉnh.</EmptyTitle>
+          <EmptyTitle>{t("stockAdjDetail.notFound")}</EmptyTitle>
         </Empty>
       </div>
     )
@@ -112,7 +114,7 @@ export const StockAdjustmentDetailPage = () => {
       <Breadcrumb>
         <BreadcrumbList>
           <BreadcrumbItem>
-            <BreadcrumbLink onClick={() => navigate("/stock/adjustments")}>Điều chỉnh</BreadcrumbLink>
+            <BreadcrumbLink onClick={() => navigate("/stock/adjustments")}>{t("stockAdjDetail.breadcrumb")}</BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator />
           <BreadcrumbItem>
@@ -128,25 +130,25 @@ export const StockAdjustmentDetailPage = () => {
       <div className="rounded-lg border p-4 sm:p-6 space-y-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 text-sm">
           <div>
-            <span className="text-muted-foreground">Sản phẩm</span>
+            <span className="text-muted-foreground">{t("table.product")}</span>
             <p className="font-medium text-base mt-0.5">{adj.productName ?? "—"}</p>
             {adj.productSku && <p className="text-xs text-muted-foreground">{adj.productSku}</p>}
           </div>
           {adj.serialNumber && (
             <div>
-              <span className="text-muted-foreground">Serial</span>
+              <span className="text-muted-foreground">{t("table.serial")}</span>
               <p className="font-mono text-sm mt-0.5">{adj.serialNumber}</p>
             </div>
           )}
           {adj.quantity && (
             <div>
-              <span className="text-muted-foreground">Số lượng</span>
+              <span className="text-muted-foreground">{t("table.quantity")}</span>
               <p className="font-medium mt-0.5">{adj.quantity}</p>
             </div>
           )}
           {adj.imageUrl && (
             <div>
-              <span className="text-muted-foreground">Ảnh minh chứng</span>
+              <span className="text-muted-foreground">{t("stockAdjDetail.evidenceImages")}</span>
               <div className="flex flex-wrap gap-2 mt-1">
                 {adj.imageUrl.split(",").filter(Boolean).map((url, i) => (
                   <a
@@ -165,35 +167,35 @@ export const StockAdjustmentDetailPage = () => {
         </div>
 
         <div>
-          <span className="text-sm text-muted-foreground">Lý do</span>
+          <span className="text-sm text-muted-foreground">{t("table.reason")}</span>
           <p className="mt-1 text-sm leading-relaxed rounded-md border bg-muted/20 px-4 py-3">{adj.reason}</p>
         </div>
 
         <Separator />
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 text-sm pt-4">
           <div>
-            <span className="text-muted-foreground">Người tạo</span>
+            <span className="text-muted-foreground">{t("label.creator")}</span>
             <p className="font-medium mt-0.5">{adj.createdByName}</p>
           </div>
           <div>
-            <span className="text-muted-foreground">Ngày tạo</span>
+            <span className="text-muted-foreground">{t("label.createdDate")}</span>
             <p className="mt-0.5">{new Date(adj.createdAt).toLocaleString("vi-VN")}</p>
           </div>
           {adj.approvedByName && (
             <>
               <div>
-                <span className="text-muted-foreground">Người duyệt</span>
+                <span className="text-muted-foreground">{t("label.approver")}</span>
                 <p className="font-medium mt-0.5">{adj.approvedByName}</p>
               </div>
               <div>
-                <span className="text-muted-foreground">Ngày duyệt</span>
+                <span className="text-muted-foreground">{t("stockAdjDetail.approvedDate")}</span>
                 <p className="mt-0.5">{new Date(adj.updatedAt).toLocaleString("vi-VN")}</p>
               </div>
             </>
           )}
           {adj.approvalNote && (
             <div className="col-span-2">
-              <span className="text-muted-foreground">Ghi chú duyệt</span>
+              <span className="text-muted-foreground">{t("stockAdjDetail.approvalNote")}</span>
               <p className="mt-1 text-sm leading-relaxed rounded-md border bg-muted/20 px-3 py-2">{adj.approvalNote}</p>
             </div>
           )}
@@ -204,10 +206,10 @@ export const StockAdjustmentDetailPage = () => {
         <div className="flex justify-end">
           <ButtonGroup>
             <Button variant="outline" onClick={() => setApprovalAction("reject")}>
-              <X className="size-4 mr-1" /> Từ chối
+              <X className="size-4 mr-1" /> {t("dialog.reject")}
             </Button>
             <Button onClick={() => setApprovalAction("approve")}>
-              <Check className="size-4 mr-1" /> Duyệt
+              <Check className="size-4 mr-1" /> {t("stockAdjDetail.approve")}
             </Button>
           </ButtonGroup>
         </div>
@@ -225,16 +227,16 @@ export const StockAdjustmentDetailPage = () => {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {approvalAction === "approve" ? "Duyệt phiếu điều chỉnh" : "Từ chối phiếu điều chỉnh"}
+              {approvalAction === "approve" ? t("stockAdjDetail.approveDialogTitle") : t("stockAdjDetail.rejectDialogTitle")}
             </DialogTitle>
           </DialogHeader>
           <ScrollArea className="max-h-[60vh]">
             <div className="space-y-2">
-              <label className="text-sm text-muted-foreground">Ghi chú (không bắt buộc)</label>
+              <label className="text-sm text-muted-foreground">{t("form.noteOptional")}</label>
               <Textarea
                 value={approvalNote}
                 onChange={(e) => setApprovalNote(e.target.value)}
-                placeholder="Nhập ghi chú..."
+                placeholder={t("stockAdjDetail.notePlaceholder")}
                 rows={3}
               />
             </div>
@@ -247,7 +249,7 @@ export const StockAdjustmentDetailPage = () => {
                 setApprovalNote("")
               }}
             >
-              Hủy
+              {t("common.cancel")}
             </Button>
             <Button
               onClick={() => {
@@ -257,7 +259,7 @@ export const StockAdjustmentDetailPage = () => {
               disabled={approveMut.isPending || rejectMut.isPending}
               variant={approvalAction === "reject" ? "destructive" : "default"}
             >
-              {approvalAction === "approve" ? "Xác nhận duyệt" : "Xác nhận từ chối"}
+              {approvalAction === "approve" ? t("dialog.approve") : t("stockAdjDetail.rejectConfirm")}
             </Button>
           </DialogFooter>
         </DialogContent>

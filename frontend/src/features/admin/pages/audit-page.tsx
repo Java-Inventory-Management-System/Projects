@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react"
+import { useTranslation } from "react-i18next"
 import { useSearchParams } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 import { searchAuditLogs } from "@/services/audit-service"
@@ -17,10 +18,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover"
 import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command"
 import { cn } from "@/utils/cn"
+import { DatePicker } from "@/components/ui/date-picker"
 
-const statusBadge: Record<string, { label: string; variant: "default" | "destructive" | "secondary" }> = {
-  [AUDIT_STATUS.SUCCESS]: { label: "Thành công", variant: "default" },
-  [AUDIT_STATUS.FAILED]: { label: "Thất bại", variant: "destructive" },
+const statusBadgeConfig: Record<string, { labelKey: string; variant: "default" | "destructive" | "secondary" }> = {
+  [AUDIT_STATUS.SUCCESS]: { labelKey: "auditPage.statusSuccess", variant: "default" },
+  [AUDIT_STATUS.FAILED]: { labelKey: "auditPage.statusFailed", variant: "destructive" },
 }
 
 function fmt(d: string) {
@@ -49,6 +51,7 @@ const entityOptions = [
 ]
 
 export const AuditPage = () => {
+  const { t } = useTranslation()
   const [searchParams, setSearchParams] = useSearchParams()
   const page = Number(searchParams.get("page") ?? "0")
   const [pageSize, setPageSize] = useState(20)
@@ -118,43 +121,43 @@ export const AuditPage = () => {
   }
 
   const activeChips: { key: string; label: string; onRemove: () => void }[] = []
-  if (actionFilter !== "all") activeChips.push({ key: "action", label: `Hành động: ${actionFilter}`, onRemove: () => updateParams({ action: undefined }) })
-  if (entityFilter) activeChips.push({ key: "entity", label: `Đối tượng: ${entityFilter}`, onRemove: () => updateParams({ entity: undefined }) })
+  if (actionFilter !== "all") activeChips.push({ key: "action", label: `${t('auditPage.filterAction')}: ${actionFilter}`, onRemove: () => updateParams({ action: undefined }) })
+  if (entityFilter) activeChips.push({ key: "entity", label: `${t('auditPage.filterEntity')}: ${entityFilter}`, onRemove: () => updateParams({ entity: undefined }) })
   if (statusFilter !== "all") {
-    const st = statusBadge[statusFilter]?.label ?? statusFilter
-    activeChips.push({ key: "status", label: `Trạng thái: ${st}`, onRemove: () => updateParams({ status: undefined }) })
+    const st = statusBadgeConfig[statusFilter]
+    activeChips.push({ key: "status", label: `${t('auditPage.filterStatus')}: ${st ? t(st.labelKey) : statusFilter}`, onRemove: () => updateParams({ status: undefined }) })
   }
-  if (fromDate) activeChips.push({ key: "from", label: `Từ: ${fromDate}`, onRemove: () => updateParams({ from: undefined }) })
-  if (toDate) activeChips.push({ key: "to", label: `Đến: ${toDate}`, onRemove: () => updateParams({ to: undefined }) })
+  if (fromDate) activeChips.push({ key: "from", label: `${t('auditPage.filterFrom')}: ${fromDate}`, onRemove: () => updateParams({ from: undefined }) })
+  if (toDate) activeChips.push({ key: "to", label: `${t('auditPage.filterTo')}: ${toDate}`, onRemove: () => updateParams({ to: undefined }) })
   if (userIdFilter) {
     const u = users.find((u) => String(u.id) === userIdFilter)
-    activeChips.push({ key: "user", label: `Người dùng: ${u?.fullName || userIdFilter}`, onRemove: () => updateParams({ userId: undefined }) })
+    activeChips.push({ key: "user", label: `${t('auditPage.filterUser')}: ${u?.fullName || userIdFilter}`, onRemove: () => updateParams({ userId: undefined }) })
   }
 
   const columns: Column<AuditLog>[] = [
     {
-      header: "Thời gian",
+      header: t('auditPage.colTime'),
       sortKey: "createdAt",
       render: (log) => <span className="text-xs whitespace-nowrap text-muted-foreground">{fmt(log.createdAt)}</span>,
     },
-    { header: "Người dùng", render: (log) => <span className="text-xs">{log.username || "—"}</span> },
-    { header: "Hành động", render: (log) => <span className="text-xs font-medium">{log.action}</span> },
-    { header: "Đối tượng", render: (log) => <span className="text-xs">{log.entityName}</span> },
-    { header: "ID", render: (log) => <span className="text-xs font-mono">{log.entityId || "—"}</span> },
+    { header: t('auditPage.colUser'), render: (log) => <span className="text-xs">{log.username || "—"}</span> },
+    { header: t('auditPage.colAction'), render: (log) => <span className="text-xs font-medium">{log.action}</span> },
+    { header: t('auditPage.colEntity'), render: (log) => <span className="text-xs">{log.entityName}</span> },
+    { header: t('auditPage.colEntityId'), render: (log) => <span className="text-xs font-mono">{log.entityId || "—"}</span> },
     { header: "IP", render: (log) => <span className="text-xs text-muted-foreground">{log.ipAddress || "—"}</span> },
     {
-      header: "Trạng thái",
+      header: t('auditPage.colStatus'),
       render: (log) => {
-        const st = statusBadge[log.status] ?? { label: log.status, variant: "secondary" as const }
+        const st = statusBadgeConfig[log.status] ?? { labelKey: undefined, variant: "secondary" as const }
         return (
           <Badge variant={st.variant} className="text-[10px]">
-            {st.label}
+            {st.labelKey ? t(st.labelKey) : log.status}
           </Badge>
         )
       },
     },
     {
-      header: "Thao tác",
+      header: t('auditPage.colActions'),
       className: "w-[70px]",
       render: (log) => (
         <Tooltip>
@@ -163,7 +166,7 @@ export const AuditPage = () => {
               <Eye className="size-4" />
             </Button>
           </TooltipTrigger>
-          <TooltipContent>Xem chi tiết</TooltipContent>
+          <TooltipContent>{t('auditPage.viewDetail')}</TooltipContent>
         </Tooltip>
       ),
     },
@@ -171,18 +174,18 @@ export const AuditPage = () => {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-xl font-semibold tracking-tight">Nhật ký hoạt động</h1>
+      <h1 className="text-xl font-semibold tracking-tight">{t('auditPage.title')}</h1>
 
       <div className="space-y-3">
         <div className="flex flex-wrap gap-2 items-end">
           <div className="space-y-1">
-            <Label className="text-xs">Hành động</Label>
+            <Label className="text-xs">{t('auditPage.filterActionLabel')}</Label>
             <Select value={actionFilter} onValueChange={(v) => updateParams({ action: v === "all" ? undefined : v, page: undefined })}>
               <SelectTrigger className="w-40 h-8 text-xs">
-                <SelectValue placeholder="Tất cả" />
+                <SelectValue placeholder={t('auditPage.all')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Tất cả</SelectItem>
+                <SelectItem value="all">{t('auditPage.all')}</SelectItem>
                 {actionOptions.map((a) => (
                   <SelectItem key={a} value={a}>
                     {a}
@@ -192,13 +195,13 @@ export const AuditPage = () => {
             </Select>
           </div>
           <div className="space-y-1">
-            <Label className="text-xs">Đối tượng</Label>
+            <Label className="text-xs">{t('auditPage.filterEntityLabel')}</Label>
             <Select value={entityFilter || "all"} onValueChange={(v) => updateParams({ entity: v === "all" ? undefined : v, page: undefined })}>
               <SelectTrigger className="w-40 h-8 text-xs">
-                <SelectValue placeholder="Tất cả" />
+                <SelectValue placeholder={t('auditPage.all')} />
               </SelectTrigger>
               <SelectContent className="max-h-[50vh]">
-                <SelectItem value="all">Tất cả</SelectItem>
+                <SelectItem value="all">{t('auditPage.all')}</SelectItem>
                 {entityOptions.map((e) => (
                   <SelectItem key={e} value={e}>
                     {e}
@@ -208,38 +211,39 @@ export const AuditPage = () => {
             </Select>
           </div>
           <div className="space-y-1">
-            <Label className="text-xs">Trạng thái</Label>
+            <Label className="text-xs">{t('auditPage.filterStatusLabel')}</Label>
             <Select value={statusFilter} onValueChange={(v) => updateParams({ status: v === "all" ? undefined : v, page: undefined })}>
-              <SelectTrigger className="w-32 h-8 text-xs">
-                <SelectValue placeholder="Tất cả" />
+              <SelectTrigger className="w-40 h-8 text-xs">
+                <SelectValue placeholder={t('auditPage.all')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Tất cả</SelectItem>
-                <SelectItem value={AUDIT_STATUS.SUCCESS}>Thành công</SelectItem>
-                <SelectItem value={AUDIT_STATUS.FAILED}>Thất bại</SelectItem>
+                <SelectItem value="all">{t('auditPage.all')}</SelectItem>
+                <SelectItem value={AUDIT_STATUS.SUCCESS}>{t('auditPage.statusSuccess')}</SelectItem>
+                <SelectItem value={AUDIT_STATUS.FAILED}>{t('auditPage.statusFailed')}</SelectItem>
               </SelectContent>
             </Select>
           </div>
           <div className="space-y-1">
-            <Label className="text-xs">Người dùng</Label>
+            <Label className="text-xs">{t('auditPage.filterUserLabel')}</Label>
             <Popover>
               <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
+                <button
                   role="combobox"
-                  className="w-44 h-8 justify-between text-xs font-normal"
+                  className="flex h-8 w-full items-center justify-between rounded-md border border-input bg-transparent px-3 py-2 text-xs shadow-sm ring-offset-background focus:outline-none focus:ring-1 focus:ring-ring hover:bg-accent hover:text-accent-foreground"
                 >
-                  {userIdFilter
-                    ? users.find((u) => String(u.id) === userIdFilter)?.fullName ?? "Tất cả"
-                    : "Tất cả"}
-                  <ChevronsUpDown className="size-3 ml-1 shrink-0 opacity-50" />
-                </Button>
+                  <span className="truncate">
+                    {userIdFilter
+                      ? users.find((u) => String(u.id) === userIdFilter)?.fullName ?? t('auditPage.all')
+                      : t('auditPage.all')}
+                  </span>
+                  <ChevronsUpDown className="ml-2 size-3.5 shrink-0 opacity-50" />
+                </button>
               </PopoverTrigger>
               <PopoverContent className="w-44 p-0">
                 <Command>
-                  <CommandInput placeholder="Tìm người dùng..." className="h-8 text-xs" />
+                  <CommandInput placeholder={t('auditPage.searchUser')} className="h-8 text-xs" />
                   <CommandList>
-                    <CommandEmpty className="text-xs py-4">Không tìm thấy</CommandEmpty>
+                    <CommandEmpty className="text-xs py-4">{t('auditPage.userNotFound')}</CommandEmpty>
                     <CommandGroup>
                       <CommandItem
                         value=""
@@ -252,7 +256,7 @@ export const AuditPage = () => {
                             !userIdFilter ? "opacity-100" : "opacity-0",
                           )}
                         />
-                        Tất cả
+                        {t('auditPage.all')}
                       </CommandItem>
                       {users.map((u) => (
                         <CommandItem
@@ -277,26 +281,24 @@ export const AuditPage = () => {
             </Popover>
           </div>
           <div className="space-y-1">
-            <Label className="text-xs">Từ ngày</Label>
-            <Input
-              type="date"
-              className="w-36 h-8 text-xs"
+            <Label className="text-xs">{t('auditPage.filterFromLabel')}</Label>
+            <DatePicker
               value={fromDate}
-              onChange={(e) => updateParams({ from: e.target.value || undefined, page: undefined })}
+              onChange={(v) => updateParams({ from: v || undefined, page: undefined })}
+              className="w-40"
             />
           </div>
           <div className="space-y-1">
-            <Label className="text-xs">Đến ngày</Label>
-            <Input
-              type="date"
-              className="w-36 h-8 text-xs"
+            <Label className="text-xs">{t('auditPage.filterToLabel')}</Label>
+            <DatePicker
               value={toDate}
-              onChange={(e) => updateParams({ to: e.target.value || undefined, page: undefined })}
+              onChange={(v) => updateParams({ to: v || undefined, page: undefined })}
+              className="w-40"
             />
           </div>
           {hasFilters && (
             <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={clearAll}>
-              <X className="size-3.5 mr-1" /> Xoá bộ lọc
+              <X className="size-3.5 mr-1" /> {t('auditPage.clearFilters')}
             </Button>
           )}
         </div>
@@ -317,7 +319,7 @@ export const AuditPage = () => {
         {s && !loading && (
           <p className="text-xs text-muted-foreground">
             <Search className="size-3 inline mr-1" />
-            {s.totalElements} kết quả
+            {t('auditPage.results', { count: s.totalElements })}
           </p>
         )}
       </div>
@@ -326,7 +328,7 @@ export const AuditPage = () => {
         columns={columns}
         data={data?.content ?? []}
         isLoading={loading}
-        emptyMessage="Không có nhật ký nào"
+        emptyMessage={t('auditPage.empty')}
         sort={sort}
         onSort={handleSort}
         totalElements={s?.totalElements}
@@ -348,41 +350,41 @@ export const AuditPage = () => {
       >
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle className="text-base">Chi tiết nhật ký</DialogTitle>
+            <DialogTitle className="text-base">{t('auditPage.dialogTitle')}</DialogTitle>
           </DialogHeader>
           {viewLog && (
             <div className="space-y-3 text-sm">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <span className="text-muted-foreground">Thời gian:</span>
+                  <span className="text-muted-foreground">{t('auditPage.dialogTime')}</span>
                   <p className="font-medium">{fmt(viewLog.createdAt)}</p>
                 </div>
                 <div>
-                  <span className="text-muted-foreground">Người dùng:</span>
+                  <span className="text-muted-foreground">{t('auditPage.dialogUser')}</span>
                   <p className="font-medium">{viewLog.username || "—"}</p>
                 </div>
                 <div>
-                  <span className="text-muted-foreground">Hành động:</span>
+                  <span className="text-muted-foreground">{t('auditPage.dialogAction')}</span>
                   <p className="font-medium">{viewLog.action}</p>
                 </div>
                 <div>
-                  <span className="text-muted-foreground">Đối tượng:</span>
+                  <span className="text-muted-foreground">{t('auditPage.dialogEntity')}</span>
                   <p className="font-medium">
                     {viewLog.entityName} #{viewLog.entityId || "?"}
                   </p>
                 </div>
                 <div>
-                  <span className="text-muted-foreground">IP:</span>
+                  <span className="text-muted-foreground">{t('audit.ip')}</span>
                   <p className="font-medium">{viewLog.ipAddress || "—"}</p>
                 </div>
                 <div>
-                  <span className="text-muted-foreground">Request ID:</span>
+                  <span className="text-muted-foreground">{t('audit.requestId')}</span>
                   <p className="font-mono text-xs">{viewLog.requestId || "—"}</p>
                 </div>
               </div>
               {viewLog.oldValue && (
                 <div>
-                  <span className="text-xs font-medium text-muted-foreground">GIÁ TRỊ CŨ</span>
+                  <span className="text-xs font-medium text-muted-foreground">{t('auditPage.oldValue')}</span>
                   <pre className="mt-1 rounded-md bg-muted p-3 text-xs overflow-x-auto">
                     {JSON.stringify(JSON.parse(viewLog.oldValue), null, 2)}
                   </pre>
@@ -390,7 +392,7 @@ export const AuditPage = () => {
               )}
               {viewLog.newValue && (
                 <div>
-                  <span className="text-xs font-medium text-muted-foreground">GIÁ TRỊ MỚI</span>
+                  <span className="text-xs font-medium text-muted-foreground">{t('auditPage.newValue')}</span>
                   <pre className="mt-1 rounded-md bg-muted p-3 text-xs overflow-x-auto">
                     {JSON.stringify(JSON.parse(viewLog.newValue), null, 2)}
                   </pre>
@@ -398,7 +400,7 @@ export const AuditPage = () => {
               )}
               {viewLog.errorMsg && (
                 <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3">
-                  <span className="text-xs font-medium text-destructive">LỖI</span>
+                  <span className="text-xs font-medium text-destructive">{t('auditPage.error')}</span>
                   <p className="mt-1 text-sm">{viewLog.errorMsg}</p>
                 </div>
               )}

@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next"
 import { useForm, Controller } from "react-hook-form"
 import { useNavigate } from "react-router-dom"
 import { useCreateProduct } from "@/hooks/use-products"
@@ -36,6 +37,7 @@ interface FormData {
 }
 
 export function ProductCreatePage() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const { data: brands } = useBrands()
   const { data: categories } = useCategories()
@@ -60,10 +62,10 @@ export function ProductCreatePage() {
         description: values.description || undefined,
       }
       await createProduct.mutateAsync(payload)
-      toast.success("Tạo sản phẩm thành công")
+      toast.success(t("productForm.createSuccess"))
       navigate("/products")
     } catch (err) {
-      toast.error((err as Error).message || "Không thể tạo sản phẩm")
+      toast.error((err as Error).message || t("productForm.createError"))
     }
   })
 
@@ -71,38 +73,38 @@ export function ProductCreatePage() {
     <div className="mx-auto max-w-2xl space-y-6">
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="sm" onClick={() => navigate("/products")}>
-          &larr; Quay lại
+          &larr; {t("productForm.back")}
         </Button>
-        <h1 className="text-xl font-semibold tracking-tight">Thêm sản phẩm</h1>
+        <h1 className="text-xl font-semibold tracking-tight">{t("productForm.create")}</h1>
       </div>
 
       <form onSubmit={onSubmit}>
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2 sm:col-span-2">
             <Label htmlFor="name">
-              Tên sản phẩm <span className="text-destructive">*</span>
+              {t("productForm.productName")} <span className="text-destructive">*</span>
             </Label>
-            <Input id="name" required {...register("name", { required: "Tên sản phẩm là bắt buộc" })} placeholder="VD: RAM Kingston 16GB DDR4" />
+            <Input id="name" required {...register("name", { required: t("productForm.productNameRequired") })} placeholder={t("productForm.productNamePlaceholder")} />
             <FieldError errors={errors.name ? [{ message: errors.name.message }] : undefined} />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="sku">SKU</Label>
-            <Input id="sku" {...register("sku", { pattern: { value: /^[A-Za-z0-9-]*$/, message: "SKU chỉ gồm chữ, số và dấu gạch" } })} placeholder="Tự sinh nếu để trống" />
+            <Label htmlFor="sku">{t("form.sku")}</Label>
+            <Input id="sku" {...register("sku", { pattern: { value: /^[A-Za-z0-9-]*$/, message: t("productForm.skuPattern") } })} placeholder={t("productForm.skuPlaceholder")} />
             <FieldError errors={errors.sku ? [{ message: errors.sku.message }] : undefined} />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="barcode">Barcode</Label>
+            <Label htmlFor="barcode">{t("productForm.barcode")}</Label>
             <Input id="barcode" {...register("barcode")} />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="brand">Thương hiệu</Label>
+            <Label htmlFor="brand">{t("productForm.brand")}</Label>
             <Controller
               control={control}
               name="brandId"
               render={({ field }) => (
                 <Select value={field.value} onValueChange={field.onChange}>
                   <SelectTrigger id="brand">
-                    <SelectValue placeholder="Chọn thương hiệu" />
+                    <SelectValue placeholder={t("productForm.brandPlaceholder")} />
                   </SelectTrigger>
                   <SelectContent>
                     {brands?.map((b) => (
@@ -114,14 +116,14 @@ export function ProductCreatePage() {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="category">Danh mục</Label>
+            <Label htmlFor="category">{t("productForm.category")}</Label>
             <Controller
               control={control}
               name="categoryId"
               render={({ field }) => (
                 <Select value={field.value} onValueChange={field.onChange}>
                   <SelectTrigger id="category">
-                    <SelectValue placeholder="Chọn danh mục" />
+                    <SelectValue placeholder={t("productForm.categoryPlaceholder")} />
                   </SelectTrigger>
                   <SelectContent>
                     {categories?.map((c) => (
@@ -133,14 +135,14 @@ export function ProductCreatePage() {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="unit">Đơn vị tính</Label>
+            <Label htmlFor="unit">{t("productForm.unit")}</Label>
             <Controller
               control={control}
               name="unit"
               render={({ field }) => (
                 <Select value={field.value} onValueChange={field.onChange}>
                   <SelectTrigger id="unit">
-                    <SelectValue placeholder="Chọn ĐVT" />
+                    <SelectValue placeholder={t("productForm.unitPlaceholder")} />
                   </SelectTrigger>
                   <SelectContent>
                     {UNITS.map((u) => (
@@ -152,17 +154,17 @@ export function ProductCreatePage() {
             />
           </div>
           <div className="space-y-2 sm:col-span-2">
-            <Label>Kiểu theo dõi</Label>
+            <Label>{t("productForm.trackingType")}</Label>
             <Controller
               control={control}
               name="trackingType"
               render={({ field }) => (
                 <RadioGroup value={field.value} onValueChange={field.onChange} className="flex gap-6">
-                  {TRACKING_TYPES.map((t) => (
-                    <div key={t} className="flex items-center gap-2">
-                      <RadioGroupItem value={t} id={`tracking-${t}`} />
-                      <Label htmlFor={`tracking-${t}`} className="font-normal">
-                        {t === TRACKING_TYPE.SERIALIZED ? "Theo serial" : "Hàng rời"}
+                  {TRACKING_TYPES.map((tType) => (
+                    <div key={tType} className="flex items-center gap-2">
+                      <RadioGroupItem value={tType} id={`tracking-${tType}`} />
+                      <Label htmlFor={`tracking-${tType}`} className="font-normal">
+                        {tType === TRACKING_TYPE.SERIALIZED ? t("productForm.trackingSerial") : t("productForm.trackingBulk")}
                       </Label>
                     </div>
                   ))}
@@ -171,24 +173,24 @@ export function ProductCreatePage() {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="sellPrice">Giá bán</Label>
+            <Label htmlFor="sellPrice">{t("productForm.sellPrice")}</Label>
             <Input id="sellPrice" type="number" min={0} {...register("sellPrice")} />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="minStock">Tồn tối thiểu</Label>
+            <Label htmlFor="minStock">{t("productForm.minStock")}</Label>
             <Input id="minStock" type="number" min={0} {...register("minStock")} />
           </div>
         </div>
 
         <div className="space-y-2 mt-4">
-          <Label htmlFor="description">Mô tả</Label>
+          <Label htmlFor="description">{t("productForm.description")}</Label>
           <Textarea id="description" {...register("description")} rows={3} />
         </div>
 
         <div className="flex gap-2 justify-end mt-6">
-          <Button variant="outline" onClick={() => navigate("/products")}>Hủy</Button>
+          <Button variant="outline" onClick={() => navigate("/products")}>{t("common.cancel")}</Button>
           <Button type="submit" disabled={!watch("name").trim() || createProduct.isPending}>
-            {createProduct.isPending ? "Đang tạo..." : "Tạo sản phẩm"}
+            {createProduct.isPending ? t("productForm.creating") : t("productForm.create")}
           </Button>
         </div>
       </form>

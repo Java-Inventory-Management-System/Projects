@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { useParams, useNavigate } from "react-router-dom"
+import { useTranslation } from "react-i18next"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { getExportReceiptById, approveExportReceipt, cancelExportReceipt } from "@/services/export-service"
 import { usePermission } from "@/hooks/use-permission"
@@ -23,24 +24,23 @@ import { PrintReceiptButton } from "../components/print-receipt"
 import { FileDown } from "lucide-react"
 import { EXPORT_RECEIPT_STATUS } from "@/utils/types"
 
-const statusLabel: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
-  PENDING: { label: "Chờ duyệt", variant: "outline" },
-  APPROVED: { label: "Đã duyệt", variant: "secondary" },
-  COMPLETED: { label: "Hoàn tất", variant: "default" },
-  CANCELLED: { label: "Đã hủy", variant: "destructive" },
-}
-
-const reasonLabel: Record<string, string> = {
-  SALE: "Bán hàng",
-  INTERNAL: "Nội bộ",
-  RETURN_SUPPLIER: "Trả NCC",
-  DISPOSE: "Hủy",
-  WARRANTY_REPLACEMENT: "Thay thế bảo hành",
-}
-
 export function ExportDetailPage() {
+  const { t } = useTranslation()
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const statusLabel: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
+    PENDING: { label: t("exportStatus.pending"), variant: "outline" },
+    APPROVED: { label: t("exportStatus.approved"), variant: "secondary" },
+    COMPLETED: { label: t("exportStatus.completed"), variant: "default" },
+    CANCELLED: { label: t("exportStatus.cancelled"), variant: "destructive" },
+  }
+  const reasonLabel: Record<string, string> = {
+    SALE: t("exportReason.sale"),
+    INTERNAL: t("exportReason.internal"),
+    RETURN_SUPPLIER: t("exportReason.returnSupplier"),
+    DISPOSE: t("exportReason.dispose"),
+    WARRANTY_REPLACEMENT: t("exportReason.warrantyReplacement"),
+  }
   const qc = useQueryClient()
   const perm = usePermission()
   const [confirmAction, setConfirmAction] = useState<"approve" | "cancel" | null>(null)
@@ -62,7 +62,7 @@ export function ExportDetailPage() {
       qc.invalidateQueries({ queryKey: ["inventory"] })
       qc.invalidateQueries({ queryKey: ["inventory-summary"] })
       qc.invalidateQueries({ queryKey: ["low-stock"] })
-      toast.success("Thao tác thành công")
+      toast.success(t("exportDetail.actionSuccess"))
       setConfirmAction(null)
     },
     onError: (e: Error) => { toast.error(e.message); setConfirmAction(null) },
@@ -74,14 +74,14 @@ export function ExportDetailPage() {
       <Skeleton className="h-64 w-full" />
     </div>
   )
-  if (!receipt) return <Empty><EmptyTitle>Không tìm thấy phiếu xuất</EmptyTitle></Empty>
+  if (!receipt) return <Empty><EmptyTitle>{t("exportDetail.notFound")}</EmptyTitle></Empty>
 
   const s = statusLabel[receipt.status] ?? { label: receipt.status, variant: "secondary" as const }
 
   const handleDownloadInvoice = () => {
     downloadCsv(
       `${receipt.receiptCode}.csv`,
-      ["Sản phẩm", "SKU", "Số lượng", "Đơn giá", "Thành tiền"],
+      [t("table.product"), t("table.sku"), t("table.quantity"), t("table.unitPrice"), t("table.total")],
       receipt.items.map((item) => [
         item.productName, item.productSku ?? "", String(item.quantity),
         (item.unitPrice ?? 0).toLocaleString("vi-VN"),
@@ -94,7 +94,7 @@ export function ExportDetailPage() {
     <div className="space-y-6">
       <Breadcrumb>
         <BreadcrumbList>
-          <BreadcrumbItem><BreadcrumbLink onClick={() => navigate("/stock/exports")}>Xuất kho</BreadcrumbLink></BreadcrumbItem>
+          <BreadcrumbItem><BreadcrumbLink onClick={() => navigate("/stock/exports")}>{t("nav.exports")}</BreadcrumbLink></BreadcrumbItem>
           <BreadcrumbSeparator />
           <BreadcrumbItem><BreadcrumbPage>{receipt.receiptCode}</BreadcrumbPage></BreadcrumbItem>
         </BreadcrumbList>
@@ -109,21 +109,21 @@ export function ExportDetailPage() {
           {receipt.status === EXPORT_RECEIPT_STATUS.PENDING && (/* perm.hasRole("MANAGER", "ADMIN") && */
             <>
               <Button variant="outline" className="text-destructive" onClick={() => setConfirmAction("cancel")}>
-                <X className="size-4 mr-1" /> Hủy phiếu
+                <X className="size-4 mr-1" /> {t("exportDetail.cancelReceipt")}
               </Button>
               <Button onClick={() => setConfirmAction("approve")}>
-                <Check className="size-4 mr-1" /> Duyệt
+                <Check className="size-4 mr-1" /> {t("exportDetail.approve")}
               </Button>
             </>
           )}
           {receipt.status === EXPORT_RECEIPT_STATUS.APPROVED && (/* perm.hasRole("STOCK", "MANAGER", "ADMIN") && */
             <Button onClick={() => navigate(`/stock/exports/${receipt.id}/fulfill`)}>
-              Xuất kho
+              {t("exportDetail.fulfill")}
             </Button>
           )}
           {perm.hasRole("MANAGER", "ADMIN") && receipt.status !== EXPORT_RECEIPT_STATUS.CANCELLED && receipt.status !== EXPORT_RECEIPT_STATUS.PENDING && receipt.status !== EXPORT_RECEIPT_STATUS.COMPLETED && (
             <Button variant="outline" className="text-destructive" onClick={() => setConfirmAction("cancel")}>
-              <X className="size-4 mr-1" /> Hủy phiếu
+              <X className="size-4 mr-1" /> {t("exportDetail.cancelReceipt")}
             </Button>
           )}
           <PrintReceiptButton
@@ -145,23 +145,23 @@ export function ExportDetailPage() {
       <Card>
         <CardContent className="pt-6">
           <div className="grid grid-cols-2 gap-4 text-sm">
-            <div><span className="text-muted-foreground">Lý do xuất:</span><p className="font-medium">{reasonLabel[receipt.reason] ?? receipt.reason}</p></div>
-            <div><span className="text-muted-foreground">Ngày tạo:</span><p className="font-medium">{new Date(receipt.createdAt).toLocaleString("vi-VN")}</p></div>
-            {receipt.customerName && <div><span className="text-muted-foreground">Khách hàng:</span><p className="font-medium">{receipt.customerName}</p></div>}
-            {receipt.externalReference && <div><span className="text-muted-foreground">Mã bảo hành:</span><p className="font-medium font-mono text-xs">{receipt.externalReference}</p></div>}
-            <div><span className="text-muted-foreground">Người tạo:</span><p className="font-medium">{receipt.createdByName || "—"}</p></div>
-            <div><span className="text-muted-foreground">Người duyệt:</span><p className="font-medium">{receipt.approvedByName ?? "—"}</p></div>
-            {receipt.fulfilledByName && <div><span className="text-muted-foreground">Người xuất:</span><p className="font-medium">{receipt.fulfilledByName}</p></div>}
-            {receipt.fulfilledAt && <div><span className="text-muted-foreground">Ngày xuất:</span><p className="font-medium">{new Date(receipt.fulfilledAt).toLocaleString("vi-VN")}</p></div>}
-            {receipt.rejectedByName && <div><span className="text-muted-foreground">Người từ chối:</span><p className="font-medium">{receipt.rejectedByName}</p></div>}
-            {receipt.rejectReason && <div><span className="text-muted-foreground">Lý do từ chối:</span><p className="font-medium">{receipt.rejectReason}</p></div>}
+            <div><span className="text-muted-foreground">{t("label.reason")}</span><p className="font-medium">{reasonLabel[receipt.reason] ?? receipt.reason}</p></div>
+            <div><span className="text-muted-foreground">{t("label.createdDate")}</span><p className="font-medium">{new Date(receipt.createdAt).toLocaleString("vi-VN")}</p></div>
+            {receipt.customerName && <div><span className="text-muted-foreground">{t("label.customer")}</span><p className="font-medium">{receipt.customerName}</p></div>}
+            {receipt.externalReference && <div><span className="text-muted-foreground">{t("label.warrantyCode")}</span><p className="font-medium font-mono text-xs">{receipt.externalReference}</p></div>}
+            <div><span className="text-muted-foreground">{t("label.creator")}</span><p className="font-medium">{receipt.createdByName || "—"}</p></div>
+            <div><span className="text-muted-foreground">{t("label.approver")}</span><p className="font-medium">{receipt.approvedByName ?? "—"}</p></div>
+            {receipt.fulfilledByName && <div><span className="text-muted-foreground">{t("label.exporter")}</span><p className="font-medium">{receipt.fulfilledByName}</p></div>}
+            {receipt.fulfilledAt && <div><span className="text-muted-foreground">{t("label.exportDate")}</span><p className="font-medium">{new Date(receipt.fulfilledAt).toLocaleString("vi-VN")}</p></div>}
+            {receipt.rejectedByName && <div><span className="text-muted-foreground">{t("label.rejector")}</span><p className="font-medium">{receipt.rejectedByName}</p></div>}
+            {receipt.rejectReason && <div><span className="text-muted-foreground">{t("label.rejectReason")}</span><p className="font-medium">{receipt.rejectReason}</p></div>}
           </div>
         </CardContent>
       </Card>
 
       {receipt.note && (
         <div className="rounded-md border bg-muted/20 px-3 py-2.5 text-sm">
-          <span className="text-xs font-medium text-muted-foreground tracking-wide">GHI CHÚ</span>
+          <span className="text-xs font-medium text-muted-foreground tracking-wide">{t("label.note")}</span>
           <p className="mt-1">{receipt.note}</p>
         </div>
       )}
@@ -171,10 +171,10 @@ export function ExportDetailPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Sản phẩm</TableHead>
-                <TableHead className="w-16 text-right">SL</TableHead>
-                <TableHead className="w-24 text-right">Đơn giá</TableHead>
-                <TableHead className="w-24 text-right">Thành tiền</TableHead>
+                <TableHead>{t("table.product")}</TableHead>
+                <TableHead className="w-16 text-right">{t("table.qty")}</TableHead>
+                <TableHead className="w-24 text-right">{t("table.unitPrice")}</TableHead>
+                <TableHead className="w-24 text-right">{t("table.total")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -194,22 +194,22 @@ export function ExportDetailPage() {
         </CardContent>
       </Card>
 
-      <div className="flex justify-end"><span className="text-lg font-semibold">Tổng: {(receipt.totalAmount ?? 0).toLocaleString("vi-VN")}₫</span></div>
+      <div className="flex justify-end"><span className="text-lg font-semibold">{t("exportDetail.total")}: {(receipt.totalAmount ?? 0).toLocaleString("vi-VN")}₫</span></div>
 
       <AlertDialog open={!!confirmAction} onOpenChange={(v) => { if (!v) setConfirmAction(null) }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{confirmAction === "approve" ? "Duyệt phiếu xuất" : "Hủy phiếu xuất"}</AlertDialogTitle>
+            <AlertDialogTitle>{confirmAction === "approve" ? t("exportDetail.approveConfirmTitle") : t("exportDetail.cancelConfirmTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
               {confirmAction === "approve"
-                ? "Xác nhận duyệt phiếu xuất này? Hàng sẽ chuyển sang trạng thái chờ xuất kho."
-                : "Xác nhận hủy phiếu xuất này? Hàng sẽ được trả lại kho."}
+                ? t("exportDetail.approveConfirmDescription")
+                : t("exportDetail.cancelConfirmDescription")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Không</AlertDialogCancel>
+            <AlertDialogCancel>{t("dialog.no")}</AlertDialogCancel>
             <AlertDialogAction onClick={() => confirmAction && action.mutate(confirmAction)} disabled={action.isPending}>
-              {action.isPending ? "Đang xử lý..." : "Xác nhận"}
+              {action.isPending ? t("dialog.processing") : t("dialog.confirm")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

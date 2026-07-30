@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react"
+import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router-dom"
 import { useAuthStore } from "@/store/auth-store"
 import { AUTH_ENABLED } from "@/utils/http-client"
@@ -8,6 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Eye, EyeOff } from "lucide-react"
 
 export const LoginPage = () => {
+  const { t } = useTranslation()
   const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
@@ -27,7 +29,7 @@ export const LoginPage = () => {
       await login(username, password)
       navigate("/")
     } catch {
-      setError("Sai tên đăng nhập hoặc mật khẩu")
+      setError(t('loginPage.error'))
     }
   }
 
@@ -42,17 +44,17 @@ export const LoginPage = () => {
           >
             W
           </div>
-          <h1 className="text-xl font-semibold tracking-tight">Quản lý kho</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Đăng nhập để tiếp tục</p>
+          <h1 className="text-xl font-semibold tracking-tight">{t('loginPage.title')}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">{t('loginPage.subtitle')}</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="username">Tên đăng nhập</Label>
+            <Label htmlFor="username">{t('loginPage.username')}</Label>
             <Input
               id="username"
               type="text"
-              placeholder="Nhập tên đăng nhập"
+              placeholder={t('loginPage.usernamePlaceholder')}
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               required
@@ -60,12 +62,12 @@ export const LoginPage = () => {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="password">Mật khẩu</Label>
+            <Label htmlFor="password">{t('loginPage.password')}</Label>
             <div className="relative">
               <Input
                 id="password"
                 type={showPassword ? "text" : "password"}
-                placeholder="Nhập mật khẩu"
+                placeholder={t('loginPage.passwordPlaceholder')}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
@@ -90,7 +92,7 @@ export const LoginPage = () => {
           )}
 
           <Button type="submit" className="w-full" disabled={isLoading}>
-            {isLoading ? "Đang đăng nhập..." : "Đăng nhập"}
+            {isLoading ? t('loginPage.signingIn') : t('loginPage.signIn')}
           </Button>
         </form>
       </div>

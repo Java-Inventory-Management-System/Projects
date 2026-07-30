@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { useTranslation } from "react-i18next"
 import { useForm } from "react-hook-form"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { getSuppliers, createSupplier, updateSupplier, toggleSupplierActive } from "@/services/supplier-service"
@@ -36,6 +37,7 @@ const defaultForm: SupplierForm = {
 }
 
 export function SuppliersPage() {
+  const { t } = useTranslation()
   const perm = usePermission()
   const qc = useQueryClient()
   const { data: suppliers = [], isLoading } = useQuery({
@@ -79,7 +81,7 @@ export function SuppliersPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["suppliers"] })
       setDialog({ open: false })
-      toast.success(dialog.edit ? "Cập nhật thành công" : "Tạo thành công")
+      toast.success(dialog.edit ? t("common.updateSuccess") : t("common.createSuccess"))
     },
     onError: (e: Error) => toast.error(e.message),
   })
@@ -91,22 +93,22 @@ export function SuppliersPage() {
   })
 
   const columns: Column<SupplierResponse>[] = [
-    { header: "Tên", render: (s) => <span className="font-medium">{s.name}</span> },
+    { header: t("common.name"), render: (s) => <span className="font-medium">{s.name}</span> },
     {
-      header: "Liên hệ",
+      header: t("supplierPage.contactPerson"),
       render: (s) => <span className="text-sm text-muted-foreground">{s.contactPerson ?? "—"}</span>,
     },
-    { header: "SĐT", render: (s) => <span className="text-sm">{s.phone ?? "—"}</span> },
-    { header: "Email", render: (s) => <span className="text-sm">{s.email ?? "—"}</span> },
-    { header: "Địa chỉ", render: (s) => <span className="text-sm">{s.address ?? "—"}</span> },
-    { header: "MST", render: (s) => <span className="text-sm">{s.taxCode ?? "—"}</span> },
+    { header: t("common.phone"), render: (s) => <span className="text-sm">{s.phone ?? "—"}</span> },
+    { header: t("common.email"), render: (s) => <span className="text-sm">{s.email ?? "—"}</span> },
+    { header: t("common.address"), render: (s) => <span className="text-sm">{s.address ?? "—"}</span> },
+    { header: t("supplierPage.taxCode"), render: (s) => <span className="text-sm">{s.taxCode ?? "—"}</span> },
     {
-      header: "Trạng thái",
+      header: t("common.status"),
       className: "w-24 text-center",
-      render: (s) => <Badge variant={s.isActive ? "default" : "secondary"}>{s.isActive ? "Hoạt động" : "Ngừng"}</Badge>,
+      render: (s) => <Badge variant={s.isActive ? "default" : "secondary"}>{s.isActive ? t("common.active") : t("common.inactive")}</Badge>,
     },
     {
-      header: "Thao tác",
+      header: t("common.actions"),
       className: "w-[90px]",
       render: (s) => (
         <div className="flex gap-1">
@@ -117,7 +119,7 @@ export function SuppliersPage() {
                   <Pencil className="size-3.5" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>Chỉnh sửa</TooltipContent>
+              <TooltipContent>{t("common.edit")}</TooltipContent>
             </Tooltip>
           )}
           {perm.hasRole(...ROLES.MANAGER) && (
@@ -127,7 +129,7 @@ export function SuppliersPage() {
                   <Power className="size-3.5" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>{s.isActive ? "Vô hiệu hoá" : "Kích hoạt"}</TooltipContent>
+              <TooltipContent>{s.isActive ? t("common.deactivate") : t("common.activate")}</TooltipContent>
             </Tooltip>
           )}
         </div>
@@ -138,13 +140,13 @@ export function SuppliersPage() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-xl font-semibold tracking-tight">Nhà cung cấp</h1>
+        <h1 className="text-xl font-semibold tracking-tight">{t("supplierPage.heading")}</h1>
         <Button onClick={openCreate}>
-          <Plus className="size-4 mr-1" /> Thêm
+          <Plus className="size-4 mr-1" /> {t("common.add")}
         </Button>
       </div>
 
-      <DataTable columns={columns} data={suppliers} isLoading={isLoading} emptyMessage="Chưa có nhà cung cấp nào" />
+      <DataTable columns={columns} data={suppliers} isLoading={isLoading} emptyMessage={t("supplierPage.empty")} totalElements={suppliers.length} />
 
       <Dialog
         open={dialog.open}
@@ -154,47 +156,47 @@ export function SuppliersPage() {
       >
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>{dialog.edit ? "Sửa NCC" : "Thêm NCC"}</DialogTitle>
+            <DialogTitle>{dialog.edit ? t("supplierPage.editTitle") : t("supplierPage.addTitle")}</DialogTitle>
           </DialogHeader>
           <form onSubmit={form.handleSubmit((values) => save.mutate(values))}>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2 sm:col-span-2">
                 <Label htmlFor="name">
-                  Tên <span className="text-destructive">*</span>
+                  {t("common.name")} <span className="text-destructive">*</span>
                 </Label>
                 <Input id="name" required {...form.register("name")} />
               </div>
               <div className="space-y-2">
-                <Label>Người liên hệ</Label>
+                <Label>{t("supplierPage.contactPerson")}</Label>
                 <Input {...form.register("contactPerson")} />
               </div>
               <div className="space-y-2">
-                <Label>SĐT</Label>
+                <Label>{t("common.phone")}</Label>
                 <Input {...form.register("phone")} />
               </div>
               <div className="space-y-2">
-                <Label>Email</Label>
+                <Label>{t("common.email")}</Label>
                 <Input {...form.register("email")} />
               </div>
               <div className="space-y-2">
-                <Label>MST</Label>
+                <Label>{t("supplierPage.taxCode")}</Label>
                 <Input {...form.register("taxCode")} />
               </div>
               <div className="space-y-2 sm:col-span-2">
-                <Label>Địa chỉ</Label>
+                <Label>{t("common.address")}</Label>
                 <Input {...form.register("address")} />
               </div>
               <div className="space-y-2 sm:col-span-2">
-                <Label>Ghi chú</Label>
+                <Label>{t("supplierPage.note")}</Label>
                 <Input {...form.register("note")} />
               </div>
             </div>
             <DialogFooter className="mt-4">
               <Button variant="outline" onClick={() => setDialog({ open: false })}>
-                Hủy
+                {t("common.cancel")}
               </Button>
               <Button type="submit" disabled={!form.watch("name").trim() || save.isPending}>
-                {save.isPending ? "Đang lưu..." : "Lưu"}
+                {save.isPending ? t("common.saving") : t("common.save")}
               </Button>
             </DialogFooter>
           </form>

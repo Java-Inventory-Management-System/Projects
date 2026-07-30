@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react"
+import { useTranslation } from "react-i18next"
 import type { LineItem, DiscrepancyNote } from "@/utils/types"
 import type { ItemAction } from "../reducers/import-create-reducer"
 import { toast } from "@/utils/toast"
@@ -28,6 +29,7 @@ interface PreviewEntry {
 }
 
 function SerialPreview({ pasteText }: { pasteText: string }) {
+  const { t } = useTranslation()
   const entries = useMemo<PreviewEntry[]>(() => {
     const all: Array<{ line: number; serial: string }> = []
     const lines = pasteText.split("\n")
@@ -64,10 +66,10 @@ function SerialPreview({ pasteText }: { pasteText: string }) {
   return (
     <div className="rounded-lg border text-sm">
       <div className="px-3 py-1.5 text-[11px] font-medium text-muted-foreground bg-muted/30 flex items-center gap-2">
-        <span>Preview ({entries.length} serial)</span>
-        <span className="text-green-600">{entries.filter((e) => e.status === "ok").length} OK</span>
+        <span>{t('serial.preview', { count: entries.length })}</span>
+        <span className="text-green-600">{t('serial.ok', { count: entries.filter((e) => e.status === "ok").length })}</span>
         {entries.some((e) => e.status === "duplicate") && (
-          <span className="text-destructive">{entries.filter((e) => e.status === "duplicate").length} lỗi</span>
+          <span className="text-destructive">{entries.filter((e) => e.status === "duplicate").length} {t("importStepSerials.errors")}</span>
         )}
       </div>
       <div className="flex flex-wrap gap-1.5 p-2.5 max-h-[160px] overflow-y-auto">
@@ -89,7 +91,7 @@ function SerialPreview({ pasteText }: { pasteText: string }) {
                 </span>
               </TooltipTrigger>
               <TooltipContent side="top" className="text-xs">
-                Trùng lặp với dòng {e.duplicateWith.map((d) => `#${d}`).join(", ")}
+                {t("importStepSerials.duplicateWith", { lines: e.duplicateWith.map((d) => `#${d}`).join(", ") })}
               </TooltipContent>
             </Tooltip>
           ),
@@ -108,6 +110,7 @@ interface Props {
 }
 
 export function ImportStepSerials({ items, dispatch, discrepancyNotes, onDiscrepancyNotesChange, suggestedLocations }: Props) {
+  const { t } = useTranslation()
   const [serialModalOpen, setSerialModalOpen] = useState(false)
   const [activeItemId, setActiveItemId] = useState<number | null>(null)
   const [pasteDialogOpen, setPasteDialogOpen] = useState(false)
@@ -153,7 +156,7 @@ export function ImportStepSerials({ items, dispatch, discrepancyNotes, onDiscrep
         }
       }
     }
-    toast.success(`Đã gán serial cho ${parsed} sản phẩm`)
+    toast.success(t("importStepSerials.assignedSerials", { count: parsed }))
     if (parsed > 0) {
       setPasteDialogOpen(false)
       setPasteText("")
@@ -162,12 +165,12 @@ export function ImportStepSerials({ items, dispatch, discrepancyNotes, onDiscrep
 
   function addDiscrepancy() {
     if (!discDesc.trim()) {
-      toast.error("Vui lòng nhập mô tả")
+      toast.error(t("importStepSerials.requireDescription"))
       return
     }
     const qty = Number(discQty) || 0
     if (qty <= 0) {
-      toast.error("Số lượng phải lớn hơn 0")
+      toast.error(t("importStepSerials.requirePositiveQty"))
       return
     }
     onDiscrepancyNotesChange([
@@ -184,12 +187,12 @@ export function ImportStepSerials({ items, dispatch, discrepancyNotes, onDiscrep
 
   return (
     <div className="space-y-4">
-      <h2 className="text-sm font-semibold text-muted-foreground">Bước 2/3 — Nhập serial</h2>
+      <h2 className="text-sm font-semibold text-muted-foreground">{t("importStepSerials.heading")}</h2>
 
       {items.length > 0 && (
         <>
           <div className="flex items-center gap-3 text-sm">
-            <span className="text-muted-foreground">Tiến độ:</span>
+            <span className="text-muted-foreground">{t("importStepSerials.progress")}:</span>
             <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
               <div
                 className="h-full bg-neutral-500 rounded-full transition-all duration-300"
@@ -203,12 +206,12 @@ export function ImportStepSerials({ items, dispatch, discrepancyNotes, onDiscrep
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="min-w-[200px]">Sản phẩm</TableHead>
-                  <TableHead className="w-16 text-right">Dự kiến</TableHead>
-                  <TableHead className="w-20 text-center">Đã nhập</TableHead>
-                  <TableHead className="w-28 text-center">Serial</TableHead>
-                  <TableHead className="w-36">Vị trí</TableHead>
-                  <TableHead className="w-28 text-center">Trạng thái</TableHead>
+                  <TableHead className="min-w-[200px]">{t("importStepSerials.product")}</TableHead>
+                  <TableHead className="w-16 text-right">{t("importStepSerials.expected")}</TableHead>
+                  <TableHead className="w-20 text-center">{t("importStepSerials.received")}</TableHead>
+                  <TableHead className="w-28 text-center">{t("importStepSerials.serial")}</TableHead>
+                  <TableHead className="w-36">{t("importStepSerials.location")}</TableHead>
+                  <TableHead className="w-28 text-center">{t("importStepSerials.status")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -242,7 +245,7 @@ export function ImportStepSerials({ items, dispatch, discrepancyNotes, onDiscrep
                       </TableCell>
                       <TableCell className="text-center">
                         {isNotReceived ? (
-                          <span className="text-xs text-muted-foreground italic">Không nhận</span>
+                          <span className="text-xs text-muted-foreground italic">{t("importStepSerials.notReceived")}</span>
                         ) : (
                           <Button
                             variant={serialOk ? "outline" : "secondary"}
@@ -284,15 +287,15 @@ export function ImportStepSerials({ items, dispatch, discrepancyNotes, onDiscrep
                               }}
                             >
                               {isNotReceived ? (
-                                <><Check className="size-3" /> Đã nhận</>
+                                <><Check className="size-3" /> {t("importStepSerials.receivedLabel")}</>
                               ) : (
-                                <><X className="size-3" /> Không nhận</>
+                                <><X className="size-3" /> {t("importStepSerials.notReceivedLabel")}</>
                               )}
                             </Button>
                           </TooltipTrigger>
                           {!isNotReceived && serialCount > 0 && (
                             <TooltipContent side="top" className="text-xs">
-                              Đã nhập serial, không thể đánh dấu Không nhận
+                              {t("importStepSerials.cannotMarkNotReceived")}
                             </TooltipContent>
                           )}
                         </Tooltip>
@@ -318,16 +321,16 @@ export function ImportStepSerials({ items, dispatch, discrepancyNotes, onDiscrep
 
       <div className="flex items-center justify-between">
         <p className="text-xs text-muted-foreground italic">
-          Đã nhập: {totalReceived}/{totalExpected}
+          {t("importStepSerials.receivedProgress", { received: totalReceived, expected: totalExpected })}
         </p>
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="sm" className="gap-1.5 text-xs h-8" onClick={() => setDiscrepancyOpen(true)}>
             <ListChecks className="size-3.5" />
-            Hàng ngoài danh sách ({discrepancyNotes.length})
+            {t("importStepSerials.discrepancy", { count: discrepancyNotes.length })}
           </Button>
           <Button variant="ghost" size="sm" className="gap-1.5 text-xs h-8" onClick={() => setPasteDialogOpen(true)}>
             <ClipboardList className="size-3.5" />
-            Dán serial hàng loạt
+            {t("importStepSerials.pasteSerials")}
           </Button>
         </div>
       </div>
@@ -347,9 +350,9 @@ export function ImportStepSerials({ items, dispatch, discrepancyNotes, onDiscrep
       <Dialog open={pasteDialogOpen} onOpenChange={setPasteDialogOpen}>
         <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Dán serial hàng loạt</DialogTitle>
+            <DialogTitle>{t("importStepSerials.pasteTitle")}</DialogTitle>
             <DialogDescription>
-              Mỗi dòng một sản phẩm: <code className="text-xs bg-muted px-1">SKU: serial1, serial2</code>
+              {t("importStepSerials.pasteDesc")} <code className="text-xs bg-muted px-1">SKU: serial1, serial2</code>
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
@@ -369,10 +372,10 @@ export function ImportStepSerials({ items, dispatch, discrepancyNotes, onDiscrep
                 setPasteText("")
               }}
             >
-              Hủy
+              {t("common.cancel")}
             </Button>
             <Button onClick={handlePasteSerials} disabled={!pasteText.trim()}>
-              Áp dụng
+              {t("importStepSerials.apply")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -381,9 +384,9 @@ export function ImportStepSerials({ items, dispatch, discrepancyNotes, onDiscrep
       <Dialog open={discrepancyOpen} onOpenChange={setDiscrepancyOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Hàng ngoài danh sách</DialogTitle>
+            <DialogTitle>{t("importStepSerials.discrepancyTitle")}</DialogTitle>
             <DialogDescription>
-              Ghi nhận các mặt hàng có trong lô hàng thực tế nhưng không có trong phiếu nhập
+              {t("importStepSerials.discrepancyDesc")}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
@@ -402,15 +405,15 @@ export function ImportStepSerials({ items, dispatch, discrepancyNotes, onDiscrep
             )}
             <div className="flex items-end gap-2">
               <div className="flex-1 space-y-1">
-                <Label className="text-xs">Mô tả</Label>
+                <Label className="text-xs">{t("importStepSerials.description")}</Label>
                 <Input
-                  placeholder="Tên sản phẩm / mã SKU"
+                  placeholder={t("importStepSerials.descriptionPlaceholder")}
                   value={discDesc}
                   onChange={(e) => setDiscDesc(e.target.value)}
                 />
               </div>
               <div className="w-20 space-y-1">
-                <Label className="text-xs">SL</Label>
+                <Label className="text-xs">{t("importStepSerials.qty")}</Label>
                 <Input
                   type="number"
                   min={1}
@@ -425,7 +428,7 @@ export function ImportStepSerials({ items, dispatch, discrepancyNotes, onDiscrep
             </div>
           </div>
           <DialogFooter>
-            <Button onClick={() => setDiscrepancyOpen(false)}>Xong</Button>
+            <Button onClick={() => setDiscrepancyOpen(false)}>{t("importStepSerials.done")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -1,5 +1,6 @@
 import { NavLink } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
+import { useTranslation } from "react-i18next"
 import { cn } from "@/utils/cn"
 import { useAuthStore } from "@/store/auth-store"
 import { AUTH_ENABLED } from "@/utils/http-client"
@@ -16,6 +17,7 @@ interface SidebarProps {
 }
 
 export function Sidebar({ collapsed, onNavigate }: SidebarProps) {
+  const { t } = useTranslation()
   const user = useAuthStore((s) => s.user)
   const userRole = useAuthStore((s) => s.user?.role)
   if (!user && AUTH_ENABLED) return null
@@ -51,7 +53,7 @@ export function Sidebar({ collapsed, onNavigate }: SidebarProps) {
 
   return (
     <aside
-      aria-label="Sidebar"
+      aria-label={t('common.appName')}
       data-collapsed={collapsed}
       className="bg-sidebar text-sidebar-foreground flex h-full flex-col border-r transition-[width] duration-200 ease-out"
       style={{ width: collapsed ? "var(--sidebar-w-collapsed)" : "var(--sidebar-w)" }}
@@ -60,10 +62,10 @@ export function Sidebar({ collapsed, onNavigate }: SidebarProps) {
         <div className="flex size-7 items-center justify-center rounded bg-primary text-[10px] font-bold text-primary-foreground leading-none">
           W
         </div>
-        {!collapsed && <span className="text-sm font-semibold tracking-tight">Warehouse</span>}
+        {!collapsed && <span className="text-sm font-semibold tracking-tight">{t('common.appName')}</span>}
       </div>
 
-      <nav aria-label="Main navigation" className="flex-1 space-y-2 overflow-y-auto p-2">
+      <nav aria-label={t('topbar.expandSidebar')} className="flex-1 space-y-2 overflow-y-auto p-2">
         {visibleSections.map((section, si) => (
           <div key={si}>
             {si > 0 && <div className="border-t border-sidebar-border mx-2" />}
@@ -88,7 +90,7 @@ export function Sidebar({ collapsed, onNavigate }: SidebarProps) {
                     <Icon className="size-4 shrink-0" />
                     {!collapsed && (
                       <>
-                        <span className="flex-1">{item.label}</span>
+                        <span className="flex-1">{t(item.labelKey)}</span>
                         {badgeCount[item.path] && (
                           <span className="flex size-5 items-center justify-center rounded-full bg-destructive text-[10px] font-semibold text-destructive-foreground leading-none">
                             {badgeCount[item.path]}

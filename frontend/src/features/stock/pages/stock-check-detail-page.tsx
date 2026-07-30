@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react"
+import { useTranslation } from "react-i18next"
 import { useNavigate, useParams } from "react-router-dom"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import {
@@ -53,15 +54,15 @@ import {
 } from "@/components/ui/alert-dialog"
 import { saveDraft, loadDraft, deleteDraft } from "@/utils/indexed-db"
 
-const statusLabel: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
-  PENDING: { label: "Chờ xử lý", variant: "secondary" },
-  IN_PROGRESS: { label: "Đang kiểm", variant: "outline" },
-  COMPLETED: { label: "Chờ duyệt", variant: "default" },
-  APPROVED: { label: "Đã duyệt", variant: "default" },
-}
-
 export const StockCheckDetailPage = () => {
+  const { t } = useTranslation()
   const { id } = useParams<{ id: string }>()
+  const statusLabel: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
+    PENDING: { label: t("status.pending"), variant: "secondary" },
+    IN_PROGRESS: { label: t("status.inProgress"), variant: "outline" },
+    COMPLETED: { label: t("status.pendingApproval"), variant: "default" },
+    APPROVED: { label: t("status.approved"), variant: "default" },
+  }
   const navigate = useNavigate()
   const qc = useQueryClient()
   const perm = usePermission()
@@ -116,9 +117,9 @@ export const StockCheckDetailPage = () => {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["stock-check", id] })
       qc.invalidateQueries({ queryKey: ["stock-checks"] })
-      toast.success("Đã ghi kết quả kiểm")
+      toast.success(t("stockCheckDetail.recordSuccess"))
     },
-    onError: (err: Error) => toast.error(err.message || "Không thể ghi kết quả"),
+    onError: (err: Error) => toast.error(err.message || t("stockCheckDetail.recordError")),
   })
 
   // Auto-save to IndexedDB when dirty (debounced 1.5s)
@@ -150,27 +151,27 @@ export const StockCheckDetailPage = () => {
       deleteDraft(id!)
       const filled = res.autoFilledCount
       if (filled > 0) {
-        toast.success(`Hoàn tất kiểm kê. Đã tự động đánh dấu ${filled} serial còn hàng`)
+        toast.success(t("stockCheckDetail.completeAutoFill", { count: filled }))
       } else {
-        toast.success("Kiểm hoàn tất, chờ duyệt")
+        toast.success(t("stockCheckDetail.completeSuccess"))
       }
       navigate("/stock/checks")
     },
-    onError: (err: Error) => toast.error(err.message || "Không thể hoàn tất kiểm"),
+    onError: (err: Error) => toast.error(err.message || t("stockCheckDetail.completeError")),
   })
 
   const startMut = useMutation({
     mutationFn: () => startStockCheck(Number(id!)),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["stock-check", id] })
-      toast.success("Đã bắt đầu kiểm kê")
+      toast.success(t("stockCheckDetail.startSuccess"))
     },
-    onError: (err: Error) => toast.error(err.message || "Không thể bắt đầu kiểm"),
+    onError: (err: Error) => toast.error(err.message || t("stockCheckDetail.startError")),
   })
 
   const handleSaveAndComplete = async () => {
     if (bulkMissingCount > 0) {
-      toast.error(`Còn ${bulkMissingCount} sản phẩm BULK chưa đếm số lượng`)
+      toast.error(t("stockCheckDetail.bulkMissing", { count: bulkMissingCount }))
       setCompleteModal(false)
       return
     }
@@ -206,7 +207,7 @@ export const StockCheckDetailPage = () => {
     if (!id) return
     saveDraft(id, localItems)
     dirtyRef.current = false
-    toast.success("Đã lưu tạm")
+    toast.success(t("stockCheckDetail.saveDraftSuccess"))
   }, [id, localItems])
 
   const handleReset = useCallback(() => {
@@ -214,7 +215,7 @@ export const StockCheckDetailPage = () => {
     if (id) deleteDraft(id)
     dirtyRef.current = false
     setResetDialog(false)
-    toast.success("Đã reset về trạng thái ban đầu")
+    toast.success(t("stockCheckDetail.resetSuccess"))
   }, [id])
 
   if (isLoading) {
@@ -230,7 +231,7 @@ export const StockCheckDetailPage = () => {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
         <Empty>
-          <EmptyTitle>Không tìm thấy phiếu kiểm</EmptyTitle>
+          <EmptyTitle>{t("stockCheckDetail.notFound")}</EmptyTitle>
         </Empty>
       </div>
     )
@@ -239,7 +240,7 @@ export const StockCheckDetailPage = () => {
   const s = statusLabel[check.status] ?? { label: check.status, variant: "secondary" }
   const canOperateStock = perm.hasRole(...ROLES.CAN_OPERATE_STOCK)
   const isManager = perm.hasRole(...ROLES.CAN_APPROVE)
-  const canEdit = canOperateStock
+  const canEdit = canOperateStock && (check.status === STOCK_CHECK_STATUS.PENDING || check.status === STOCK_CHECK_STATUS.IN_PROGRESS)
   const canApprove = check.status === STOCK_CHECK_STATUS.COMPLETED && isManager
   const isRejected = check.status === STOCK_CHECK_STATUS.IN_PROGRESS && check.approvalNote != null
 
@@ -248,7 +249,7 @@ export const StockCheckDetailPage = () => {
       <Breadcrumb>
         <BreadcrumbList>
           <BreadcrumbItem>
-            <BreadcrumbLink onClick={() => navigate("/stock/checks")}>Kiểm kho</BreadcrumbLink>
+            <BreadcrumbLink onClick={() => navigate("/stock/checks")}>{t("nav.stockChecks")}</BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator />
           <BreadcrumbItem>
@@ -261,7 +262,7 @@ export const StockCheckDetailPage = () => {
         <div className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 dark:bg-red-950/20 dark:border-red-800 px-4 py-3 text-sm">
           <AlertTriangle className="size-5 text-red-500 shrink-0 mt-0.5" />
           <div>
-            <p className="font-medium text-red-700 dark:text-red-400">Phiếu đã bị từ chối, lý do:</p>
+            <p className="font-medium text-red-700 dark:text-red-400">{t("stockCheckDetail.rejectedLabel")}</p>
             <p className="text-red-600 dark:text-red-300 mt-0.5">{check.approvalNote}</p>
           </div>
         </div>
@@ -271,7 +272,7 @@ export const StockCheckDetailPage = () => {
         <div className="space-y-1.5">
           <div className="flex items-center justify-between text-sm">
             <span className="text-muted-foreground flex items-center gap-1.5">
-              <ListChecks className="size-4" /> Đã kiểm: {checkedCount}/{check.totalItems}
+              <ListChecks className="size-4" /> {t("stockCheckDetail.checkedProgress", { checked: checkedCount, total: check.totalItems })}
             </span>
             <span className="text-xs text-muted-foreground">
               {check.totalItems > 0 ? Math.round((checkedCount / check.totalItems) * 100) : 0}%
@@ -289,36 +290,36 @@ export const StockCheckDetailPage = () => {
           {canEdit && (
             <ButtonGroup>
               <Button variant="outline" onClick={handleSave}>
-                <Save className="size-4 mr-1" /> Lưu tạm
+                <Save className="size-4 mr-1" /> {t("stockCheckDetail.saveDraft")}
               </Button>
               <AlertDialog open={resetDialog} onOpenChange={setResetDialog}>
                 <AlertDialogTrigger asChild>
                   <Button variant="outline">
-                    <RotateCcw className="size-4 mr-1" /> Reset
+                    <RotateCcw className="size-4 mr-1" /> {t("stockCheckDetail.reset")}
                   </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                   <AlertDialogHeader>
-                    <AlertDialogTitle>Xác nhận reset</AlertDialogTitle>
+                    <AlertDialogTitle>{t("stockCheckDetail.resetConfirmTitle")}</AlertDialogTitle>
                     <AlertDialogDescription>
-                      Thao tác này sẽ xoá tất cả trạng thái kiểm tra hiện tại và đưa về trạng thái ban đầu (lúc load từ server). Bạn có chắc chắn muốn tiếp tục?
+                      {t("stockCheckDetail.resetConfirmDesc")}
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
-                    <AlertDialogCancel>Huỷ</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleReset}>Xác nhận reset</AlertDialogAction>
+                    <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleReset}>{t("stockCheckDetail.resetConfirm")}</AlertDialogAction>
                   </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>
               {check.status === STOCK_CHECK_STATUS.PENDING ? (
                 <Button onClick={() => startMut.mutate()} disabled={startMut.isPending}>
                   <Play className="size-4 mr-1" />
-                  {startMut.isPending ? "Đang bắt đầu..." : "Bắt đầu kiểm kê"}
+                  {startMut.isPending ? t("stockCheckDetail.starting") : t("stockCheckDetail.start")}
                 </Button>
               ) : (
                 <Button onClick={() => setCompleteModal(true)} disabled={recordMut.isPending || completeMut.isPending}>
                   <ClipboardCheck className="size-4 mr-1" />
-                  {completeMut.isPending ? "Đang hoàn tất..." : "Hoàn tất kiểm kê"}
+                  {completeMut.isPending ? t("stockCheckDetail.completing") : t("stockCheckDetail.complete")}
                 </Button>
               )}
             </ButtonGroup>
@@ -326,10 +327,10 @@ export const StockCheckDetailPage = () => {
           {canApprove && (
             <ButtonGroup>
               <Button variant="outline" onClick={() => setApprovalModal("reject")}>
-                <X className="size-4 mr-1" /> Từ chối
+                <X className="size-4 mr-1" /> {t("stockCheckDetail.reject")}
               </Button>
               <Button onClick={() => setApprovalModal("approve")}>
-                <Check className="size-4 mr-1" /> Duyệt toàn bộ
+                <Check className="size-4 mr-1" /> {t("stockCheckDetail.approveAll")}
               </Button>
             </ButtonGroup>
           )}
@@ -338,7 +339,7 @@ export const StockCheckDetailPage = () => {
 
       {itemsWithDiff.some((i) => i.difference && i.difference !== STOCK_CHECK_DIFF.MATCH) && (
         <div className="space-y-2">
-          <p className="text-sm font-medium text-muted-foreground">Chênh lệch phát hiện</p>
+          <p className="text-sm font-medium text-muted-foreground">{t("stockCheckDetail.diffSummary")}</p>
           <div className="grid gap-2">
             {itemsWithDiff
               .filter((i) => i.difference && i.difference !== STOCK_CHECK_DIFF.MATCH)
@@ -373,7 +374,7 @@ export const StockCheckDetailPage = () => {
                       i.difference === STOCK_CHECK_DIFF.PARTIAL_SHORTAGE && "border-amber-200 text-amber-600",
                     )}
                   >
-                    {i.difference === STOCK_CHECK_DIFF.MISSING ? "MISSING" : i.difference === STOCK_CHECK_DIFF.UNEXPECTED ? "UNEXPECTED" : "PARTIAL"}
+                    {i.difference === STOCK_CHECK_DIFF.MISSING ? t("stockCheckDetail.diffMissing") : i.difference === STOCK_CHECK_DIFF.UNEXPECTED ? t("stockCheckDetail.diffUnexpected") : t("stockCheckDetail.diffPartial")}
                   </Badge>
                 </div>
               ))}
@@ -383,53 +384,53 @@ export const StockCheckDetailPage = () => {
 
       <Tabs defaultValue="info">
         <TabsList>
-          <TabsTrigger value="info">Thông tin</TabsTrigger>
-          <TabsTrigger value="results">Kết quả</TabsTrigger>
+          <TabsTrigger value="info">{t("stockCheckDetail.tabInfo")}</TabsTrigger>
+          <TabsTrigger value="results">{t("stockCheckDetail.tabResults")}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="info" className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
             <div>
-              <span className="text-muted-foreground">Người tạo:</span>
+              <span className="text-muted-foreground">{t("label.creator")}</span>
               <p className="font-medium">{check.createdByName}</p>
             </div>
             <div>
-              <span className="text-muted-foreground">Ngày tạo:</span>
+              <span className="text-muted-foreground">{t("label.createdDate")}</span>
               <p className="font-medium">{new Date(check.createdAt).toLocaleString("vi-VN")}</p>
             </div>
             {check.scopeType && (
               <div>
-                <span className="text-muted-foreground">Phạm vi:</span>
-                <p className="font-medium">{check.scopeType === "ZONE" ? "Khu vực" : "Danh mục"} #{check.scopeId}</p>
+                <span className="text-muted-foreground">{t("stockCheckDetail.scope")}</span>
+                <p className="font-medium">{check.scopeType === "ZONE" ? t("stockCheckDetail.zone") : t("stockCheckDetail.category")} #{check.scopeId}</p>
               </div>
             )}
             {check.approvedByName && (
               <div>
-                <span className="text-muted-foreground">Người duyệt:</span>
+                <span className="text-muted-foreground">{t("label.approver")}</span>
                 <p className="font-medium">{check.approvedByName}</p>
               </div>
             )}
             {check.approvalNote && (
               <div>
-                <span className="text-muted-foreground">Ghi chú duyệt:</span>
+                <span className="text-muted-foreground">{t("stockCheckDetail.approvalNote")}</span>
                 <p className="font-medium">{check.approvalNote}</p>
               </div>
             )}
             {check.note && (
               <div className="col-span-2">
-                <span className="text-muted-foreground">Ghi chú:</span>
+                <span className="text-muted-foreground">{t("label.note")}</span>
                 <p className="mt-1 text-sm leading-relaxed rounded-md border bg-muted/20 px-3 py-2">{check.note}</p>
               </div>
             )}
           </div>
           <div className="flex gap-3 text-sm">
-            <Badge variant="outline">Tổng: {check.totalItems}</Badge>
-            <Badge variant="secondary">Khớp: {check.matchCount}</Badge>
+            <Badge variant="outline">{t("stockCheckDetail.total", { count: check.totalItems })}</Badge>
+            <Badge variant="secondary">{t("stockCheckDetail.match", { count: check.matchCount })}</Badge>
             <Badge variant="outline" className="text-destructive">
-              Thiếu: {check.missingCount}
+              {t("stockCheckDetail.missing", { count: check.missingCount })}
             </Badge>
             <Badge variant="outline" className="text-destructive">
-              Lỗi: {check.unexpectedCount}
+              {t("stockCheckDetail.unexpected", { count: check.unexpectedCount })}
             </Badge>
           </div>
         </TabsContent>
@@ -455,9 +456,9 @@ export const StockCheckDetailPage = () => {
                   saveDraft(id!, updated.items)
                   qc.invalidateQueries({ queryKey: ["stock-check", id] })
                   const lines = content.split(/[\n\r]+/).map((s: string) => s.trim()).filter(Boolean)
-                  toast.success(`Import ${lines.length} serial, ${updated.items.filter(i => i.actualStatus).length} khớp`)
+                  toast.success(t("stockCheckDetail.importSerialsSuccess", { total: lines.length, matched: updated.items.filter(i => i.actualStatus).length }))
                 } catch (err) {
-                  toast.error((err as Error).message || "Lỗi import serials")
+                  toast.error((err as Error).message || t("stockCheckDetail.importError"))
                 }
               }
               reader.readAsText(file)
@@ -473,10 +474,10 @@ export const StockCheckDetailPage = () => {
           if (!v) setApprovalModal(null)
         }}
         id={Number(id)}
-        title={approvalModal === "approve" ? "Duyệt phiếu kiểm kho" : "Từ chối phiếu kiểm kho"}
+        title={approvalModal === "approve" ? t("stockCheckDetail.approveDialogTitle") : t("stockCheckDetail.rejectDialogTitle")}
         actions={[
-          { label: "Từ chối", confirmLabel: "Xác nhận từ chối", variant: "destructive", service: rejectStockCheck },
-          { label: "Duyệt", confirmLabel: "Xác nhận duyệt", service: approveStockCheck },
+          { label: t("stockCheckDetail.reject"), confirmLabel: t("stockCheckDetail.rejectConfirm"), variant: "destructive", service: rejectStockCheck },
+          { label: t("stockCheckDetail.approve"), confirmLabel: t("stockCheckDetail.approveConfirm"), service: approveStockCheck },
         ]}
         invalidateKeys={[["stock-check", id!], ["stock-checks"], ["inventory"], ["inventory-summary"]]}
       />
@@ -484,22 +485,19 @@ export const StockCheckDetailPage = () => {
       <Dialog open={completeModal} onOpenChange={setCompleteModal}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Hoàn tất kiểm kê</DialogTitle>
+            <DialogTitle>{t("stockCheckDetail.completeDialogTitle")}</DialogTitle>
             <DialogDescription>
               {autoFillCount > 0 ? (
-                <span>
-                  Còn <strong>{autoFillCount}</strong> serial chưa kiểm. Hệ thống sẽ tự động đánh dấu các serial này là
-                  <strong> CÒN HÀNG (IN_STOCK)</strong>. Bạn có chắc chắn?
-                </span>
+                <span>{t("stockCheckDetail.completeDialogAutoFill", { count: autoFillCount })}</span>
               ) : (
-                <span>Xác nhận hoàn tất kiểm kê?</span>
+                <span>{t("stockCheckDetail.completeDialogSimple")}</span>
               )}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setCompleteModal(false)}>Huỷ</Button>
+            <Button variant="outline" onClick={() => setCompleteModal(false)}>{t("common.cancel")}</Button>
             <Button onClick={handleSaveAndComplete} disabled={completeMut.isPending}>
-              {autoFillCount > 0 ? "Xác nhận, đánh dấu còn hàng và hoàn tất" : "Xác nhận hoàn tất"}
+              {autoFillCount > 0 ? t("stockCheckDetail.completeDialogAutoFillBtn") : t("stockCheckDetail.completeDialogSimpleBtn")}
             </Button>
           </DialogFooter>
         </DialogContent>

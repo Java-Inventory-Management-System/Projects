@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react"
+import { useTranslation } from "react-i18next"
 import { useQuery } from "@tanstack/react-query"
 import { lookupWarranty } from "@/services/warranty-service"
 import { Input } from "@/components/ui/input"
@@ -17,25 +18,6 @@ interface SerialSearchPickerProps {
   disabled?: boolean
 }
 
-const statusLabel: Record<string, string> = {
-  IN_STOCK: "Trong kho",
-  SOLD: "Đã xuất kho",
-  RESERVED: "Đã đặt trước",
-  QUARANTINED: "Cách ly",
-  RETURNED: "Đã trả hàng",
-  DISPOSED: "Đã hủy",
-  WARRANTY: "Đang bảo hành",
-  WARRANTY_DONE: "Đã BH xong",
-  WARRANTY_REPLACED: "Đã thay thế",
-  DEFECTIVE: "Lỗi",
-  DAMAGED_IN_STORAGE: "Hỏng trong kho",
-  LOST: "Mất",
-  UNDER_REPAIR: "Đang sửa",
-  SENT_TO_MANUFACTURER: "Đã gửi NCC",
-  RETURNED_TO_SUPPLIER: "Đã trả NCC",
-  REMOVED: "Đã loại khỏi kho",
-}
-
 export const SerialSearchPicker = ({
   productName,
   productId,
@@ -44,6 +26,25 @@ export const SerialSearchPicker = ({
   onChange,
   disabled,
 }: SerialSearchPickerProps) => {
+  const { t } = useTranslation()
+  const statusLabel: Record<string, string> = {
+    [PRODUCT_UNIT_STATUS.IN_STOCK]: t("unitStatus.inStock"),
+    [PRODUCT_UNIT_STATUS.SOLD]: t("unitStatus.sold"),
+    [PRODUCT_UNIT_STATUS.RESERVED]: t("unitStatus.reserved"),
+    [PRODUCT_UNIT_STATUS.QUARANTINED]: t("unitStatus.quarantined"),
+    [PRODUCT_UNIT_STATUS.RETURNED]: t("unitStatus.returned"),
+    [PRODUCT_UNIT_STATUS.DISPOSED]: t("unitStatus.disposed"),
+    [PRODUCT_UNIT_STATUS.WARRANTY]: t("unitStatus.warranty"),
+    [PRODUCT_UNIT_STATUS.WARRANTY_DONE]: t("unitStatus.warrantyDone"),
+    [PRODUCT_UNIT_STATUS.WARRANTY_REPLACED]: t("unitStatus.warrantyReplaced"),
+    [PRODUCT_UNIT_STATUS.DEFECTIVE]: t("unitStatus.defective"),
+    [PRODUCT_UNIT_STATUS.DAMAGED_IN_STORAGE]: t("unitStatus.damagedInStorage"),
+    [PRODUCT_UNIT_STATUS.LOST]: t("unitStatus.lost"),
+    [PRODUCT_UNIT_STATUS.UNDER_REPAIR]: t("unitStatus.underRepair"),
+    [PRODUCT_UNIT_STATUS.SENT_TO_MANUFACTURER]: t("unitStatus.sentToManufacturer"),
+    [PRODUCT_UNIT_STATUS.RETURNED_TO_SUPPLIER]: t("unitStatus.returnedToSupplier"),
+    [PRODUCT_UNIT_STATUS.REMOVED]: t("unitStatus.removed"),
+  }
   const [searchText, setSearchText] = useState("")
   const [lookupKey, setLookupKey] = useState(0)
   const [lookupSerial, setLookupSerial] = useState("")
@@ -120,7 +121,7 @@ export const SerialSearchPicker = ({
         </div>
       </div>
       <Button variant="outline" size="sm" onClick={handleChangeSerial}>
-        Tìm serial khác
+        {t("serialSearch.findAnother")}
       </Button>
     </div>
   )
@@ -129,7 +130,7 @@ export const SerialSearchPicker = ({
     <div className="space-y-3">
       {productName && (
         <p className="text-sm text-muted-foreground">
-          Sản phẩm cần đổi:{" "}
+          {t("serialSearch.productToSwap")}:{" "}
           <span className="font-medium text-foreground">{productName}</span>
         </p>
       )}
@@ -144,14 +145,14 @@ export const SerialSearchPicker = ({
               onKeyDown={(e) => {
                 if (e.key === "Enter") handleSearch()
               }}
-              placeholder="Nhập hoặc quét số serial..."
+              placeholder={t("serialSearch.placeholder")}
               className="pl-9"
               disabled={disabled || isLoading}
               autoFocus
             />
           </div>
           <Button onClick={handleSearch} disabled={disabled || isLoading || isEmpty}>
-            {isLoading ? "Đang tra..." : "Tra cứu"}
+            {isLoading ? t("serialSearch.searching") : t("serialSearch.search")}
           </Button>
         </div>
       )}
@@ -166,7 +167,7 @@ export const SerialSearchPicker = ({
         <div className="rounded-lg border border-destructive/50 bg-destructive/5 p-3 text-sm text-destructive flex items-start gap-2">
           <XCircle className="size-4 mt-0.5 shrink-0" />
           <span>
-            Không tìm thấy serial &quot;{lookupSerial}&quot;. Kiểm tra lại hoặc quét serial khác.
+            {t("serialSearch.notFound", { serial: lookupSerial })}
           </span>
         </div>
       )}
@@ -198,7 +199,7 @@ export const SerialSearchPicker = ({
               handleSelect()
             }}
           >
-            Chọn serial này
+            {t("serialSearch.selectThis")}
           </Button>
         </div>
       )}
@@ -213,7 +214,7 @@ export const SerialSearchPicker = ({
               <div className="flex items-center gap-2">
                 <p className="font-semibold">{lookup!.productName}</p>
                 <Badge variant="default" className="gap-1">
-                  <Check className="size-3" /> Đã chọn
+                  <Check className="size-3" /> {t("serialSearch.selected")}
                 </Badge>
               </div>
               {lookup!.productSku && (
@@ -226,7 +227,7 @@ export const SerialSearchPicker = ({
           </div>
           {!disabled && (
             <Button variant="outline" size="sm" className="w-full" onClick={handleChangeSerial}>
-              Đổi serial khác
+              {t("serialSearch.changeSerial")}
             </Button>
           )}
         </div>
@@ -234,22 +235,22 @@ export const SerialSearchPicker = ({
 
       {validation === "mismatch" &&
         renderWarningCard(
-          `Serial ${lookup!.serialNumber} thuộc sản phẩm khác`,
+          t("serialSearch.mismatchTitle", { serial: lookup!.serialNumber }),
           productName
-            ? `${lookup!.productName} (không phải ${productName})`
-            : `${lookup!.productName}. Không thể chọn serial này để thay thế.`,
+            ? t("serialSearch.mismatchDescWithProduct", { found: lookup!.productName, expected: productName })
+            : t("serialSearch.mismatchDesc", { product: lookup!.productName }),
         )}
 
       {validation === "excluded" &&
         renderWarningCard(
-          "Không thể chọn chính serial đang bảo hành",
-          `Serial ${lookup!.serialNumber} hiện đang là unit gốc của phiếu bảo hành này.`,
+          t("serialSearch.excludedTitle"),
+          t("serialSearch.excludedDesc", { serial: lookup!.serialNumber }),
         )}
 
       {validation === "invalid-status" &&
         renderWarningCard(
-          `Serial ${lookup!.serialNumber} hiện đang: ${statusLabel[lookup!.productUnitStatus] ?? lookup!.productUnitStatus}`,
-          "Chỉ có thể chọn serial còn trong kho.",
+          t("serialSearch.invalidStatusTitle", { serial: lookup!.serialNumber, status: statusLabel[lookup!.productUnitStatus] ?? lookup!.productUnitStatus }),
+          t("serialSearch.invalidStatusDesc"),
         )}
     </div>
   )

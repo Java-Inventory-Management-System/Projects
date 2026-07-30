@@ -13,17 +13,16 @@ export interface DetailBin {
 
 export interface LevelStyle {
   key: FillLevel
-  label: string
   bg: string
   border: string
   text: string
 }
 
 export const LEVELS: LevelStyle[] = [
-  { key: "empty", label: "Còn trống", bg: "bg-sky-50", border: "border-sky-200", text: "text-sky-600" },
-  { key: "low", label: "Còn chỗ", bg: "bg-sky-100", border: "border-sky-300", text: "text-sky-700" },
-  { key: "medium", label: "Gần đầy", bg: "bg-sky-200", border: "border-sky-400", text: "text-sky-800" },
-  { key: "full", label: "Đầy", bg: "bg-sky-300", border: "border-sky-500 border-2", text: "text-sky-900" },
+  { key: "empty", bg: "bg-sky-50", border: "border-sky-200", text: "text-sky-600" },
+  { key: "low", bg: "bg-sky-100", border: "border-sky-300", text: "text-sky-700" },
+  { key: "medium", bg: "bg-sky-200", border: "border-sky-400", text: "text-sky-800" },
+  { key: "full", bg: "bg-sky-300", border: "border-sky-500 border-2", text: "text-sky-900" },
 ] as const
 
 /** Ngưỡng % capacity (dùng chung cho filter + màu) */
@@ -54,11 +53,11 @@ export function binColor(count: number, maxCapacity?: number | null) {
   return LEVELS.find((l) => l.key === fillLevel(count, maxCapacity)) ?? LEVELS[0]
 }
 
-export const FILTERS: { key: FilterMode; label: string }[] = [
-  { key: "all", label: "Tất cả" },
-  { key: "empty", label: "Còn trống" },
-  { key: "stocked", label: "Có hàng" },
-  { key: "full", label: "Đầy" },
+export const FILTERS: { key: FilterMode }[] = [
+  { key: "all" },
+  { key: "empty" },
+  { key: "stocked" },
+  { key: "full" },
 ]
 
 /** Convert FillLevel → FilterMode for matching */
@@ -73,3 +72,5 @@ export function nextCode(existing: string[]): string {
   const max = nums.length > 0 ? Math.max(...nums) : 0
   return String(max + 1).padStart(2, "0")
 }
+
+

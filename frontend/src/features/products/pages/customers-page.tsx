@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { useTranslation } from "react-i18next"
 import { useForm } from "react-hook-form"
 import { useSearchParams } from "react-router-dom"
 import { useDebounce } from "@/hooks/use-debounce"
@@ -11,7 +12,6 @@ import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Plus, Pencil, Power, Search } from "lucide-react"
 import { DataTable, type Column } from "@/components/ui/data-table"
-import { PaginationBar } from "@/components/ui/pagination-bar"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { toast } from "@/utils/toast"
 import { usePermission } from "@/hooks/use-permission"
@@ -35,6 +35,7 @@ const defaultForm: CustomerForm = {
 }
 
 export function CustomersPage() {
+  const { t } = useTranslation()
   const perm = usePermission()
   const qc = useQueryClient()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -78,7 +79,7 @@ export function CustomersPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["customers"] })
       setDialog({ open: false })
-      toast.success(dialog.edit ? "Cập nhật thành công" : "Tạo thành công")
+      toast.success(dialog.edit ? t("common.updateSuccess") : t("common.createSuccess"))
     },
     onError: (e: Error) => toast.error(e.message),
   })
@@ -93,18 +94,18 @@ export function CustomersPage() {
   const totalPages = data?.pagination?.totalPages ?? 0
 
   const columns: Column<CustomerResponse>[] = [
-    { header: "Tên", render: (c) => <span className="font-medium">{c.name}</span> },
-    { header: "SĐT", render: (c) => <span className="text-sm">{c.phone ?? "—"}</span> },
-    { header: "Email", render: (c) => <span className="text-sm">{c.email ?? "—"}</span> },
-    { header: "Địa chỉ", render: (c) => <span className="text-sm">{c.address ?? "—"}</span> },
-    { header: "Ghi chú", render: (c) => <span className="text-sm text-muted-foreground">{c.note ?? "—"}</span> },
+    { header: t("common.name"), render: (c) => <span className="font-medium">{c.name}</span> },
+    { header: t("common.phone"), render: (c) => <span className="text-sm">{c.phone ?? "—"}</span> },
+    { header: t("common.email"), render: (c) => <span className="text-sm">{c.email ?? "—"}</span> },
+    { header: t("common.address"), render: (c) => <span className="text-sm">{c.address ?? "—"}</span> },
+    { header: t("customerPage.note"), render: (c) => <span className="text-sm text-muted-foreground">{c.note ?? "—"}</span> },
     {
-      header: "Trạng thái",
+      header: t("common.status"),
       className: "w-24 text-center",
-      render: (c) => <Badge variant={c.isActive ? "default" : "secondary"}>{c.isActive ? "Hoạt động" : "Ngừng"}</Badge>,
+      render: (c) => <Badge variant={c.isActive ? "default" : "secondary"}>{c.isActive ? t("common.active") : t("common.inactive")}</Badge>,
     },
     {
-      header: "Thao tác",
+      header: t("common.actions"),
       className: "w-[90px]",
       render: (c) => (
         <div className="flex gap-1">
@@ -115,7 +116,7 @@ export function CustomersPage() {
                   <Pencil className="size-3.5" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>Chỉnh sửa</TooltipContent>
+              <TooltipContent>{t("common.edit")}</TooltipContent>
             </Tooltip>
           )}
           {perm.hasRole(...ROLES.MANAGER) && (
@@ -125,7 +126,7 @@ export function CustomersPage() {
                   <Power className="size-3.5" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>{c.isActive ? "Vô hiệu hoá" : "Kích hoạt"}</TooltipContent>
+              <TooltipContent>{c.isActive ? t("common.deactivate") : t("common.activate")}</TooltipContent>
             </Tooltip>
           )}
         </div>
@@ -136,9 +137,9 @@ export function CustomersPage() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-xl font-semibold tracking-tight">Khách hàng</h1>
+        <h1 className="text-xl font-semibold tracking-tight">{t("customerPage.heading")}</h1>
         <Button onClick={openCreate}>
-          <Plus className="size-4 mr-1" /> Thêm
+          <Plus className="size-4 mr-1" /> {t("common.add")}
         </Button>
       </div>
 
@@ -146,7 +147,7 @@ export function CustomersPage() {
         <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           className="pl-8"
-          placeholder="Tìm tên hoặc SĐT..."
+          placeholder={t("customerPage.searchPlaceholder")}
           value={search}
           onChange={(e) => {
             setSearch(e.target.value)
@@ -155,15 +156,17 @@ export function CustomersPage() {
         />
       </div>
 
-      <DataTable columns={columns} data={customers} isLoading={isLoading} emptyMessage="Chưa có khách hàng nào" />
-
-      {totalPages > 1 && (
-        <PaginationBar
-          page={page}
-          totalPages={totalPages}
-          onChange={(p) => setSearchParams((prev) => { prev.set("page", String(p)); return prev }, { replace: true })}
-        />
-      )}
+      <DataTable
+        columns={columns}
+        data={customers}
+        isLoading={isLoading}
+        emptyMessage={t("customerPage.empty")}
+        page={page}
+        totalPages={totalPages}
+        totalElements={data?.pagination?.totalElements}
+        pageSize={20}
+        onPageChange={(p) => setSearchParams((prev) => { prev.set("page", String(p)); return prev }, { replace: true })}
+      />
 
       <Dialog
         open={dialog.open}
@@ -173,39 +176,39 @@ export function CustomersPage() {
       >
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>{dialog.edit ? "Sửa khách hàng" : "Thêm khách hàng"}</DialogTitle>
+            <DialogTitle>{dialog.edit ? t("customerPage.editTitle") : t("customerPage.addTitle")}</DialogTitle>
           </DialogHeader>
           <form onSubmit={form.handleSubmit((values) => save.mutate(values))}>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2 sm:col-span-2">
                 <Label htmlFor="name">
-                  Tên <span className="text-destructive">*</span>
+                  {t("common.name")} <span className="text-destructive">*</span>
                 </Label>
                 <Input id="name" required {...form.register("name")} />
               </div>
               <div className="space-y-2">
-                <Label>SĐT</Label>
+                <Label>{t("common.phone")}</Label>
                 <Input {...form.register("phone")} />
               </div>
               <div className="space-y-2">
-                <Label>Email</Label>
+                <Label>{t("common.email")}</Label>
                 <Input {...form.register("email")} />
               </div>
               <div className="space-y-2 sm:col-span-2">
-                <Label>Địa chỉ</Label>
+                <Label>{t("common.address")}</Label>
                 <Input {...form.register("address")} />
               </div>
               <div className="space-y-2 sm:col-span-2">
-                <Label>Ghi chú</Label>
+                <Label>{t("customerPage.note")}</Label>
                 <Input {...form.register("note")} />
               </div>
             </div>
             <DialogFooter className="mt-4">
               <Button variant="outline" onClick={() => setDialog({ open: false })}>
-                Hủy
+                {t("common.cancel")}
               </Button>
               <Button type="submit" disabled={!form.watch("name").trim() || save.isPending}>
-                {save.isPending ? "Đang lưu..." : "Lưu"}
+                {save.isPending ? t("common.saving") : t("common.save")}
               </Button>
             </DialogFooter>
           </form>

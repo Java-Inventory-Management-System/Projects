@@ -1,4 +1,5 @@
 import { useCallback, useMemo } from "react"
+import { useTranslation } from "react-i18next"
 import { useInventorySummary, useInventoryByCategory, useStockValue } from "@/hooks/use-reports"
 import { formatCompactVND } from "@/utils/format"
 import {
@@ -40,11 +41,11 @@ const HEALTHY_COLOR = "hsl(var(--chart-2))"
 const LOW_STOCK_COLOR = "hsl(var(--chart-3))"
 const OUT_OF_STOCK_COLOR = "hsl(var(--chart-5))"
 
-const healthChartConfig: ChartConfig = {
-  healthy: { label: "Tốt", color: HEALTHY_COLOR },
-  lowStock: { label: "Sắp hết", color: LOW_STOCK_COLOR },
-  outOfStock: { label: "Hết hàng", color: OUT_OF_STOCK_COLOR },
-}
+const useHealthChartConfig = (t: (k: string) => string): ChartConfig => ({
+  healthy: { label: t("summaryTab.healthy"), color: HEALTHY_COLOR },
+  lowStock: { label: t("summaryTab.lowStock"), color: LOW_STOCK_COLOR },
+  outOfStock: { label: t("summaryTab.outOfStock"), color: OUT_OF_STOCK_COLOR },
+})
 
 type CardVariant = "default" | "warning" | "danger"
 const variantBorder: Record<CardVariant, string> = {
@@ -129,6 +130,8 @@ interface SummaryTabProps {
 }
 
 export function SummaryTab({ onNavigate }: SummaryTabProps) {
+  const { t } = useTranslation()
+  const healthChartConfig = useHealthChartConfig(t)
   const { data: summary, isLoading } = useInventorySummary()
   const { data: categories } = useInventoryByCategory()
   const { data: stockValue } = useStockValue()
@@ -205,21 +208,21 @@ export function SummaryTab({ onNavigate }: SummaryTabProps) {
     <div className="space-y-6">
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <StatCard
-          label="Sản phẩm"
+          label={t('summaryTab.products')}
           value={String(summary?.totalProducts ?? "—")}
           icon={<Package className="size-4" />}
-          subtext={categoryCount > 0 ? `trong ${categoryCount} danh mục` : undefined}
+          subtext={categoryCount > 0 ? t('summaryTab.inCategories', { count: categoryCount }) : undefined}
           isLoading={isLoading}
         />
         <StatCard
-          label="Tổng tồn"
+          label={t('summaryTab.totalStock')}
           value={String(summary?.totalUnits ?? "—")}
           icon={<Warehouse className="size-4" />}
-          subtext={avgPerCategory ? `TB ${avgPerCategory} SP/danh mục` : undefined}
+          subtext={avgPerCategory ? t('summaryTab.avgPerCategory', { count: avgPerCategory }) : undefined}
           isLoading={isLoading}
         />
         <StatCard
-          label="Giá trị tồn"
+          label={t('summaryTab.stockValue')}
           value={
             summary?.totalStockValue != null
               ? formatCompactVND(Number(summary.totalStockValue)) + "₫"
@@ -236,13 +239,13 @@ export function SummaryTab({ onNavigate }: SummaryTabProps) {
               >
                 {summary.trendPercent > 0 ? "↑" : "↓"}{" "}
                 {Math.abs(summary.trendPercent).toFixed(1)}%
-                <span className="text-muted-foreground font-normal">so với tháng trước</span>
+                <span className="text-muted-foreground font-normal">{t('summaryTab.vsLastMonth')}</span>
               </span>
             ) : undefined
           }
         />
         <StatCard
-          label="Sắp hết"
+          label={t('summaryTab.lowStock')}
           value={String(summary?.lowStockCount ?? "—")}
           icon={<AlertTriangle className="size-4" />}
           proportion={lowStockPct}
@@ -255,12 +258,12 @@ export function SummaryTab({ onNavigate }: SummaryTabProps) {
               className="h-auto p-0 text-xs text-muted-foreground hover:text-foreground"
               onClick={() => onNavigate?.("low-stock")}
             >
-              Xem chi tiết →
+              {t('summaryTab.viewDetails')} →
             </Button>
           }
         />
         <StatCard
-          label="Hết hàng"
+          label={t('summaryTab.outOfStock')}
           value={String(summary?.outOfStockCount ?? "—")}
           icon={<XCircle className="size-4" />}
           proportion={outOfStockPct}
@@ -272,9 +275,9 @@ export function SummaryTab({ onNavigate }: SummaryTabProps) {
       {uncategorizedCount > 0 && (
         <Alert variant="warning">
           <AlertDescription>
-            {uncategorizedCount} sản phẩm chưa phân loại danh mục —{" "}
+            {t('summaryTab.uncategorizedWarning', { count: uncategorizedCount })}{" "}
             <a href="/products?filter=uncategorized" className="underline font-medium">
-              xem & phân loại
+              {t('summaryTab.viewAndCategorize')}
             </a>
           </AlertDescription>
         </Alert>
@@ -284,13 +287,13 @@ export function SummaryTab({ onNavigate }: SummaryTabProps) {
         <div className="md:col-span-2">
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Giá trị tồn theo danh mục</CardTitle>
+              <CardTitle className="text-base">{t('summaryTab.stockValueByCategory')}</CardTitle>
             </CardHeader>
             <CardContent>
               {!categories ? (
                 <Skeleton className="h-72 w-full" />
               ) : treemapData.length === 0 ? (
-                <EmptyTitle>Chưa có dữ liệu</EmptyTitle>
+                <EmptyTitle>{t('summaryTab.noData')}</EmptyTitle>
               ) : (
                 <ChartContainer config={{}} className="aspect-auto h-72">
                   <Treemap
@@ -310,13 +313,13 @@ export function SummaryTab({ onNavigate }: SummaryTabProps) {
         <div className="md:col-span-1">
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Tình trạng tồn theo danh mục</CardTitle>
+              <CardTitle className="text-base">{t('summaryTab.healthByCategory')}</CardTitle>
             </CardHeader>
             <CardContent>
               {!categories ? (
                 <Skeleton className="h-72 w-full" />
               ) : healthData.length === 0 ? (
-                <EmptyTitle>Chưa có dữ liệu</EmptyTitle>
+                <EmptyTitle>{t('summaryTab.noData')}</EmptyTitle>
               ) : (
                 <ChartContainer config={healthChartConfig} className="aspect-auto h-72">
                   <BarChart data={healthData} layout="vertical" barCategoryGap={4} margin={{ left: 0 }}>
@@ -345,18 +348,18 @@ export function SummaryTab({ onNavigate }: SummaryTabProps) {
         <div className="md:col-span-3">
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Top 10 sản phẩm theo giá trị tồn (ABC)</CardTitle>
+              <CardTitle className="text-base">{t('summaryTab.top10ByValue')}</CardTitle>
             </CardHeader>
             <CardContent>
               {!stockValue ? (
                 <Skeleton className="h-80 w-full" />
               ) : top10.length === 0 ? (
-                <EmptyTitle>Chưa có dữ liệu</EmptyTitle>
+                <EmptyTitle>{t('summaryTab.noData')}</EmptyTitle>
               ) : (
                 <ChartContainer
                   config={{
-                    value: { label: "Giá trị" },
-                    cumulative: { label: "Tích luỹ %" },
+                    value: { label: t('summaryTab.value') },
+                    cumulative: { label: t('summaryTab.cumulativePercent') },
                   }}
                   className="aspect-auto h-80"
                 >
@@ -400,22 +403,22 @@ export function SummaryTab({ onNavigate }: SummaryTabProps) {
                             <p className="font-medium">{d?.name}</p>
                             {d?.sku && <p className="text-muted-foreground">SKU: {d.sku}</p>}
                             <p>
-                              SL tồn: <span className="tabular-nums">{d?.quantity}</span>
+                              {t('summaryTab.stockQty')}: <span className="tabular-nums">{d?.quantity}</span>
                             </p>
                             <p>
-                              Đơn giá:{" "}
+                              {t('summaryTab.unitPrice')}:{" "}
                               <span className="tabular-nums">
                                 {d?.unitPrice?.toLocaleString("vi-VN") ?? "—"}₫
                               </span>
                             </p>
                             <p>
-                              Tổng giá trị:{" "}
+                              {t('summaryTab.totalValue')}:{" "}
                               <span className="tabular-nums">
                                 {formatCompactVND(d?.value ?? 0)}₫
                               </span>
                             </p>
                             <p>
-                              Tích luỹ:{" "}
+                              {t('summaryTab.cumulative')}:{" "}
                               <span className="tabular-nums">
                                 {Number(d?.cumulativePercent ?? 0).toFixed(1)}%
                               </span>

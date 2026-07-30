@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { useParams, useNavigate } from "react-router-dom"
+import { useTranslation } from "react-i18next"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { getExportReceiptById, approveExportReceipt, rejectExportReceipt } from "@/services/export-service"
 import { Button } from "@/components/ui/button"
@@ -19,23 +20,22 @@ import {
 import { toast } from "@/utils/toast"
 import { EXPORT_RECEIPT_STATUS } from "@/utils/types"
 
-const statusLabel: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
-  PENDING: { label: "Chờ duyệt", variant: "outline" },
-  APPROVED: { label: "Đã duyệt", variant: "secondary" },
-  COMPLETED: { label: "Hoàn tất", variant: "default" },
-  CANCELLED: { label: "Đã hủy", variant: "destructive" },
-}
-
-const reasonLabel: Record<string, string> = {
-  SALE: "Bán hàng",
-  INTERNAL: "Nội bộ",
-  RETURN_SUPPLIER: "Trả NCC",
-  DISPOSE: "Hủy",
-}
-
 export function ExportReviewPage() {
+  const { t } = useTranslation()
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const statusLabel: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
+    PENDING: { label: t("exportStatus.pending"), variant: "outline" },
+    APPROVED: { label: t("exportStatus.approved"), variant: "secondary" },
+    COMPLETED: { label: t("exportStatus.completed"), variant: "default" },
+    CANCELLED: { label: t("exportStatus.cancelled"), variant: "destructive" },
+  }
+  const reasonLabel: Record<string, string> = {
+    SALE: t("exportReason.sale"),
+    INTERNAL: t("exportReason.internal"),
+    RETURN_SUPPLIER: t("exportReason.returnSupplier"),
+    DISPOSE: t("exportReason.dispose"),
+  }
   const qc = useQueryClient()
   const [confirmAction, setConfirmAction] = useState<"approve" | "reject" | null>(null)
   const [rejectReason, setRejectReason] = useState("")
@@ -54,11 +54,11 @@ export function ExportReviewPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["export-receipt", id] })
       qc.invalidateQueries({ queryKey: ["export-receipts"] })
-      toast.success("Thao tác thành công")
+      toast.success(t("exportReview.actionSuccess"))
       setConfirmAction(null)
       setRejectReason("")
     },
-    onError: (e: Error) => { toast.error(e.message); setConfirmAction(null) },
+    onError: (e: Error) => { toast.error(e.message || t("exportReview.actionError")); setConfirmAction(null) },
   })
 
   if (isLoading) return (
@@ -67,7 +67,7 @@ export function ExportReviewPage() {
       <Skeleton className="h-64 w-full" />
     </div>
   )
-  if (!receipt) return <Empty><EmptyTitle>Không tìm thấy phiếu xuất</EmptyTitle></Empty>
+  if (!receipt) return <Empty><EmptyTitle>{t("exportReview.notFound")}</EmptyTitle></Empty>
 
   const s = statusLabel[receipt.status] ?? { label: receipt.status, variant: "secondary" as const }
 
@@ -75,9 +75,9 @@ export function ExportReviewPage() {
     <div className="space-y-6">
       <Breadcrumb>
         <BreadcrumbList>
-          <BreadcrumbItem><BreadcrumbLink onClick={() => navigate("/stock/exports")}>Xuất kho</BreadcrumbLink></BreadcrumbItem>
+          <BreadcrumbItem><BreadcrumbLink onClick={() => navigate("/stock/exports")}>{t("nav.exports")}</BreadcrumbLink></BreadcrumbItem>
           <BreadcrumbSeparator />
-          <BreadcrumbItem><BreadcrumbPage>Duyệt phiếu {receipt.receiptCode}</BreadcrumbPage></BreadcrumbItem>
+          <BreadcrumbItem><BreadcrumbPage>{t("exportReview.breadcrumb", { code: receipt.receiptCode })}</BreadcrumbPage></BreadcrumbItem>
         </BreadcrumbList>
       </Breadcrumb>
 
@@ -91,17 +91,17 @@ export function ExportReviewPage() {
       <Card>
         <CardContent className="pt-6">
           <div className="grid grid-cols-2 gap-4 text-sm">
-            <div><span className="text-muted-foreground">Lý do xuất:</span><p className="font-medium">{reasonLabel[receipt.reason] ?? receipt.reason}</p></div>
-            <div><span className="text-muted-foreground">Ngày tạo:</span><p className="font-medium">{new Date(receipt.createdAt).toLocaleString("vi-VN")}</p></div>
-            {receipt.customerName && <div><span className="text-muted-foreground">Khách hàng:</span><p className="font-medium">{receipt.customerName}</p></div>}
-            <div><span className="text-muted-foreground">Người tạo:</span><p className="font-medium">{receipt.createdByName || "—"}</p></div>
+            <div><span className="text-muted-foreground">{t("label.reason")}</span><p className="font-medium">{reasonLabel[receipt.reason] ?? receipt.reason}</p></div>
+            <div><span className="text-muted-foreground">{t("label.createdDate")}</span><p className="font-medium">{new Date(receipt.createdAt).toLocaleString("vi-VN")}</p></div>
+            {receipt.customerName && <div><span className="text-muted-foreground">{t("label.customer")}</span><p className="font-medium">{receipt.customerName}</p></div>}
+            <div><span className="text-muted-foreground">{t("label.creator")}</span><p className="font-medium">{receipt.createdByName || "—"}</p></div>
           </div>
         </CardContent>
       </Card>
 
       {receipt.note && (
         <div className="rounded-md border bg-muted/20 px-3 py-2.5 text-sm">
-          <span className="text-xs font-medium text-muted-foreground tracking-wide">GHI CHÚ</span>
+          <span className="text-xs font-medium text-muted-foreground tracking-wide">{t("label.note")}</span>
           <p className="mt-1">{receipt.note}</p>
         </div>
       )}
@@ -111,10 +111,10 @@ export function ExportReviewPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Sản phẩm</TableHead>
-                <TableHead className="w-16 text-right">SL</TableHead>
-                <TableHead className="w-24 text-right">Đơn giá</TableHead>
-                <TableHead className="w-24 text-right">Thành tiền</TableHead>
+                <TableHead>{t("table.product")}</TableHead>
+                <TableHead className="w-16 text-right">{t("table.qty")}</TableHead>
+                <TableHead className="w-24 text-right">{t("table.unitPrice")}</TableHead>
+                <TableHead className="w-24 text-right">{t("table.total")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -134,15 +134,15 @@ export function ExportReviewPage() {
         </CardContent>
       </Card>
 
-      <div className="flex justify-end"><span className="text-lg font-semibold">Tổng: {(receipt.totalAmount ?? 0).toLocaleString("vi-VN")}₫</span></div>
+      <div className="flex justify-end"><span className="text-lg font-semibold">{t("exportReview.total")}: {(receipt.totalAmount ?? 0).toLocaleString("vi-VN")}₫</span></div>
 
       {receipt.status === EXPORT_RECEIPT_STATUS.PENDING && (
         <div className="flex gap-2 justify-end">
           <Button variant="outline" className="text-destructive" onClick={() => setConfirmAction("reject")}>
-            Từ chối
+            {t("exportReview.reject")}
           </Button>
           <Button onClick={() => setConfirmAction("approve")}>
-            Duyệt phiếu
+            {t("exportReview.approve")}
           </Button>
         </div>
       )}
@@ -150,13 +150,13 @@ export function ExportReviewPage() {
       <AlertDialog open={confirmAction === "approve"} onOpenChange={(v) => { if (!v) setConfirmAction(null) }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Duyệt phiếu xuất</AlertDialogTitle>
-            <AlertDialogDescription>Xác nhận duyệt phiếu xuất này? Hàng sẽ chuyển sang trạng thái chờ xuất kho.</AlertDialogDescription>
+            <AlertDialogTitle>{t("exportReview.approveConfirmTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>{t("exportReview.approveConfirmDescription")}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Không</AlertDialogCancel>
+            <AlertDialogCancel>{t("dialog.no")}</AlertDialogCancel>
             <AlertDialogAction onClick={() => action.mutate("approve")} disabled={action.isPending}>
-              {action.isPending ? "Đang xử lý..." : "Xác nhận duyệt"}
+              {action.isPending ? t("dialog.processing") : t("exportReview.approveConfirm")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -165,20 +165,20 @@ export function ExportReviewPage() {
       <AlertDialog open={confirmAction === "reject"} onOpenChange={(v) => { if (!v) { setConfirmAction(null); setRejectReason("") } }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Từ chối phiếu xuất</AlertDialogTitle>
-            <AlertDialogDescription>Vui lòng nhập lý do từ chối.</AlertDialogDescription>
+            <AlertDialogTitle>{t("exportReview.rejectConfirmTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>{t("exportReview.rejectConfirmDescription")}</AlertDialogDescription>
           </AlertDialogHeader>
           <div className="py-2">
             <Textarea
-              placeholder="Lý do từ chối..."
+              placeholder={t("exportReview.rejectReasonPlaceholder")}
               value={rejectReason}
               onChange={(e) => setRejectReason(e.target.value)}
             />
           </div>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setRejectReason("")}>Hủy</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => setRejectReason("")}>{t("dialog.cancel")}</AlertDialogCancel>
             <AlertDialogAction onClick={() => action.mutate("reject")} disabled={action.isPending || !rejectReason.trim()}>
-              {action.isPending ? "Đang xử lý..." : "Xác nhận từ chối"}
+              {action.isPending ? t("dialog.processing") : t("exportReview.rejectConfirm")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

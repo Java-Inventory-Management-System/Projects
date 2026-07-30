@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next"
 import type { ImportReceipt } from "@/utils/types"
 import { useNavigate } from "react-router-dom"
 import { Badge } from "@/components/ui/badge"
@@ -6,11 +7,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { ScanLine, Eye } from "lucide-react"
 
-const statusLabel: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
-  DRAFT: { label: "Bản nháp", variant: "secondary" },
-  PENDING_APPROVAL: { label: "Chờ duyệt", variant: "outline" },
-  COMPLETED: { label: "Hoàn tất", variant: "default" },
-  CANCELLED: { label: "Đã hủy", variant: "destructive" },
+const getStatusLabel = (status: string, t: (k: string) => string): { label: string; variant: "default" | "secondary" | "outline" | "destructive" } => {
+  const keyMap: Record<string, string> = {
+    DRAFT: "draft", PENDING_APPROVAL: "pendingApproval", COMPLETED: "completed", CANCELLED: "cancelled",
+  }
+  const variantMap: Record<string, "secondary" | "outline" | "default" | "destructive"> = {
+    DRAFT: "secondary", PENDING_APPROVAL: "outline", COMPLETED: "default", CANCELLED: "destructive",
+  }
+  return { label: t(`importStatus.${keyMap[status] ?? status}`, status), variant: variantMap[status] ?? "secondary" }
 }
 
 export const ViewImportModal = ({
@@ -22,19 +26,20 @@ export const ViewImportModal = ({
   open: boolean
   onOpenChange: (v: boolean) => void
 }) => {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   if (!receipt)
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Không có dữ liệu</DialogTitle>
+            <DialogTitle>{t("viewImportModal.noData")}</DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-muted-foreground">Không tìm thấy thông tin phiếu nhập.</p>
+          <p className="text-sm text-muted-foreground">{t("viewImportModal.notFound")}</p>
         </DialogContent>
       </Dialog>
     )
-  const s = statusLabel[receipt.status] ?? { label: receipt.status, variant: "secondary" }
+  const s = getStatusLabel(receipt.status, t)
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[min(95vw,80rem)]">
@@ -47,25 +52,25 @@ export const ViewImportModal = ({
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
-              <span className="text-muted-foreground">Nhà cung cấp:</span>
+              <span className="text-muted-foreground">{t("label.supplier")}</span>
               <p className="font-medium">{receipt.supplierName || "—"}</p>
             </div>
             <div>
-              <span className="text-muted-foreground">Ngày tạo:</span>
+              <span className="text-muted-foreground">{t("label.createdDate")}</span>
               <p className="font-medium">{new Date(receipt.createdAt).toLocaleString("vi-VN")}</p>
             </div>
             <div>
-              <span className="text-muted-foreground">Người tạo:</span>
+              <span className="text-muted-foreground">{t("label.creator")}</span>
               <p className="font-medium">{receipt.createdByName || "—"}</p>
             </div>
             <div>
-              <span className="text-muted-foreground">Người duyệt:</span>
+              <span className="text-muted-foreground">{t("label.approver")}</span>
               <p className="font-medium">{receipt.approvedByName ?? "—"}</p>
             </div>
           </div>
           {receipt.note && (
             <div className="rounded-md border bg-muted/20 px-3 py-2.5 text-sm">
-              <span className="text-xs font-medium text-muted-foreground tracking-wide">GHI CHÚ</span>
+              <span className="text-xs font-medium text-muted-foreground tracking-wide">{t("label.note")}</span>
               <p className="mt-1 leading-relaxed">{receipt.note}</p>
             </div>
           )}
@@ -73,11 +78,11 @@ export const ViewImportModal = ({
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Sản phẩm</TableHead>
-                  <TableHead className="w-16 text-right">SL</TableHead>
-                  <TableHead className="w-24 text-right">Đơn giá</TableHead>
-                  <TableHead className="w-14 text-center">BH</TableHead>
-                  <TableHead className="w-24 text-right">Thành tiền</TableHead>
+                  <TableHead>{t("table.product")}</TableHead>
+                  <TableHead className="w-16 text-right">{t("table.qty")}</TableHead>
+                  <TableHead className="w-24 text-right">{t("table.unitPrice")}</TableHead>
+                  <TableHead className="w-14 text-center">{t("table.warranty")}</TableHead>
+                  <TableHead className="w-24 text-right">{t("table.total")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -92,7 +97,7 @@ export const ViewImportModal = ({
                       {(item.unitPrice ?? 0).toLocaleString("vi-VN")}₫
                     </TableCell>
                     <TableCell className="text-center text-xs tabular-nums text-muted-foreground">
-                      {item.warrantyMonths ? `${item.warrantyMonths}t` : "—"}
+                      {item.warrantyMonths ? t("importDetail.warrantyAbbr", { count: item.warrantyMonths }) : "—"}
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
                       {((item.quantity ?? 0) * (item.unitPrice ?? 0)).toLocaleString("vi-VN")}₫
@@ -104,18 +109,18 @@ export const ViewImportModal = ({
           </div>
           <div className="flex justify-between items-center text-sm">
             <span className="text-muted-foreground">
-              Tổng số đơn vị sản phẩm đã tạo: {receipt.items.reduce((sum, i) => sum + i.createdUnits, 0)}
+              {t("viewImportModal.totalUnits", { count: receipt.items.reduce((sum, i) => sum + i.createdUnits, 0) })}
             </span>
-            <span className="text-lg font-semibold">Tổng: {(receipt.totalAmount ?? 0).toLocaleString("vi-VN")}₫</span>
+            <span className="text-lg font-semibold">{t("viewImportModal.total")}: {(receipt.totalAmount ?? 0).toLocaleString("vi-VN")}₫</span>
           </div>
         </div>
         <DialogFooter className="gap-2">
           <Button variant="outline" onClick={() => navigate(`/stock/imports/${receipt.id}`)}>
-            <Eye className="size-4 mr-1" /> Xem chi tiết
+            <Eye className="size-4 mr-1" /> {t("viewImportModal.viewDetail")}
           </Button>
           {receipt.status === "DRAFT" && (
             <Button onClick={() => navigate(`/stock/imports/new?id=${receipt.id}`)}>
-              <ScanLine className="size-4 mr-1" /> Nhập serial
+              <ScanLine className="size-4 mr-1" /> {t("viewImportModal.enterSerials")}
             </Button>
           )}
         </DialogFooter>

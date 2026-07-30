@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react"
 import { useForm, useFieldArray, Controller } from "react-hook-form"
 import { useNavigate } from "react-router-dom"
+import { useTranslation } from "react-i18next"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { createExportReceipt } from "@/services/export-service"
 import { useProducts } from "@/hooks/use-products"
@@ -41,16 +42,16 @@ interface ProposalFormFields {
   }[]
 }
 
-const reasons: { value: ExportReason; label: string }[] = [
-  { value: EXPORT_REASON.SALE, label: "Bán hàng" },
-  { value: EXPORT_REASON.INTERNAL, label: "Xuất nội bộ" },
-  { value: EXPORT_REASON.RETURN_SUPPLIER, label: "Trả nhà cung cấp" },
-  { value: EXPORT_REASON.DISPOSE, label: "Hủy hàng" },
-  { value: EXPORT_REASON.WARRANTY_REPLACEMENT, label: "Thay thế bảo hành" },
-]
-
 export const ExportProposalPage = () => {
+  const { t } = useTranslation()
   const navigate = useNavigate()
+  const reasons: { value: ExportReason; label: string }[] = [
+    { value: EXPORT_REASON.SALE, label: t("exportReason.sale") },
+    { value: EXPORT_REASON.INTERNAL, label: t("exportReason.internal") },
+    { value: EXPORT_REASON.RETURN_SUPPLIER, label: t("exportReason.returnSupplier") },
+    { value: EXPORT_REASON.DISPOSE, label: t("exportReason.dispose") },
+    { value: EXPORT_REASON.WARRANTY_REPLACEMENT, label: t("exportReason.warrantyReplacement") },
+  ]
   const qc = useQueryClient()
   const [customerName, setCustomerName] = useState("")
   const [selectModalOpen, setSelectModalOpen] = useState(false)
@@ -102,10 +103,10 @@ export const ExportProposalPage = () => {
     onSuccess: (data) => {
       clearDraft("/stock/exports/new")
       qc.invalidateQueries({ queryKey: ["export-receipts"] })
-      toast.success("Tạo phiếu xuất thành công")
+      toast.success(t("exportProposal.createSuccess"))
       navigate(`/stock/exports/${data.id}/fulfill`)
     },
-    onError: (err: Error) => toast.error(err.message || "Có lỗi xảy ra"),
+    onError: (err: Error) => toast.error(err.message || t("exportProposal.createError")),
   })
 
   const addItem = () => {
@@ -126,13 +127,13 @@ export const ExportProposalPage = () => {
 
   const onSubmit = form.handleSubmit((values) => {
     console.log("[submit] form submitted, values:", values)
-    if (!values.reason) { toast.error("Vui lòng chọn lý do xuất"); return }
-    if (values.items.length === 0) { toast.error("Chưa có sản phẩm nào"); return }
-    if (values.reason === EXPORT_REASON.SALE && !values.customerId) { toast.error("Vui lòng chọn khách hàng"); return }
+    if (!values.reason) { toast.error(t("exportProposal.reasonRequired")); return }
+    if (values.items.length === 0) { toast.error(t("exportProposal.noItems")); return }
+    if (values.reason === EXPORT_REASON.SALE && !values.customerId) { toast.error(t("exportProposal.customerRequired")); return }
     for (const item of values.items) {
       const avail = invMap.get(item.productId) ?? 0
       if (item.quantity > avail) {
-        toast.error(`"${item.productName}" chỉ còn ${avail} trong kho, yêu cầu ${item.quantity}`)
+        toast.error(t("exportProposal.insufficientStock", { product: item.productName, available: avail, requested: item.quantity }))
         return
       }
     }
@@ -158,21 +159,21 @@ export const ExportProposalPage = () => {
     <div className="mx-auto max-w-4xl space-y-4 lg:space-y-6">
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="sm" onClick={() => navigate("/stock/exports")}>
-          &larr; Quay lại
+          &larr; {t("common.back")}
         </Button>
-        <h1 className="text-xl font-semibold tracking-tight">Đề xuất xuất kho</h1>
+        <h1 className="text-xl font-semibold tracking-tight">{t("exportProposal.title")}</h1>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
-          <Label htmlFor="reason">Lý do xuất</Label>
+          <Label htmlFor="reason">{t("exportProposal.reason")}</Label>
           <Controller
             control={form.control}
             name="reason"
             render={({ field }) => (
               <Select value={field.value} onValueChange={field.onChange}>
                 <SelectTrigger id="reason">
-                  <SelectValue placeholder="Chọn lý do" />
+                  <SelectValue placeholder={t("exportProposal.reasonPlaceholder")} />
                 </SelectTrigger>
                 <SelectContent>
                   {reasons.map((r) => (
@@ -187,13 +188,13 @@ export const ExportProposalPage = () => {
         </div>
         {watchedReason === EXPORT_REASON.WARRANTY_REPLACEMENT && (
           <div className="space-y-2">
-            <Label htmlFor="externalReference">Mã bảo hành</Label>
-            <Input id="externalReference" placeholder="VD: WR-2026-00123" {...form.register("externalReference")} />
+            <Label htmlFor="externalReference">{t("exportProposal.warrantyCode")}</Label>
+            <Input id="externalReference" placeholder={t("exportProposal.warrantyPlaceholder")} {...form.register("externalReference")} />
           </div>
         )}
         {watchedReason === EXPORT_REASON.SALE && (
           <div className="space-y-2">
-            <Label htmlFor="customer">Khách hàng</Label>
+            <Label htmlFor="customer">{t("exportProposal.customer")}</Label>
             <div className="flex gap-2">
               <Button
                 variant="outline"
@@ -205,7 +206,7 @@ export const ExportProposalPage = () => {
                 ) : (
                   <span className="text-muted-foreground flex items-center gap-2">
                     <Search className="size-4" />
-                    Tìm kiếm / Chọn khách hàng...
+                    {t("exportProposal.searchCustomer")}
                   </span>
                 )}
               </Button>
@@ -220,22 +221,22 @@ export const ExportProposalPage = () => {
       </div>
 
       <div className="space-y-2">
-        <Label>Thêm sản phẩm</Label>
+        <Label>{t("exportProposal.addProductLabel")}</Label>
         <div className="flex gap-2">
           <Select value={selectedProductId} onValueChange={setSelectedProductId}>
             <SelectTrigger className="flex-1">
-              <SelectValue placeholder="Chọn sản phẩm..." />
+              <SelectValue placeholder={t("exportProposal.selectProductPlaceholder")} />
             </SelectTrigger>
             <SelectContent>
               {products.map((p) => (
                 <SelectItem key={p.id} value={String(p.id)}>
-                  {p.name} ({p.sku}) &mdash; {p.sellPrice?.toLocaleString("vi-VN")}₫ &mdash; Tồn: {invMap.get(p.id) ?? 0}
+                  {p.name} ({p.sku}) &mdash; {p.sellPrice?.toLocaleString("vi-VN")}₫ &mdash; {t("exportProposal.inStock", { count: invMap.get(p.id) ?? 0 })}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
           <Button onClick={addItem} disabled={!selectedProductId}>
-            <Plus className="size-4 mr-1" /> Thêm
+            <Plus className="size-4 mr-1" /> {t("common.add")}
           </Button>
         </div>
       </div>
@@ -245,10 +246,10 @@ export const ExportProposalPage = () => {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Sản phẩm</TableHead>
-                <TableHead className="w-20 text-right">SL</TableHead>
-                <TableHead className="w-28 text-right">Đơn giá</TableHead>
-                <TableHead className="w-28 text-right">Thành tiền</TableHead>
+                <TableHead>{t("table.product")}</TableHead>
+                <TableHead className="w-20 text-right">{t("table.qty")}</TableHead>
+                <TableHead className="w-28 text-right">{t("table.unitPrice")}</TableHead>
+                <TableHead className="w-28 text-right">{t("table.total")}</TableHead>
                 <TableHead className="w-10" />
               </TableRow>
             </TableHeader>
@@ -264,7 +265,7 @@ export const ExportProposalPage = () => {
                         const val = Number(e.target.value)
                         if (val > max) {
                           form.setValue(`items.${index}.quantity`, max)
-                          toast.warning(`Số lượng xuất tối đa là ${max}`)
+                          toast.warning(t("exportProposal.maxQuantity", { max }))
                         }
                       }} />
                   </TableCell>
@@ -289,31 +290,31 @@ export const ExportProposalPage = () => {
 
       <div className="flex items-center justify-between">
         <span className="text-sm font-semibold">
-          Tổng: {fields.reduce((s, i) => s + i.quantity * i.unitPrice, 0).toLocaleString("vi-VN")}₫
+          {t("exportProposal.total")}: {fields.reduce((s, i) => s + i.quantity * i.unitPrice, 0).toLocaleString("vi-VN")}₫
         </span>
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="note">Ghi chú</Label>
-        <Textarea id="note" placeholder="Ghi chú (không bắt buộc)" {...form.register("note")} />
+        <Label htmlFor="note">{t("exportProposal.note")}</Label>
+        <Textarea id="note" placeholder={t("form.noteOptional")} {...form.register("note")} />
       </div>
 
       <div className="flex gap-2 justify-end">
-        <Button variant="outline" onClick={() => navigate("/stock/exports")}>Hủy</Button>
+        <Button variant="outline" onClick={() => navigate("/stock/exports")}>{t("common.cancel")}</Button>
         <Button onClick={onSubmit} disabled={!watchedReason || fields.length === 0 || createMut.isPending || (watchedReason === EXPORT_REASON.SALE && !watchedCustomerId)}>
-          {createMut.isPending ? "Đang tạo..." : "Tạo đề xuất"}
+          {createMut.isPending ? t("common.processing") : t("exportProposal.submit")}
         </Button>
       </div>
 
       <Dialog open={showDraftDialog} onOpenChange={(v) => { if (!v) { setShowDraftDialog(false); dismiss() } }}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle>Khôi phục dữ liệu</DialogTitle>
-            <DialogDescription>Bạn có dữ liệu xuất kho chưa lưu từ lần trước. Muốn khôi phục?</DialogDescription>
+            <DialogTitle>{t("exportProposal.restoreTitle")}</DialogTitle>
+            <DialogDescription>{t("exportProposal.restoreDescription")}</DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => { setShowDraftDialog(false); dismiss() }}>Bỏ qua</Button>
-            <Button onClick={() => { setShowDraftDialog(false); restore() }}>Khôi phục</Button>
+            <Button variant="outline" onClick={() => { setShowDraftDialog(false); dismiss() }}>{t("dialog.discard")}</Button>
+            <Button onClick={() => { setShowDraftDialog(false); restore() }}>{t("dialog.restore")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

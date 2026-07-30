@@ -1,4 +1,5 @@
 import { useState, lazy, Suspense } from "react"
+import { useTranslation } from "react-i18next"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useAuthStore } from "@/store/auth-store"
 import { AUTH_ENABLED } from "@/utils/http-client"
@@ -13,19 +14,20 @@ const InventoryPage = lazy(() =>
 )
 const LocationsMapPage = lazy(() => import("./locations-map-page").then((m) => ({ default: m.LocationsMapPage })))
 
-const TABS = [
-  { key: "overview", label: "Tổng quan", roles: ROLES.CAN_VIEW_INVENTORY },
-  { key: "list", label: "Danh sách" },
-  { key: "inventory", label: "Tồn kho" },
-  { key: "map", label: "Bản đồ kho", roles: ROLES.CAN_VIEW_INVENTORY },
-] as const
-
-type TabKey = (typeof TABS)[number]["key"]
+type TabKey = "overview" | "list" | "inventory" | "map"
 
 const TAB_FALLBACK = <Skeleton className="h-96 w-full" />
 
 export function StockUnitsPage() {
+  const { t } = useTranslation()
   const user = useAuthStore((s) => s.user)
+
+  const TABS = [
+    { key: "overview" as const, label: t("common.overview"), roles: ROLES.CAN_VIEW_INVENTORY },
+    { key: "list" as const, label: t("common.list") },
+    { key: "inventory" as const, label: t("nav.inventory") },
+    { key: "map" as const, label: t("stockUnits.map"), roles: ROLES.CAN_VIEW_INVENTORY },
+  ]
 
   const availableTabs = TABS.filter((t) => !AUTH_ENABLED || !t.roles || (user && t.roles.includes(user.role)))
   const [tab, setTab] = useState<TabKey>(availableTabs[0]?.key ?? "list")

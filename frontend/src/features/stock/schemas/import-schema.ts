@@ -14,11 +14,11 @@ export const importLineItemSchema = z.object({
 })
 
 export const importFormSchema = z.object({
-  supplierId: z.string().min(1, "Vui lòng chọn nhà cung cấp"),
-  receiptDate: z.string().min(1, "Vui lòng chọn ngày nhập"),
+  supplierId: z.string().min(1, "importSchema.requiredSupplier"),
+  receiptDate: z.string().min(1, "importSchema.requiredDate"),
   referenceDoc: z.string().optional(),
   note: z.string().optional(),
-  items: z.array(importLineItemSchema).min(1, "Chưa có sản phẩm nào"),
+  items: z.array(importLineItemSchema).min(1, "importSchema.requiredItems"),
 })
 
 export type ImportFormData = z.infer<typeof importFormSchema>

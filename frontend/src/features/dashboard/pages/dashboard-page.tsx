@@ -1,12 +1,11 @@
-import { lazy, Suspense, useMemo, useState } from "react"
+import { lazy, Suspense, useEffect, useMemo, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { useInventoryByCategory, useLowStock, useStockValue, useActivity, useDeadStock } from "@/hooks/use-reports"
 import { formatCompactVND, formatDateVN } from "@/utils/format"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { EmptyTitle } from "@/components/ui/empty"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Skeleton } from "@/components/ui/skeleton"
 import {
   ChartContainer,
   ChartTooltip,
@@ -14,10 +13,13 @@ import {
 } from "@/components/ui/chart"
 import type { ChartConfig } from "@/components/ui/chart"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+
+import { DataTable, type Column } from "@/components/ui/data-table"
 import { FileDown } from "lucide-react"
+import { DatePicker } from "@/components/ui/date-picker"
 import { downloadCsv } from "@/utils/download-csv"
 import { ROLES } from "@/utils/permissions"
+import { Skeleton } from "@/components/ui/skeleton"
 import { PageSkeleton } from "@/components/ui/page-skeleton"
 import {
   BarChart,
@@ -30,19 +32,19 @@ import {
   YAxis,
   Tooltip,
 } from "recharts"
-import type { ActivityItem, StockValueItem, DeadStockItem } from "@/utils/types"
+import type { ActivityItem, StockValueItem, DeadStockItem, CategoryStock, LowStockItem } from "@/utils/types"
 
 const SummaryTab = lazy(() =>
   import("@/features/dashboard/components/summary-tab").then((m) => ({ default: m.SummaryTab })),
 )
 
 const ALL_TABS = [
-  { key: "summary", label: "Tổng quan", roles: ROLES.CAN_OPERATE },
-  { key: "category", label: "Theo danh mục", roles: ROLES.CAN_VIEW_REPORTS },
-  { key: "low-stock", label: "Sắp hết hàng", roles: ROLES.CAN_VIEW_REPORTS },
-  { key: "stock-value", label: "Giá trị tồn", roles: ROLES.CAN_VIEW_REPORTS },
-  { key: "activity", label: "Hoạt động", roles: ROLES.CAN_VIEW_REPORTS },
-  { key: "dead-stock", label: "Tồn lâu", roles: ROLES.CAN_VIEW_REPORTS },
+  { key: "summary", labelKey: "dashboard.tab.overview", roles: ROLES.CAN_OPERATE },
+  { key: "category", labelKey: "dashboard.tab.byCategory", roles: ROLES.CAN_VIEW_REPORTS },
+  { key: "low-stock", labelKey: "dashboard.tab.lowStock", roles: ROLES.CAN_VIEW_REPORTS },
+  { key: "stock-value", labelKey: "dashboard.tab.stockValue", roles: ROLES.CAN_VIEW_REPORTS },
+  { key: "activity", labelKey: "dashboard.tab.activity", roles: ROLES.CAN_VIEW_REPORTS },
+  { key: "dead-stock", labelKey: "dashboard.tab.deadStock", roles: ROLES.CAN_VIEW_REPORTS },
 ] as const
 
 type TabKey = (typeof ALL_TABS)[number]["key"]
@@ -114,27 +116,28 @@ type DeadSortKey = "daysInStock" | "costPrice"
 type DeadSortDir = "asc" | "desc"
 
 export const DashboardPage = () => {
+  const { t } = useTranslation()
   const visibleTabs = useVisibleTabs()
   const [tab, setTab] = useState<TabKey>("summary")
   const safeTab = visibleTabs.some((t) => t.key === tab) ? tab : (visibleTabs[0]?.key ?? "summary")
 
   return (
     <div className="space-y-4">
-      <h1 className="text-xl font-semibold tracking-tight">Dashboard</h1>
+      <h1 className="text-xl font-semibold tracking-tight">{t('dashboard.title')}</h1>
       <div className="flex flex-wrap gap-1 border-b pb-px">
-        {visibleTabs.map((t) => (
+        {visibleTabs.map((tabDef) => (
           <Button
-            key={t.key}
+            key={tabDef.key}
             variant="ghost"
-            onClick={() => setTab(t.key)}
+            onClick={() => setTab(tabDef.key)}
             className={
               "rounded-t-md px-3 py-1.5 h-auto text-sm font-medium hover:bg-transparent " +
-              (safeTab === t.key
+              (safeTab === tabDef.key
                 ? "border-b-2 border-primary text-primary"
                 : "text-muted-foreground hover:text-foreground")
             }
           >
-            {t.label}
+            {t(tabDef.labelKey)}
           </Button>
         ))}
       </div>
@@ -153,7 +156,10 @@ export const DashboardPage = () => {
 }
 
 function CategoryTab() {
+  const { t } = useTranslation()
   const { data, isLoading } = useInventoryByCategory()
+  const [catPage, setCatPage] = useState(0)
+  const catPageSize = 20
   const barData = useMemo(() => {
     if (!data) return []
     return data
@@ -161,13 +167,19 @@ function CategoryTab() {
       .map((c) => ({ name: c.categoryName!, products: c.productCount }))
       .sort((a, b) => b.products - a.products)
   }, [data])
-  const config: ChartConfig = { products: { label: "Số SP", color: "hsl(var(--chart-1))" } }
+  const totalCatElements = data?.length ?? 0
+  const totalCatPages = Math.max(1, Math.ceil(totalCatElements / catPageSize))
+  const catData = useMemo(() => {
+    if (!data) return []
+    return data.slice(catPage * catPageSize, (catPage + 1) * catPageSize)
+  }, [data, catPage])
+  const config: ChartConfig = { products: { label: t('dashboard.category.productCount'), color: "hsl(var(--chart-1))" } }
   if (isLoading) return <Skeleton className="h-48 w-full" />
   return (
     <div className="space-y-3">
       {barData.length > 0 && (
         <Card>
-          <CardHeader><CardTitle className="text-base">Số SKU theo danh mục</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-base">{t('dashboard.category.skuByCategory')}</CardTitle></CardHeader>
           <CardContent>
             <ChartContainer config={config} className="aspect-auto h-56">
               <BarChart data={barData} layout="vertical" margin={{ left: 0 }}>
@@ -190,9 +202,9 @@ function CategoryTab() {
             if (!data) return
             downloadCsv(
               "ton-kho-theo-danh-muc.csv",
-              ["Danh mục", "Số SP", "Tổng tồn", "Giá trị"],
+              [t('dashboard.category.category'), t('dashboard.category.productCount'), t('dashboard.category.totalStock'), t('dashboard.category.value')],
               data.map((c) => [
-                c.categoryName ?? "Chưa phân loại",
+                c.categoryName ?? t('dashboard.category.uncategorized'),
                 String(c.productCount),
                 String(c.totalUnits),
                 String(c.totalStockValue),
@@ -204,44 +216,29 @@ function CategoryTab() {
           <FileDown className="size-3" /> CSV
         </Button>
       </div>
-      <div className="rounded-lg border overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Danh mục</TableHead>
-              <TableHead className="text-right">Số SP</TableHead>
-              <TableHead className="text-right">Tổng tồn</TableHead>
-              <TableHead className="text-right">Giá trị</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {data?.map((c) => (
-              <TableRow key={c.categoryId ?? 0}>
-                <TableCell>{c.categoryName ?? "Chưa phân loại"}</TableCell>
-                <TableCell className="text-right tabular-nums">{c.productCount}</TableCell>
-                <TableCell className="text-right tabular-nums">{c.totalUnits}</TableCell>
-                <TableCell className="text-right tabular-nums">
-                  {c.totalStockValue?.toLocaleString("vi-VN") ?? "0"}₫
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+      <DataTable<CategoryStock>
+        columns={[
+          { header: t('dashboard.category.category'), render: (c) => <span>{c.categoryName ?? t('dashboard.category.uncategorized')}</span> },
+          { header: t('dashboard.category.productCount'), className: "text-right", render: (c) => <span className="tabular-nums">{c.productCount}</span> },
+          { header: t('dashboard.category.totalStock'), className: "text-right", render: (c) => <span className="tabular-nums">{c.totalUnits}</span> },
+          { header: t('dashboard.category.value'), className: "text-right", render: (c) => <span className="tabular-nums">{c.totalStockValue?.toLocaleString("vi-VN") ?? "0"}₫</span> },
+        ]}
+        data={catData}
+        isLoading={false}
+        totalElements={totalCatElements}
+        page={catPage}
+        totalPages={totalCatPages}
+        onPageChange={setCatPage}
+      />
     </div>
   )
 }
 
 function LowStockTab() {
-  const { data, isLoading } = useLowStock()
-  const sorted = useMemo(() => {
-    if (!data) return []
-    return [...data.content].sort((a, b) => {
-      const deficitA = a.quantity - (a.minStock ?? 0)
-      const deficitB = b.quantity - (b.minStock ?? 0)
-      return deficitA - deficitB
-    })
-  }, [data])
+  const { t } = useTranslation()
+  const [lowPage, setLowPage] = useState(0)
+  const lowPageSize = 20
+  const { data, isLoading } = useLowStock(lowPage, lowPageSize)
   if (isLoading) return <Skeleton className="h-48 w-full" />
   return (
     <div className="space-y-3">
@@ -254,7 +251,7 @@ function LowStockTab() {
             if (!data) return
             downloadCsv(
               "sap-het-hang.csv",
-              ["SKU", "Sản phẩm", "Tồn", "Tồn tối thiểu"],
+              [t('table.sku'), t('table.product'), t('dashboard.lowStock.stock'), t('dashboard.lowStock.minStock')],
               data.content.map((i) => [
                 i.productSku ?? "",
                 i.productName,
@@ -268,71 +265,59 @@ function LowStockTab() {
           <FileDown className="size-3" /> CSV
         </Button>
       </div>
-      <div className="rounded-lg border overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>SKU</TableHead>
-              <TableHead>Sản phẩm</TableHead>
-              <TableHead className="text-right">Tồn</TableHead>
-              <TableHead className="text-right">Tồn tối thiểu</TableHead>
-              <TableHead className="text-right">Thiếu</TableHead>
-              <TableHead />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {sorted.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={6} className="text-center py-8">
-                  <EmptyTitle>Không có sản phẩm nào sắp hết hàng</EmptyTitle>
-                </TableCell>
-              </TableRow>
-            ) : (
-              sorted.map((i) => {
-                const deficit = i.quantity - (i.minStock ?? 0)
-                return (
-                  <TableRow key={i.productId}>
-                    <TableCell className="font-mono text-xs">{i.productSku}</TableCell>
-                    <TableCell className="text-sm">{i.productName}</TableCell>
-                    <TableCell
-                      className={`text-right tabular-nums ${deficit <= 0 ? "text-destructive font-semibold" : ""}`}
-                    >
-                      {i.quantity}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">{i.minStock}</TableCell>
-                    <TableCell className={`text-right tabular-nums ${deficit < 0 ? "text-destructive" : "text-muted-foreground"}`}>
-                      {deficit > 0 ? "+" : ""}{deficit}
-                    </TableCell>
-                    <TableCell>
-                      <Button variant="outline" size="sm" className="text-xs h-7 px-2" asChild>
-                        <a href={`/stock/imports/create?ref=low-stock&productId=${i.productId}`}>Nhập</a>
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                )
-              })
-            )}
-          </TableBody>
-        </Table>
-      </div>
+      <DataTable<LowStockItem>
+        columns={[
+          { header: t('table.sku'), render: (i) => <span className="font-mono text-xs">{i.productSku}</span> },
+          { header: t('table.product'), render: (i) => <span className="text-sm">{i.productName}</span> },
+          { header: t('dashboard.lowStock.stock'), className: "text-right", render: (i) => {
+            const deficit = i.quantity - (i.minStock ?? 0)
+            return <span className={`tabular-nums ${deficit <= 0 ? "text-destructive font-semibold" : ""}`}>{i.quantity}</span>
+          }},
+          { header: t('dashboard.lowStock.minStock'), className: "text-right", render: (i) => <span className="tabular-nums">{i.minStock}</span> },
+          { header: t('dashboard.lowStock.deficit'), className: "text-right", render: (i) => {
+            const deficit = i.quantity - (i.minStock ?? 0)
+            return <span className={`tabular-nums ${deficit < 0 ? "text-destructive" : "text-muted-foreground"}`}>{deficit > 0 ? "+" : ""}{deficit}</span>
+          }},
+          { header: "", render: (i) => (
+            <Button variant="outline" size="sm" className="text-xs h-7 px-2" asChild>
+              <a href={`/stock/imports/create?ref=low-stock&productId=${i.productId}`}>{t('dashboard.lowStock.import')}</a>
+            </Button>
+          )},
+        ]}
+        data={data?.content ?? []}
+        isLoading={false}
+        emptyMessage={t('dashboard.lowStock.empty')}
+        totalElements={data?.pagination?.totalElements}
+        page={data?.pagination?.number ?? 0}
+        totalPages={data?.pagination?.totalPages ?? 1}
+        onPageChange={setLowPage}
+      />
     </div>
   )
 }
 
-const paretoConfig: ChartConfig = {
-  value: { label: "Giá trị" },
-  cumulative: { label: "Tích luỹ %" },
-}
-
 function StockValueTab() {
+  const { t } = useTranslation()
   const { data, isLoading } = useStockValue()
+  const [svPage, setSvPage] = useState(0)
+  const svPageSize = 20
+  const paretoConfig: ChartConfig = {
+    value: { label: t("dashboard.stockValue.value") },
+    cumulative: { label: t("dashboard.stockValue.cumulative") },
+  }
   const paretoData = useMemo(() => computePareto(data), [data])
+  const totalSvElements = data?.length ?? 0
+  const totalSvPages = Math.max(1, Math.ceil(totalSvElements / svPageSize))
+  const svData = useMemo(() => {
+    if (!data) return []
+    return data.slice(svPage * svPageSize, (svPage + 1) * svPageSize)
+  }, [data, svPage])
   if (isLoading) return <Skeleton className="h-48 w-full" />
   return (
     <div className="space-y-3">
       {paretoData.length > 1 && (
         <Card>
-          <CardHeader><CardTitle className="text-base">Phân tích ABC — Giá trị tồn</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-base">{t('dashboard.stockValue.abcAnalysis')}</CardTitle></CardHeader>
           <CardContent>
             <ChartContainer config={paretoConfig} className="aspect-auto h-80">
               <ComposedChart data={paretoData} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
@@ -374,10 +359,10 @@ function StockValueTab() {
                       <div className="rounded-lg border bg-background p-2 shadow-md text-xs space-y-1 max-w-[260px]">
                         <p className="font-medium">{d?.name}</p>
                         {d?.sku && <p className="text-muted-foreground">SKU: {d.sku}</p>}
-                        <p>SL tồn: <span className="tabular-nums">{d?.quantity}</span></p>
-                        <p>Đơn giá: <span className="tabular-nums">{d?.unitPrice?.toLocaleString("vi-VN") ?? "—"}₫</span></p>
-                        <p>Tổng giá trị: <span className="tabular-nums">{formatCompactVND(d?.value ?? 0)}₫</span></p>
-                        <p>Tích luỹ: <span className="tabular-nums">{Number(d?.cumulativePercent ?? 0).toFixed(1)}%</span></p>
+                        <p>{t('dashboard.stockValue.stockQty')}: <span className="tabular-nums">{d?.quantity}</span></p>
+                        <p>{t('dashboard.stockValue.unitPrice')}: <span className="tabular-nums">{d?.unitPrice?.toLocaleString("vi-VN") ?? "—"}₫</span></p>
+                        <p>{t('dashboard.stockValue.totalValue')}: <span className="tabular-nums">{formatCompactVND(d?.value ?? 0)}₫</span></p>
+                        <p>{t('dashboard.stockValue.cumulative')}: <span className="tabular-nums">{Number(d?.cumulativePercent ?? 0).toFixed(1)}%</span></p>
                       </div>
                     )
                   }}
@@ -399,7 +384,7 @@ function StockValueTab() {
             if (!data) return
             downloadCsv(
               "gia-tri-ton.csv",
-              ["SKU", "Sản phẩm", "Danh mục", "SL", "Đơn giá", "Tổng giá trị"],
+              [t('table.sku'), t('table.product'), t('dashboard.stockValue.category'), t('dashboard.stockValue.qty'), t('dashboard.stockValue.unitPrice'), t('dashboard.stockValue.totalValue')],
               data.map((i) => [
                 i.productSku ?? "",
                 i.productName,
@@ -415,79 +400,66 @@ function StockValueTab() {
           <FileDown className="size-3" /> CSV
         </Button>
       </div>
-      <div className="rounded-lg border overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>SKU</TableHead>
-              <TableHead>Sản phẩm</TableHead>
-              <TableHead>Danh mục</TableHead>
-              <TableHead className="text-right">SL</TableHead>
-              <TableHead className="text-right">Đơn giá</TableHead>
-              <TableHead className="text-right">Tổng giá trị</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {!data || data.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={6} className="text-center py-8">
-                  <EmptyTitle>Chưa có dữ liệu</EmptyTitle>
-                </TableCell>
-              </TableRow>
-            ) : (
-              data.map((i) => (
-                <TableRow key={i.productId}>
-                  <TableCell className="font-mono text-xs">{i.productSku}</TableCell>
-                  <TableCell className="text-sm">{i.productName}</TableCell>
-                  <TableCell className="text-sm">{i.categoryName ?? "—"}</TableCell>
-                  <TableCell className="text-right tabular-nums">{i.quantity}</TableCell>
-                  <TableCell className="text-right tabular-nums">
-                    {i.unitPrice?.toLocaleString("vi-VN") ?? "0"}₫
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums">
-                    {i.totalValue?.toLocaleString("vi-VN") ?? "0"}₫
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+      <DataTable<StockValueItem>
+        columns={[
+          { header: t('table.sku'), render: (i) => <span className="font-mono text-xs">{i.productSku}</span> },
+          { header: t('table.product'), render: (i) => <span className="text-sm">{i.productName}</span> },
+          { header: t('dashboard.stockValue.category'), render: (i) => <span className="text-sm">{i.categoryName ?? "—"}</span> },
+          { header: t('dashboard.stockValue.qty'), className: "text-right", render: (i) => <span className="tabular-nums">{i.quantity}</span> },
+          { header: t('dashboard.stockValue.unitPrice'), className: "text-right", render: (i) => <span className="tabular-nums">{i.unitPrice?.toLocaleString("vi-VN") ?? "0"}₫</span> },
+          { header: t('dashboard.stockValue.totalValue'), className: "text-right", render: (i) => <span className="tabular-nums">{i.totalValue?.toLocaleString("vi-VN") ?? "0"}₫</span> },
+        ]}
+        data={svData}
+        isLoading={isLoading}
+        emptyMessage={t('dashboard.stockValue.noData')}
+        totalElements={totalSvElements}
+        page={svPage}
+        totalPages={totalSvPages}
+        onPageChange={setSvPage}
+      />
     </div>
   )
 }
 
-const activityChartConfig: ChartConfig = {
-  imports: { label: "Nhập", color: "hsl(var(--chart-1))" },
-  exports: { label: "Xuất", color: "hsl(var(--chart-6))" },
-}
-
 function ActivityTab() {
+  const { t } = useTranslation()
+  const activityChartConfig: ChartConfig = {
+    imports: { label: t("dashboard.activity.import"), color: "hsl(var(--chart-1))" },
+    exports: { label: t("dashboard.activity.export"), color: "hsl(var(--chart-6))" },
+  }
   const today = new Date()
   const firstDay = new Date(today.getFullYear(), today.getMonth(), 1)
   const [from, setFrom] = useState(firstDay.toISOString().slice(0, 10))
   const [to, setTo] = useState(today.toISOString().slice(0, 10))
   const [byValue, setByValue] = useState(true)
+  const [actPage, setActPage] = useState(0)
+  const actPageSize = 20
   const { data, isLoading } = useActivity(from + "T00:00:00Z", to + "T23:59:59Z")
   const series = useMemo(() => aggregateActivitySeries(data, byValue), [data, byValue])
+  const totalActElements = data?.length ?? 0
+  const totalActPages = Math.max(1, Math.ceil(totalActElements / actPageSize))
+  const actData = useMemo(() => {
+    if (!data) return []
+    return data.slice(actPage * actPageSize, (actPage + 1) * actPageSize)
+  }, [data, actPage])
   return (
     <div className="space-y-3">
       <div className="flex gap-3 items-end flex-wrap">
         <div className="space-y-1">
-          <Label htmlFor="d-from">Từ</Label>
-          <Input id="d-from" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+          <Label className="text-xs">{t('dashboard.activity.from')}</Label>
+          <DatePicker value={from} onChange={setFrom} className="w-40" />
         </div>
         <div className="space-y-1">
-          <Label htmlFor="d-to">Đến</Label>
-          <Input id="d-to" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+          <Label className="text-xs">{t('dashboard.activity.to')}</Label>
+          <DatePicker value={to} onChange={setTo} className="w-40" />
         </div>
         <Button variant="outline" size="sm" onClick={() => setByValue((v) => !v)}>
-          {byValue ? "Theo số lượng" : "Theo giá trị"}
+          {byValue ? t('dashboard.activity.byQuantity') : t('dashboard.activity.byValue')}
         </Button>
       </div>
       {series.length > 0 && (
         <Card>
-          <CardHeader><CardTitle className="text-base">Nhập / Xuất {byValue ? "theo giá trị" : "theo số lượng"}</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-base">{t('dashboard.activity.importExport', { byValue: byValue ? t('dashboard.activity.byValue') : t('dashboard.activity.byQuantity') })}</CardTitle></CardHeader>
           <CardContent>
             <ChartContainer config={activityChartConfig} className="aspect-auto h-56">
               <BarChart data={series} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
@@ -502,66 +474,43 @@ function ActivityTab() {
           </CardContent>
         </Card>
       )}
-      <div className="rounded-lg border overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Loại</TableHead>
-              <TableHead>Mã phiếu</TableHead>
-              <TableHead>Ngày</TableHead>
-              <TableHead>Đối tác</TableHead>
-              <TableHead className="text-right">Dòng</TableHead>
-              <TableHead className="text-right">Tổng tiền</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading ? (
-              <TableRow>
-                <TableCell colSpan={6}>
-                  <Skeleton className="h-4 w-full" />
-                </TableCell>
-              </TableRow>
-            ) : !data || data.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={6} className="text-center py-8">
-                  <EmptyTitle>Không có hoạt động trong khoảng thời gian này</EmptyTitle>
-                </TableCell>
-              </TableRow>
-            ) : (
-              data.map((a, i) => (
-                <TableRow key={i}>
-                  <TableCell>
-                    <Badge variant={a.type === "IMPORT" ? "default" : "secondary"}>
-                      {a.type === "IMPORT" ? "Nhập" : "Xuất"}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="font-mono text-xs">{a.receiptCode}</TableCell>
-                  <TableCell className="text-sm">{formatDateVN(a.date)}</TableCell>
-                  <TableCell className="text-sm">{a.counterpartyName ?? "—"}</TableCell>
-                  <TableCell className="text-right tabular-nums">{a.lineItems}</TableCell>
-                  <TableCell className="text-right tabular-nums">
-                    {a.totalAmount?.toLocaleString("vi-VN") ?? "0"}₫
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+      <DataTable<ActivityItem>
+        columns={[
+          { header: t('dashboard.activity.type'), render: (a) => (
+            <Badge variant={a.type === "IMPORT" ? "default" : "secondary"}>
+              {a.type === "IMPORT" ? t('dashboard.activity.import') : t('dashboard.activity.export')}
+            </Badge>
+          )},
+          { header: t('dashboard.activity.code'), render: (a) => <span className="font-mono text-xs">{a.receiptCode}</span> },
+          { header: t('dashboard.activity.date'), render: (a) => <span className="text-sm">{formatDateVN(a.date)}</span> },
+          { header: t('dashboard.activity.partner'), render: (a) => <span className="text-sm">{a.counterpartyName ?? "—"}</span> },
+          { header: t('dashboard.activity.lines'), className: "text-right", render: (a) => <span className="tabular-nums">{a.lineItems}</span> },
+          { header: t('dashboard.activity.totalAmount'), className: "text-right", render: (a) => <span className="tabular-nums">{a.totalAmount?.toLocaleString("vi-VN") ?? "0"}₫</span> },
+        ]}
+        data={actData}
+        isLoading={isLoading}
+        emptyMessage={t('dashboard.activity.noActivity')}
+        totalElements={totalActElements}
+        page={actPage}
+        totalPages={totalActPages}
+        onPageChange={setActPage}
+      />
     </div>
   )
 }
 
-const histogramConfig: ChartConfig = {
-  count: { label: "Số SP", color: "hsl(var(--chart-3))" },
-}
-
 function DeadStockTab() {
+  const { t } = useTranslation()
+  const histogramConfig: ChartConfig = {
+    count: { label: t("dashboard.deadStock.productCount"), color: "hsl(var(--chart-3))" },
+  }
   const [days, setDays] = useState("90")
   const [keyword, setKeyword] = useState("")
   const [categoryId, setCategoryId] = useState<number | undefined>(undefined)
   const [sortKey, setSortKey] = useState<DeadSortKey>("costPrice")
   const [sortDir, setSortDir] = useState<DeadSortDir>("desc")
+  const [dsPage, setDsPage] = useState(0)
+  const dsPageSize = 20
   const { data: allCategories } = useInventoryByCategory()
   const { data, isLoading } = useDeadStock(Number(days), keyword || undefined, categoryId)
   const catOptions = useMemo(
@@ -578,31 +527,32 @@ function DeadStockTab() {
       return sortDir === "desc" ? -cmp : cmp
     })
   }, [data, sortKey, sortDir])
-  const toggleSort = (key: DeadSortKey) => {
-    if (sortKey === key) setSortDir((d) => (d === "desc" ? "asc" : "desc"))
-    else { setSortKey(key); setSortDir("desc") }
-  }
-  const sortArrow = (key: DeadSortKey) => sortKey === key ? (sortDir === "desc" ? " ↓" : " ↑") : ""
+  useEffect(() => { setDsPage(0) }, [days, keyword, categoryId, sortKey, sortDir])
+  const totalDsElements = sorted.length
+  const totalDsPages = Math.max(1, Math.ceil(totalDsElements / dsPageSize))
+  const dsData = useMemo(() => {
+    return sorted.slice(dsPage * dsPageSize, (dsPage + 1) * dsPageSize)
+  }, [sorted, dsPage])
   return (
     <div className="space-y-3">
       <div className="flex gap-3 items-end flex-wrap">
         <div className="space-y-1 w-28">
-          <Label htmlFor="d-days">Tồn trên (ngày)</Label>
+          <Label htmlFor="d-days">{t('dashboard.deadStock.overDays')}</Label>
           <Input id="d-days" type="number" min={1} value={days} onChange={(e) => setDays(e.target.value)} />
         </div>
         <div className="space-y-1 w-48">
-          <Label htmlFor="d-keyword">Tìm kiếm</Label>
-          <Input id="d-keyword" placeholder="SKU, tên SP..." value={keyword} onChange={(e) => setKeyword(e.target.value)} />
+          <Label htmlFor="d-keyword">{t('dashboard.deadStock.search')}</Label>
+          <Input id="d-keyword" placeholder={t('dashboard.deadStock.searchPlaceholder')} value={keyword} onChange={(e) => setKeyword(e.target.value)} />
         </div>
         <div className="space-y-1 w-44">
-          <Label htmlFor="d-cat">Danh mục</Label>
+          <Label htmlFor="d-cat">{t('dashboard.deadStock.category')}</Label>
           <select
             id="d-cat"
             className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
             value={categoryId ?? ""}
             onChange={(e) => setCategoryId(e.target.value ? Number(e.target.value) : undefined)}
           >
-            <option value="">Tất cả</option>
+            <option value="">{t('dashboard.deadStock.allCategories')}</option>
             {catOptions.map((c) => (
               <option key={c.categoryId} value={c.categoryId ?? ""}>
                 {c.categoryName}
@@ -613,7 +563,7 @@ function DeadStockTab() {
       </div>
       {histogram.length > 0 && (
         <Card>
-          <CardHeader><CardTitle className="text-base">Phân bố theo thời gian tồn</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-base">{t('dashboard.deadStock.distribution')}</CardTitle></CardHeader>
           <CardContent>
             <ChartContainer config={histogramConfig} className="aspect-auto h-40">
               <BarChart data={histogram} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
@@ -627,58 +577,33 @@ function DeadStockTab() {
           </CardContent>
         </Card>
       )}
-      <div className="rounded-lg border overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>SKU</TableHead>
-              <TableHead>Sản phẩm</TableHead>
-              <TableHead>Serial</TableHead>
-              <TableHead>Ngày nhập</TableHead>
-              <TableHead className="text-right cursor-pointer select-none" onClick={() => toggleSort("daysInStock")}>
-                Số ngày{sortArrow("daysInStock")}
-              </TableHead>
-              <TableHead className="text-right cursor-pointer select-none" onClick={() => toggleSort("costPrice")}>
-                Giá vốn{sortArrow("costPrice")}
-              </TableHead>
-              <TableHead />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading ? (
-              <TableRow>
-                <TableCell colSpan={7}>
-                  <Skeleton className="h-4 w-full" />
-                </TableCell>
-              </TableRow>
-            ) : sorted.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={7} className="text-center py-8">
-                  <EmptyTitle>Không có hàng tồn lâu</EmptyTitle>
-                </TableCell>
-              </TableRow>
-            ) : (
-              sorted.map((i, idx) => (
-                <TableRow key={idx}>
-                  <TableCell className="font-mono text-xs">{i.productSku}</TableCell>
-                  <TableCell className="text-sm">{i.productName}</TableCell>
-                  <TableCell className="font-mono text-xs">{i.serialNumber ?? "—"}</TableCell>
-                  <TableCell className="text-sm">{formatDateVN(i.importedAt)}</TableCell>
-                  <TableCell className="text-right tabular-nums">{i.daysInStock}</TableCell>
-                  <TableCell className="text-right tabular-nums">
-                    {i.costPrice?.toLocaleString("vi-VN") ?? "0"}₫
-                  </TableCell>
-                  <TableCell>
-                    <Button variant="outline" size="sm" className="text-xs h-7 px-2" asChild>
-                      <a href={`/products?highlight=${i.productId}`}>Xử lý</a>
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+      <DataTable<DeadStockItem>
+        columns={[
+          { header: t('table.sku'), render: (i) => <span className="font-mono text-xs">{i.productSku}</span> },
+          { header: t('table.product'), render: (i) => <span className="text-sm">{i.productName}</span> },
+          { header: t('dashboard.deadStock.serial'), render: (i) => <span className="font-mono text-xs">{i.serialNumber ?? "—"}</span> },
+          { header: t('dashboard.deadStock.importDate'), render: (i) => <span className="text-sm">{formatDateVN(i.importedAt)}</span> },
+          { header: t('dashboard.deadStock.days'), sortKey: "daysInStock", className: "text-right", render: (i) => <span className="tabular-nums">{i.daysInStock}</span> },
+          { header: t('dashboard.deadStock.costPrice'), sortKey: "costPrice", className: "text-right", render: (i) => <span className="tabular-nums">{i.costPrice?.toLocaleString("vi-VN") ?? "0"}₫</span> },
+          { header: "", render: (i) => (
+            <Button variant="outline" size="sm" className="text-xs h-7 px-2" asChild>
+              <a href={`/products?highlight=${i.productId}`}>{t('dashboard.deadStock.handle')}</a>
+            </Button>
+          )},
+        ]}
+        data={dsData}
+        isLoading={isLoading}
+        emptyMessage={t('dashboard.deadStock.empty')}
+        totalElements={totalDsElements}
+        page={dsPage}
+        totalPages={totalDsPages}
+        onPageChange={(p) => setDsPage(p)}
+        sort={{ key: sortKey, dir: sortDir }}
+        onSort={(key) => {
+          if (sortKey === key) setSortDir((d) => (d === "desc" ? "asc" : "desc"))
+          else { setSortKey(key as DeadSortKey); setSortDir("desc") }
+        }}
+      />
     </div>
   )
 }

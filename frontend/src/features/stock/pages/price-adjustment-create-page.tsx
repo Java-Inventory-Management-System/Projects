@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { useNavigate } from "react-router-dom"
+import { useTranslation } from "react-i18next"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createPriceAdjustment, getAvailableItemsByProduct } from "@/services/price-adjustment-service"
 import { getProducts } from "@/services/product-service"
@@ -26,14 +27,15 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 
-const schema = z.object({
-  selectedItem: z.string().min(1, "Chọn lô hàng cần điều chỉnh"),
-  newPrice: z.coerce.number().min(1, "Giá mới phải lớn hơn 0"),
-  reason: z.string().min(10, "Lý do phải có ít nhất 10 ký tự").max(500, "Lý do không quá 500 ký tự"),
+const getSchema = (t: (k: string) => string) => z.object({
+  selectedItem: z.string().min(1, t("priceAdjCreate.requireItem")),
+  newPrice: z.coerce.number().min(1, t("priceAdjCreate.invalidPrice")),
+  reason: z.string().min(10, t("priceAdjCreate.reasonMin")).max(500, t("priceAdjCreate.reasonMax")),
 })
 
 export function PriceAdjustmentCreatePage() {
   const navigate = useNavigate()
+  const { t } = useTranslation()
   const qc = useQueryClient()
   const [confirmLeave, setConfirmLeave] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
@@ -42,7 +44,7 @@ export function PriceAdjustmentCreatePage() {
   const [displayPrice, setDisplayPrice] = useState("")
   const searchTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
-  const form = useForm({ resolver: zodResolver(schema), defaultValues: { selectedItem: "", newPrice: 0, reason: "" } })
+  const form = useForm({ resolver: zodResolver(getSchema(t)), defaultValues: { selectedItem: "", newPrice: 0, reason: "" } })
   const selectedItemStr = form.watch("selectedItem")
   const newPrice = Number(form.watch("newPrice"))
 
@@ -91,18 +93,18 @@ export function PriceAdjustmentCreatePage() {
     onSuccess: (result) => {
       qc.invalidateQueries({ queryKey: ["price-adjustments"] })
       qc.invalidateQueries({ queryKey: ["my-price-adjustments"] })
-      toast.success(`Đã tạo phiếu ${result.adjustCode}`)
+      toast.success(t("priceAdjCreate.createSuccess", { code: result.adjustCode }))
       navigate("/stock/price-adjustments")
     },
-    onError: (e: Error) => toast.error(e.message || "Không thể tạo phiếu điều chỉnh giá"),
+    onError: (e: Error) => toast.error(e.message || t("priceAdjCreate.createError")),
   })
 
   const handleCreate = useCallback(
     (values: { selectedItem: string; newPrice: number; reason: string }) => {
       const item = availableItems?.find((i) => String(i.importReceiptItemId) === values.selectedItem)
-      if (!item) { toast.error("Không tìm thấy lô hàng đã chọn"); return }
+      if (!item) { toast.error(t("priceAdjCreate.batchNotFound")); return }
       if (oldPrice > 0 && values.newPrice === oldPrice) {
-        toast.error("Giá mới phải khác giá cũ")
+        toast.error(t("priceAdjCreate.priceMustDiff"))
         return
       }
       save.mutate({
@@ -123,20 +125,20 @@ export function PriceAdjustmentCreatePage() {
           if (isDirty) setConfirmLeave(true)
           else navigate("/stock/price-adjustments")
         }}>
-          <ArrowLeft className="size-4 mr-1" /> Quay lại
+          <ArrowLeft className="size-4 mr-1" /> {t("common.back")}
         </Button>
-        <h1 className="text-xl font-semibold tracking-tight">Tạo phiếu điều chỉnh giá</h1>
+        <h1 className="text-xl font-semibold tracking-tight">{t("priceAdjCreate.title")}</h1>
       </div>
 
       <form onSubmit={form.handleSubmit(handleCreate)} className="space-y-4">
         {/* Step 1: Search product */}
         <div className="space-y-2">
-          <Label>Tìm sản phẩm</Label>
+          <Label>{t("priceAdjCreate.searchProduct")}</Label>
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
             <Input
               className="pl-8"
-              placeholder="Nhập tên hoặc mã sản phẩm..."
+              placeholder={t("priceAdjCreate.searchProductPlaceholder")}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -145,7 +147,7 @@ export function PriceAdjustmentCreatePage() {
             )}
           </div>
           {searchTerm.length >= 2 && products.length === 0 && !searchLoading && (
-            <p className="text-xs text-muted-foreground">Không tìm thấy sản phẩm</p>
+            <p className="text-xs text-muted-foreground">{t("priceAdjCreate.noProductFound")}</p>
           )}
         </div>
 
@@ -170,10 +172,10 @@ export function PriceAdjustmentCreatePage() {
         {selectedProductId && products.length > 0 && (
           <div className="flex items-center gap-2">
             <Badge variant="secondary" className="text-sm">
-              {products.find((p) => p.id === selectedProductId)?.name ?? `Sản phẩm #${selectedProductId}`}
+              {products.find((p) => p.id === selectedProductId)?.name ?? t("priceAdjCreate.productLabel", { id: selectedProductId })}
             </Badge>
             <Button variant="ghost" size="sm" className="text-xs" onClick={() => { setSelectedProductId(null); form.setValue("selectedItem", "") }}>
-              Đổi sản phẩm
+              {t("priceAdjCreate.changeProduct")}
             </Button>
           </div>
         )}
@@ -181,13 +183,13 @@ export function PriceAdjustmentCreatePage() {
         {/* Step 2: Select batch (import receipt item) */}
         {itemsLoading && (
           <div className="flex items-center gap-2 text-sm text-muted-foreground py-4 justify-center">
-            <Loader2 className="size-4 animate-spin" /> Đang tải lô hàng...
+            <Loader2 className="size-4 animate-spin" /> {t("priceAdjCreate.loadingBatches")}
           </div>
         )}
 
         {availableItems && availableItems.length === 0 && !itemsLoading && (
           <Alert>
-            <AlertDescription>Sản phẩm này chưa có lô hàng nào đã nhập kho hoàn tất.</AlertDescription>
+            <AlertDescription>{t("priceAdjCreate.noBatches")}</AlertDescription>
           </Alert>
         )}
 
@@ -195,14 +197,14 @@ export function PriceAdjustmentCreatePage() {
           <Alert variant="default" className="border-amber-300 bg-amber-50">
             <AlertTriangle className="size-4 text-amber-600" />
             <AlertDescription className="text-amber-800 text-sm">
-              Tất cả lô hàng của sản phẩm này đã có yêu cầu điều chỉnh đang chờ duyệt.
+              {t("priceAdjCreate.allBatchesPending")}
             </AlertDescription>
           </Alert>
         )}
 
         {availableItems && availableItems.length > 0 && !allItemsPending && !selItem && (
           <div className="space-y-2">
-            <Label>Chọn lô hàng cần điều chỉnh</Label>
+            <Label>{t("priceAdjCreate.selectBatch")}</Label>
             <div className="space-y-2 max-h-72 overflow-y-auto">
               {availableItems.map((item) => (
                 <button
@@ -226,7 +228,7 @@ export function PriceAdjustmentCreatePage() {
                     <div className="text-right">
                       <p className="text-sm tabular-nums">{(item.unitPrice ?? 0).toLocaleString("vi-VN")}₫</p>
                       {item.hasPending && (
-                        <Badge variant="outline" className="text-xs">Đang chờ duyệt</Badge>
+                        <Badge variant="outline" className="text-xs">{t("priceAdjStatus.pending")}</Badge>
                       )}
                     </div>
                   </div>
@@ -242,10 +244,10 @@ export function PriceAdjustmentCreatePage() {
           <div className="flex items-center gap-2 flex-wrap">
             {selItem ? (
               <span className="text-sm text-muted-foreground whitespace-nowrap">
-                Giá cũ: <span className="font-semibold tabular-nums">{(oldPrice ?? 0).toLocaleString("vi-VN")}₫</span>
+                {t("priceAdjCreate.oldPrice")} <span className="font-semibold tabular-nums">{(oldPrice ?? 0).toLocaleString("vi-VN")}₫</span>
               </span>
             ) : (
-              <span className="text-sm font-medium whitespace-nowrap">Giá mới:</span>
+              <span className="text-sm font-medium whitespace-nowrap">{t("priceAdjCreate.newPriceLabel")}</span>
             )}
             {selItem && <ArrowRight className="size-4 text-muted-foreground/30 shrink-0" />}
             <div className="flex items-center gap-1 min-w-[120px] flex-1">
@@ -277,7 +279,7 @@ export function PriceAdjustmentCreatePage() {
                 aria-live="polite"
               >
                 {newPrice > oldPrice ? <TrendingUp className="size-4" /> : <TrendingDown className="size-4" />}
-                {newPrice > oldPrice ? "Tăng" : "Giảm"} {priceDiffPct.toFixed(1)}%
+                {newPrice > oldPrice ? t("priceAdjCreate.increase") : t("priceAdjCreate.decrease")} {priceDiffPct.toFixed(1)}%
               </span>
             )}
           </div>
@@ -285,7 +287,7 @@ export function PriceAdjustmentCreatePage() {
           {showPriceWarning && (
             <div className="flex items-center gap-2 text-sm text-amber-700 bg-amber-50 rounded-lg px-4 py-2 border border-amber-200">
               <AlertTriangle className="size-4 shrink-0" />
-              Giá mới chênh lệch lớn so với giá hiện tại, vui lòng kiểm tra lại
+              {t("priceAdjCreate.priceWarning")}
             </div>
           )}
         </div>
@@ -293,9 +295,9 @@ export function PriceAdjustmentCreatePage() {
         {/* Reason */}
         <div className="space-y-2">
           <Label htmlFor="reason">
-            Lý do <span className="text-destructive">*</span>
+            {t("priceAdjCreate.reasonLabel")} <span className="text-destructive">*</span>
           </Label>
-          <Textarea id="reason" {...form.register("reason")} rows={3} placeholder="Nhập ít nhất 10 ký tự" />
+          <Textarea id="reason" {...form.register("reason")} rows={3} placeholder={t("priceAdjCreate.reasonPlaceholder")} />
           <FieldError errors={form.formState.errors.reason ? [{ message: form.formState.errors.reason.message ?? "" }] : undefined} />
         </div>
 
@@ -304,16 +306,16 @@ export function PriceAdjustmentCreatePage() {
           if (isDirty) setConfirmLeave(true)
           else navigate("/stock/price-adjustments")
         }}>
-          Hủy
+          {t("common.cancel")}
         </Button>
         <Button type="submit" disabled={save.isPending}>
           {save.isPending ? (
             <>
               <span className="size-4 mr-1 animate-spin rounded-full border-2 border-current border-t-transparent" />
-              Đang tạo...
+              {t("priceAdjCreate.creating")}
             </>
           ) : (
-            "Tạo phiếu"
+            t("priceAdjCreate.create")
           )}
         </Button>
       </div>
@@ -322,13 +324,13 @@ export function PriceAdjustmentCreatePage() {
       <AlertDialog open={confirmLeave} onOpenChange={(v) => { if (!v) setConfirmLeave(false) }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Thay đổi chưa lưu</AlertDialogTitle>
-            <AlertDialogDescription>Bạn có thay đổi chưa lưu. Rời khỏi trang?</AlertDialogDescription>
+            <AlertDialogTitle>{t("priceAdjCreate.unsavedTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>{t("priceAdjCreate.unsavedDesc")}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Ở lại</AlertDialogCancel>
+            <AlertDialogCancel>{t("dialog.stay")}</AlertDialogCancel>
             <AlertDialogAction onClick={() => { setConfirmLeave(false); navigate("/stock/price-adjustments") }}>
-              Rời khỏi
+              {t("dialog.leave")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

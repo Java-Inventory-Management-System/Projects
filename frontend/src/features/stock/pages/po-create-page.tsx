@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback, useRef } from "react"
 import { useForm, useFieldArray, Controller } from "react-hook-form"
 import { useNavigate, useBlocker } from "react-router-dom"
+import { useTranslation } from "react-i18next"
 import { useCreatePurchaseOrder } from "@/hooks/use-purchase-orders"
 import { useProducts } from "@/hooks/use-products"
 import { useSuppliers } from "@/hooks/use-suppliers"
@@ -32,6 +33,7 @@ interface POFormFields {
 }
 
 export function POCreatePage() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const navigatingAfterMut = useRef(false)
   const [selectedProductIds, setSelectedProductIds] = useState<number[]>([])
@@ -71,7 +73,7 @@ export function POCreatePage() {
     const existing = new Set(fields.map((f) => f.productId))
     const toAdd = products.filter((p) => selectedProductIds.includes(p.id) && !existing.has(p.id))
     if (toAdd.length === 0) {
-      toast.error("Tất cả sản phẩm đã có")
+      toast.error(t("poCreate.allProductsAdded"))
       setSelectedProductIds([])
       return
     }
@@ -85,7 +87,7 @@ export function POCreatePage() {
     })))
     setSelectedProductIds([])
     setProductPopoverOpen(false)
-  }, [selectedProductIds, products, fields, append, nextTempId])
+  }, [selectedProductIds, products, fields, append, nextTempId, t])
 
   const totalAmount = useMemo(() => fields.reduce((sum, i) => sum + i.quantity * i.unitPrice, 0), [fields])
 
@@ -100,11 +102,11 @@ export function POCreatePage() {
       {
         onSuccess: () => {
           navigatingAfterMut.current = true
-          toast.success("Tạo đơn hàng thành công")
+          toast.success(t("poCreate.createSuccess"))
           navigate("/stock/purchase-orders")
         },
         onError: (e: Error) => {
-          toast.error(e.message || "Không thể tạo đơn hàng")
+          toast.error(e.message || t("poCreate.createError"))
         },
       },
     )
@@ -115,15 +117,15 @@ export function POCreatePage() {
       <div className="lg:col-span-2 space-y-4 self-start">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="sm" onClick={() => navigate("/stock/purchase-orders")}>
-            &larr; Quay lại
+            &larr; {t("common.back")}
           </Button>
-          <h1 className="text-xl font-semibold tracking-tight">Tạo đơn đặt hàng</h1>
+          <h1 className="text-xl font-semibold tracking-tight">{t("poCreate.title")}</h1>
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
             <Label htmlFor="supplier">
-              Nhà cung cấp <span className="text-destructive">*</span>
+              {t("poCreate.supplier")} <span className="text-destructive">*</span>
             </Label>
             <Controller
               name="supplierId"
@@ -131,7 +133,7 @@ export function POCreatePage() {
               render={({ field }) => (
                 <Select value={field.value} onValueChange={field.onChange}>
                   <SelectTrigger id="supplier">
-                    <SelectValue placeholder="Chọn NCC" />
+                    <SelectValue placeholder={t("poCreate.supplierPlaceholder")} />
                   </SelectTrigger>
                   <SelectContent>
                     {suppliers.map((s) => (
@@ -145,13 +147,13 @@ export function POCreatePage() {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="expectedDate">Ngày giao dự kiến</Label>
+            <Label htmlFor="expectedDate">{t("poCreate.expectedDate")}</Label>
             <Input id="expectedDate" type="date" {...form.register("expectedDate")} />
           </div>
         </div>
 
         <div className="space-y-2">
-          <Label>Sản phẩm</Label>
+          <Label>{t("poCreate.products")}</Label>
           <div className="flex gap-2">
             <Popover open={productPopoverOpen} onOpenChange={setProductPopoverOpen}>
               <PopoverTrigger asChild>
@@ -161,15 +163,15 @@ export function POCreatePage() {
                   aria-expanded={productPopoverOpen}
                   className="flex-1 justify-between"
                 >
-                  {selectedProductIds.length > 0 ? `Đã chọn ${selectedProductIds.length} SP` : "Tìm sản phẩm..."}
+                  {selectedProductIds.length > 0 ? t("poCreate.selectedProducts", { count: selectedProductIds.length }) : t("poCreate.searchProduct")}
                   <ChevronsUpDown className="size-4 shrink-0 opacity-50" />
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-[90vw] max-w-[400px] p-0">
                 <Command>
-                  <CommandInput placeholder="Tìm theo tên hoặc SKU..." />
+                  <CommandInput placeholder={t("poCreate.searchPlaceholder")} />
                   <CommandList>
-                    <CommandEmpty>Không tìm thấy</CommandEmpty>
+                    <CommandEmpty>{t("poCreate.noResults")}</CommandEmpty>
                     <CommandGroup>
                       {products
                         .filter((p) => !fields.find((i) => i.productId === p.id))
@@ -196,7 +198,7 @@ export function POCreatePage() {
               </PopoverContent>
             </Popover>
             <Button onClick={addItems} disabled={selectedProductIds.length === 0}>
-              <Plus className="size-4 mr-1" /> Thêm
+              <Plus className="size-4 mr-1" /> {t("poCreate.add")}
             </Button>
           </div>
         </div>
@@ -205,10 +207,10 @@ export function POCreatePage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Sản phẩm</TableHead>
-                <TableHead className="w-24 text-right">SL</TableHead>
-                <TableHead className="w-28 text-right">Đơn giá</TableHead>
-                <TableHead className="w-28 text-right">Thành tiền</TableHead>
+                <TableHead>{t("table.product")}</TableHead>
+                <TableHead className="w-24 text-right">{t("table.qty")}</TableHead>
+                <TableHead className="w-28 text-right">{t("table.unitPrice")}</TableHead>
+                <TableHead className="w-28 text-right">{t("table.total")}</TableHead>
                 <TableHead className="w-12" />
               </TableRow>
             </TableHeader>
@@ -217,7 +219,7 @@ export function POCreatePage() {
                 <TableRow>
                   <TableCell colSpan={5} className="text-center py-8">
                     <Empty>
-                      <EmptyTitle>Chưa có sản phẩm</EmptyTitle>
+                      <EmptyTitle>{t("poCreate.noProducts")}</EmptyTitle>
                     </Empty>
                   </TableCell>
                 </TableRow>
@@ -260,20 +262,20 @@ export function POCreatePage() {
         </div>
 
         <div className="flex justify-end">
-          <span className="text-lg font-semibold">Tổng: {totalAmount.toLocaleString("vi-VN")}₫</span>
+          <span className="text-lg font-semibold">{t("poCreate.total")}: {totalAmount.toLocaleString("vi-VN")}₫</span>
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="note">Ghi chú</Label>
-          <Textarea id="note" placeholder="Ghi chú cho NCC..." rows={2} {...form.register("note")} />
+          <Label htmlFor="note">{t("poCreate.note")}</Label>
+          <Textarea id="note" placeholder={t("poCreate.notePlaceholder")} rows={2} {...form.register("note")} />
         </div>
 
         <div className="flex gap-2 justify-end">
           <Button variant="outline" onClick={() => navigate("/stock/purchase-orders")}>
-            Hủy
+            {t("common.cancel")}
           </Button>
           <Button onClick={onSubmit} disabled={!watchedSupplierId || fields.length === 0 || createMut.isPending}>
-            {createMut.isPending ? "Đang tạo..." : "Tạo đơn hàng"}
+            {createMut.isPending ? t("poCreate.creating") : t("poCreate.submit")}
           </Button>
         </div>
       </div>

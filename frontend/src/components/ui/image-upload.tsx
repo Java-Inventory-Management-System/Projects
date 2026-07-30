@@ -1,4 +1,5 @@
 import { useState, useRef, type DragEvent } from "react"
+import { useTranslation } from "react-i18next"
 import { cn } from "@/utils/cn"
 import http from "@/utils/http-client"
 import { toast } from "@/utils/toast"
@@ -13,6 +14,7 @@ interface ImageUploadProps {
 const SEP = ","
 
 export const ImageUpload = ({ value, onChange, className }: ImageUploadProps) => {
+  const { t } = useTranslation()
   const inputRef = useRef<HTMLInputElement>(null)
   const urls: string[] = value ? value.split(SEP).filter(Boolean) : []
   const [uploading, setUploading] = useState(false)
@@ -30,7 +32,7 @@ export const ImageUpload = ({ value, onChange, className }: ImageUploadProps) =>
         onChange(next)
       }
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Upload ảnh thất bại")
+      toast.error(err instanceof Error ? err.message : t('imageUpload.uploadError'))
     } finally {
       setUploading(false)
     }
@@ -91,10 +93,10 @@ export const ImageUpload = ({ value, onChange, className }: ImageUploadProps) =>
           <Upload className="size-6 text-muted-foreground" />
         )}
         <p className="text-sm text-muted-foreground">
-          {uploading ? "Đang tải lên..." : "Kéo thả ảnh vào đây, hoặc click để chọn"}
+          {uploading ? t('imageUpload.uploading') : t('imageUpload.dropzoneHint')}
         </p>
         {urls.length > 0 && (
-          <p className="text-xs text-muted-foreground">{urls.length} ảnh đã tải lên</p>
+          <p className="text-xs text-muted-foreground">{t('imageUpload.uploadedCount', { count: urls.length })}</p>
         )}
       </div>
     </div>

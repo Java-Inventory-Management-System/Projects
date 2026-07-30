@@ -20,8 +20,8 @@ public class ApiExceptionHandler {
 
     @ExceptionHandler(ApiException.class)
     public ResponseEntity<ExceptionMessage> handleApiRequestException(ApiException e) {
-        log.warn("ApiException: {}", e.getMessage());
-        return buildResponse(e.getStatus(), e.getMessage());
+        log.warn("ApiException: {} -> {}", e.getCode(), e.getMessage());
+        return buildResponse(e.getStatus(), e.getCode() != null ? e.getCode() : "UNKNOWN_ERROR", e.getMessage());
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -30,7 +30,7 @@ public class ApiExceptionHandler {
                 .map(FieldError::getDefaultMessage)
                 .collect(Collectors.joining(", "));
         log.warn("Validation failed: {}", errors);
-        return buildResponse(HttpStatus.BAD_REQUEST, errors);
+        return buildResponse(HttpStatus.BAD_REQUEST, "VALIDATION_FAILED", errors);
     }
 
     @ExceptionHandler(AccessDeniedException.class)
@@ -40,20 +40,21 @@ public class ApiExceptionHandler {
                 : "anonymous";
         log.warn("Access denied: user={} {} {}",
                 principal, request.getMethod(), request.getRequestURI());
-        return buildResponse(HttpStatus.FORBIDDEN, "Access denied");
+        return buildResponse(HttpStatus.FORBIDDEN, "ACCESS_DENIED", "Access denied");
     }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ExceptionMessage> handleUncaughtException(Exception e) {
         log.error("Unhandled exception: ", e);
-        return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR, "Internal server error");
+        return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", "Internal server error");
     }
 
-    private ResponseEntity<ExceptionMessage> buildResponse(HttpStatus status, String message) {
+    private ResponseEntity<ExceptionMessage> buildResponse(HttpStatus status, String code, String message) {
         ExceptionMessage response = ExceptionMessage
                 .builder()
                 .timestamp(ZonedDateTime.now())
                 .status(status.value())
+                .code(code)
                 .message(message)
                 .build();
         return new ResponseEntity<>(response, status);

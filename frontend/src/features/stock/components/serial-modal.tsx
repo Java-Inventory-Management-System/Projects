@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react"
+import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { ChipInput } from "@/components/ui/chip-input"
 import { Spinner } from "@/components/ui/spinner"
@@ -42,6 +43,7 @@ export const SerialModal = ({
   serials,
   onSave,
 }: SerialModalProps) => {
+  const { t } = useTranslation()
   const [chips, setChips] = useState<string[]>(serials)
   const [fileImporting, setFileImporting] = useState(false)
   const [lastFileCount, setLastFileCount] = useState(0)
@@ -62,10 +64,10 @@ export const SerialModal = ({
   const truncated = chips.length > VISIBLE_LIMIT
 
   let errorMsg = ""
-  if (overCount) errorMsg = `Vượt quá ${count - required} serial so với số lượng`
-  else if (underCount) errorMsg = `Còn thiếu ${required - count} serial`
+  if (overCount) errorMsg = t("serialModal.overCount", { diff: count - required })
+  else if (underCount) errorMsg = t("serialModal.underCount", { diff: required - count })
 
-  const canSave = count === required
+  const canSave = count > 0 && count <= required
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -77,20 +79,20 @@ export const SerialModal = ({
       setTimeout(() => {
         const imported = parseFileContent(content)
         if (imported.length === 0) {
-          toast.error("File không có serial hợp lệ")
+          toast.error(t("serialModal.fileNoSerials"))
           setFileImporting(false)
           return
         }
         const newSerials = imported.filter((s) => !chips.includes(s))
         if (newSerials.length === 0) {
-          toast.error("Tất cả serial trong file đã có trong danh sách")
+          toast.error(t("serialModal.fileAllDuplicates"))
           setFileImporting(false)
           return
         }
         setChips((prev) => [...prev, ...newSerials])
         setLastFileCount(newSerials.length)
         setFileImporting(false)
-        toast.success(`Đã thêm ${newSerials.length} serial từ file`)
+        toast.success(t("serialModal.fileImported", { count: newSerials.length }))
       }, 0)
     }
     reader.readAsText(file)
@@ -107,7 +109,7 @@ export const SerialModal = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-xl">
         <DialogHeader>
-          <DialogTitle className="text-base">Nhập serial</DialogTitle>
+          <DialogTitle className="text-base">{t("serialModal.title")}</DialogTitle>
           <p className="text-sm text-muted-foreground mt-1">
             {productName}
             <span className="font-mono ml-2">{productSku}</span>
@@ -115,7 +117,7 @@ export const SerialModal = ({
         </DialogHeader>
 
         <div className="flex items-center gap-2 text-sm mb-1">
-          <span className="text-muted-foreground">Đã nhập:</span>
+          <span className="text-muted-foreground">{t("serialModal.entered")}:</span>
           <span
             className={
               count === required
@@ -135,7 +137,7 @@ export const SerialModal = ({
             <AlertTriangle className="size-4 text-amber-600" />
           )}
           {required > 100 && (
-            <span className="text-xs text-muted-foreground ml-auto">Số lượng lớn, có thể dùng import file</span>
+            <span className="text-xs text-muted-foreground ml-auto">{t("serialModal.largeQtyHint")}</span>
           )}
         </div>
 
@@ -159,12 +161,12 @@ export const SerialModal = ({
             <ChipInput
               value={chips}
               onChange={setChips}
-              onDuplicate={(v) => toast.error(`${v} đã có trong danh sách`)}
-              placeholder="Nhập serial, Enter để thêm..."
+              onDuplicate={(v) => toast.error(t("serialModal.duplicate", { serial: v }))}
+              placeholder={t("serialModal.placeholder")}
             />
             {truncated && !showAll && (
               <p className="text-xs text-muted-foreground">
-                và {chips.length - VISIBLE_LIMIT} serial khác
+                {t("serialModal.andMore", { count: chips.length - VISIBLE_LIMIT })}
               </p>
             )}
           </div>
@@ -179,9 +181,7 @@ export const SerialModal = ({
               onClick={() => fileRef.current?.click()}
             >
               {fileImporting ? <Spinner className="size-3" /> : <Upload className="size-3" />}
-              Import
-              <br />
-              file
+              {t("serialModal.importFile")}
             </Button>
           </div>
         </div>
@@ -195,11 +195,11 @@ export const SerialModal = ({
           >
             {showAll ? (
               <>
-                <ChevronUp className="size-3" /> Thu gọn
+                <ChevronUp className="size-3" /> {t("serialModal.collapse")}
               </>
             ) : (
               <>
-                <ChevronDown className="size-3" /> Xem tất cả {chips.length} serial
+                <ChevronDown className="size-3" /> {t("serialModal.viewAll", { count: chips.length })}
               </>
             )}
           </Button>
@@ -208,7 +208,7 @@ export const SerialModal = ({
         {lastFileCount > 0 && (
           <p className="text-xs text-muted-foreground">
             <CheckCircle2 className="size-3 inline mr-1 text-green-600" />
-            Đã import {lastFileCount} serial từ file
+            {t("serialModal.importedCount", { count: lastFileCount })}
           </p>
         )}
 
@@ -220,14 +220,14 @@ export const SerialModal = ({
 
         <DialogFooter className="gap-2">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Hủy
+            {t("common.cancel")}
           </Button>
           <Button onClick={handleSave} disabled={!canSave}>
             {overCount
-              ? "Giảm số serial"
+              ? t("serialModal.reduceSerials")
               : underCount
-                ? `Còn thiếu ${required - count} serial`
-                : `Xác nhận ${count} serial`}
+                ? t("serialModal.confirmShortage", { diff: required - count })
+                : t("serialModal.confirmSerials", { count })}
           </Button>
         </DialogFooter>
       </DialogContent>

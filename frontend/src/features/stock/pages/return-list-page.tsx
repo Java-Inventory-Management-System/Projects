@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
+import { useTranslation } from "react-i18next"
 import { useReturnReceipts } from "@/hooks/use-returns"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -13,21 +14,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import type { ReturnReceipt } from "@/utils/types"
 import { RETURN_RECEIPT_STATUS, RETURN_REASON } from "@/utils/types"
 
-const reasonLabel: Record<string, string> = {
-  CHANGE_MIND: "Đổi ý",
-  DEFECTIVE: "Hàng lỗi",
-  WRONG_ITEM: "Sai hàng",
-  WARRANTY_CLAIM: "Bảo hành",
-}
-
-const statusLabel: Record<string, { label: string; variant: "default" | "secondary" | "destructive" }> = {
-  PENDING_APPROVAL: { label: "Chờ duyệt", variant: "secondary" },
-  COMPLETED: { label: "Đã duyệt", variant: "default" },
-  CANCELLED: { label: "Đã hủy", variant: "destructive" },
-}
-
 export const ReturnListPage = () => {
   const navigate = useNavigate()
+  const { t } = useTranslation()
   const [searchParams, setSearchParams] = useSearchParams()
   const perm = usePermission()
 
@@ -62,35 +51,48 @@ export const ReturnListPage = () => {
     [searchParams, setSearchParams],
   )
 
+  const reasonLabel: Record<string, string> = {
+    CHANGE_MIND: t("returnReason.changeMind"),
+    DEFECTIVE: t("returnReason.defective"),
+    WRONG_ITEM: t("returnReason.wrongItem"),
+    WARRANTY_CLAIM: t("returnReason.warrantyClaim"),
+  }
+
+  const statusLabel: Record<string, { label: string; variant: "default" | "secondary" | "destructive" }> = {
+    PENDING_APPROVAL: { label: t("returnStatus.pendingApproval"), variant: "secondary" },
+    COMPLETED: { label: t("returnStatus.completed"), variant: "default" },
+    CANCELLED: { label: t("returnStatus.cancelled"), variant: "destructive" },
+  }
+
   const columns: Column<ReturnReceipt>[] = [
     {
-      header: "Mã phiếu",
+      header: t("table.checkCode"),
       sortKey: "receiptCode",
       render: (r) => <span className="font-mono text-xs">{r.receiptCode}</span>,
     },
-    { header: "Khách hàng", render: (r) => <span className="font-medium">{r.customerName ?? "—"}</span> },
+    { header: t("table.customer"), render: (r) => <span className="font-medium">{r.customerName ?? "—"}</span> },
     {
-      header: "Lý do",
+      header: t("table.reason"),
       render: (r) => <Badge variant="outline">{reasonLabel[r.reason] ?? r.reason}</Badge>,
     },
-    { header: "Số lượng SP", render: (r) => <span>{r.items.length}</span> },
+    { header: t("returnList.itemCount"), render: (r) => <span>{r.items.length}</span> },
     {
-      header: "Trạng thái",
+      header: t("table.status"),
       render: (r) => {
         const st = statusLabel[r.status] ?? { label: r.status, variant: "secondary" as const }
         return <Badge variant={st.variant}>{st.label}</Badge>
       },
     },
-    { header: "Người tạo", render: (r) => <span className="text-muted-foreground">{r.createdByName}</span> },
+    { header: t("table.creator"), render: (r) => <span className="text-muted-foreground">{r.createdByName}</span> },
     {
-      header: "Ngày tạo",
+      header: t("table.createdDate"),
       sortKey: "createdAt",
       render: (r) => (
         <span className="text-muted-foreground text-xs">{new Date(r.createdAt).toLocaleDateString("vi-VN")}</span>
       ),
     },
     {
-      header: "Thao tác",
+      header: t("table.actions"),
       className: "w-[70px]",
       render: (r) => (
         <Tooltip>
@@ -99,7 +101,7 @@ export const ReturnListPage = () => {
               <Eye className="size-4" />
             </Button>
           </TooltipTrigger>
-          <TooltipContent>Xem chi tiết</TooltipContent>
+          <TooltipContent>{t("common.viewDetail")}</TooltipContent>
         </Tooltip>
       ),
     },
@@ -108,10 +110,10 @@ export const ReturnListPage = () => {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-xl font-semibold tracking-tight">Trả hàng</h1>
+        <h1 className="text-xl font-semibold tracking-tight">{t("returnList.title")}</h1>
         {perm.hasRole(...ROLES.CAN_VIEW_INVENTORY) && (
           <Button onClick={() => navigate("/returns/new")}>
-            <Plus className="size-4 mr-1" /> Tạo phiếu trả hàng
+            <Plus className="size-4 mr-1" /> {t("returnList.create")}
           </Button>
         )}
       </div>
@@ -122,31 +124,31 @@ export const ReturnListPage = () => {
           <Input
             value={searchText}
             onChange={(e) => { setSearchText(e.target.value); updateParams({ page: undefined }) }}
-            placeholder="Tìm mã phiếu..."
+            placeholder={t("returnList.searchPlaceholder")}
             className="pl-9"
           />
         </div>
         <Select value={statusFilter ?? "all"} onValueChange={(v) => { setStatusFilter(v === "all" ? undefined : v); updateParams({ page: undefined }) }}>
           <SelectTrigger className="w-36">
-            <SelectValue placeholder="Trạng thái" />
+            <SelectValue placeholder={t("common.status")} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Tất cả</SelectItem>
-            <SelectItem value={RETURN_RECEIPT_STATUS.PENDING_APPROVAL}>Chờ duyệt</SelectItem>
-            <SelectItem value={RETURN_RECEIPT_STATUS.COMPLETED}>Đã duyệt</SelectItem>
-            <SelectItem value={RETURN_RECEIPT_STATUS.CANCELLED}>Đã hủy</SelectItem>
+            <SelectItem value="all">{t("common.all")}</SelectItem>
+            <SelectItem value={RETURN_RECEIPT_STATUS.PENDING_APPROVAL}>{t("returnStatus.pendingApproval")}</SelectItem>
+            <SelectItem value={RETURN_RECEIPT_STATUS.COMPLETED}>{t("returnStatus.completed")}</SelectItem>
+            <SelectItem value={RETURN_RECEIPT_STATUS.CANCELLED}>{t("returnStatus.cancelled")}</SelectItem>
           </SelectContent>
         </Select>
         <Select value={reasonFilter ?? "all"} onValueChange={(v) => { setReasonFilter(v === "all" ? undefined : v); updateParams({ page: undefined }) }}>
           <SelectTrigger className="w-36">
-            <SelectValue placeholder="Lý do" />
+            <SelectValue placeholder={t("table.reason")} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Lý do</SelectItem>
-            <SelectItem value={RETURN_REASON.CHANGE_MIND}>Đổi ý</SelectItem>
-            <SelectItem value={RETURN_REASON.DEFECTIVE}>Hàng lỗi</SelectItem>
-            <SelectItem value={RETURN_REASON.WRONG_ITEM}>Sai hàng</SelectItem>
-            <SelectItem value={RETURN_REASON.WARRANTY_CLAIM}>Bảo hành</SelectItem>
+            <SelectItem value="all">{t("table.reason")}</SelectItem>
+            <SelectItem value={RETURN_REASON.CHANGE_MIND}>{t("returnReason.changeMind")}</SelectItem>
+            <SelectItem value={RETURN_REASON.DEFECTIVE}>{t("returnReason.defective")}</SelectItem>
+            <SelectItem value={RETURN_REASON.WRONG_ITEM}>{t("returnReason.wrongItem")}</SelectItem>
+            <SelectItem value={RETURN_REASON.WARRANTY_CLAIM}>{t("returnReason.warrantyClaim")}</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -155,7 +157,7 @@ export const ReturnListPage = () => {
         columns={columns}
         data={data?.content ?? []}
         isLoading={isLoading}
-        emptyMessage="Không có phiếu trả hàng nào"
+        emptyMessage={t("returnList.empty")}
         sort={sort}
         onSort={handleSort}
         totalElements={data?.pagination.totalElements}

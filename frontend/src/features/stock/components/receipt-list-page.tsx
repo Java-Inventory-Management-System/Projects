@@ -1,4 +1,5 @@
 import { useState, useCallback, type ComponentType } from "react"
+import { useTranslation } from "react-i18next"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { usePermission } from "@/hooks/use-permission"
@@ -60,6 +61,7 @@ export function ReceiptListPage<R extends Receipt>({
   completedStatus = IMPORT_RECEIPT_STATUS.COMPLETED,
   scanStatuses = [IMPORT_RECEIPT_STATUS.DRAFT, IMPORT_RECEIPT_STATUS.PENDING_APPROVAL],
 }: Props<R>) {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const qc = useQueryClient()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -112,8 +114,8 @@ export function ReceiptListPage<R extends Receipt>({
   const handleCancel = async () => {
     if (!cancelTarget) return
     cancelMut.mutate(cancelTarget.id, {
-      onSuccess: () => toast.success(`Đã hủy phiếu ${cancelTarget.receiptCode}`),
-      onError: (err) => toast.error(err instanceof Error ? err.message : "Không thể hủy phiếu"),
+      onSuccess: () => toast.success(t("receiptList.cancelled", { code: cancelTarget.receiptCode })),
+      onError: (err) => toast.error(err instanceof Error ? err.message : t("receiptList.cancelError")),
     })
   }
 
@@ -121,17 +123,17 @@ export function ReceiptListPage<R extends Receipt>({
     if (!approveTarget) return
     approveMut.mutate(approveTarget.id, {
       onSuccess: () => {
-        toast.success(`Đã duyệt phiếu ${approveTarget.receiptCode}`)
+        toast.success(t("receiptList.approved", { code: approveTarget.receiptCode }))
         setApproveTarget(null)
       },
-      onError: (err) => toast.error(err instanceof Error ? err.message : "Không thể duyệt phiếu"),
+      onError: (err) => toast.error(err instanceof Error ? err.message : t("receiptList.approveError")),
     })
   }
 
   const canApprove = useCallback((r: R) => r.status === approvableStatus && hasApprovePerm(), [approvableStatus, hasApprovePerm])
 
   const actionsCol: Column<R> = {
-    header: "Thao tác",
+    header: t("table.actions"),
     className: "w-[180px]",
     render: (r: R) => (
       <div className="flex items-center gap-1">
@@ -141,7 +143,7 @@ export function ReceiptListPage<R extends Receipt>({
               <Eye className="size-4" />
             </Button>
           </TooltipTrigger>
-          <TooltipContent>Xem chi tiết</TooltipContent>
+          <TooltipContent>{t("common.viewDetail")}</TooltipContent>
         </Tooltip>
         {scanStatuses.includes(r.status) && (
           <Tooltip>
@@ -150,7 +152,7 @@ export function ReceiptListPage<R extends Receipt>({
                 <ScanLine className="size-4" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent>Nhập serial</TooltipContent>
+            <TooltipContent>{t("receiptList.enterSerials")}</TooltipContent>
           </Tooltip>
         )}
         {canApprove(r) && (
@@ -160,7 +162,7 @@ export function ReceiptListPage<R extends Receipt>({
                 <Check className="size-4 text-green-600" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent>Duyệt phiếu</TooltipContent>
+            <TooltipContent>{t("receiptList.approveReceipt")}</TooltipContent>
           </Tooltip>
         )}
         {hasCancelPerm() && r.status !== cancelledStatus && r.status !== completedStatus && (
@@ -170,7 +172,7 @@ export function ReceiptListPage<R extends Receipt>({
                 <X className="size-4 text-destructive" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent>Từ chối</TooltipContent>
+            <TooltipContent>{t("receiptList.reject")}</TooltipContent>
           </Tooltip>
         )}
       </div>
@@ -183,7 +185,7 @@ export function ReceiptListPage<R extends Receipt>({
         <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
         <Button onClick={() => navigate(newRoute)}>
           <Plus className="size-4 mr-1" />
-          Tạo mới
+          {t("common.createNew")}
         </Button>
       </div>
 
@@ -220,15 +222,15 @@ export function ReceiptListPage<R extends Receipt>({
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Duyệt phiếu nhập</AlertDialogTitle>
+            <AlertDialogTitle>{t("receiptList.approveDialogTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
-              Xác nhận duyệt phiếu <strong>{approveTarget?.receiptCode}</strong>? Hàng sẽ được nhập kho.
+              {t("receiptList.approveDialogDesc", { code: approveTarget?.receiptCode })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={approveMut.isPending}>Không</AlertDialogCancel>
+            <AlertDialogCancel disabled={approveMut.isPending}>{t("common.no")}</AlertDialogCancel>
             <AlertDialogAction disabled={approveMut.isPending} onClick={handleApproveConfirm}>
-              {approveMut.isPending ? "Đang duyệt..." : "Xác nhận duyệt"}
+              {approveMut.isPending ? t("receiptList.approving") : t("receiptList.confirmApprove")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -242,15 +244,15 @@ export function ReceiptListPage<R extends Receipt>({
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Xác nhận hủy phiếu</AlertDialogTitle>
+            <AlertDialogTitle>{t("receiptList.cancelDialogTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
-              Bạn có chắc muốn hủy phiếu <strong>{cancelTarget?.receiptCode}</strong>? Hành động này không thể hoàn tác.
+              {t("receiptList.cancelDialogDesc", { code: cancelTarget?.receiptCode })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={cancelMut.isPending}>Không</AlertDialogCancel>
+            <AlertDialogCancel disabled={cancelMut.isPending}>{t("common.no")}</AlertDialogCancel>
             <AlertDialogAction disabled={cancelMut.isPending} onClick={handleCancel}>
-              {cancelMut.isPending ? "Đang hủy..." : "Xác nhận hủy"}
+              {cancelMut.isPending ? t("receiptList.cancelling") : t("receiptList.confirmCancel")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

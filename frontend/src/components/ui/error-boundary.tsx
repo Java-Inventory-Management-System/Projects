@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from "react"
+import { Translation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 
 interface Props {
@@ -26,13 +27,17 @@ export class ErrorBoundary extends Component<Props, State> {
     if (this.state.hasError) {
       return (
         this.props.fallback ?? (
-          <div className="flex min-h-[40vh] flex-col items-center justify-center gap-3 p-8">
-            <p className="text-sm text-muted-foreground">Đã xảy ra lỗi</p>
-            <p className="max-w-md text-center text-xs text-muted-foreground font-mono">{this.state.error?.message}</p>
-            <Button variant="outline" size="sm" onClick={() => this.setState({ hasError: false, error: null })}>
-              Thử lại
-            </Button>
-          </div>
+          <Translation>
+            {(t) => (
+              <div className="flex min-h-[40vh] flex-col items-center justify-center gap-3 p-8">
+                <p className="text-sm text-muted-foreground">{t('errorBoundary.title')}</p>
+                <p className="max-w-md text-center text-xs text-muted-foreground font-mono">{this.state.error?.message}</p>
+                <Button variant="outline" size="sm" onClick={() => this.setState({ hasError: false, error: null })}>
+                  {t('errorBoundary.retry')}
+                </Button>
+              </div>
+            )}
+          </Translation>
         )
       )
     }

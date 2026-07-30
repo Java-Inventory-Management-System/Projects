@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
+import { useTranslation } from "react-i18next"
 import { usePurchaseOrders, useCancelPurchaseOrder } from "@/hooks/use-purchase-orders"
 import { DataTable, type Column } from "@/components/ui/data-table"
 import { Button } from "@/components/ui/button"
@@ -11,14 +12,8 @@ import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip
 import { toast } from "@/utils/toast"
 import type { PurchaseOrder } from "@/utils/types"
 
-const statusConfig: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
-  DRAFT: { label: "Nháp", variant: "secondary" },
-  PARTIAL: { label: "Giao một phần", variant: "default" },
-  COMPLETED: { label: "Hoàn tất", variant: "default" },
-  CANCELLED: { label: "Đã hủy", variant: "destructive" },
-}
-
 export function POListPage() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const perm = usePermission()
   const cancelMut = useCancelPurchaseOrder()
@@ -50,35 +45,42 @@ export function POListPage() {
 
   const { data, isLoading } = usePurchaseOrders(page, pageSize, sortStr)
 
+  const statusConfig: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
+    DRAFT: { label: t("poStatus.draft"), variant: "secondary" },
+    PARTIAL: { label: t("poStatus.partial"), variant: "default" },
+    COMPLETED: { label: t("poStatus.completed"), variant: "default" },
+    CANCELLED: { label: t("poStatus.cancelled"), variant: "destructive" },
+  }
+
   const columns: Column<PurchaseOrder>[] = [
-    { header: "Mã PO", sortKey: "poCode", render: (p) => <span className="font-mono text-xs">{p.poCode}</span> },
-    { header: "NCC", render: (p) => <span className="font-medium">{p.supplierName}</span> },
+    { header: t("poList.poCode"), sortKey: "poCode", render: (p) => <span className="font-mono text-xs">{p.poCode}</span> },
+    { header: t("table.supplier"), render: (p) => <span className="font-medium">{p.supplierName}</span> },
     {
-      header: "Tổng tiền",
+      header: t("table.totalAmount"),
       sortKey: "totalAmount",
       className: "text-right",
       render: (p) => <span className="tabular-nums">{(p.totalAmount ?? 0).toLocaleString("vi-VN")}₫</span>,
     },
     {
-      header: "Ngày giao",
+      header: t("poList.expectedDate"),
       render: (p) => <span className="text-sm">{new Date(p.expectedDate).toLocaleDateString("vi-VN")}</span>,
     },
     {
-      header: "Trạng thái",
+      header: t("table.status"),
       render: (p) => {
         const s = statusConfig[p.status] ?? { label: p.status, variant: "secondary" }
         return <Badge variant={s.variant}>{s.label}</Badge>
       },
     },
     {
-      header: "Ngày tạo",
+      header: t("table.createdDate"),
       sortKey: "createdAt",
       render: (p) => (
         <span className="text-xs text-muted-foreground">{new Date(p.createdAt).toLocaleDateString("vi-VN")}</span>
       ),
     },
     {
-      header: "Thao tác",
+      header: t("table.actions"),
       className: "w-[120px]",
       render: (p) => (
         <div className="flex items-center gap-1">
@@ -88,7 +90,7 @@ export function POListPage() {
                 <Eye className="size-4" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent>Xem chi tiết</TooltipContent>
+            <TooltipContent>{t("common.viewDetail")}</TooltipContent>
           </Tooltip>
           {p.status !== "CANCELLED" && p.status !== "COMPLETED" && (
             <Tooltip>
@@ -99,7 +101,7 @@ export function POListPage() {
                   className="text-destructive hover:text-destructive"
                   onClick={() => {
                     cancelMut.mutate(p.id, {
-                      onSuccess: () => toast.success(`Đã hủy ${p.poCode}`),
+                      onSuccess: () => toast.success(t("poList.cancelSuccess", { code: p.poCode })),
                       onError: (e) => toast.error(e.message),
                     })
                   }}
@@ -108,7 +110,7 @@ export function POListPage() {
                   <X className="size-4" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>Hủy đơn hàng</TooltipContent>
+              <TooltipContent>{t("poList.cancelOrder")}</TooltipContent>
             </Tooltip>
           )}
         </div>
@@ -119,10 +121,10 @@ export function POListPage() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-xl font-semibold tracking-tight">Đơn đặt hàng</h1>
+        <h1 className="text-xl font-semibold tracking-tight">{t("poList.title")}</h1>
         {perm.hasRole(...ROLES.MANAGER) && (
           <Button onClick={() => navigate("/stock/purchase-orders/new")}>
-            <Plus className="size-4 mr-1" /> Tạo đơn hàng
+            <Plus className="size-4 mr-1" /> {t("poList.createOrder")}
           </Button>
         )}
       </div>
@@ -130,7 +132,7 @@ export function POListPage() {
         columns={columns}
         data={data?.content ?? []}
         isLoading={isLoading}
-        emptyMessage="Chưa có đơn đặt hàng nào"
+        emptyMessage={t("poList.empty")}
         sort={sort}
         onSort={handleSort}
         totalElements={data?.pagination.totalElements}

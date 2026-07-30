@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react"
+import { useTranslation } from "react-i18next"
 import { useSearchParams } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 import { useDebounce } from "@/hooks/use-debounce"
@@ -16,33 +17,33 @@ import { DataTable, type Column } from "@/components/ui/data-table"
 import { ViewProductUnitModal } from "../components/view-product-unit-modal"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 
-const statusOptions: { value: string; label: string }[] = [
-  { value: "all", label: "Tất cả" },
-  { value: PRODUCT_UNIT_STATUS.IN_STOCK, label: "Trong kho" },
-  { value: PRODUCT_UNIT_STATUS.SOLD, label: "Đã bán" },
-  { value: PRODUCT_UNIT_STATUS.DEFECTIVE, label: "Lỗi" },
-  { value: PRODUCT_UNIT_STATUS.DAMAGED_IN_STORAGE, label: "Hư trong kho" },
-  { value: PRODUCT_UNIT_STATUS.LOST, label: "Mất" },
-  { value: PRODUCT_UNIT_STATUS.UNDER_REPAIR, label: "Đang sửa" },
-  { value: PRODUCT_UNIT_STATUS.SENT_TO_MANUFACTURER, label: "Gửi NSX" },
-  { value: PRODUCT_UNIT_STATUS.RETURNED, label: "Trả lại" },
-  { value: PRODUCT_UNIT_STATUS.RETURNED_TO_SUPPLIER, label: "Trả NCC" },
-  { value: PRODUCT_UNIT_STATUS.REMOVED, label: "Đã xóa" },
-  { value: PRODUCT_UNIT_STATUS.DISPOSED, label: "Hủy" },
+const getStatusOptions = (t: (key: string) => string) => [
+  { value: "all", label: t("productUnitList.all") },
+  { value: PRODUCT_UNIT_STATUS.IN_STOCK, label: t("unitStatus.inStock") },
+  { value: PRODUCT_UNIT_STATUS.SOLD, label: t("unitStatus.sold") },
+  { value: PRODUCT_UNIT_STATUS.DEFECTIVE, label: t("unitStatus.defective") },
+  { value: PRODUCT_UNIT_STATUS.DAMAGED_IN_STORAGE, label: t("unitStatus.damagedInStorage") },
+  { value: PRODUCT_UNIT_STATUS.LOST, label: t("unitStatus.lost") },
+  { value: PRODUCT_UNIT_STATUS.UNDER_REPAIR, label: t("unitStatus.underRepair") },
+  { value: PRODUCT_UNIT_STATUS.SENT_TO_MANUFACTURER, label: t("unitStatus.sentToManufacturer") },
+  { value: PRODUCT_UNIT_STATUS.RETURNED, label: t("unitStatus.returned") },
+  { value: PRODUCT_UNIT_STATUS.RETURNED_TO_SUPPLIER, label: t("unitStatus.returnedToSupplier") },
+  { value: PRODUCT_UNIT_STATUS.DISPOSED, label: t("unitStatus.disposed") },
+  { value: PRODUCT_UNIT_STATUS.QUARANTINED, label: t("unitStatus.quarantined") },
 ]
 
-const statusBadge: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
-  [PRODUCT_UNIT_STATUS.IN_STOCK]: { label: "Trong kho", variant: "default" },
-  [PRODUCT_UNIT_STATUS.SOLD]: { label: "Đã bán", variant: "secondary" },
-  [PRODUCT_UNIT_STATUS.DEFECTIVE]: { label: "Lỗi", variant: "destructive" },
-  [PRODUCT_UNIT_STATUS.DAMAGED_IN_STORAGE]: { label: "Hư trong kho", variant: "destructive" },
-  [PRODUCT_UNIT_STATUS.LOST]: { label: "Mất", variant: "destructive" },
-  [PRODUCT_UNIT_STATUS.UNDER_REPAIR]: { label: "Đang sửa", variant: "outline" },
-  [PRODUCT_UNIT_STATUS.SENT_TO_MANUFACTURER]: { label: "Gửi NSX", variant: "outline" },
-  [PRODUCT_UNIT_STATUS.RETURNED]: { label: "Trả lại", variant: "secondary" },
-  [PRODUCT_UNIT_STATUS.RETURNED_TO_SUPPLIER]: { label: "Trả NCC", variant: "secondary" },
-  [PRODUCT_UNIT_STATUS.REMOVED]: { label: "Đã xóa", variant: "outline" },
-  [PRODUCT_UNIT_STATUS.DISPOSED]: { label: "Hủy", variant: "destructive" },
+const statusBadge: Record<string, { labelKey: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
+  [PRODUCT_UNIT_STATUS.IN_STOCK]: { labelKey: "unitStatus.inStock", variant: "default" },
+  [PRODUCT_UNIT_STATUS.SOLD]: { labelKey: "unitStatus.sold", variant: "secondary" },
+  [PRODUCT_UNIT_STATUS.DEFECTIVE]: { labelKey: "unitStatus.defective", variant: "destructive" },
+  [PRODUCT_UNIT_STATUS.DAMAGED_IN_STORAGE]: { labelKey: "unitStatus.damagedInStorage", variant: "destructive" },
+  [PRODUCT_UNIT_STATUS.LOST]: { labelKey: "unitStatus.lost", variant: "destructive" },
+  [PRODUCT_UNIT_STATUS.UNDER_REPAIR]: { labelKey: "unitStatus.underRepair", variant: "outline" },
+  [PRODUCT_UNIT_STATUS.SENT_TO_MANUFACTURER]: { labelKey: "unitStatus.sentToManufacturer", variant: "outline" },
+  [PRODUCT_UNIT_STATUS.RETURNED]: { labelKey: "unitStatus.returned", variant: "secondary" },
+  [PRODUCT_UNIT_STATUS.RETURNED_TO_SUPPLIER]: { labelKey: "unitStatus.returnedToSupplier", variant: "secondary" },
+  [PRODUCT_UNIT_STATUS.DISPOSED]: { labelKey: "unitStatus.disposed", variant: "destructive" },
+  [PRODUCT_UNIT_STATUS.QUARANTINED]: { labelKey: "unitStatus.quarantined", variant: "outline" },
 }
 
 function fmt(d: string | null) {
@@ -51,6 +52,7 @@ function fmt(d: string | null) {
 }
 
 export const ProductUnitListPage = () => {
+  const { t } = useTranslation()
   const [searchParams, setSearchParams] = useSearchParams()
   const page = Number(searchParams.get("page") ?? "0")
   const [pageSize, setPageSize] = useState(10)
@@ -110,12 +112,12 @@ export const ProductUnitListPage = () => {
 
   const columns: Column<ProductUnit>[] = [
     {
-      header: "Serial",
+      header: t("table.serial"),
       sortKey: "serialNumber",
       render: (u) => <span className="font-mono text-xs">{u.serialNumber}</span>,
     },
     {
-      header: "Sản phẩm",
+      header: t("table.product"),
       render: (u) => (
         <>
           <span className="font-medium">{u.productName}</span>
@@ -124,24 +126,24 @@ export const ProductUnitListPage = () => {
       ),
     },
     {
-      header: "Trạng thái",
+      header: t("table.status"),
       render: (u) => {
-        const s = statusBadge[u.status] ?? { label: u.status, variant: "secondary" as const }
-        return <Badge variant={s.variant}>{s.label}</Badge>
+        const s = statusBadge[u.status]
+        return <Badge variant={s?.variant ?? "secondary"}>{s ? t(s.labelKey) : u.status}</Badge>
       },
     },
-    { header: "Vị trí", render: (u) => <span className="text-muted-foreground">{u.locationCode ?? "—"}</span> },
+    { header: t("table.location"), render: (u) => <span className="text-muted-foreground">{u.locationCode ?? "—"}</span> },
     {
-      header: "Ngày nhập",
+      header: t("table.importDate"),
       sortKey: "importedAt",
       render: (u) => <span className="text-muted-foreground text-xs">{fmt(u.importedAt)}</span>,
     },
     {
-      header: "BH đến",
+      header: t("table.warranty"),
       render: (u) => <span className="text-muted-foreground text-xs">{fmt(u.warrantyExpiresAt)}</span>,
     },
     {
-      header: "Thao tác",
+      header: t("table.actions"),
       className: "w-[80px]",
       render: (u) => (
         <Tooltip>
@@ -157,7 +159,7 @@ export const ProductUnitListPage = () => {
               <Eye className="size-4" />
             </Button>
           </TooltipTrigger>
-          <TooltipContent>Xem chi tiết</TooltipContent>
+          <TooltipContent>{t("common.viewDetail")}</TooltipContent>
         </Tooltip>
       ),
     },
@@ -165,14 +167,14 @@ export const ProductUnitListPage = () => {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-xl font-semibold tracking-tight">Sản phẩm trong kho</h1>
+      <h1 className="text-xl font-semibold tracking-tight">{t("productUnitList.title")}</h1>
 
       <Collapsible open={filterOpen} onOpenChange={setFilterOpen}>
         <div className="flex items-center gap-2">
           <div className="relative w-64">
             <Search className="absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
             <Input
-              placeholder="Tìm theo serial..."
+              placeholder={t("productUnitList.searchPlaceholder")}
               className="pl-8"
               value={search}
               onChange={(e) => {
@@ -184,7 +186,7 @@ export const ProductUnitListPage = () => {
           <CollapsibleTrigger asChild>
             <Button variant="outline" size="sm" className="gap-1">
               {filterOpen ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
-              Bộ lọc
+              {t("productUnitList.filter")}
             </Button>
           </CollapsibleTrigger>
         </div>
@@ -195,7 +197,7 @@ export const ProductUnitListPage = () => {
               value={statusFilter}
               onValueChange={(v) => updateParams({ status: v || undefined, page: undefined })}
             >
-              {statusOptions.slice(0, 5).map((o) => (
+              {getStatusOptions(t).slice(0, 5).map((o) => (
                 <ToggleGroupItem key={o.value} value={o.value} size="sm" className="text-xs">
                   {o.label}
                 </ToggleGroupItem>
@@ -206,10 +208,10 @@ export const ProductUnitListPage = () => {
               onValueChange={(v) => updateParams({ product: v === "all" ? undefined : v, page: undefined })}
             >
               <SelectTrigger className="w-64">
-                <SelectValue placeholder="Sản phẩm" />
+                <SelectValue placeholder={t("productUnitList.product")} />
               </SelectTrigger>
               <SelectContent className="max-h-[50vh]">
-                <SelectItem value="all">Tất cả</SelectItem>
+                <SelectItem value="all">{t("common.all")}</SelectItem>
                 {(products ?? []).map((p) => (
                   <SelectItem key={p.id} value={String(p.id)}>
                     {p.name} ({p.sku})
@@ -222,11 +224,11 @@ export const ProductUnitListPage = () => {
               onValueChange={(v) => updateParams({ sort: v === "desc" ? undefined : v, page: undefined })}
             >
               <SelectTrigger className="w-32">
-                <SelectValue placeholder="Sắp xếp" />
+                <SelectValue placeholder={t("productUnitList.sort")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="desc">Mới nhất</SelectItem>
-                <SelectItem value="asc">Cũ nhất</SelectItem>
+                <SelectItem value="desc">{t("productUnitList.newest")}</SelectItem>
+                <SelectItem value="asc">{t("productUnitList.oldest")}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -235,7 +237,7 @@ export const ProductUnitListPage = () => {
 
       {fetchError ? (
         <div className="rounded-lg border p-8 text-center">
-          <p className="text-sm text-destructive mb-2">{fetchError instanceof Error ? fetchError.message : "Không thể tải danh sách"}</p>
+          <p className="text-sm text-destructive mb-2">{fetchError instanceof Error ? fetchError.message : t("productUnitList.loadError")}</p>
           <Button
             variant="outline"
             size="sm"
@@ -248,7 +250,7 @@ export const ProductUnitListPage = () => {
               }, { replace: true })
             }}
           >
-            <RefreshCw className="size-3 mr-1" /> Thử lại
+            <RefreshCw className="size-3 mr-1" /> {t("productUnitList.retry")}
           </Button>
         </div>
       ) : (
@@ -256,7 +258,7 @@ export const ProductUnitListPage = () => {
           columns={columns}
           data={filtered}
           isLoading={isLoading}
-          emptyMessage={hasFilters ? "Không có sản phẩm nào" : "Chưa có sản phẩm trong kho"}
+          emptyMessage={hasFilters ? t("productUnitList.emptySearch") : t("productUnitList.empty")}
           sort={sort}
           onSort={handleSort}
           totalElements={unitsRes?.pagination?.totalElements}
