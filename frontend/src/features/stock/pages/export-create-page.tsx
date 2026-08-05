@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react"
+import { LocationCodePopover } from "../components/location-code-popover"
 import { useTranslation } from "react-i18next"
 import { useForm, useFieldArray, Controller } from "react-hook-form"
 import { useNavigate } from "react-router-dom"
@@ -364,7 +365,7 @@ export const ExportCreatePage = () => {
                         <TableRow key={s.id}>
                           <TableCell className="text-xs text-muted-foreground">{item.productName}</TableCell>
                           <TableCell className="font-mono text-xs">{s.serialNumber}</TableCell>
-                          <TableCell className="font-mono text-xs text-muted-foreground">{s.locationCode ?? "—"}</TableCell>
+                          <TableCell><LocationCodePopover code={s.locationCode} /></TableCell>
                           <TableCell className="text-xs text-muted-foreground">
                             {new Date(s.importedAt).toLocaleDateString("vi-VN")}
                           </TableCell>
@@ -492,7 +493,7 @@ export const ExportCreatePage = () => {
                     <div className="flex-1 min-w-0">
                       <p className="font-mono text-xs font-medium truncate">{s.serialNumber}</p>
                       <p className="text-[10px] text-muted-foreground">
-                        {s.locationCode ?? "—"} · {new Date(s.importedAt).toLocaleDateString("vi-VN")}
+                        <LocationCodePopover code={s.locationCode} /> · {new Date(s.importedAt).toLocaleDateString("vi-VN")}
                       </p>
                     </div>
                   </label>

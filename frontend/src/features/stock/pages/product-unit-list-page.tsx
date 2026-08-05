@@ -15,6 +15,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { DataTable, type Column } from "@/components/ui/data-table"
 import { ViewProductUnitModal } from "../components/view-product-unit-modal"
+import { LocationCodePopover } from "../components/location-code-popover"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 
 const getStatusOptions = (t: (key: string) => string) => [
@@ -132,7 +133,7 @@ export const ProductUnitListPage = () => {
         return <Badge variant={s?.variant ?? "secondary"}>{s ? t(s.labelKey) : u.status}</Badge>
       },
     },
-    { header: t("table.location"), render: (u) => <span className="text-muted-foreground">{u.locationCode ?? "—"}</span> },
+    { header: t("table.location"), render: (u) => <LocationCodePopover code={u.locationCode} /> },
     {
       header: t("table.importDate"),
       sortKey: "importedAt",

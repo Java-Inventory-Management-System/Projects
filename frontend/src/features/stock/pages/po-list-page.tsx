@@ -46,7 +46,7 @@ export function POListPage() {
   const { data, isLoading } = usePurchaseOrders(page, pageSize, sortStr)
 
   const statusConfig: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
-    DRAFT: { label: t("poStatus.draft"), variant: "secondary" },
+    OPEN: { label: t("poStatus.open"), variant: "default" },
     PARTIAL: { label: t("poStatus.partial"), variant: "default" },
     COMPLETED: { label: t("poStatus.completed"), variant: "default" },
     CANCELLED: { label: t("poStatus.cancelled"), variant: "destructive" },

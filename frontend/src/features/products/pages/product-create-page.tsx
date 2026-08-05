@@ -4,15 +4,18 @@ import { useNavigate } from "react-router-dom"
 import { useCreateProduct } from "@/hooks/use-products"
 import { useBrands } from "@/hooks/use-brands"
 import { useCategories } from "@/hooks/use-categories"
+import { useSuppliers } from "@/hooks/use-suppliers"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { FieldError } from "@/components/ui/field"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "@/utils/toast"
 import { PRODUCT_UNIT_TYPE, TRACKING_TYPE } from "@/utils/types"
+import { UNIT_LABELS } from "@/components/tracking-type-badge"
 
 const UNITS = [
   PRODUCT_UNIT_TYPE.PIECE,
@@ -20,6 +23,7 @@ const UNITS = [
   PRODUCT_UNIT_TYPE.SET,
   PRODUCT_UNIT_TYPE.METER,
   PRODUCT_UNIT_TYPE.KG,
+  PRODUCT_UNIT_TYPE.TUBE,
 ]
 const TRACKING_TYPES = [TRACKING_TYPE.SERIALIZED, TRACKING_TYPE.BULK]
 
@@ -34,6 +38,7 @@ interface FormData {
   sellPrice: string
   minStock: string
   description: string
+  supplierIds: number[]
 }
 
 export function ProductCreatePage() {
@@ -41,10 +46,11 @@ export function ProductCreatePage() {
   const navigate = useNavigate()
   const { data: brands } = useBrands()
   const { data: categories } = useCategories()
+  const { data: suppliers = [] } = useSuppliers()
   const createProduct = useCreateProduct()
 
   const { register, handleSubmit, control, watch, formState: { errors } } = useForm<FormData>({
-    defaultValues: { name: "", sku: "", barcode: "", brandId: "", categoryId: "", unit: "", trackingType: "", sellPrice: "", minStock: "0", description: "" },
+    defaultValues: { name: "", sku: "", barcode: "", brandId: "", categoryId: "", unit: "", trackingType: "", sellPrice: "", minStock: "0", description: "", supplierIds: [] },
   })
 
   const onSubmit = handleSubmit(async (values) => {
@@ -60,6 +66,7 @@ export function ProductCreatePage() {
         trackingType: values.trackingType || null,
         minStock: values.minStock ? Number(values.minStock) : undefined,
         description: values.description || undefined,
+        supplierIds: values.supplierIds || [],
       }
       await createProduct.mutateAsync(payload)
       toast.success(t("productForm.createSuccess"))
@@ -146,12 +153,38 @@ export function ProductCreatePage() {
                   </SelectTrigger>
                   <SelectContent>
                     {UNITS.map((u) => (
-                      <SelectItem key={u} value={u}>{u}</SelectItem>
+                      <SelectItem key={u} value={u}>{t(UNIT_LABELS[u] ?? u)}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               )}
             />
+          </div>
+          <div className="space-y-2 sm:col-span-2">
+            <Label>{t("productForm.suppliers")} <span className="text-destructive">*</span></Label>
+            <Controller
+              control={control}
+              name="supplierIds"
+              rules={{ validate: (v) => v.length > 0 || t("productForm.suppliersRequired") }}
+              render={({ field }) => (
+                <div className="grid gap-2 sm:grid-cols-2 rounded-lg border p-3">
+                  {suppliers.map((s) => (
+                    <label key={s.id} className="flex items-center gap-2 text-sm">
+                      <Checkbox
+                        checked={field.value.includes(s.id)}
+                        onCheckedChange={(checked) =>
+                          field.onChange(
+                            checked ? [...field.value, s.id] : field.value.filter((id) => id !== s.id),
+                          )
+                        }
+                      />
+                      {s.name}
+                    </label>
+                  ))}
+                </div>
+              )}
+            />
+            <FieldError errors={errors.supplierIds ? [{ message: errors.supplierIds.message }] : undefined} />
           </div>
           <div className="space-y-2 sm:col-span-2">
             <Label>{t("productForm.trackingType")}</Label>
@@ -189,7 +222,7 @@ export function ProductCreatePage() {
 
         <div className="flex gap-2 justify-end mt-6">
           <Button variant="outline" onClick={() => navigate("/products")}>{t("common.cancel")}</Button>
-          <Button type="submit" disabled={!watch("name").trim() || createProduct.isPending}>
+          <Button type="submit" disabled={!watch("name").trim() || watch("supplierIds").length === 0 || createProduct.isPending}>
             {createProduct.isPending ? t("productForm.creating") : t("productForm.create")}
           </Button>
         </div>

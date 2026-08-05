@@ -37,13 +37,14 @@ interface Props<R extends Receipt> {
     sort?: string,
   ) => { data?: { content: R[]; pagination: { totalPages: number; totalElements: number } }; isLoading: boolean }
   cancelService: (id: number) => Promise<unknown>
-  approveService: (id: number) => Promise<unknown>
+  approveService?: (id: number) => Promise<unknown>
   ViewModal: ComponentType<{ receipt: R | null; open: boolean; onOpenChange: (v: boolean) => void }>
   columns: Column<R>[]
   approvableStatus?: string
   cancelledStatus?: string
   completedStatus?: string
   scanStatuses?: string[]
+  cancelPerm?: () => boolean
 }
 
 export function ReceiptListPage<R extends Receipt>({
@@ -60,12 +61,14 @@ export function ReceiptListPage<R extends Receipt>({
   cancelledStatus = IMPORT_RECEIPT_STATUS.CANCELLED,
   completedStatus = IMPORT_RECEIPT_STATUS.COMPLETED,
   scanStatuses = [IMPORT_RECEIPT_STATUS.DRAFT, IMPORT_RECEIPT_STATUS.PENDING_APPROVAL],
+  cancelPerm,
 }: Props<R>) {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const qc = useQueryClient()
   const [searchParams, setSearchParams] = useSearchParams()
   const { canCancel: hasCancelPerm, canApprove: hasApprovePerm } = usePermission()
+  const canCancelPerm = cancelPerm ?? hasCancelPerm
   const page = Number(searchParams.get("page") ?? "0")
   const pageSize = Number(searchParams.get("size") ?? "10")
   const [viewReceipt, setViewReceipt] = useState<R | null>(null)
@@ -102,29 +105,41 @@ export function ReceiptListPage<R extends Receipt>({
     mutationFn: (id: number) => cancelService(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: [queryKey] })
+      qc.invalidateQueries({ queryKey: ["import-pending-count"] })
+      qc.invalidateQueries({ queryKey: ["export-pending-count"] })
       setCancelTarget(null)
     },
   })
 
   const approveMut = useMutation({
-    mutationFn: (id: number) => approveService(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: [queryKey] }),
+    mutationFn: (id: number) => {
+      if (!approveService) return Promise.reject(new Error("approve not supported"))
+      return approveService(id)
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: [queryKey] })
+      qc.invalidateQueries({ queryKey: ["import-pending-count"] })
+      qc.invalidateQueries({ queryKey: ["export-pending-count"] })
+    },
   })
 
   const handleCancel = async () => {
     if (!cancelTarget) return
-    cancelMut.mutate(cancelTarget.id, {
-      onSuccess: () => toast.success(t("receiptList.cancelled", { code: cancelTarget.receiptCode })),
+    const { id, receiptCode } = cancelTarget
+    setCancelTarget(null)
+    cancelMut.mutate(id, {
+      onSuccess: () => toast.success(t("receiptList.cancelled", { code: receiptCode })),
       onError: (err) => toast.error(err instanceof Error ? err.message : t("receiptList.cancelError")),
     })
   }
 
   const handleApproveConfirm = () => {
     if (!approveTarget) return
-    approveMut.mutate(approveTarget.id, {
+    const { id, receiptCode } = approveTarget
+    setApproveTarget(null)
+    approveMut.mutate(id, {
       onSuccess: () => {
-        toast.success(t("receiptList.approved", { code: approveTarget.receiptCode }))
-        setApproveTarget(null)
+        toast.success(t("receiptList.approved", { code: receiptCode }))
       },
       onError: (err) => toast.error(err instanceof Error ? err.message : t("receiptList.approveError")),
     })
@@ -155,7 +170,7 @@ export function ReceiptListPage<R extends Receipt>({
             <TooltipContent>{t("receiptList.enterSerials")}</TooltipContent>
           </Tooltip>
         )}
-        {canApprove(r) && (
+        {approveService && canApprove(r) && (
           <Tooltip>
             <TooltipTrigger asChild>
               <Button variant="ghost" size="icon" onClick={() => setApproveTarget(r)} disabled={approveMut.isPending}>
@@ -165,14 +180,14 @@ export function ReceiptListPage<R extends Receipt>({
             <TooltipContent>{t("receiptList.approveReceipt")}</TooltipContent>
           </Tooltip>
         )}
-        {hasCancelPerm() && r.status !== cancelledStatus && r.status !== completedStatus && (
+        {canCancelPerm() && r.status !== cancelledStatus && r.status !== completedStatus && (
           <Tooltip>
             <TooltipTrigger asChild>
               <Button variant="ghost" size="icon" onClick={() => setCancelTarget(r)}>
                 <X className="size-4 text-destructive" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent>{t("receiptList.reject")}</TooltipContent>
+            <TooltipContent>{t("receiptList.cancelDialogTitle")}</TooltipContent>
           </Tooltip>
         )}
       </div>
@@ -220,20 +235,22 @@ export function ReceiptListPage<R extends Receipt>({
           if (!v) setApproveTarget(null)
         }}
       >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t("receiptList.approveDialogTitle")}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {t("receiptList.approveDialogDesc", { code: approveTarget?.receiptCode })}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={approveMut.isPending}>{t("common.no")}</AlertDialogCancel>
-            <AlertDialogAction disabled={approveMut.isPending} onClick={handleApproveConfirm}>
-              {approveMut.isPending ? t("receiptList.approving") : t("receiptList.confirmApprove")}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
+        {approveService && (
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{t("receiptList.approveDialogTitle")}</AlertDialogTitle>
+              <AlertDialogDescription>
+                {t("receiptList.approveDialogDesc", { code: approveTarget?.receiptCode })}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={approveMut.isPending}>{t("common.no")}</AlertDialogCancel>
+              <AlertDialogAction disabled={approveMut.isPending} onClick={handleApproveConfirm}>
+                {approveMut.isPending ? t("receiptList.approving") : t("receiptList.confirmApprove")}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        )}
       </AlertDialog>
 
       <AlertDialog

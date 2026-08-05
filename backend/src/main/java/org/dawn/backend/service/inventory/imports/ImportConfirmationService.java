@@ -28,6 +28,7 @@ import org.dawn.backend.repository.inventory.PurchaseOrderItemRepository;
 import org.dawn.backend.repository.inventory.PurchaseOrderRepository;
 import org.dawn.backend.shared.statemachine.StateMachine;
 import org.dawn.backend.config.security.SecurityPolicy;
+import org.dawn.backend.service.inventory.LocationCapacityValidator;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -53,6 +54,7 @@ public class ImportConfirmationService {
     private final StateMachine<ImportReceiptStatus> importReceiptStateMachine;
     private final SecurityPolicy securityPolicy;
     private final ImportReceiptService importReceiptService;
+    private final LocationCapacityValidator capacityValidator;
 
     private static final List<String> BULK_UNITS = List.of(
             UnitOfMeasure.METER.name(),
@@ -113,6 +115,7 @@ public class ImportConfirmationService {
             savedItems.add(item);
 
             if (isBulk) {
+                capacityValidator.assertCapacity(itemReq.locationId(), qty);
                 ProductUnit pu = ProductUnit.builder()
                         .serialNumber(null)
                         .productId(itemReq.productId())
@@ -148,6 +151,8 @@ public class ImportConfirmationService {
                             Message.format(Message.Inventory.SERIAL_ALREADY_EXISTS_LIST, String.join(", ", existing))
                     );
                 }
+
+                capacityValidator.assertCapacity(itemReq.locationId(), BigDecimal.valueOf(trimmedSerials.size()));
 
                 var now = Instant.now();
                 final var prodId = itemReq.productId();
@@ -213,6 +218,8 @@ public class ImportConfirmationService {
                 throw new ResourceAlreadyExistedException(
                         Message.format(Message.Inventory.SERIAL_ALREADY_EXISTS_LIST, String.join(", ", existing)));
             }
+
+            capacityValidator.assertCapacity(serial.locationId(), BigDecimal.valueOf(serials.size()));
 
             var now = Instant.now();
             var batch = serials.stream().map(s -> ProductUnit.builder()

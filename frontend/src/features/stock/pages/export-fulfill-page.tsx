@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react"
+import { LocationCodePopover } from "../components/location-code-popover"
 import { useParams, useNavigate } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
@@ -23,8 +24,10 @@ import {
 } from "@/components/ui/dialog"
 import { toast } from "@/utils/toast"
 import { EXPORT_RECEIPT_STATUS, type ProductUnit } from "@/utils/types"
+import { formatDateVN, formatDateTime } from "@/utils/format"
 import { useBarcodeScanner } from "@/hooks/use-barcode-scanner"
 import { ScanLine } from "lucide-react"
+import { TrackingTypeBadge } from "@/components/tracking-type-badge"
 
 export function ExportFulfillPage() {
   const { t } = useTranslation()
@@ -35,6 +38,13 @@ export function ExportFulfillPage() {
     APPROVED: { label: t("exportStatus.approved"), variant: "secondary" },
     COMPLETED: { label: t("exportStatus.completed"), variant: "default" },
     CANCELLED: { label: t("exportStatus.cancelled"), variant: "destructive" },
+  }
+  const reasonLabel: Record<string, string> = {
+    SALE: t("exportReason.sale"),
+    INTERNAL: t("exportReason.internal"),
+    RETURN_SUPPLIER: t("exportReason.returnSupplier"),
+    DISPOSE: t("exportReason.dispose"),
+    WARRANTY_REPLACEMENT: t("exportReason.warrantyReplacement"),
   }
   const qc = useQueryClient()
   const [confirmOpen, setConfirmOpen] = useState(false)
@@ -110,6 +120,7 @@ export function ExportFulfillPage() {
       qc.invalidateQueries({ queryKey: ["export-receipts"] })
       qc.invalidateQueries({ queryKey: ["inventory"] })
       qc.invalidateQueries({ queryKey: ["inventory-summary"] })
+      qc.invalidateQueries({ queryKey: ["export-pending-count"] })
       toast.success(t("exportFulfill.success"))
       navigate(`/stock/exports/${receipt!.id}`)
     },
@@ -146,8 +157,8 @@ export function ExportFulfillPage() {
       <Card>
         <CardContent className="pt-6">
           <div className="grid grid-cols-2 gap-4 text-sm">
-            <div><span className="text-muted-foreground">{t("label.reason")}</span><p className="font-medium">{receipt.reason}</p></div>
-            <div><span className="text-muted-foreground">{t("label.createdDate")}</span><p className="font-medium">{new Date(receipt.createdAt).toLocaleString("vi-VN")}</p></div>
+            <div><span className="text-muted-foreground">{t("label.reason")}</span><p className="font-medium">{reasonLabel[receipt.reason] ?? receipt.reason}</p></div>
+            <div><span className="text-muted-foreground">{t("label.createdDate")}</span><p className="font-medium">{formatDateTime(receipt.createdAt)}</p></div>
             {receipt.customerName && <div><span className="text-muted-foreground">{t("label.customer")}</span><p className="font-medium">{receipt.customerName}</p></div>}
             <div><span className="text-muted-foreground">{t("label.creator")}</span><p className="font-medium">{receipt.createdByName || "—"}</p></div>
           </div>
@@ -174,9 +185,7 @@ export function ExportFulfillPage() {
                   </TableCell>
                   <TableCell className="text-right tabular-nums">{item.quantity}</TableCell>
                   <TableCell className="text-right">
-                    <Badge variant="outline" className="text-[10px]">
-                      {isSerialized(item) ? t("trackingType.serialized") : t("trackingType.bulk")}
-                    </Badge>
+                    <TrackingTypeBadge type={item.trackingType} />
                   </TableCell>
                   <TableCell className="text-right">
                     {isSerialized(item) ? (
@@ -201,7 +210,7 @@ export function ExportFulfillPage() {
         </CardContent>
       </Card>
 
-      {receipt.status === EXPORT_RECEIPT_STATUS.APPROVED && (
+      {(receipt.status === EXPORT_RECEIPT_STATUS.PENDING || receipt.status === EXPORT_RECEIPT_STATUS.APPROVED) && (
         <div className="flex gap-2 justify-end">
           <Button variant="outline" onClick={() => navigate("/stock/exports")}>{t("common.back")}</Button>
           <Button onClick={() => setConfirmOpen(true)}>{t("exportFulfill.confirmFulfill")}</Button>
@@ -282,7 +291,7 @@ export function ExportFulfillPage() {
                     <div className="flex-1 min-w-0">
                       <p className="font-mono text-xs font-medium truncate">{s.serialNumber}</p>
                       <p className="text-[10px] text-muted-foreground">
-                        {s.locationCode ?? "—"} · {new Date(s.importedAt).toLocaleDateString("vi-VN")}
+                        <LocationCodePopover code={s.locationCode} /> · {formatDateVN(s.importedAt)}
                       </p>
                     </div>
                   </label>

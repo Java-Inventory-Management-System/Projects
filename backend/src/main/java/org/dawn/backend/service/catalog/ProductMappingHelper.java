@@ -2,6 +2,9 @@ package org.dawn.backend.service.catalog;
 
 import org.dawn.backend.controller.catalog.response.ProductResponse;
 import org.dawn.backend.entity.catalog.Product;
+import org.dawn.backend.entity.catalog.Supplier;
+
+import java.util.stream.Collectors;
 
 public interface ProductMappingHelper {
 
@@ -21,6 +24,7 @@ public interface ProductMappingHelper {
                 .sellPrice(p.getSellPrice())
                 .minStock(p.getMinStock())
                 .isActive(p.getIsActive())
+                .supplierIds(p.getSuppliers().stream().map(Supplier::getId).sorted().collect(Collectors.toList()))
                 .createdAt(p.getCreatedAt())
                 .updatedAt(p.getUpdatedAt())
                 .build();

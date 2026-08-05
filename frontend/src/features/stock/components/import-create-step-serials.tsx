@@ -77,7 +77,7 @@ function SerialPreview({ pasteText }: { pasteText: string }) {
           e.status === "ok" ? (
             <span
               key={i}
-              className="inline-flex items-center gap-1 rounded-md border border-green-300 bg-green-50 px-2 py-0.5 text-xs font-mono text-green-700"
+              className="inline-flex items-center gap-1 rounded-md border border-green-300 bg-green-50 px-2 py-0.5 text-xs font-mono text-green-700 dark:border-green-800 dark:bg-green-950/20 dark:text-green-300"
             >
               <Check className="size-3" />
               {e.serial}

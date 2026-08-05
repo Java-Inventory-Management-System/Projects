@@ -194,9 +194,9 @@ export function PriceAdjustmentCreatePage() {
         )}
 
         {allItemsPending && availableItems && availableItems.length > 0 && (
-          <Alert variant="default" className="border-amber-300 bg-amber-50">
-            <AlertTriangle className="size-4 text-amber-600" />
-            <AlertDescription className="text-amber-800 text-sm">
+          <Alert variant="default" className="border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/20">
+            <AlertTriangle className="size-4 text-amber-600 dark:text-amber-400" />
+            <AlertDescription className="text-amber-800 text-sm dark:text-amber-300">
               {t("priceAdjCreate.allBatchesPending")}
             </AlertDescription>
           </Alert>
@@ -285,7 +285,7 @@ export function PriceAdjustmentCreatePage() {
           </div>
           <FieldError errors={form.formState.errors.newPrice ? [{ message: form.formState.errors.newPrice.message ?? "" }] : undefined} />
           {showPriceWarning && (
-            <div className="flex items-center gap-2 text-sm text-amber-700 bg-amber-50 rounded-lg px-4 py-2 border border-amber-200">
+            <div className="flex items-center gap-2 text-sm text-amber-700 bg-amber-50 rounded-lg px-4 py-2 border border-amber-200 dark:text-amber-300 dark:bg-amber-950/20 dark:border-amber-800">
               <AlertTriangle className="size-4 shrink-0" />
               {t("priceAdjCreate.priceWarning")}
             </div>

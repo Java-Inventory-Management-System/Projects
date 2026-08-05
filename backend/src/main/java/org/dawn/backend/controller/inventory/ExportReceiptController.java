@@ -6,13 +6,14 @@ import org.dawn.backend.config.web.response.ResponsePage;
 import org.dawn.backend.constant.security.AuthorizationExpressions;
 import org.dawn.backend.controller.inventory.request.ExportReceiptRequest;
 import org.dawn.backend.controller.inventory.request.FulfillExportRequest;
-import org.dawn.backend.controller.inventory.request.RejectExportRequest;
 import org.dawn.backend.controller.inventory.response.ExportReceiptResponse;
 import org.dawn.backend.controller.inventory.response.ProductUnitResponse;
 import org.dawn.backend.service.inventory.exports.ExportFulfillmentService;
 import org.dawn.backend.service.inventory.exports.ExportReceiptService;
 import org.dawn.backend.service.inventory.exports.ExportWorkflowService;
+import org.dawn.backend.service.inventory.ReceiptPrintService;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.RequestParam;
 
 import java.util.List;
@@ -27,6 +28,13 @@ public class ExportReceiptController {
     private final ExportReceiptService exportReceiptService;
     private final ExportWorkflowService exportWorkflowService;
     private final ExportFulfillmentService exportFulfillmentService;
+    private final ReceiptPrintService receiptPrintService;
+
+    @GetMapping(value = "/export-receipt/{id}/print", produces = MediaType.TEXT_HTML_VALUE)
+    @PreAuthorize(AuthorizationExpressions.CAN_OPERATE)
+    public String print(@PathVariable Long id, @RequestParam(defaultValue = "vi") String lang) {
+        return receiptPrintService.printExport(id, lang);
+    }
 
     @GetMapping("/export-receipt")
     @PreAuthorize(AuthorizationExpressions.CAN_OPERATE)
@@ -48,26 +56,14 @@ public class ExportReceiptController {
         return ResponseObject.created(exportReceiptService.create(request));
     }
 
-    @PutMapping("/export-receipt/{id}/approve")
-    @PreAuthorize(AuthorizationExpressions.CAN_APPROVE)
-    public ResponseObject<ExportReceiptResponse> approve(@PathVariable Long id) {
-        return ResponseObject.success(exportWorkflowService.approve(id));
-    }
-
-    @PutMapping("/export-receipt/{id}/reject")
-    @PreAuthorize(AuthorizationExpressions.CAN_APPROVE)
-    public ResponseObject<ExportReceiptResponse> reject(@PathVariable Long id, @RequestBody RejectExportRequest request) {
-        return ResponseObject.success(exportWorkflowService.reject(id, request));
-    }
-
     @PutMapping("/export-receipt/{id}/fulfill")
-    @PreAuthorize(AuthorizationExpressions.CAN_OPERATE)
+    @PreAuthorize(AuthorizationExpressions.CAN_OPERATE_STOCK)
     public ResponseObject<ExportReceiptResponse> fulfill(@PathVariable Long id, @RequestBody FulfillExportRequest request) {
         return ResponseObject.success(exportFulfillmentService.fulfill(id, request));
     }
 
     @PutMapping("/export-receipt/{id}/cancel")
-    @PreAuthorize(AuthorizationExpressions.CAN_APPROVE)
+    @PreAuthorize(AuthorizationExpressions.CAN_OPERATE)
     public ResponseObject<ExportReceiptResponse> cancel(@PathVariable Long id) {
         return ResponseObject.success(exportWorkflowService.cancel(id));
     }

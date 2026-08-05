@@ -18,13 +18,30 @@ public interface StockCheckMappingHelper {
                                    List<StockCheckItem> items,
                                    Map<Long, ProductUnit> unitMap,
                                    Map<Long, Product> productMap) {
-        return map(sc, createdByName, approvedByName, items, unitMap, productMap, 0);
+        return map(sc, createdByName, approvedByName, items, unitMap, productMap, Map.of(), 0);
     }
 
     static StockCheckResponse map(StockCheck sc, String createdByName, String approvedByName,
                                    List<StockCheckItem> items,
                                    Map<Long, ProductUnit> unitMap,
                                    Map<Long, Product> productMap,
+                                   Map<Long, String> boxCodeById) {
+        return map(sc, createdByName, approvedByName, items, unitMap, productMap, boxCodeById, 0);
+    }
+
+    static StockCheckResponse map(StockCheck sc, String createdByName, String approvedByName,
+                                   List<StockCheckItem> items,
+                                   Map<Long, ProductUnit> unitMap,
+                                   Map<Long, Product> productMap,
+                                   int autoFilledCount) {
+        return map(sc, createdByName, approvedByName, items, unitMap, productMap, Map.of(), autoFilledCount);
+    }
+
+    static StockCheckResponse map(StockCheck sc, String createdByName, String approvedByName,
+                                   List<StockCheckItem> items,
+                                   Map<Long, ProductUnit> unitMap,
+                                   Map<Long, Product> productMap,
+                                   Map<Long, String> boxCodeById,
                                    int autoFilledCount) {
         int matchCount = 0, missingCount = 0, unexpectedCount = 0;
         List<StockCheckItemResponse> itemResponses = new ArrayList<>();
@@ -44,6 +61,8 @@ public interface StockCheckMappingHelper {
                     .productName(p != null ? p.getName() : null)
                     .productSku(p != null ? p.getSku() : null)
                     .trackingType(item.getTrackingType())
+                    .boxId(pu != null ? pu.getBoxId() : null)
+                    .boxCode(pu != null && pu.getBoxId() != null ? boxCodeById.get(pu.getBoxId()) : null)
                     .expectedStatus(item.getExpectedStatus())
                     .actualStatus(item.getActualStatus())
                     .countedQuantity(item.getCountedQuantity())

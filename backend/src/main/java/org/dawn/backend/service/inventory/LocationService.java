@@ -6,6 +6,7 @@ import org.dawn.backend.aspect.AuditLog;
 import org.dawn.backend.config.web.response.ResponsePage;
 import org.dawn.backend.constant.enums.inventory.ProductUnitStatus;
 import org.dawn.backend.constant.enums.inventory.SourceType;
+import org.dawn.backend.constant.enums.inventory.box.BoxStatus;
 import org.dawn.backend.constant.shared.LogConstant;
 import org.dawn.backend.constant.shared.Message;
 import org.dawn.backend.controller.inventory.request.LocationRequest;
@@ -14,23 +15,30 @@ import org.dawn.backend.controller.inventory.response.LocationMapResponse;
 import org.dawn.backend.controller.inventory.response.LocationMapResponse.ZoneData;
 import org.dawn.backend.controller.inventory.response.LocationMapResponse.ShelfData;
 import org.dawn.backend.controller.inventory.response.LocationMapResponse.BinData;
+import org.dawn.backend.controller.inventory.response.LocationMapResponse.BinProduct;
 import org.dawn.backend.controller.inventory.response.LocationResponse;
+import org.dawn.backend.entity.catalog.Product;
 import org.dawn.backend.entity.inventory.Location;
 import org.dawn.backend.entity.inventory.ProductUnit;
 import org.dawn.backend.entity.inventory.ProductUnitStatusLog;
 import org.dawn.backend.exception.type.InvalidRequestException;
 import org.dawn.backend.exception.type.ResourceAlreadyExistedException;
 import org.dawn.backend.exception.type.ResourceNotFoundException;
+import org.dawn.backend.repository.catalog.ProductRepository;
 import org.dawn.backend.repository.inventory.LocationRepository;
 import org.dawn.backend.repository.inventory.ProductUnitRepository;
 import org.dawn.backend.repository.inventory.ProductUnitStatusLogRepository;
+import org.dawn.backend.repository.inventory.box.BoxRepository;
+import org.dawn.backend.entity.inventory.Box;
 import org.dawn.backend.config.security.SecurityPolicy;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -43,14 +51,53 @@ public class LocationService {
 
     private final LocationRepository locationRepository;
     private final ProductUnitRepository productUnitRepository;
+    private final ProductRepository productRepository;
     private final ProductUnitStatusLogRepository productUnitStatusLogRepository;
     private final SecurityPolicy securityPolicy;
+    private final LocationCapacityValidator capacityValidator;
+    private final BoxRepository boxRepository;
 
     @Transactional(readOnly = true)
     public LocationMapResponse getMap() {
         var locations = locationRepository.findAllByOrderByZoneCodeAscShelfCodeAscBinCodeAsc();
-        var counts = productUnitRepository.countByLocation();
+        var counts = productUnitRepository.usageByLocation();
         var skuMap = productUnitRepository.findSkuByLocationId();
+        var sealedBoxes = boxRepository.findByLocationIdInAndStatus(locations.stream().map(Location::getId).toList(), BoxStatus.SEALED);
+        var boxMap = sealedBoxes.stream()
+                .collect(Collectors.groupingBy(Box::getLocationId, LinkedHashMap::new, Collectors.toList()));
+        var boxById = sealedBoxes.stream().collect(Collectors.toMap(Box::getId, b -> b, (a, b) -> a));
+
+        var units = productUnitRepository.findInStockUnitsByLocationIdIn(locations.stream().map(Location::getId).toList());
+        var products = productRepository.findAllById(units.stream().map(ProductUnit::getProductId).distinct().toList()).stream()
+                .collect(Collectors.toMap(Product::getId, p -> p));
+        Map<Long, List<BinProduct>> productMap = units.stream()
+                .collect(Collectors.groupingBy(ProductUnit::getLocationId, LinkedHashMap::new,
+                        Collectors.groupingBy(ProductUnit::getProductId, LinkedHashMap::new,
+                                Collectors.groupingBy(u -> boxById.containsKey(u.getBoxId()) ? u.getBoxId() : 0L, Collectors.toList()))))
+                .entrySet().stream()
+                .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().entrySet().stream()
+                        .flatMap(pe -> pe.getValue().entrySet().stream().map(bg -> {
+                            List<ProductUnit> group = bg.getValue();
+                            Product p = products.get(pe.getKey());
+                            boolean bulk = "BULK".equals(group.get(0).getTrackingType());
+                            long quantity = bulk
+                                    ? group.stream().mapToLong(u -> u.getRemainingQuantity() != null ? u.getRemainingQuantity().longValue() : 0L).sum()
+                                    : group.size();
+                            List<String> serials = bulk ? List.of() : group.stream()
+                                    .map(ProductUnit::getSerialNumber).filter(s -> s != null).toList();
+                            Box box = bg.getKey() != 0L ? boxById.get(bg.getKey()) : null;
+                            return new BinProduct(pe.getKey(),
+                                    p != null ? p.getName() : null,
+                                    p != null ? p.getSku() : null,
+                                    group.get(0).getTrackingType(),
+                                    quantity, serials,
+                                    box != null ? box.getId() : null,
+                                    box != null ? box.getBoxCode() : null,
+                                    box != null && box.getBoxType() != null ? box.getBoxType().name() : null);
+                        }))
+                        .sorted(Comparator.comparing((BinProduct bp) -> bp.boxCode() == null ? "" : bp.boxCode())
+                                .thenComparing(BinProduct::productId))
+                        .toList()));
 
         Map<String, List<Location>> byZone = locations.stream()
             .collect(Collectors.groupingBy(Location::getZoneCode, LinkedHashMap::new, Collectors.toList()));
@@ -63,7 +110,10 @@ public class LocationService {
                 List<BinData> bins = shelfEntry.getValue().stream().map(loc -> {
                     Long mc = loc.getMaxCapacity() != null ? loc.getMaxCapacity().longValue() : null;
                     List<String> skus = skuMap.getOrDefault(loc.getId(), Collections.emptyList());
-                    return new BinData(loc.getId(), loc.getBinCode(), loc.getFullCode(), counts.getOrDefault(loc.getId(), 0L), mc, skus);
+                    List<String> boxCodes = boxMap.getOrDefault(loc.getId(), Collections.emptyList()).stream()
+                            .map(Box::getBoxCode).toList();
+                    List<BinProduct> binProducts = productMap.getOrDefault(loc.getId(), Collections.emptyList());
+                    return new BinData(loc.getId(), loc.getBinCode(), loc.getFullCode(), counts.getOrDefault(loc.getId(), BigDecimal.ZERO).longValue(), mc, skus, boxCodes.size(), boxCodes, binProducts);
                 }).toList();
                 return new ShelfData(shelfEntry.getKey(), bins);
             }).toList();
@@ -108,6 +158,7 @@ public class LocationService {
                 .binCode(request.binCode().trim().toUpperCase())
                 .fullCode(fullCode)
                 .description(request.description())
+                .maxCapacity(request.maxCapacity())
                 .build();
         return LocationMappingHelper.map(locationRepository.save(location));
     }
@@ -123,6 +174,7 @@ public class LocationService {
         if (request.binCode() != null) location.setBinCode(request.binCode().trim().toUpperCase());
         location.setFullCode(location.getZoneCode() + "-" + location.getShelfCode() + "-" + location.getBinCode());
         if (request.description() != null) location.setDescription(request.description());
+        if (request.maxCapacity() != null) location.setMaxCapacity(request.maxCapacity());
         return LocationMappingHelper.map(locationRepository.save(location));
     }
 
@@ -181,6 +233,13 @@ public class LocationService {
         List<ProductUnit> toMove = quantity < units.size()
                 ? new ArrayList<>(units.subList(0, quantity))
                 : units;
+
+        BigDecimal incoming = toMove.stream()
+                .map(unit -> ProductUnitStatus.IN_STOCK.name().equals(unit.getStatus())
+                        && "BULK".equals(unit.getTrackingType()) && unit.getRemainingQuantity() != null
+                        ? unit.getRemainingQuantity() : BigDecimal.ONE)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        capacityValidator.assertCapacity(destId, incoming);
 
         long currentUserId = securityPolicy.requireAuthenticated();
 

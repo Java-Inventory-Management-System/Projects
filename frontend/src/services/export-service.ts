@@ -20,6 +20,11 @@ export async function getExportReceiptById(id: number): Promise<ExportReceipt> {
   return mapExportReceipt(res)
 }
 
+export async function getExportPrintHtml(id: number, lang: string): Promise<string> {
+  const res = await http.get(`/export-receipt/${id}/print`, { params: { lang }, responseType: "text" })
+  return res as string
+}
+
 export async function createExportReceipt(data: {
   reason: string
   customerId?: number | null
@@ -31,16 +36,6 @@ export async function createExportReceipt(data: {
   }>
 }): Promise<ExportReceipt> {
   const res = await http.post("/export-receipt", data)
-  return mapExportReceipt(res)
-}
-
-export async function approveExportReceipt(id: number): Promise<ExportReceipt> {
-  const res = await http.put(`/export-receipt/${id}/approve`)
-  return mapExportReceipt(res)
-}
-
-export async function rejectExportReceipt(id: number, data: { rejectReason: string }): Promise<ExportReceipt> {
-  const res = await http.put(`/export-receipt/${id}/reject`, data)
   return mapExportReceipt(res)
 }
 

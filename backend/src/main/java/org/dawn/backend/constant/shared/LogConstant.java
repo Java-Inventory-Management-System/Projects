@@ -38,8 +38,6 @@ public class LogConstant {
         public static final String UPDATE_CUSTOMER = "UPDATE_CUSTOMER";
         public static final String TOGGLE_CUSTOMER = "TOGGLE_CUSTOMER";
         public static final String CREATE_EXPORT = "CREATE_EXPORT";
-        public static final String APPROVE_EXPORT = "APPROVE_EXPORT";
-        public static final String REJECT_EXPORT = "REJECT_EXPORT";
         public static final String FULFILL_EXPORT = "FULFILL_EXPORT";
         public static final String CANCEL_EXPORT = "CANCEL_EXPORT";
         public static final String CREATE_STOCK_CHECK = "CREATE_STOCK_CHECK";
@@ -47,6 +45,10 @@ public class LogConstant {
         public static final String COMPLETE_STOCK_CHECK = "COMPLETE_STOCK_CHECK";
         public static final String APPROVE_STOCK_CHECK = "APPROVE_STOCK_CHECK";
         public static final String REJECT_STOCK_CHECK = "REJECT_STOCK_CHECK";
+        public static final String CANCEL_STOCK_CHECK = "CANCEL_STOCK_CHECK";
+        public static final String SEAL_BOX = "SEAL_BOX";
+        public static final String UNSEAL_BOX = "UNSEAL_BOX";
+        public static final String MOVE_BOX = "MOVE_BOX";
         public static final String CREATE_ADJUSTMENT = "CREATE_ADJUSTMENT";
         public static final String APPROVE_ADJUSTMENT = "APPROVE_ADJUSTMENT";
         public static final String REJECT_ADJUSTMENT = "REJECT_ADJUSTMENT";
@@ -79,6 +81,7 @@ public class LogConstant {
         public static final String PRODUCT_IMAGE = "PRODUCT_IMAGE";
         public static final String RETURN_RECEIPT = "RETURN_RECEIPT";
         public static final String PRICE_ADJUSTMENT = "PRICE_ADJUSTMENT";
+        public static final String BOX = "BOX";
     }
 
     public static class Status {

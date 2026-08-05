@@ -39,7 +39,7 @@ export function POCreatePage() {
   const [selectedProductIds, setSelectedProductIds] = useState<number[]>([])
   const [productPopoverOpen, setProductPopoverOpen] = useState(false)
 
-  const { data: productsRes } = useProducts(0, 100)
+  const { data: productsRes } = useProducts(0, 1000)
   const { data: suppliers = [] } = useSuppliers()
   const products = useMemo(() => productsRes?.content ?? [], [productsRes])
 
@@ -54,6 +54,11 @@ export function POCreatePage() {
   })
   const { fields, append, remove } = useFieldArray({ control: form.control, name: "items" })
   const watchedSupplierId = form.watch("supplierId")
+  const supplierIdNum = watchedSupplierId ? Number(watchedSupplierId) : null
+  const pickerProducts = useMemo(
+    () => (supplierIdNum != null ? products.filter((p) => p.supplierIds?.includes(supplierIdNum)) : []),
+    [products, supplierIdNum],
+  )
 
   const createMut = useCreatePurchaseOrder()
 
@@ -71,7 +76,7 @@ export function POCreatePage() {
   const addItems = useCallback(() => {
     if (selectedProductIds.length === 0) return
     const existing = new Set(fields.map((f) => f.productId))
-    const toAdd = products.filter((p) => selectedProductIds.includes(p.id) && !existing.has(p.id))
+    const toAdd = pickerProducts.filter((p) => selectedProductIds.includes(p.id) && !existing.has(p.id))
     if (toAdd.length === 0) {
       toast.error(t("poCreate.allProductsAdded"))
       setSelectedProductIds([])
@@ -87,7 +92,7 @@ export function POCreatePage() {
     })))
     setSelectedProductIds([])
     setProductPopoverOpen(false)
-  }, [selectedProductIds, products, fields, append, nextTempId, t])
+  }, [selectedProductIds, pickerProducts, fields, append, nextTempId, t])
 
   const totalAmount = useMemo(() => fields.reduce((sum, i) => sum + i.quantity * i.unitPrice, 0), [fields])
 
@@ -131,7 +136,7 @@ export function POCreatePage() {
               name="supplierId"
               control={form.control}
               render={({ field }) => (
-                <Select value={field.value} onValueChange={field.onChange}>
+                <Select value={field.value} onValueChange={(v) => { field.onChange(v); setSelectedProductIds([]) }}>
                   <SelectTrigger id="supplier">
                     <SelectValue placeholder={t("poCreate.supplierPlaceholder")} />
                   </SelectTrigger>
@@ -171,9 +176,15 @@ export function POCreatePage() {
                 <Command>
                   <CommandInput placeholder={t("poCreate.searchPlaceholder")} />
                   <CommandList>
-                    <CommandEmpty>{t("poCreate.noResults")}</CommandEmpty>
+                    <CommandEmpty>
+                      {supplierIdNum == null
+                        ? t("poCreate.selectSupplierFirst")
+                        : pickerProducts.length === 0
+                          ? t("poCreate.noProductsForSupplier")
+                          : t("poCreate.noResults")}
+                    </CommandEmpty>
                     <CommandGroup>
-                      {products
+                      {pickerProducts
                         .filter((p) => !fields.find((i) => i.productId === p.id))
                         .map((p) => (
                           <CommandItem
@@ -201,6 +212,9 @@ export function POCreatePage() {
               <Plus className="size-4 mr-1" /> {t("poCreate.add")}
             </Button>
           </div>
+          {!watchedSupplierId && (
+            <p className="text-sm text-muted-foreground">{t("poCreate.selectSupplierFirst")}</p>
+          )}
         </div>
 
         <div className="rounded-lg border overflow-x-auto">

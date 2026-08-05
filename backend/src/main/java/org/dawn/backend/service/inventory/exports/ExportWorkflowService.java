@@ -7,7 +7,6 @@ import org.dawn.backend.aspect.AuditLog;
 import org.dawn.backend.constant.enums.inventory.exports.ExportReceiptStatus;
 import org.dawn.backend.constant.shared.LogConstant;
 import org.dawn.backend.constant.shared.Message;
-import org.dawn.backend.controller.inventory.request.RejectExportRequest;
 import org.dawn.backend.controller.inventory.response.ExportReceiptResponse;
 import org.dawn.backend.entity.inventory.ExportReceipt;
 import org.dawn.backend.entity.inventory.ExportReceiptStatusHistory;
@@ -17,8 +16,6 @@ import org.dawn.backend.repository.inventory.exports.ExportReceiptStatusHistoryR
 import org.dawn.backend.config.security.SecurityPolicy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.time.Instant;
 
 @Service
 @RequiredArgsConstructor
@@ -30,56 +27,6 @@ public class ExportWorkflowService {
     private final StateMachine<ExportReceiptStatus> exportReceiptStateMachine;
     private final SecurityPolicy securityPolicy;
     private final ExportReceiptService exportReceiptService;
-
-    @Transactional
-    @AuditLog(action = LogConstant.Action.APPROVE_EXPORT, entity = LogConstant.Entity.EXPORT_RECEIPT)
-    public ExportReceiptResponse approve(Long id) {
-        Long userId = securityPolicy.requireAuthenticated();
-        ExportReceipt receipt = exportReceiptRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.EXPORT_RECEIPT_NOT_FOUND));
-
-        exportReceiptStateMachine.validate(receipt.getStatus(), ExportReceiptStatus.APPROVED);
-
-        ExportReceiptStatus oldStatus = receipt.getStatus();
-        receipt.setStatus(ExportReceiptStatus.APPROVED);
-        receipt.setApprovedBy(userId);
-        receipt = exportReceiptRepository.save(receipt);
-
-        statusHistoryRepository.save(ExportReceiptStatusHistory.builder()
-                .receiptId(receipt.getId())
-                .fromStatus(oldStatus.name())
-                .toStatus(ExportReceiptStatus.APPROVED.name())
-                .changedBy(userId)
-                .build());
-
-        return exportReceiptService.toResponse(receipt);
-    }
-
-    @Transactional
-    @AuditLog(action = LogConstant.Action.REJECT_EXPORT, entity = LogConstant.Entity.EXPORT_RECEIPT)
-    public ExportReceiptResponse reject(Long id, RejectExportRequest request) {
-        Long userId = securityPolicy.requireAuthenticated();
-        ExportReceipt receipt = exportReceiptRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.EXPORT_RECEIPT_NOT_FOUND));
-
-        exportReceiptStateMachine.validate(receipt.getStatus(), ExportReceiptStatus.CANCELLED);
-
-        receipt.setStatus(ExportReceiptStatus.CANCELLED);
-        receipt.setRejectedBy(userId);
-        receipt.setRejectedAt(Instant.now());
-        receipt.setRejectReason(request.reason());
-        receipt = exportReceiptRepository.save(receipt);
-
-        statusHistoryRepository.save(ExportReceiptStatusHistory.builder()
-                .receiptId(receipt.getId())
-                .fromStatus(ExportReceiptStatus.PENDING.name())
-                .toStatus(ExportReceiptStatus.CANCELLED.name())
-                .reason(request.reason())
-                .changedBy(userId)
-                .build());
-
-        return exportReceiptService.toResponse(receipt);
-    }
 
     @Transactional
     @AuditLog(action = LogConstant.Action.CANCEL_EXPORT, entity = LogConstant.Entity.EXPORT_RECEIPT)

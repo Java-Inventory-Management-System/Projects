@@ -1,6 +1,11 @@
 import http from "@/utils/http-client"
-import type { ResponsePage, ImportReceipt } from "@/utils/types"
-import { mapResponsePage, mapImportReceipt } from "@/utils/mappers"
+import type { ResponsePage, ImportReceipt, ProductUnit } from "@/utils/types"
+import { mapResponsePage, mapImportReceipt, mapProductUnit } from "@/utils/mappers"
+
+export async function getImportReceiptUnits(receiptId: number): Promise<ProductUnit[]> {
+  const res = await http.get(`/import-receipt/${receiptId}/units`)
+  return (res as unknown[]).map(mapProductUnit)
+}
 
 export async function getImportReceipts(
   page = 0,
@@ -17,6 +22,11 @@ export async function getImportReceipts(
 export async function getImportReceiptById(id: number): Promise<ImportReceipt> {
   const res = await http.get(`/import-receipt/${id}`)
   return mapImportReceipt(res)
+}
+
+export async function getImportPrintHtml(id: number, lang: string): Promise<string> {
+  const res = await http.get(`/import-receipt/${id}/print`, { params: { lang }, responseType: "text" })
+  return res as string
 }
 
 export async function createImportReceipt(data: {

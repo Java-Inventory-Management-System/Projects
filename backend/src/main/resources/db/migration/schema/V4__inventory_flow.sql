@@ -255,3 +255,37 @@ CREATE TABLE sell_price_history (
     CONSTRAINT fk_sph_product FOREIGN KEY (product_id) REFERENCES products(id),
     CONSTRAINT fk_sph_changed_by FOREIGN KEY (changed_by) REFERENCES users(id)
 );
+
+-- ============= BOXES =============
+
+-- Đóng gói/đóng hộp hàng lẻ (SEALED / UNSEALED), liên kết đơn nhập + loại hộp
+CREATE TABLE boxes (
+    id                  BIGINT AUTO_INCREMENT PRIMARY KEY,
+    box_code            VARCHAR(32)   NOT NULL UNIQUE,
+    location_id         BIGINT        NOT NULL,
+    status              VARCHAR(20)   NOT NULL DEFAULT 'SEALED',   -- SEALED / UNSEALED
+    sealed_quantity     DECIMAL(15,2),                             -- snapshot tổng số lượng lúc đóng hộp
+    sealed_by           BIGINT,
+    sealed_at           TIMESTAMP     NULL,
+    unsealed_by         BIGINT,
+    unsealed_at         TIMESTAMP     NULL,
+    note                VARCHAR(500),
+    import_receipt_id   BIGINT        NULL,                        -- hộp tạo từ đơn nhập
+    box_type            VARCHAR(20)   NOT NULL DEFAULT 'MEDIUM',   -- SMALL / MEDIUM / LARGE
+    created_by          BIGINT        NOT NULL,
+    created_at          TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at          TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_boxes_location (location_id),
+    INDEX idx_boxes_status (status),
+    INDEX idx_boxes_import_receipt (import_receipt_id),
+    CONSTRAINT fk_boxes_location  FOREIGN KEY (location_id)  REFERENCES locations(id),
+    CONSTRAINT fk_boxes_sealed_by FOREIGN KEY (sealed_by)    REFERENCES users(id),
+    CONSTRAINT fk_boxes_unsealed_by FOREIGN KEY (unsealed_by) REFERENCES users(id),
+    CONSTRAINT fk_boxes_created_by FOREIGN KEY (created_by)  REFERENCES users(id),
+    CONSTRAINT fk_boxes_import_receipt FOREIGN KEY (import_receipt_id) REFERENCES import_receipts(id)
+);
+
+ALTER TABLE product_units
+    ADD COLUMN box_id BIGINT NULL,
+    ADD INDEX idx_product_unit_box (box_id),
+    ADD CONSTRAINT fk_product_units_box FOREIGN KEY (box_id) REFERENCES boxes(id);

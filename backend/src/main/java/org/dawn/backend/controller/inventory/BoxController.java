@@ -1,0 +1,62 @@
+package org.dawn.backend.controller.inventory;
+
+import lombok.RequiredArgsConstructor;
+import org.dawn.backend.config.web.response.ResponseObject;
+import org.dawn.backend.constant.security.AuthorizationExpressions;
+import org.dawn.backend.controller.inventory.request.MoveBoxRequest;
+import org.dawn.backend.controller.inventory.request.SealBoxRequest;
+import org.dawn.backend.controller.inventory.response.BoxResponse;
+import org.dawn.backend.service.inventory.ReceiptPrintService;
+import org.dawn.backend.service.inventory.box.BoxService;
+import org.springframework.http.MediaType;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping
+@RequiredArgsConstructor
+public class BoxController {
+
+    private final BoxService boxService;
+    private final ReceiptPrintService receiptPrintService;
+
+    @GetMapping("/box")
+    @PreAuthorize(AuthorizationExpressions.CAN_VIEW_INVENTORY)
+    public ResponseObject<List<BoxResponse>> getAll(
+            @RequestParam(required = false) Long locationId,
+            @RequestParam(required = false) String status) {
+        return ResponseObject.success(boxService.findAll(locationId, status));
+    }
+
+    @GetMapping("/box/{id}")
+    @PreAuthorize(AuthorizationExpressions.CAN_VIEW_INVENTORY)
+    public ResponseObject<BoxResponse> getOne(@PathVariable Long id) {
+        return ResponseObject.success(boxService.findOne(id));
+    }
+
+    @PostMapping("/box/seal")
+    @PreAuthorize(AuthorizationExpressions.CAN_VIEW_INVENTORY)
+    public ResponseObject<BoxResponse> seal(@RequestBody SealBoxRequest request) {
+        return ResponseObject.success(boxService.seal(request));
+    }
+
+    @PostMapping("/box/{id}/unseal")
+    @PreAuthorize(AuthorizationExpressions.CAN_VIEW_INVENTORY)
+    public ResponseObject<BoxResponse> unseal(@PathVariable Long id) {
+        return ResponseObject.success(boxService.unseal(id));
+    }
+
+    @PostMapping("/box/{id}/move")
+    @PreAuthorize(AuthorizationExpressions.CAN_VIEW_INVENTORY)
+    public ResponseObject<BoxResponse> move(@PathVariable Long id, @RequestBody MoveBoxRequest request) {
+        return ResponseObject.success(boxService.move(id, request));
+    }
+
+    @GetMapping(value = "/box/{id}/print", produces = MediaType.TEXT_HTML_VALUE)
+    @PreAuthorize(AuthorizationExpressions.CAN_VIEW_INVENTORY)
+    public String print(@PathVariable Long id, @RequestParam(defaultValue = "vi") String lang) {
+        return receiptPrintService.printBox(id, lang);
+    }
+}

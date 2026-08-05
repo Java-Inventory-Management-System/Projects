@@ -26,4 +26,6 @@ public interface StockAdjustmentRepository extends JpaRepository<StockAdjustment
     Page<StockAdjustment> findByProductUnitIdOrderByCreatedAtDesc(Long productUnitId, Pageable pageable);
 
     boolean existsBySourceTypeAndSourceId(String sourceType, Long sourceId);
+
+    java.util.List<StockAdjustment> findBySourceTypeAndCreatedAtBetween(String sourceType, java.time.Instant from, java.time.Instant to);
 }

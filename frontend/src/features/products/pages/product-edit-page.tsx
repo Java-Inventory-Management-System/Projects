@@ -7,6 +7,7 @@ import { getProductById, updateProduct, toggleProductActive } from "@/services/p
 import { getProductImages, createProductImage, deleteProductImage } from "@/services/product-image-service"
 import { useBrands } from "@/hooks/use-brands"
 import { useCategories } from "@/hooks/use-categories"
+import { useSuppliers } from "@/hooks/use-suppliers"
 import type { ProductImage } from "@/utils/types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -14,6 +15,8 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Empty, EmptyTitle } from "@/components/ui/empty"
 import { Skeleton } from "@/components/ui/skeleton"
+import { FieldError } from "@/components/ui/field"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
   AlertDialog,
@@ -41,6 +44,7 @@ import {
 import { Card, CardContent } from "@/components/ui/card"
 import { toast } from "@/utils/toast"
 import { PRODUCT_UNIT_TYPE, TRACKING_TYPE } from "@/utils/types"
+import { UNIT_LABELS } from "@/components/tracking-type-badge"
 
 const UNITS = [
   PRODUCT_UNIT_TYPE.PIECE,
@@ -48,6 +52,7 @@ const UNITS = [
   PRODUCT_UNIT_TYPE.SET,
   PRODUCT_UNIT_TYPE.METER,
   PRODUCT_UNIT_TYPE.KG,
+  PRODUCT_UNIT_TYPE.TUBE,
 ]
 const TRACKING_TYPES = [TRACKING_TYPE.SERIALIZED, TRACKING_TYPE.BULK]
 
@@ -62,6 +67,7 @@ interface FormData {
   sellPrice: string
   minStock: string
   description: string
+  supplierIds: number[]
 }
 
 export function ProductEditPage() {
@@ -71,6 +77,7 @@ export function ProductEditPage() {
   const qc = useQueryClient()
   const { data: brands } = useBrands()
   const { data: categories } = useCategories()
+  const { data: suppliers = [] } = useSuppliers()
   const productId = Number(id)
 
   const [loading, setLoading] = useState(true)
@@ -79,7 +86,7 @@ export function ProductEditPage() {
   const [showDeleteImgDialog, setShowDeleteImgDialog] = useState<number | null>(null)
 
   const { register, handleSubmit, control, reset, watch, formState: { errors } } = useForm<FormData>({
-    defaultValues: { name: "", sku: "", barcode: "", brandId: "", categoryId: "", unit: "", trackingType: "", sellPrice: "", minStock: "0", description: "" },
+    defaultValues: { name: "", sku: "", barcode: "", brandId: "", categoryId: "", unit: "", trackingType: "", sellPrice: "", minStock: "0", description: "", supplierIds: [] },
   })
 
   useEffect(() => {
@@ -97,6 +104,7 @@ export function ProductEditPage() {
           sellPrice: product.sellPrice ? String(product.sellPrice) : "",
           minStock: product.minStock ? String(product.minStock) : "0",
           description: product.description ?? "",
+          supplierIds: product.supplierIds ?? [],
         })
         setIsActive(product.isActive)
         setImages(imgs)
@@ -117,6 +125,7 @@ export function ProductEditPage() {
         trackingType: values.trackingType || null,
         minStock: values.minStock ? Number(values.minStock) : undefined,
         description: values.description || undefined,
+        supplierIds: values.supplierIds || [],
       }
       return updateProduct(productId, payload)
     },
@@ -253,11 +262,37 @@ export function ProductEditPage() {
                     <Select value={field.value} onValueChange={field.onChange}>
                       <SelectTrigger id="unit"><SelectValue placeholder={t("productForm.unitPlaceholder")} /></SelectTrigger>
                       <SelectContent>
-                        {UNITS.map((u) => (<SelectItem key={u} value={u}>{u}</SelectItem>))}
+                        {UNITS.map((u) => (<SelectItem key={u} value={u}>{t(UNIT_LABELS[u] ?? u)}</SelectItem>))}
                       </SelectContent>
                     </Select>
                   )}
                 />
+              </div>
+              <div className="space-y-2 sm:col-span-2">
+                <Label>{t("productForm.suppliers")} <span className="text-destructive">*</span></Label>
+                <Controller
+                  control={control}
+                  name="supplierIds"
+                  rules={{ validate: (v) => v.length > 0 || t("productForm.suppliersRequired") }}
+                  render={({ field }) => (
+                    <div className="grid gap-2 sm:grid-cols-2 rounded-lg border p-3">
+                      {suppliers.map((s) => (
+                        <label key={s.id} className="flex items-center gap-2 text-sm">
+                          <Checkbox
+                            checked={field.value.includes(s.id)}
+                            onCheckedChange={(checked) =>
+                              field.onChange(
+                                checked ? [...field.value, s.id] : field.value.filter((id) => id !== s.id),
+                              )
+                            }
+                          />
+                          {s.name}
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                />
+                <FieldError errors={errors.supplierIds ? [{ message: errors.supplierIds.message }] : undefined} />
               </div>
               <div className="space-y-2 sm:col-span-2">
                 <Label>{t("productForm.trackingType")}</Label>
@@ -349,7 +384,7 @@ export function ProductEditPage() {
       <div className="flex justify-end">
         <ButtonGroup>
           <Button variant="outline" onClick={() => navigate("/products")}>{t("common.cancel")}</Button>
-          <Button onClick={() => onSubmit()} disabled={!watch("name").trim() || save.isPending}>
+          <Button onClick={() => onSubmit()} disabled={!watch("name").trim() || watch("supplierIds").length === 0 || save.isPending}>
             {save.isPending ? t("common.saving") : t("common.save")}
           </Button>
         </ButtonGroup>

@@ -6,6 +6,7 @@ import {
   getStockValue,
   getActivity,
   getDeadStock,
+  getStockCheckOverview,
 } from "@/services/report-service"
 
 export function useInventorySummary() {
@@ -58,5 +59,14 @@ export function useDeadStock(daysThreshold = 90, keyword?: string, categoryId?: 
     queryFn: () => getDeadStock(daysThreshold, keyword, categoryId),
     staleTime: 1000 * 60 * 5,
     refetchOnMount: false,
+  })
+}
+
+export function useStockCheckOverview(from: string, to: string) {
+  return useQuery({
+    queryKey: ["stock-check-overview", from, to],
+    queryFn: () => getStockCheckOverview(from, to),
+    enabled: !!from && !!to,
+    staleTime: 1000 * 60 * 2,
   })
 }

@@ -304,7 +304,7 @@ export function PriceAdjustmentListPage() {
           <AlertDialogFooter>
             <AlertDialogCancel>{t("dialog.no")}</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => cancelTarget && cancelMutation.mutate(cancelTarget.id)}
+              onClick={() => { if (cancelTarget) { const id = cancelTarget.id; setCancelTarget(null); cancelMutation.mutate(id) } }}
               disabled={cancelMutation.isPending}
             >
               {cancelMutation.isPending ? t("priceAdjList.cancelProcessing") : t("priceAdjList.cancelConfirm")}

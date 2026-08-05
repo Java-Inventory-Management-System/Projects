@@ -210,8 +210,21 @@ INSERT INTO products(id,name,sku,barcode,brand_id,category_id,description,unit,t
     UNION ALL SELECT 30,'Noctua NH-D15 chromax.black','CLN-NOC-001','4711176752040',12,8,'Tản nhiệt khí dual tower, black','PIECE','SERIALIZED',2999000,5,TRUE
     UNION ALL SELECT 31,'Cooler Master Hyper 212 Halo','CLN-CM-002','4711176752057',11,8,'Tản nhiệt khí single tower, ARGB','PIECE','SERIALIZED',1599000,10,TRUE
     UNION ALL SELECT 32,'Corsair Vengeance DDR4 32GB 3200MHz','RAM-COR-003','8435911058902',7,2,'DDR4, 32GB (2x16GB), 3200MHz','PIECE','SERIALIZED',2299000,10,TRUE
-    UNION ALL SELECT 33,'Thermal Grizzly Kryonaut 1g','THR-TG-001','4260719050015',12,8,'Thermal pasIte high-end, 1g tube','PIECE','BULK',199000,20,TRUE
+    UNION ALL SELECT 33,'Thermal Grizzly Kryonaut 1g','THR-TG-001','4260719050015',12,8,'Thermal pasIte high-end, 1g tube','TUBE','BULK',199000,20,TRUE
 )SELECT id,name,sku,barcode,bid,cid,`desc`,unit,track,price,min,active FROM p;
+
+-- Product-supplier assignments (which suppliers can supply each product)
+INSERT INTO product_suppliers(product_id,supplier_id)WITH ps(pid,sid)AS(
+    SELECT 1,1 UNION ALL SELECT 2,1 UNION ALL SELECT 3,4 UNION ALL SELECT 4,4
+    UNION ALL SELECT 5,4 UNION ALL SELECT 6,6 UNION ALL SELECT 7,6 UNION ALL SELECT 8,4
+    UNION ALL SELECT 9,3 UNION ALL SELECT 10,3 UNION ALL SELECT 11,5 UNION ALL SELECT 12,2
+    UNION ALL SELECT 13,2 UNION ALL SELECT 14,2 UNION ALL SELECT 15,4 UNION ALL SELECT 16,6
+    UNION ALL SELECT 17,6 UNION ALL SELECT 18,4 UNION ALL SELECT 19,2 UNION ALL SELECT 20,2
+    UNION ALL SELECT 21,2 UNION ALL SELECT 22,2 UNION ALL SELECT 23,2 UNION ALL SELECT 24,4
+    UNION ALL SELECT 25,2 UNION ALL SELECT 26,2 UNION ALL SELECT 27,4 UNION ALL SELECT 28,3
+    UNION ALL SELECT 29,5 UNION ALL SELECT 30,2 UNION ALL SELECT 31,2 UNION ALL SELECT 32,2
+    UNION ALL SELECT 33,2
+)SELECT pid,sid FROM ps;
 
 -- Import receipts (receiving supplier stock)
 INSERT INTO import_receipts(id,receipt_code,supplier_id,status,note,created_by,approved_by,created_at,updated_at)
@@ -287,7 +300,7 @@ SELECT CONCAT('RET-DDR4-', LPAD(n, 3, '0')), 32, 'SERIALIZED', 102, 1, 'IN_STOCK
 FROM (SELECT 1 n UNION SELECT 2 UNION SELECT 3 UNION SELECT 4 UNION SELECT 5 UNION SELECT 6 UNION SELECT 7 UNION SELECT 8) nums;
 
 INSERT INTO product_units (serial_number, product_id, tracking_type, initial_quantity, remaining_quantity, import_receipt_item_id, location_id, status, imported_at, warranty_months)
-VALUES (NULL, 33, 'BULK', 100, 100, 103, 1, 'IN_STOCK', '2026-07-25 08:00:00', 12);
+VALUES (NULL, 33, 'BULK', 100, 100, 103, 33, 'IN_STOCK', '2026-07-25 08:00:00', 12);
 
 -- Export 100 — within 7-day CHANGE_MIND window, BULK + SERIALIZED mix
 INSERT INTO export_receipts (id, receipt_code, reason, customer_id, total_amount, status, note, created_by, approved_by, fulfilled_by, fulfilled_at, created_at, updated_at)
@@ -419,3 +432,25 @@ VALUES ('PA-000001', @import_item, 3899000, 3499000, 'Giá SSD Samsung 990 Pro g
 
 INSERT INTO price_adjustments (adjust_code, import_receipt_item_id, old_price, new_price, reason, status, created_by, approved_by, approval_note, created_at)
 VALUES ('PA-20260707-001', @import_item, 9499000, 8999000, 'Điều chỉnh giá nhập theo thỏa thuận NCC', 'APPROVED', 4, 2, 'OK', '2026-07-07 14:00:00');
+
+-- Default bin capacity: 100 items per bin (NULL = unlimited)
+UPDATE locations SET max_capacity = 100 WHERE max_capacity IS NULL;
+
+-- ============= DEMO BOXES =============
+
+-- Box 8: serialized (SSD x2 + DDR4 x1) SEALED tại A-01-01
+-- Box 9: keo tản nhiệt BULK SEALED tại A-01-03 (toàn bộ remaining)
+INSERT INTO boxes (id, box_code, location_id, status, sealed_quantity, sealed_by, sealed_at, note, created_by, created_at)
+VALUES (8, 'BOX-20260730-0008', 1, 'SEALED', 3, 2, '2026-07-30 09:00:00', 'Hàng lẻ đóng hộp chờ xuất', 2, '2026-07-30 09:00:00');
+
+INSERT INTO boxes (id, box_code, location_id, status, sealed_quantity, sealed_by, sealed_at, note, created_by, created_at)
+SELECT 9, 'BOX-20260730-0009', location_id, 'SEALED', remaining_quantity, 2, '2026-07-30 09:10:00', 'Keo tản nhiệt BULK đóng hộp', 2, '2026-07-30 09:10:00'
+FROM product_units WHERE import_receipt_item_id = 103 AND tracking_type = 'BULK';
+
+UPDATE product_units SET box_id = 8
+WHERE serial_number IN ('RET-SSD-004', 'RET-SSD-005', 'RET-DDR4-002')
+  AND status = 'IN_STOCK' AND box_id IS NULL;
+
+UPDATE product_units SET box_id = 9
+WHERE import_receipt_item_id = 103 AND tracking_type = 'BULK'
+  AND status = 'IN_STOCK' AND box_id IS NULL;

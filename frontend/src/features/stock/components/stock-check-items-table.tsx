@@ -19,6 +19,7 @@ interface Props {
   searchQuery: string
   onSearchChange: (v: string) => void
   onImportSerials: (e: React.ChangeEvent<HTMLInputElement>) => void
+  rowAction?: (item: StockCheckItem) => React.ReactNode
 }
 
 export function StockCheckItemsTable({
@@ -29,6 +30,7 @@ export function StockCheckItemsTable({
   searchQuery,
   onSearchChange,
   onImportSerials,
+  rowAction,
 }: Props) {
   const { t } = useTranslation()
   const fileRef = useRef<HTMLInputElement>(null)
@@ -136,12 +138,13 @@ export function StockCheckItemsTable({
               {hasBulk && <TableHead className="w-20 text-right">{t('stockCheck.count')}</TableHead>}
               <TableHead className="w-24">{t('stockCheck.diff')}</TableHead>
               <TableHead className="min-w-[140px]">{t('stockCheck.note')}</TableHead>
+              {rowAction && <TableHead className="w-28">{t('stockCheckItems.box')}</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
             {filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={hasBulk ? 7 : 6} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={(hasBulk ? 7 : 6) + (rowAction ? 1 : 0)} className="text-center text-muted-foreground py-8">
                   {t('stockCheck.noResult')}
                 </TableCell>
               </TableRow>
@@ -284,6 +287,7 @@ export function StockCheckItemsTable({
                         <span className="text-xs">{item.note ?? "—"}</span>
                       )}
                     </TableCell>
+                    {rowAction && <TableCell>{rowAction(item)}</TableCell>}
                   </TableRow>
                 )
               })

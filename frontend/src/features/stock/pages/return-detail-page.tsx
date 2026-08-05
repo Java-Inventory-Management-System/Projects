@@ -18,7 +18,8 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
-import { Check, X, Printer, ExternalLink, Circle } from "lucide-react"
+import { Check, X, ExternalLink, Circle } from "lucide-react"
+import { PrintReceiptButton } from "../components/print-receipt"
 import { toast } from "@/utils/toast"
 import { RETURN_RECEIPT_STATUS } from "@/utils/types"
 import { cn } from "@/utils/cn"
@@ -220,9 +221,7 @@ export const ReturnDetailPage = () => {
       </div>
 
       <div className="flex justify-end gap-2">
-        <Button variant="outline" onClick={() => window.print()}>
-          <Printer className="size-4 mr-1" /> {t("returnDetail.print")}
-        </Button>
+        <PrintReceiptButton id={receipt.id} type="return" label={t("returnDetail.print")} />
         {canCancel && (
           <Button variant="outline" className="text-destructive" onClick={() => setShowCancel(true)}>
             <X className="size-4 mr-1" /> {t("returnDetail.cancelReceipt")}
@@ -247,7 +246,7 @@ export const ReturnDetailPage = () => {
             <Button variant="outline" onClick={() => setShowApprove(false)}>
               {t("dialog.back")}
             </Button>
-            <Button onClick={() => approveMut.mutate()} disabled={approveMut.isPending}>
+            <Button onClick={() => { setShowApprove(false); approveMut.mutate() }} disabled={approveMut.isPending}>
               {approveMut.isPending ? t("returnDetail.approving") : t("dialog.approve")}
             </Button>
           </DialogFooter>
@@ -269,7 +268,7 @@ export const ReturnDetailPage = () => {
             <Button variant="outline" onClick={() => setShowCancel(false)}>
               {t("dialog.back")}
             </Button>
-            <Button variant="destructive" onClick={() => cancelMut.mutate()} disabled={cancelMut.isPending}>
+            <Button variant="destructive" onClick={() => { setShowCancel(false); cancelMut.mutate() }} disabled={cancelMut.isPending}>
               {cancelMut.isPending ? t("returnDetail.cancelling") : t("returnDetail.cancelConfirm")}
             </Button>
           </DialogFooter>

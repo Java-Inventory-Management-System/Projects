@@ -15,6 +15,11 @@ export async function getReturnReceipts(
   return mapResponsePage(res, mapReturnReceipt)
 }
 
+export async function getReturnPrintHtml(id: number, lang: string): Promise<string> {
+  const res = await http.get(`/return-receipts/${id}/print`, { params: { lang }, responseType: "text" })
+  return res as string
+}
+
 export async function getReturnReceiptById(id: number): Promise<ReturnReceipt> {
   const res = await http.get(`/return-receipts/${id}`)
   return mapReturnReceipt(res)

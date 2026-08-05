@@ -13,18 +13,23 @@ import org.dawn.backend.controller.catalog.response.ProductResponse;
 import org.dawn.backend.entity.catalog.Brand;
 import org.dawn.backend.entity.catalog.Category;
 import org.dawn.backend.entity.catalog.Product;
+import org.dawn.backend.entity.catalog.Supplier;
 import org.dawn.backend.exception.type.InvalidRequestException;
 import org.dawn.backend.exception.type.ResourceAlreadyExistedException;
 import org.dawn.backend.exception.type.ResourceNotFoundException;
 import org.dawn.backend.repository.catalog.BrandRepository;
 import org.dawn.backend.repository.catalog.CategoryRepository;
 import org.dawn.backend.repository.catalog.ProductRepository;
+import org.dawn.backend.repository.catalog.SupplierRepository;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -34,8 +39,9 @@ public class ProductService {
     private final ProductRepository productRepository;
     private final BrandRepository brandRepository;
     private final CategoryRepository categoryRepository;
+    private final SupplierRepository supplierRepository;
 
-    private static final List<String> BULK_UNITS = List.of(UnitOfMeasure.METER.name(), UnitOfMeasure.KG.name());
+    private static final List<String> BULK_UNITS = List.of(UnitOfMeasure.METER.name(), UnitOfMeasure.KG.name(), UnitOfMeasure.TUBE.name());
     private static final List<String> SERIALIZED_UNITS = List.of(UnitOfMeasure.PIECE.name(), UnitOfMeasure.BOX.name(), UnitOfMeasure.SET.name());
 
     @Transactional(readOnly = true)
@@ -81,12 +87,15 @@ public class ProductService {
                     .orElseThrow(() -> new ResourceNotFoundException(Message.Catalog.CATEGORY_NOT_FOUND));
         }
 
+        Set<Supplier> suppliers = resolveRequiredSuppliers(request.supplierIds());
+
         Product product = Product.builder()
                 .name(request.name().trim())
                 .sku(request.sku().trim())
                 .barcode(request.barcode())
                 .brand(brand)
                 .category(category)
+                .suppliers(suppliers)
                 .description(request.description())
                 .unit(unit)
                 .trackingType(trackingType)
@@ -124,6 +133,9 @@ public class ProductService {
                     .orElseThrow(() -> new ResourceNotFoundException(Message.Catalog.CATEGORY_NOT_FOUND));
             product.setCategory(category);
         }
+        if (request.supplierIds() != null) {
+            product.setSuppliers(resolveRequiredSuppliers(request.supplierIds()));
+        }
         if (request.description() != null) product.setDescription(request.description());
         if (request.unit() != null) product.setUnit(request.unit());
         if (request.trackingType() != null) product.setTrackingType(request.trackingType());
@@ -142,6 +154,17 @@ public class ProductService {
                 .orElseThrow(() -> new ResourceNotFoundException(Message.Catalog.PRODUCT_NOT_FOUND));
         product.setIsActive(!Boolean.TRUE.equals(product.getIsActive()));
         return ProductMappingHelper.map(productRepository.save(product));
+    }
+
+    private Set<Supplier> resolveRequiredSuppliers(List<Long> supplierIds) {
+        if (supplierIds == null || supplierIds.isEmpty()) {
+            throw new InvalidRequestException(Message.Catalog.PRODUCT_SUPPLIERS_REQUIRED);
+        }
+        List<Supplier> found = supplierRepository.findAllById(supplierIds);
+        if (found.size() != supplierIds.stream().distinct().count()) {
+            throw new ResourceNotFoundException(Message.Catalog.SUPPLIER_NOT_FOUND);
+        }
+        return new HashSet<>(found);
     }
 
     private void validateUnitTracking(String unit, String trackingType) {

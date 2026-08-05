@@ -16,6 +16,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { ButtonGroup } from "@/components/ui/button-group"
 import { ArrowDownToLine, X } from "lucide-react"
+import { PrintReceiptButton } from "../components/print-receipt"
 import { toast } from "@/utils/toast"
 import { PURCHASE_ORDER_STATUS } from "@/utils/types"
 
@@ -27,7 +28,7 @@ export function PODetailPage() {
   const cancelMut = useCancelPurchaseOrder()
 
   const statusConfig: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
-    DRAFT: { label: t("poStatus.draft"), variant: "secondary" },
+    OPEN: { label: t("poStatus.open"), variant: "default" },
     PARTIAL: { label: t("poStatus.partial"), variant: "default" },
     COMPLETED: { label: t("poStatus.completed"), variant: "default" },
     CANCELLED: { label: t("poStatus.cancelled"), variant: "destructive" },
@@ -64,7 +65,7 @@ export function PODetailPage() {
           <Badge variant={s.variant}>{s.label}</Badge>
         </div>
         <ButtonGroup>
-          {po.status === PURCHASE_ORDER_STATUS.DRAFT && (
+          {po.status === PURCHASE_ORDER_STATUS.OPEN && (
             <Button
               variant="outline"
               className="text-destructive"
@@ -79,6 +80,7 @@ export function PODetailPage() {
               <X className="size-4 mr-1" /> {t("poDetail.cancel")}
             </Button>
           )}
+          <PrintReceiptButton id={po.id} type="po" />
           <Button onClick={() => navigate(`/stock/imports/new?poId=${po.id}`)}>
             <ArrowDownToLine className="size-4 mr-1" /> {t("poDetail.createImport")}
           </Button>

@@ -1,7 +1,7 @@
 import { useMemo } from "react"
 import { useTranslation } from "react-i18next"
 import { useLocationMap } from "@/hooks/use-location-map"
-import { binColor } from "@/features/stock/utils/location-map-utils"
+import { LocationMapGrid } from "@/features/stock/components/location-map-grid"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -58,50 +58,7 @@ export function LocationPicker({ value, onSelect, suggestedLocationId }: Locatio
         ) : !data ? (
           <p className="text-xs text-muted-foreground text-center py-4">{t("locPicker.loadError")}</p>
         ) : (
-          <div className="space-y-2">
-            {data.zones.map((zone) => {
-              const allBins = zone.shelves.flatMap((s) => s.bins)
-              if (allBins.length === 0) return null
-              return (
-                <div key={zone.zoneCode} className="rounded-md border p-2">
-                  <p className="text-[11px] font-semibold text-muted-foreground mb-1.5">{t("locPicker.zone")} {zone.zoneCode}</p>
-                  <div className="space-y-1">
-                    {zone.shelves.map((shelf) => (
-                      <div key={shelf.shelfCode} className="flex items-center gap-1">
-                        <span className="text-[9px] text-muted-foreground/60 w-6 shrink-0 text-right">
-                          {shelf.shelfCode}
-                        </span>
-                        <div className="flex flex-wrap gap-1">
-                          {shelf.bins.map((bin) => {
-                            const isSelected = String(bin.id) === value
-                            const isSuggested = suggestedLocationId === bin.id && !isSelected
-                            const color = binColor(bin.productCount, bin.maxCapacity)
-                            return (
-                              <button
-                                key={bin.id}
-                                type="button"
-                                onClick={() => onSelect(String(bin.id))}
-                                className={cn(
-                                  "flex items-center justify-center rounded border px-1.5 py-0.5 text-[10px] font-mono transition-all cursor-pointer hover:ring-1 hover:ring-ring min-w-[2rem]",
-                                  color.bg,
-                                  color.border,
-                                  isSelected && "ring-2 ring-primary",
-                                  isSuggested && !isSelected && "ring-1 ring-blue-400",
-                                )}
-                                title={`${bin.fullCode}${bin.maxCapacity != null ? ` (${bin.productCount}/${bin.maxCapacity})` : bin.productCount > 0 ? ` (${bin.productCount} ${t("locPicker.units")})` : ` (${t("locPicker.empty")})`}`}
-                              >
-                                {bin.binCode}
-                              </button>
-                            )
-                          })}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
+          <LocationMapGrid data={data} highlightBinId={value ? Number(value) : null} onSelect={onSelect} />
         )}
       </PopoverContent>
     </Popover>

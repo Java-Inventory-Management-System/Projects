@@ -1,6 +1,8 @@
-import { PRODUCT_UNIT_STATUS, TRACKING_TYPE, type ProductUnit } from "@/utils/types"
+import { PRODUCT_UNIT_STATUS, type ProductUnit } from "@/utils/types"
 import { useTranslation } from "react-i18next"
 import { Badge } from "@/components/ui/badge"
+import { TrackingTypeBadge } from "@/components/tracking-type-badge"
+import { LocationCodePopover } from "./location-code-popover"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 
@@ -55,13 +57,11 @@ export const ViewProductUnitModal = ({
           </div>
           <div>
             <span className="text-muted-foreground">{t('productUnit.tracking')}</span>
-            <p className="font-medium">
-              {unit.trackingType === TRACKING_TYPE.SERIALIZED ? TRACKING_TYPE.SERIALIZED : TRACKING_TYPE.BULK}
-            </p>
+            <TrackingTypeBadge type={unit.trackingType} />
           </div>
           <div>
             <span className="text-muted-foreground">{t("viewProductUnitModal.location")}</span>
-            <p className="font-medium">{unit.locationCode ?? t("viewProductUnitModal.notAssigned")}</p>
+            {unit.locationCode ? <LocationCodePopover code={unit.locationCode} /> : <span className="text-muted-foreground">{t("viewProductUnitModal.notAssigned")}</span>}
           </div>
           <div>
             <span className="text-muted-foreground">{t("viewProductUnitModal.importDate")}</span>

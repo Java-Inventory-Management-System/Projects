@@ -15,15 +15,15 @@
 
 | Method | Logic |
 |--------|-------|
-| `create` | Gen code `PO-YYYYMMDD-NNNN`, save PO + items. No approval step |
+| `create` | Gen code `PO-YYYYMMDD-NNNN`, save PO + items. No approval step. Guard: nếu SP có NCC thì phải chứa `supplierId` của PO |
 | `cancel` | Check not `COMPLETED`, set `CANCELLED` |
 
 ### State Machine
 
 ```mermaid
 flowchart LR
-    DRAFT -->|Partial import received| PARTIAL
-    DRAFT -->|Cancel| CANCELLED
+    OPEN -->|Partial import received| PARTIAL
+    OPEN -->|Cancel| CANCELLED
     PARTIAL -->|All items received| COMPLETED
     PARTIAL -->|Cancel partial| CANCELLED
 ```
@@ -37,7 +37,7 @@ sequenceDiagram
     participant DB as Database
 
     C->>S: create(request)
-    S->>DB: INSERT purchase_order (DRAFT)
+    S->>DB: INSERT purchase_order (OPEN)
     S->>DB: INSERT items
     S-->>C: response
 
@@ -63,7 +63,7 @@ sequenceDiagram
 | Page | File | Chức năng |
 |------|------|-----------|
 | `POListPage` | `features/stock/pages/po-list-page.tsx` | List POs, filter by status |
-| `POCreatePage` | `features/stock/pages/po-create-page.tsx` | Chọn supplier, thêm items (product + qty + unitPrice), expected date |
+| `POCreatePage` | `features/stock/pages/po-create-page.tsx` | Chọn supplier trước → picker SP chỉ hiện SP được gán cho NCC đó; thêm items (product + qty + unitPrice), expected date |
 | `PODetailPage` | `features/stock/pages/po-detail-page.tsx` | Detail + cancel button |
 
 ### Hooks

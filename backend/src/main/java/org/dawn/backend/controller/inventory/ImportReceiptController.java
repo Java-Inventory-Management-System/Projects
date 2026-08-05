@@ -13,12 +13,15 @@ import org.dawn.backend.config.web.response.ResponsePage;
 import org.dawn.backend.constant.security.AuthorizationExpressions;
 import org.dawn.backend.controller.inventory.request.ConfirmImportRequest;
 import org.dawn.backend.controller.inventory.request.ImportReceiptRequest;
+import org.dawn.backend.controller.inventory.response.BoxableImportResponse;
 import org.dawn.backend.controller.inventory.response.ImportReceiptResponse;
 import org.dawn.backend.controller.inventory.response.ProductUnitResponse;
 import org.dawn.backend.service.inventory.imports.ImportConfirmationService;
 import org.dawn.backend.service.inventory.imports.ImportReceiptService;
 import org.dawn.backend.service.inventory.imports.ImportWorkflowService;
 import org.dawn.backend.service.inventory.ProductUnitService;
+import org.dawn.backend.service.inventory.ReceiptPrintService;
+import org.springframework.http.MediaType;
 
 @RestController
 @RequestMapping
@@ -29,11 +32,24 @@ public class ImportReceiptController {
     private final ImportConfirmationService importConfirmationService;
     private final ImportWorkflowService importWorkflowService;
     private final ProductUnitService productUnitService;
+    private final ReceiptPrintService receiptPrintService;
+
+    @GetMapping(value = "/import-receipt/{id}/print", produces = MediaType.TEXT_HTML_VALUE)
+    @PreAuthorize(AuthorizationExpressions.CAN_VIEW_INVENTORY)
+    public String print(@PathVariable Long id, @RequestParam(defaultValue = "vi") String lang) {
+        return receiptPrintService.printImport(id, lang);
+    }
 
     @GetMapping("/import-receipt")
     @PreAuthorize(AuthorizationExpressions.CAN_VIEW_INVENTORY)
     public ResponseObject<ResponsePage<ImportReceiptResponse>> getAll(Pageable pageable, @RequestParam(required = false) String status) {
         return ResponseObject.success(importReceiptService.findAll(pageable, status));
+    }
+
+    @GetMapping("/import-receipt/boxable")
+    @PreAuthorize(AuthorizationExpressions.CAN_VIEW_INVENTORY)
+    public ResponseObject<List<BoxableImportResponse>> getBoxable() {
+        return ResponseObject.success(importReceiptService.getBoxableImports());
     }
 
     @GetMapping("/import-receipt/{id}")

@@ -50,15 +50,28 @@ export interface StockInfo {
   serialNumbers: string[]
 }
 
+export async function createPurchaseOrder() {
+  await loginAsManager()
+  const res = await api.post("/purchase-order", {
+    supplierId: 1,
+    expectedDate: "2026-12-31",
+    note: "Test PO",
+    items: [{ productId: 1, quantity: 2, unitPrice: 10000000 }],
+  })
+  return res.data.data.id as number
+}
+
 export async function ensureImport(productId = 1, quantity = 2, extra?: Record<string, unknown>): Promise<StockInfo> {
   const prevToken = api.defaults.headers.common["Authorization"]
   const serials = Array.from({ length: quantity }, () => randomSerial("SN"))
 
   await loginAsManager()
+  const purchaseOrderId = await createPurchaseOrder()
   const createRes = await api.post("/import-receipt", {
     supplierId: 1,
+    purchaseOrderId,
     note: "Test import",
-    items: [{ productId, quantity, unitPrice: 10000000, warrantyMonths: 12, serialNumbers: serials, locationId: 1, ...extra }],
+    items: [{ productId, quantity, unitPrice: 10000000, warrantyMonths: 12, serialNumbers: serials, locationId: 34, ...extra }],
   })
   const id: number = createRes.data.data.id
   const createdItems = createRes.data.data.items as Array<{ id: number }>
@@ -67,7 +80,7 @@ export async function ensureImport(productId = 1, quantity = 2, extra?: Record<s
     serials: createdItems.map((item) => ({
       itemId: item.id,
       serialNumbers: serials,
-      locationId: 1,
+      locationId: 34,
     })),
   })
 

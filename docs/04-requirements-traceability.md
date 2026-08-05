@@ -44,7 +44,7 @@
 | RQ-54 | Link PO khi tạo phiếu nhập (Phase 1) — pre-fill NCC + SP | F | Phỏng vấn | Must | QL | US-45 |
 | RQ-55 | Tự động cập nhật received_quantity + trạng thái PO khi duyệt import | F | Phỏng vấn | Must | HT | US-46 |
 | RQ-56 | Hủy đơn đặt hàng | F | Phỏng vấn | Should | QL | US-47 |
-| RQ-57 | Gợi ý đặt hàng khi tồn thấp — tự động gộp sản phẩm sắp hết của cùng NCC thành PO nháp | F | Phỏng vấn | Should | HT | US-48 |
+| RQ-57 | Gợi ý đặt hàng khi tồn thấp — tự động gộp sản phẩm sắp hết của cùng NCC thành PO nháp | F | Phỏng vấn | Should | HT | US-48 (tiền đề: SP gán NCC — đã triển khai) |
 
 ### Inventory
 
@@ -326,7 +326,7 @@ Actor: **AD** = Admin, **QL** = Quản lý kho, **NV** = Nhân viên kho, **SL**
 ### 2.12 Epic 12 — Đặt hàng (Purchase Order)
 
 **US-44** | Là **QL**, tôi muốn tạo đơn đặt hàng với nhà cung cấp, sản phẩm, số lượng, đơn giá dự kiến và ngày giao, để chủ động lên kế hoạch nhập hàng trước khi NCC giao.
-- AC: Chọn NCC từ danh sách; thêm nhiều dòng sản phẩm (mỗi dòng: `product_id`, `quantity`, `unit_price`); nhập `expected_date` (mặc định +14 ngày); ghi chú tùy chọn; `po_code` tự sinh unique dạng `PO-yyyyMMdd-seq`; trạng thái khởi tạo `DRAFT`.
+- AC: Chọn NCC từ danh sách; thêm nhiều dòng sản phẩm (mỗi dòng: `product_id`, `quantity`, `unit_price`); nhập `expected_date` (mặc định +14 ngày); ghi chú tùy chọn; `po_code` tự sinh unique dạng `PO-yyyyMMdd-seq`; trạng thái khởi tạo `OPEN`.
 - Priority: Must.
 
 **US-45** | Là **Manager**, khi tạo phiếu nhập (Phase 1) tôi muốn chọn một đơn đặt hàng để liên kết, để hệ thống tự động lấy thông tin NCC và danh sách sản phẩm từ PO.
@@ -344,6 +344,7 @@ Actor: **AD** = Admin, **QL** = Quản lý kho, **NV** = Nhân viên kho, **SL**
 **US-48** | Là **HT**, khi 1 sản phẩm dưới `min_stock`, tôi muốn tự động gợi ý gộp các sản phẩm sắp hết của cùng 1 NCC thành PO nháp, để QL chỉ cần xác nhận thay vì tự tạo PO từ đầu.
 - AC: PO nháp pre-fill NCC + danh sách sản phẩm + số lượng đề xuất (đủ lên `min_stock` + dự phòng) + `expected_date` gợi ý; QL có thể sửa số lượng/từ chối trước khi gửi.
 - Priority: Should.
+- Tiền đề đã triển khai (2026-08): `product_suppliers` (SP ↔ NCC bắt buộc ≥1) — khi làm US-48 có sẵn dữ liệu gộp theo NCC.
 
 ---
 

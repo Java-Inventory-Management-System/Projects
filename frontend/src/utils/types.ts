@@ -88,6 +88,7 @@ export interface CreateProductRequest {
   minStock?: number
   description?: string
   image?: string
+  supplierIds?: number[]
 }
 
 export interface ProductResponse {
@@ -104,6 +105,7 @@ export interface ProductResponse {
   trackingType: string
   minStock: number
   isActive: boolean
+  supplierIds: number[]
   description: string | null
   createdAt: string
   updatedAt: string
@@ -143,6 +145,18 @@ export interface CustomerResponse {
 
 // ============ Location ============
 
+export interface LocationMapBinProduct {
+  productId: number
+  productName: string | null
+  productSku: string | null
+  trackingType: string
+  quantity: number
+  serials: string[]
+  boxId: number | null
+  boxCode: string | null
+  boxType: string | null
+}
+
 export interface LocationMapBin {
   id: number
   binCode: string
@@ -150,6 +164,9 @@ export interface LocationMapBin {
   productCount: number
   maxCapacity: number | null
   productSkuList: string[]
+  boxCount: number
+  boxCodes: string[]
+  products: LocationMapBinProduct[]
 }
 
 export interface LocationMapShelf {
@@ -193,6 +210,8 @@ export interface ProductUnit {
   importReceiptItemId: number
   locationId: number | null
   locationCode: string | null
+  boxId: number | null
+  boxCode: string | null
   status: ProductUnitStatus
   importedAt: string
   warrantyMonths: number
@@ -349,8 +368,8 @@ export interface ExportReceiptItem {
 
 // ============ Stock Check ============
 
-export type StockCheckStatus = "PENDING" | "IN_PROGRESS" | "COMPLETED" | "APPROVED"
-export type StockCheckScopeType = "ZONE" | "CATEGORY"
+export type StockCheckStatus = "PENDING" | "IN_PROGRESS" | "COMPLETED" | "APPROVED" | "CANCELLED"
+export type StockCheckScopeType = "ZONE" | "CATEGORY" | "BOX"
 export type DifferenceType = "MATCH" | "MISSING" | "UNEXPECTED" | "PARTIAL_SHORTAGE"
 
 export interface StockCheckItem {
@@ -361,6 +380,8 @@ export interface StockCheckItem {
   productName: string
   productSku: string | null
   trackingType: "SERIALIZED" | "BULK" | null
+  boxId: number | null
+  boxCode: string | null
   expectedStatus: string | null
   actualStatus: string | null
   countedQuantity: number | null
@@ -390,6 +411,59 @@ export interface StockCheck {
   autoFilledCount: number
   createdAt: string
   updatedAt: string
+}
+
+// ============ Box ============
+
+export type BoxStatus = "SEALED" | "UNSEALED"
+
+export const BOX_STATUS = {
+  SEALED: "SEALED",
+  UNSEALED: "UNSEALED",
+} as const
+
+export interface BoxUnit {
+  productUnitId: number
+  serialNumber: string | null
+  productId: number
+  productName: string | null
+  productSku: string | null
+  trackingType: "SERIALIZED" | "BULK" | null
+  quantity: number
+}
+
+export type BoxType = "SMALL" | "MEDIUM" | "LARGE"
+
+export interface BoxableImport {
+  receiptId: number
+  receiptCode: string
+  supplierName: string | null
+  importedAt: string | null
+  boxableUnits: number
+}
+
+export interface Box {
+  id: number
+  boxCode: string
+  importReceiptId: number | null
+  importReceiptCode: string | null
+  boxType: BoxType | null
+  locationId: number
+  locationCode: string | null
+  status: BoxStatus
+  sealedQuantity: number
+  sealedBy: number | null
+  sealedByName: string | null
+  sealedAt: string | null
+  unsealedBy: number | null
+  unsealedByName: string | null
+  unsealedAt: string | null
+  note: string | null
+  createdBy: number | null
+  createdByName: string | null
+  createdAt: string
+  unitCount: number
+  units: BoxUnit[]
 }
 
 // ============ Stock Adjustment ============
@@ -527,6 +601,34 @@ export interface DeadStockItem {
   costPrice: number
 }
 
+// ============ Stock Check Overview ============
+
+export interface StockCheckMonthCount {
+  month: string
+  count: number
+}
+
+export interface AdjustmentMonthCount {
+  month: string
+  lost: number
+  found: number
+  damaged: number
+}
+
+export interface StockCheckDiscrepancy {
+  id: number
+  checkCode: string
+  createdAt: string
+  missingCount: number
+  unexpectedCount: number
+}
+
+export interface StockCheckOverview {
+  checksPerMonth: StockCheckMonthCount[]
+  adjustmentsPerMonth: AdjustmentMonthCount[]
+  recentDiscrepancies: StockCheckDiscrepancy[]
+}
+
 // ============ Return Receipt ============
 
 export interface ReturnReceiptItem {
@@ -644,7 +746,7 @@ export const EXPORT_REASON = {
 } as const
 
 export const PURCHASE_ORDER_STATUS = {
-  DRAFT: "DRAFT",
+  OPEN: "OPEN",
   PARTIAL: "PARTIAL",
   COMPLETED: "COMPLETED",
   CANCELLED: "CANCELLED",
@@ -655,6 +757,7 @@ export const STOCK_CHECK_STATUS = {
   IN_PROGRESS: "IN_PROGRESS",
   COMPLETED: "COMPLETED",
   APPROVED: "APPROVED",
+  CANCELLED: "CANCELLED",
 } as const
 
 export const ADJUSTMENT_STATUS = {
@@ -711,6 +814,7 @@ export const PRODUCT_UNIT_TYPE = {
   SET: "SET",
   METER: "METER",
   KG: "KG",
+  TUBE: "TUBE",
 } as const
 
 export const TRACKING_TYPE = {

@@ -7,7 +7,9 @@ import org.dawn.backend.constant.security.AuthorizationExpressions;
 import org.dawn.backend.controller.inventory.request.CreatePurchaseOrderRequest;
 import org.dawn.backend.controller.inventory.response.PurchaseOrderResponse;
 import org.dawn.backend.service.inventory.PurchaseOrderService;
+import org.dawn.backend.service.inventory.ReceiptPrintService;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -17,6 +19,13 @@ import org.springframework.web.bind.annotation.*;
 public class PurchaseOrderController {
 
     private final PurchaseOrderService purchaseOrderService;
+    private final ReceiptPrintService receiptPrintService;
+
+    @GetMapping(value = "/{id}/print", produces = MediaType.TEXT_HTML_VALUE)
+    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER)
+    public String print(@PathVariable Long id, @RequestParam(defaultValue = "vi") String lang) {
+        return receiptPrintService.printPo(id, lang);
+    }
 
     @GetMapping
     @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER)

@@ -9,22 +9,27 @@ import org.dawn.backend.constant.enums.inventory.exports.ExportReceiptStatus;
 import org.dawn.backend.constant.enums.inventory.exports.ExportReason;
 import org.dawn.backend.constant.enums.inventory.ProductUnitStatus;
 import org.dawn.backend.constant.enums.inventory.SourceType;
+import org.dawn.backend.constant.enums.inventory.box.BoxStatus;
 import org.dawn.backend.constant.shared.LogConstant;
 import org.dawn.backend.constant.shared.Message;
 import org.dawn.backend.controller.inventory.request.FulfillExportRequest;
 import org.dawn.backend.controller.inventory.response.ExportReceiptResponse;
 import org.dawn.backend.entity.catalog.Product;
+import org.dawn.backend.entity.inventory.Box;
 import org.dawn.backend.entity.inventory.ExportReceipt;
 import org.dawn.backend.entity.inventory.ExportReceiptItem;
 import org.dawn.backend.entity.inventory.ExportReceiptItemUnit;
 import org.dawn.backend.entity.inventory.ExportReceiptStatusHistory;
+import org.dawn.backend.entity.inventory.Location;
 import org.dawn.backend.entity.inventory.ProductUnit;
 import org.dawn.backend.entity.inventory.ProductUnitStatusLog;
 import org.dawn.backend.exception.type.InvalidRequestException;
 import org.dawn.backend.exception.type.ResourceNotFoundException;
 import org.dawn.backend.repository.catalog.ProductRepository;
+import org.dawn.backend.repository.inventory.LocationRepository;
 import org.dawn.backend.repository.inventory.ProductUnitRepository;
 import org.dawn.backend.repository.inventory.ProductUnitStatusLogRepository;
+import org.dawn.backend.repository.inventory.box.BoxRepository;
 import org.dawn.backend.repository.inventory.exports.ExportReceiptItemRepository;
 import org.dawn.backend.repository.inventory.exports.ExportReceiptItemUnitRepository;
 import org.dawn.backend.repository.inventory.exports.ExportReceiptRepository;
@@ -51,6 +56,8 @@ public class ExportFulfillmentService {
     private final ProductUnitRepository productUnitRepository;
     private final ProductUnitStatusLogRepository statusLogRepository;
     private final StockCheckItemRepository stockCheckItemRepository;
+    private final BoxRepository boxRepository;
+    private final LocationRepository locationRepository;
     private final ProductRepository productRepository;
     private final ExportReceiptStatusHistoryRepository statusHistoryRepository;
     private final StateMachine<ExportReceiptStatus> exportReceiptStateMachine;
@@ -113,6 +120,32 @@ public class ExportFulfillmentService {
                     pu.setRemainingQuantity(pu.getRemainingQuantity().subtract(take));
                     remaining = remaining.subtract(take);
                 }
+                if (remaining.compareTo(BigDecimal.ZERO) > 0) {
+                    var boxedUnits = productUnitRepository.findByProductIdAndStatusAndBoxIdIsNotNull(
+                            item.getProductId(), ProductUnitStatus.IN_STOCK);
+                    if (!boxedUnits.isEmpty()) {
+                        var sealedBoxes = boxRepository.findAllById(
+                                        boxedUnits.stream().map(ProductUnit::getBoxId).distinct().toList())
+                                .stream().filter(b -> BoxStatus.SEALED == b.getStatus()).toList();
+                        if (!sealedBoxes.isEmpty()) {
+                            var sealedBoxIds = sealedBoxes.stream().map(Box::getId).toList();
+                            var locationMap = locationRepository.findAllById(
+                                            sealedBoxes.stream().map(Box::getLocationId).distinct().toList())
+                                    .stream().collect(Collectors.toMap(Location::getId, Location::getFullCode));
+                            var perBox = boxedUnits.stream()
+                                    .filter(u -> sealedBoxIds.contains(u.getBoxId()))
+                                    .collect(Collectors.groupingBy(ProductUnit::getBoxId,
+                                            Collectors.reducing(BigDecimal.ZERO, ProductUnit::getRemainingQuantity, BigDecimal::add)));
+                            BigDecimal totalInBoxes = perBox.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add);
+                            String summary = sealedBoxes.stream()
+                                    .map(b -> b.getBoxCode() + " tại " + locationMap.get(b.getLocationId())
+                                            + " (" + perBox.get(b.getId()) + ")")
+                                    .collect(Collectors.joining(", "));
+                            throw new InvalidRequestException(Message.format(
+                                    Message.Inventory.EXPORT_NOT_ENOUGH_LOOSE, totalInBoxes, summary));
+                        }
+                    }
+                }
             } else {
                 String trackingType = product.getTrackingType();
                 if (TrackingType.SERIALIZED.name().equals(trackingType)) {
@@ -134,6 +167,10 @@ public class ExportFulfillmentService {
                         }
                         if (stockCheckItemRepository.existsByProductUnitIdInActiveCheck(pu.getId())) {
                             throw new InvalidRequestException(Message.format(Message.Inventory.EXPORT_SERIAL_IN_STOCK_CHECK, sn));
+                        }
+                        if (pu.getBoxId() != null && boxRepository.findById(pu.getBoxId())
+                                .map(b -> BoxStatus.SEALED == b.getStatus()).orElse(false)) {
+                            throw new InvalidRequestException(Message.format(Message.Inventory.EXPORT_SERIAL_IN_BOX, sn));
                         }
 
                         ProductUnitStatus oldUnitStatus = pu.getStatus();
@@ -202,11 +239,11 @@ public class ExportFulfillmentService {
         String unit = product.getUnit();
         boolean isBulk = BULK_UNITS.contains(unit);
         if (isBulk) {
-            var units = productUnitRepository.findByProductIdAndStatus(product.getId(), ProductUnitStatus.IN_STOCK);
+            var units = productUnitRepository.findByProductIdAndStatusAndBoxIdIsNull(product.getId(), ProductUnitStatus.IN_STOCK);
             return units.stream().map(ProductUnit::getRemainingQuantity)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
         }
-        return BigDecimal.valueOf(productUnitRepository.countByProductIdAndStatus(
+        return BigDecimal.valueOf(productUnitRepository.countByProductIdAndStatusAndBoxIdIsNull(
                 product.getId(), ProductUnitStatus.IN_STOCK));
     }
 }

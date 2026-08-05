@@ -201,13 +201,13 @@ export const StockAdjustmentListPage = () => {
   return (
     <div className="space-y-4">
       {backgroundBatch.isRunning() && (
-        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-800">
+        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-800 dark:border-blue-800 dark:bg-blue-950/20 dark:text-blue-300">
           <Loader2 className="size-4 animate-spin" />
           {t("stockAdjList.batchRunning", { current: backgroundBatch.getProgress()?.current ?? "?", total: backgroundBatch.getProgress()?.total ?? "?" })}
         </div>
       )}
       {batchDone && backgroundBatch.getResults().length > 0 && (
-        <div className="flex items-center justify-between rounded-lg border border-green-200 bg-green-50 px-4 py-2 text-sm text-green-800">
+        <div className="flex items-center justify-between rounded-lg border border-green-200 bg-green-50 px-4 py-2 text-sm text-green-800 dark:border-green-800 dark:bg-green-950/20 dark:text-green-300">
           <span>
             {t("stockAdjList.batchDone", { ok: backgroundBatch.getResults().filter((r) => r.success).length, total: backgroundBatch.getResults().length })}
           </span>

@@ -30,7 +30,6 @@ const ImportListPage = lazyPage(() => import("@/features/stock/pages/import-list
 const ImportCreatePage = lazyPage(() => import("@/features/stock/pages/import-create-page"), "ImportCreatePage")
 const ExportListPage = lazyPage(() => import("@/features/stock/pages/export-list-page"), "ExportListPage")
 const ExportProposalPage = lazyPage(() => import("@/features/stock/pages/export-proposal-page"), "ExportProposalPage")
-const ExportReviewPage = lazyPage(() => import("@/features/stock/pages/export-review-page"), "ExportReviewPage")
 const ExportFulfillPage = lazyPage(() => import("@/features/stock/pages/export-fulfill-page"), "ExportFulfillPage")
 const StockCheckListPage = lazyPage(() => import("@/features/stock/pages/stock-check-list-page"), "StockCheckListPage")
 const StockCheckCreatePage = lazyPage(
@@ -74,6 +73,7 @@ const ReturnDetailPage = lazyPage(() => import("@/features/stock/pages/return-de
 const POCreatePage = lazyPage(() => import("@/features/stock/pages/po-create-page"), "POCreatePage")
 const PODetailPage = lazyPage(() => import("@/features/stock/pages/po-detail-page"), "PODetailPage")
 const StockUnitsPage = lazyPage(() => import("@/features/stock/pages/stock-units-page"), "StockUnitsPage")
+const SealBoxPage = lazyPage(() => import("@/features/stock/pages/seal-box-page"), "SealBoxPage")
 const UsersPage = lazyPage(() => import("@/features/admin/pages/users-page"), "UsersPage")
 const AuditPage = lazyPage(() => import("@/features/admin/pages/audit-page"), "AuditPage")
 function PageGuard({ roles, children }: { roles?: URole[]; children: ReactNode }) {
@@ -230,16 +230,6 @@ export const router = createBrowserRouter([
               <Lazy>
                 <PageGuard roles={ROLES.CAN_OPERATE}>
                   <ExportProposalPage />
-                </PageGuard>
-              </Lazy>
-            ),
-          },
-          {
-            path: "stock/exports/:id/review",
-            element: (
-              <Lazy>
-                <PageGuard roles={ROLES.CAN_APPROVE}>
-                  <ExportReviewPage />
                 </PageGuard>
               </Lazy>
             ),
@@ -434,6 +424,18 @@ export const router = createBrowserRouter([
                 </PageGuard>
               </Lazy>
             ),
+            children: [
+              {
+                path: "box/new",
+                element: (
+                  <Lazy>
+                    <PageGuard roles={ROLES.CAN_OPERATE}>
+                      <SealBoxPage />
+                    </PageGuard>
+                  </Lazy>
+                ),
+              },
+            ],
           },
           { path: "product-units", element: <Navigate to="/stock/units" replace /> },
           { path: "locations", element: <Navigate to="/stock/units" replace /> },

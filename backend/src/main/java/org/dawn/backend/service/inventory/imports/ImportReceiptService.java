@@ -3,6 +3,7 @@ package org.dawn.backend.service.inventory.imports;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -23,6 +24,7 @@ import org.dawn.backend.constant.enums.inventory.ProductUnitStatus;
 import org.dawn.backend.constant.shared.LogConstant;
 import org.dawn.backend.constant.shared.Message;
 import org.dawn.backend.controller.inventory.request.ImportReceiptRequest;
+import org.dawn.backend.controller.inventory.response.BoxableImportResponse;
 import org.dawn.backend.controller.inventory.response.ImportReceiptResponse;
 import org.dawn.backend.controller.inventory.response.ProductUnitResponse;
 import org.dawn.backend.entity.auth.User;
@@ -188,6 +190,37 @@ public class ImportReceiptService {
         var unitIds = getUnitIds(items);
         var enrichment = fetchEnrichmentData(receipt);
         return ImportReceiptMappingHelper.map(receipt, enrichment.supplierName(), enrichment.createdByName(), enrichment.approvedByName(), enrichment.poCode(), items, products, unitCounts, unitIds);
+    }
+
+    public List<BoxableImportResponse> getBoxableImports() {
+        var countsByItem = productUnitRepository.countBoxableByImportReceiptItem();
+        if (countsByItem.isEmpty()) return List.of();
+        var itemIds = countsByItem.stream().map(row -> (Long) row[0]).toList();
+        var itemsById = importReceiptItemRepository.findAllById(itemIds).stream()
+                .collect(Collectors.toMap(ImportReceiptItem::getId, it -> it));
+        Map<Long, Long> countsByReceipt = new HashMap<>();
+        for (var row : countsByItem) {
+            var item = itemsById.get((Long) row[0]);
+            if (item != null) countsByReceipt.merge(item.getReceiptId(), (Long) row[1], Long::sum);
+        }
+        if (countsByReceipt.isEmpty()) return List.of();
+        var receipts = importReceiptRepository.findAllById(countsByReceipt.keySet());
+        return receipts.stream()
+                .sorted((a, b) -> {
+                    Instant aAt = a.getCreatedAt();
+                    Instant bAt = b.getCreatedAt();
+                    if (aAt == null) return 1;
+                    if (bAt == null) return -1;
+                    return bAt.compareTo(aAt);
+                })
+                .map(r -> BoxableImportResponse.builder()
+                        .receiptId(r.getId())
+                        .receiptCode(r.getReceiptCode())
+                        .supplierName(supplierRepository.findById(r.getSupplierId()).map(Supplier::getName).orElse(null))
+                        .importedAt(r.getCreatedAt())
+                        .boxableUnits(countsByReceipt.getOrDefault(r.getId(), 0L))
+                        .build())
+                .toList();
     }
 
     private String generateReceiptCode() {

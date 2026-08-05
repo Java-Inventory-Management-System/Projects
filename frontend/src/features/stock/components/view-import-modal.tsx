@@ -115,11 +115,11 @@ export const ViewImportModal = ({
           </div>
         </div>
         <DialogFooter className="gap-2">
-          <Button variant="outline" onClick={() => navigate(`/stock/imports/${receipt.id}`)}>
+          <Button variant="outline" onClick={() => { onOpenChange(false); navigate(`/stock/imports/${receipt.id}`) }}>
             <Eye className="size-4 mr-1" /> {t("viewImportModal.viewDetail")}
           </Button>
           {receipt.status === "DRAFT" && (
-            <Button onClick={() => navigate(`/stock/imports/new?id=${receipt.id}`)}>
+            <Button onClick={() => { onOpenChange(false); navigate(`/stock/imports/new?id=${receipt.id}`) }}>
               <ScanLine className="size-4 mr-1" /> {t("viewImportModal.enterSerials")}
             </Button>
           )}

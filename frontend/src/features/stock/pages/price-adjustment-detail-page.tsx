@@ -220,9 +220,9 @@ export function PriceAdjustmentDetailPage() {
       </div>
 
       {showSelfBlock && (
-        <Alert variant="default" className="border-blue-200 bg-blue-50">
-          <Info className="size-4 text-blue-600" />
-          <AlertDescription className="text-blue-800 text-sm">
+        <Alert variant="default" className="border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/20">
+          <Info className="size-4 text-blue-600 dark:text-blue-400" />
+          <AlertDescription className="text-blue-800 text-sm dark:text-blue-300">
             {t("priceAdjDetail.selfBlockAlert")}
           </AlertDescription>
         </Alert>
@@ -314,7 +314,7 @@ export function PriceAdjustmentDetailPage() {
           <AlertDialogFooter>
             <AlertDialogCancel>{t("dialog.no")}</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => action.mutate({ action: "approve" })}
+              onClick={() => { setConfirmAction(null); action.mutate({ action: "approve" }) }}
               disabled={action.isPending}
             >
               {action.isPending ? t("dialog.processing") : t("dialog.approve")}
@@ -353,7 +353,7 @@ export function PriceAdjustmentDetailPage() {
           <AlertDialogFooter>
             <AlertDialogCancel>{t("dialog.no")}</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => action.mutate({ action: "reject", reason: rejectReason.trim() })}
+              onClick={() => { setConfirmAction(null); action.mutate({ action: "reject", reason: rejectReason.trim() }) }}
               disabled={action.isPending || rejectReason.trim().length < 5}
             >
               {action.isPending ? t("dialog.processing") : t("priceAdjDetail.rejectConfirm")}
@@ -378,7 +378,7 @@ export function PriceAdjustmentDetailPage() {
           <AlertDialogFooter>
             <AlertDialogCancel>{t("dialog.no")}</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => cancelMutation.mutate()}
+              onClick={() => { setConfirmAction(null); cancelMutation.mutate() }}
               disabled={cancelMutation.isPending}
             >
               {cancelMutation.isPending ? t("priceAdjDetail.cancelProcessing") : t("priceAdjDetail.cancelConfirm")}

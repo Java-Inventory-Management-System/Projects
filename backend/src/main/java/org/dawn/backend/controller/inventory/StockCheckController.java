@@ -4,13 +4,13 @@ import lombok.RequiredArgsConstructor;
 import org.dawn.backend.config.web.response.ResponseObject;
 import org.dawn.backend.config.web.response.ResponsePage;
 import org.dawn.backend.constant.security.AuthorizationExpressions;
-import org.dawn.backend.controller.inventory.request.ApproveStockCheckRequest;
 import org.dawn.backend.controller.inventory.request.CreateStockCheckRequest;
 import org.dawn.backend.controller.inventory.request.StockCheckItemRequest;
 import org.dawn.backend.controller.inventory.response.StockCheckResponse;
-import org.dawn.backend.service.inventory.stockcheck.StockCheckAdjustmentService;
 import org.dawn.backend.service.inventory.stockcheck.StockCheckService;
+import org.dawn.backend.service.inventory.ReceiptPrintService;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -20,7 +20,13 @@ import org.springframework.web.bind.annotation.*;
 public class StockCheckController {
 
     private final StockCheckService stockCheckService;
-    private final StockCheckAdjustmentService stockCheckAdjustmentService;
+    private final ReceiptPrintService receiptPrintService;
+
+    @GetMapping(value = "/stock-check/{id}/print", produces = MediaType.TEXT_HTML_VALUE)
+    @PreAuthorize(AuthorizationExpressions.CAN_VIEW_INVENTORY)
+    public String print(@PathVariable Long id, @RequestParam(defaultValue = "vi") String lang) {
+        return receiptPrintService.printStockCheck(id, lang);
+    }
 
     @GetMapping("/stock-check/my")
     @PreAuthorize(AuthorizationExpressions.CAN_VIEW_INVENTORY)
@@ -70,19 +76,9 @@ public class StockCheckController {
         return ResponseObject.success(stockCheckService.complete(id));
     }
 
-    @PutMapping("/stock-check/{id}/approve")
-    @PreAuthorize(AuthorizationExpressions.CAN_APPROVE)
-    public ResponseObject<StockCheckResponse> approve(
-            @PathVariable Long id,
-            @RequestBody(required = false) ApproveStockCheckRequest request) {
-        return ResponseObject.success(stockCheckAdjustmentService.approve(id, request));
-    }
-
-    @PutMapping("/stock-check/{id}/reject")
-    @PreAuthorize(AuthorizationExpressions.CAN_APPROVE)
-    public ResponseObject<StockCheckResponse> reject(
-            @PathVariable Long id,
-            @RequestBody(required = false) ApproveStockCheckRequest request) {
-        return ResponseObject.success(stockCheckAdjustmentService.reject(id, request));
+    @PutMapping("/stock-check/{id}/cancel")
+    @PreAuthorize(AuthorizationExpressions.CAN_OPERATE_STOCK)
+    public ResponseObject<StockCheckResponse> cancel(@PathVariable Long id) {
+        return ResponseObject.success(stockCheckService.cancel(id));
     }
 }

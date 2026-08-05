@@ -110,13 +110,13 @@ const CustomTreemapContent = (props: any) => {
   const fontSize = width < 80 ? 9 : width < 140 ? 10 : 11
   return (
     <g>
-      <rect x={x} y={y} width={width} height={height} fill={colors[index % colors.length]} stroke="#fff" strokeWidth={1} />
+      <rect x={x} y={y} width={width} height={height} fill={colors[index % colors.length]} stroke="var(--background)" strokeWidth={1} />
       {width > 40 && height > 30 && (
         <>
-          <text x={x + 4} y={y + 14} fill="#fff" fontSize={fontSize} fontWeight={600}>
+          <text x={x + 4} y={y + 14} className="fill-white dark:fill-[oklch(0.15_0.01_210)]" fontSize={fontSize} fontWeight={600}>
             {name}
           </text>
-          <text x={x + 4} y={y + 28} fill="rgba(255,255,255,0.8)" fontSize={fontSize - 1}>
+          <text x={x + 4} y={y + 28} className="fill-white/80 dark:fill-[oklch(0.15_0.01_210)]" fontSize={fontSize - 1}>
             {formatCompactVND(value)}
           </text>
         </>

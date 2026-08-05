@@ -4,7 +4,7 @@ import { useLocationMap } from "@/hooks/use-location-map"
 import type { LocationMapData } from "@/utils/types"
 import type { DetailBin, FilterMode } from "@/features/stock/utils/location-map-utils"
 import { nextCode } from "@/features/stock/utils/location-map-utils"
-import { createLocation, deleteLocation, relocateProductUnits } from "@/services/location-service"
+import { createLocation, deleteLocation, relocateProductUnits, updateLocation } from "@/services/location-service"
 import { t } from "i18next"
 import { toast } from "@/utils/toast"
 
@@ -27,6 +27,8 @@ export function useLocationMapPage() {
   const [filter, setFilter] = useState<FilterMode>("all")
   const [selectedBin, setSelectedBin] = useState<DetailBin | null>(null)
   const [sheetOpen, setSheetOpen] = useState(false)
+  const [capacityDraft, setCapacityDraft] = useState("")
+  const [capacitySaving, setCapacitySaving] = useState(false)
   const [managing, setManaging] = useState(false)
   const [confirmBinId, setConfirmBinId] = useState<number | null>(null)
   const [confirmZoneCode, setConfirmZoneCode] = useState<string | null>(null)
@@ -159,7 +161,49 @@ export function useLocationMapPage() {
 
   function openDetail(bin: DetailBin) {
     setSelectedBin(bin)
+    setCapacityDraft(bin.maxCapacity != null ? String(bin.maxCapacity) : "")
     setSheetOpen(true)
+  }
+
+  async function handleUpdateCapacity() {
+    const bin = selectedBin
+    if (!bin) return
+    const trimmed = capacityDraft.trim()
+    let value: number | null
+    if (trimmed === "") {
+      value = null
+    } else {
+      value = Number(trimmed)
+      if (!Number.isFinite(value) || value <= 0) {
+        toast.error(t("locMap.capacityInvalid"))
+        return
+      }
+    }
+    setCapacitySaving(true)
+    try {
+      await updateLocation(bin.id, {
+        zoneCode: bin.zoneCode,
+        shelfCode: bin.fullCode.split("-")[1] ?? "",
+        binCode: bin.binCode,
+        maxCapacity: value,
+      })
+      patchZones((prev) => ({
+        ...prev,
+        zones: prev.zones.map((z) => ({
+          ...z,
+          shelves: z.shelves.map((s) => ({
+            ...s,
+            bins: s.bins.map((b) => (b.id === bin.id ? { ...b, maxCapacity: value } : b)),
+          })),
+        })),
+      }))
+      setSelectedBin((prev) => (prev ? { ...prev, maxCapacity: value } : prev))
+      toast.success(t("locMap.capacitySaved"))
+    } catch (err) {
+      toast.error((err as Error).message || (err as { response?: { data?: { message?: string } } })?.response?.data?.message || t("locMap.capacityError"))
+    } finally {
+      setCapacitySaving(false)
+    }
   }
 
   function handleDeactivateBin(bin: DetailBin) {
@@ -457,6 +501,10 @@ export function useLocationMapPage() {
     selectedBin,
     sheetOpen,
     setSheetOpen,
+    capacityDraft,
+    setCapacityDraft,
+    capacitySaving,
+    handleUpdateCapacity,
     managing,
     setManaging,
     confirmBinId,

@@ -113,6 +113,8 @@ erDiagram
     products ||--o{ product_units : "has"
     products ||--o{ import_receipt_items : "appears_in"
     products ||--o{ export_receipt_items : "appears_in"
+    products }o--o{ product_suppliers : "assigned_to"
+    suppliers ||--o{ product_suppliers : "supplies"
 
     products {
         bigint id PK
@@ -129,6 +131,10 @@ erDiagram
         boolean is_active
         timestamp created_at
         timestamp updated_at
+    }
+    product_suppliers {
+        bigint product_id FK "N-N: SP do NCC nào cung cấp được — bắt buộc ≥1"
+        bigint supplier_id FK
     }
     product_images {
         bigint id PK
@@ -504,9 +510,18 @@ Công thức: `trim(zone_code) + if(shelf_code != null) then '-' + shelf_code el
 
 #### `max_capacity` tính bằng gì?
 
-- **Serialized:** số lượng `ProductUnit` tối đa chứa được. VD: 1 bin chứa tối đa 50 hộp RAM → `max_capacity = 50`.
-- **Bulk:** số lượng lot tối đa, **không phải** số mét/kg. VD: 1 zone có thể chứa 10 cuộn cáp (10 lot) → `max_capacity = 10`.
-- `max_capacity` NULL = không giới hạn. Validation là **mềm** — vượt vẫn cho nhập nhưng warning.
+Đơn vị là **số lượng sản phẩm** (không phải số lot):
+
+- **Serialized:** 1 `ProductUnit` IN_STOCK = 1. VD: 1 bin chứa tối đa 50 hộp RAM → `max_capacity = 50`.
+- **Bulk:** tổng `remaining_quantity` của các lot IN_STOCK trong bin (số mét/kg thực tế). VD: bin chứa tối đa 100m cáp → `max_capacity = 100`.
+- `max_capacity` NULL = không giới hạn. Seed mặc định `100` cho dữ liệu cũ (`V7__seed.sql`).
+
+**Enforce cứng (service layer)** — `LocationCapacityValidator.assertCapacity(binId, incoming)` kiểm tra `used + incoming > max` và ném lỗi `Bin {0} is full ({1}/{2})` tại 4 điểm đưa hàng vào bin:
+
+1. `ImportConfirmationService.createAndConfirm` — mỗi item (bulk: `quantity`, serialized: số serial).
+2. `ImportConfirmationService.confirm` — mỗi nhóm serial.
+3. `LocationService.relocate` — bin đích (trọng số từng unit: bulk = `remaining_quantity`, serialized = 1).
+4. `AdjustmentUnitService.applyFoundNew` — hàng bất ngờ tìm thấy (bulk: `quantity`, serialized: 1).
 
 #### Ví dụ layout kho 100m²
 

@@ -25,6 +25,11 @@ export async function getStockCheckById(id: number): Promise<StockCheck> {
   return mapStockCheck(res)
 }
 
+export async function getStockCheckPrintHtml(id: number, lang: string): Promise<string> {
+  const res = await http.get(`/stock-check/${id}/print`, { params: { lang }, responseType: "text" })
+  return res as string
+}
+
 export async function createStockCheck(data: { scopeType: StockCheckScopeType; scopeId: number; note?: string }): Promise<StockCheck> {
   const res = await http.post("/stock-check", data)
   return mapStockCheck(res)
@@ -56,13 +61,8 @@ export async function startStockCheck(id: number): Promise<StockCheck> {
   return mapStockCheck(res)
 }
 
-export async function approveStockCheck(id: number, approvalNote?: string): Promise<StockCheck> {
-  const res = await http.put(`/stock-check/${id}/approve`, { approvalNote })
-  return mapStockCheck(res)
-}
-
-export async function rejectStockCheck(id: number, approvalNote?: string): Promise<StockCheck> {
-  const res = await http.put(`/stock-check/${id}/reject`, { approvalNote })
+export async function cancelStockCheck(id: number): Promise<StockCheck> {
+  const res = await http.put(`/stock-check/${id}/cancel`)
   return mapStockCheck(res)
 }
 

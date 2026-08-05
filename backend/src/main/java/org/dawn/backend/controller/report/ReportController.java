@@ -56,6 +56,14 @@ public class ReportController {
         return ResponseObject.success(reportService.getActivity(from, to));
     }
 
+    @GetMapping("/stock-check-overview")
+    @PreAuthorize(AuthorizationExpressions.CAN_VIEW_REPORTS)
+    public ResponseObject<StockCheckOverviewResponse> getStockCheckOverview(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to) {
+        return ResponseObject.success(reportService.getStockCheckOverview(from, to));
+    }
+
     @GetMapping("/dead-stock")
     @PreAuthorize(AuthorizationExpressions.CAN_VIEW_REPORTS)
     public ResponseObject<ResponsePage<DeadStockResponse>> getDeadStock(

@@ -67,6 +67,7 @@ export function ImportDetailPage() {
       qc.invalidateQueries({ queryKey: ["inventory"] })
       qc.invalidateQueries({ queryKey: ["inventory-summary"] })
       qc.invalidateQueries({ queryKey: ["low-stock"] })
+      qc.invalidateQueries({ queryKey: ["import-pending-count"] })
       toast.success(t("importDetail.actionSuccess"))
       setConfirmAction(null)
     },
@@ -147,20 +148,7 @@ export function ImportDetailPage() {
               <ScanLine className="size-4 mr-1" /> {t("importDetail.enterSerials")}
             </Button>
           )}
-          <PrintReceiptButton
-            receipt={{
-              code: receipt.receiptCode,
-              type: "import",
-              status: receipt.status,
-              createdAt: receipt.createdAt,
-              createdByName: receipt.createdByName ?? "",
-              approvedByName: receipt.approvedByName,
-              note: receipt.note,
-              totalAmount: receipt.totalAmount,
-              items: receipt.items.map((item) => ({ ...item, productSku: item.productSku ?? "" })),
-            }}
-            type="import"
-          />
+          <PrintReceiptButton id={receipt.id} type="import" />
           <Button variant="outline" size="sm" className="gap-1.5" onClick={handleDownloadCsv}>
             <FileDown className="size-4" />
             CSV
@@ -258,7 +246,7 @@ export function ImportDetailPage() {
           <AlertDialogFooter>
             <AlertDialogCancel>{t("dialog.no")}</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => confirmAction && action.mutate(confirmAction)}
+              onClick={() => { const a = confirmAction; setConfirmAction(null); if (a) action.mutate(a) }}
               disabled={action.isPending}
             >
               {action.isPending ? t("dialog.processing") : t("dialog.confirm")}

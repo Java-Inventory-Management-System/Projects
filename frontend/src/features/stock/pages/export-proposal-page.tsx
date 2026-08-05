@@ -104,7 +104,7 @@ export const ExportProposalPage = () => {
       clearDraft("/stock/exports/new")
       qc.invalidateQueries({ queryKey: ["export-receipts"] })
       toast.success(t("exportProposal.createSuccess"))
-      navigate(`/stock/exports/${data.id}/fulfill`)
+      navigate(`/stock/exports/${data.id}`)
     },
     onError: (err: Error) => toast.error(err.message || t("exportProposal.createError")),
   })

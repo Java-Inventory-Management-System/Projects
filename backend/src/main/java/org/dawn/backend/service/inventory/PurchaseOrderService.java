@@ -83,7 +83,7 @@ public class PurchaseOrderService {
         PurchaseOrder po = PurchaseOrder.builder()
                 .poCode(poCode)
                 .supplierId(request.supplierId())
-                .status(PurchaseOrderStatus.DRAFT)
+                .status(PurchaseOrderStatus.OPEN)
                 .expectedDate(request.expectedDate())
                 .note(request.note())
                 .createdBy(userId)
@@ -92,8 +92,12 @@ public class PurchaseOrderService {
 
         BigDecimal totalAmount = BigDecimal.ZERO;
         for (POItemRequest itemReq : request.items()) {
-            if (!productRepository.existsById(itemReq.productId())) {
-                throw new ResourceNotFoundException(Message.Catalog.PRODUCT_NOT_FOUND);
+            Product product = productRepository.findById(itemReq.productId())
+                    .orElseThrow(() -> new ResourceNotFoundException(Message.Catalog.PRODUCT_NOT_FOUND));
+            List<Long> supplierIds = product.getSuppliers().stream().map(Supplier::getId).toList();
+            if (!supplierIds.isEmpty() && !supplierIds.contains(request.supplierId())) {
+                throw new InvalidRequestException(
+                        Message.format(Message.Catalog.PRODUCT_NOT_FROM_SUPPLIER, itemReq.productId()));
             }
             var item = PurchaseOrderItem.builder()
                     .poId(po.getId())

@@ -1,6 +1,8 @@
 import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router-dom"
-import type { ExportReceipt } from "@/utils/types"
+import { EXPORT_RECEIPT_STATUS, type ExportReceipt } from "@/utils/types"
+import { usePermission } from "@/hooks/use-permission"
+import { formatDateTime, formatMoney } from "@/utils/format"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
@@ -26,8 +28,19 @@ export const ViewExportModal = ({
 }) => {
   const { t } = useTranslation()
   const navigate = useNavigate()
+  const perm = usePermission()
   if (!receipt) return null
   const s = getStatusLabel(receipt.status, t)
+  const canFulfill =
+    (receipt.status === EXPORT_RECEIPT_STATUS.PENDING || receipt.status === EXPORT_RECEIPT_STATUS.APPROVED) &&
+    perm.hasRole("STOCK", "MANAGER", "ADMIN")
+  const reasonLabel: Record<string, string> = {
+    SALE: t("exportReason.sale"),
+    INTERNAL: t("exportReason.internal"),
+    RETURN_SUPPLIER: t("exportReason.returnSupplier"),
+    DISPOSE: t("exportReason.dispose"),
+    WARRANTY_REPLACEMENT: t("exportReason.warrantyReplacement"),
+  }
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[min(95vw,80rem)]">
@@ -39,11 +52,11 @@ export const ViewExportModal = ({
         </DialogHeader>
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4 text-sm">
-            <div><span className="text-muted-foreground">{t("table.reason")}:</span><p className="font-medium">{t(`exportReason.${receipt.reason.toLowerCase()}`, receipt.reason)}</p></div>
+            <div><span className="text-muted-foreground">{t("table.reason")}:</span><p className="font-medium">{reasonLabel[receipt.reason] ?? receipt.reason}</p></div>
             <div><span className="text-muted-foreground">{t("table.customer")}:</span><p className="font-medium">{receipt.customerName ?? "—"}</p></div>
-            <div><span className="text-muted-foreground">{t("label.createdDate")}</span><p className="font-medium">{new Date(receipt.createdAt).toLocaleString("vi-VN")}</p></div>
+            <div><span className="text-muted-foreground">{t("label.createdDate")}</span><p className="font-medium">{formatDateTime(receipt.createdAt)}</p></div>
             <div><span className="text-muted-foreground">{t("label.creator")}</span><p className="font-medium">{receipt.createdByName}</p></div>
-            <div><span className="text-muted-foreground">{t("label.approver")}</span><p className="font-medium">{receipt.approvedByName ?? "—"}</p></div>
+            {receipt.approvedByName && <div><span className="text-muted-foreground">{t("label.approver")}</span><p className="font-medium">{receipt.approvedByName}</p></div>}
             {receipt.fulfilledByName && <div><span className="text-muted-foreground">{t("label.exporter")}</span><p className="font-medium">{receipt.fulfilledByName}</p></div>}
           </div>
           {receipt.note && (
@@ -70,23 +83,23 @@ export const ViewExportModal = ({
                       <span className="text-xs text-muted-foreground ml-2">{item.productSku}</span>
                     </TableCell>
                     <TableCell className="text-right tabular-nums">{item.quantity}</TableCell>
-                    <TableCell className="text-right tabular-nums">{(item.unitPrice ?? 0).toLocaleString("vi-VN")}₫</TableCell>
-                    <TableCell className="text-right tabular-nums">{((item.quantity ?? 0) * (item.unitPrice ?? 0)).toLocaleString("vi-VN")}₫</TableCell>
+                    <TableCell className="text-right tabular-nums">{formatMoney(item.unitPrice ?? 0)}</TableCell>
+                    <TableCell className="text-right tabular-nums">{formatMoney((item.quantity ?? 0) * (item.unitPrice ?? 0))}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
           </div>
           <div className="flex justify-end">
-            <span className="text-lg font-semibold">{t("viewExportModal.total")}: {(receipt.totalAmount ?? 0).toLocaleString("vi-VN")}₫</span>
+            <span className="text-lg font-semibold">{t("viewExportModal.total")}: {formatMoney(receipt.totalAmount ?? 0)}</span>
           </div>
         </div>
         <DialogFooter className="gap-2">
-          <Button variant="outline" onClick={() => navigate(`/stock/exports/${receipt.id}`)}>
+          <Button variant="outline" onClick={() => { onOpenChange(false); navigate(`/stock/exports/${receipt.id}`) }}>
             <Eye className="size-4 mr-1" /> {t("viewExportModal.viewDetail")}
           </Button>
-          {receipt.status === "APPROVED" && (
-            <Button onClick={() => navigate(`/stock/exports/${receipt.id}/fulfill`)}>
+          {canFulfill && (
+            <Button onClick={() => { onOpenChange(false); navigate(`/stock/exports/${receipt.id}/fulfill`) }}>
               <ArrowRightFromLine className="size-4 mr-1" /> {t("viewExportModal.export")}
             </Button>
           )}

@@ -304,8 +304,8 @@ export const StockAdjustmentCreatePage = () => {
     return (
       <div className="mx-auto max-w-3xl">
         <div className="flex flex-col items-center justify-center py-16 text-center space-y-4">
-          <div className="rounded-full bg-green-100 p-3">
-            <CheckCircle2 className="size-10 text-green-600" />
+          <div className="rounded-full bg-green-100 p-3 dark:bg-green-950/30">
+            <CheckCircle2 className="size-10 text-green-600 dark:text-green-400" />
           </div>
           <h2 className="text-xl font-semibold">{t("stockAdjCreate.createSuccess")}</h2>
           {successResult.adjustCode && (
@@ -499,10 +499,10 @@ export const StockAdjustmentCreatePage = () => {
                 </div>
                 {formState.errors.selectedUnitId?.message && <p className="text-xs text-destructive">{formState.errors.selectedUnitId.message}</p>}
                 {selectedUnitId && unitAdjustments && unitAdjustments.content.length > 0 && (
-                  <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs space-y-0.5">
-                    <p className="font-medium text-amber-800">{t("stockAdjCreate.unitHistory")}</p>
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs space-y-0.5 dark:border-amber-800 dark:bg-amber-950/20">
+                    <p className="font-medium text-amber-800 dark:text-amber-300">{t("stockAdjCreate.unitHistory")}</p>
                     {unitAdjustments.content.slice(0, 3).map((a) => (
-                      <p key={a.id} className="text-amber-700">
+                      <p key={a.id} className="text-amber-700 dark:text-amber-400">
                         {a.type === "DAMAGED" ? t("adjustmentType.damaged") : a.type === "LOST" ? t("adjustmentType.lost") : t("adjustmentType.found")} — {a.status === "PENDING" ? t("status.pendingApproval") : a.status === "APPROVED" ? t("status.approved") : t("status.rejected")}
                         {" · "}{new Date(a.createdAt).toLocaleDateString("vi-VN")}
                       </p>

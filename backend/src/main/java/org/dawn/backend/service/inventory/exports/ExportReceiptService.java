@@ -194,11 +194,11 @@ public class ExportReceiptService {
         String unit = product.getUnit();
         boolean isBulk = BULK_UNITS.contains(unit);
         if (isBulk) {
-            var units = productUnitRepository.findByProductIdAndStatus(product.getId(), ProductUnitStatus.IN_STOCK);
+            var units = productUnitRepository.findByProductIdAndStatusAndBoxIdIsNull(product.getId(), ProductUnitStatus.IN_STOCK);
             return units.stream().map(ProductUnit::getRemainingQuantity)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
         }
-        return BigDecimal.valueOf(productUnitRepository.countByProductIdAndStatus(
+        return BigDecimal.valueOf(productUnitRepository.countByProductIdAndStatusAndBoxIdIsNull(
                 product.getId(), ProductUnitStatus.IN_STOCK));
     }
 

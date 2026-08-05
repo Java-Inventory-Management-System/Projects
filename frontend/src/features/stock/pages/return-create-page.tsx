@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { TrackingTypeBadge } from "@/components/tracking-type-badge"
 import {
   Dialog,
   DialogContent,
@@ -712,9 +713,7 @@ export const ReturnCreatePage = () => {
 
               return (
                 <div key={item.key} className="flex flex-wrap items-center gap-2 px-3 py-2">
-                  <span className="font-mono text-xs text-muted-foreground w-8 shrink-0">
-                    {item.trackingType === "SERIALIZED" ? "S" : "B"}
-                  </span>
+                  <TrackingTypeBadge type={item.trackingType} />
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-sm">{item.productName}</p>
                     <p className="text-xs text-muted-foreground">
@@ -726,11 +725,6 @@ export const ReturnCreatePage = () => {
                   </div>
                   <span className="text-muted-foreground shrink-0">x{item.quantity}</span>
                   <div className="flex items-center gap-2">
-                    {item.trackingType === "SERIALIZED" && (
-                      <span className="text-[10px] text-blue-500 border border-blue-200 rounded px-1">
-                        {t("returnCreate.hasSerial")}
-                      </span>
-                    )}
                     <select
                       value={item.condition}
                       onChange={(e) => {

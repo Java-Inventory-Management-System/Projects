@@ -104,14 +104,30 @@ Sau khi implement + verify + merge main → rename file thành `{n}-{name}_done.
 Sau khi implement + verify xong:
 
 ```markdown
-## 2026-07-24 — Export Receipt flow
+## 2026-08-05 - Box flow (Phase 4 gap)
+- Box: BULK split khi seal (quantity < remaining -> tách dòng), lock PESSIMISTIC_WRITE qua findByIdsForUpdate (không loại unit đang trong phiếu kiểm - B.9)
+- Export: khi lẻ không đủ -> message "còn X trong hộp [boxCode] tại [vị trí]" (EXPORT_NOT_ENOUGH_LOOSE)
+- FE: xác nhận nguyên hộp + đóng vào hộp trong phiếu kiểm, tạo phiếu kiểm khi unseal lệch, seal dialog dùng chung (BULK qty input)
+- Tests: BoxServiceTests (4), StockCheckServiceTests (3), box-flow integration +3 assertions, +1 test B.9
+
+## 2026-07-24 - Export Receipt flow
 - BE: thêm endpoints, PreAuthorize constants
 - FE: route guard, navigation, form
 - Commit: 10ddc35, 69e6822
-- Đã test với SALES, STOCK, MANAGER, ADMIN — chạy ổn
+- Đã test với SALES, STOCK, MANAGER, ADMIN - chạy ổn
 ```
 
 Ghi ngắn. Dùng để trace sau này.
+
+---
+
+## Nguyên tắc Box (B.3 - ghi nguyên văn)
+
+**SEALED chặn ở tầng vận hành (export không lấy unit trong box), không chặn ở tầng đổi status của domain khác.**
+
+- Unit trong box SEALED vẫn thuộc quyền kiểm soát kho: vẫn xuất hiện trong kiểm kho (scope ZONE/BOX), vẫn đổi status bởi các domain khác (ex: kiểm kho ghi nhận LOST/DAMAGED) - chỉ cấm thao tác xuất kho lấy hàng ra khỏi hộp khi hộp chưa mở.
+- Mở hộp (unseal) trả unit về lẻ với locationId = location của hộp (sync location khi move).
+- Chặn tại chỗ nào lấy unit ra khỏi hộp khi xuất: tại query chọn unit khả dụng (boxId IS NULL) + chặn serial cụ thể đang trong hộp SEALED.
 
 ---
 

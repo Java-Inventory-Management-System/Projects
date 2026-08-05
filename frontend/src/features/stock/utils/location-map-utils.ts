@@ -1,3 +1,5 @@
+import type { LocationMapBinProduct } from "@/utils/types"
+
 export type FilterMode = "all" | "empty" | "stocked" | "full"
 export type FillLevel = "empty" | "low" | "medium" | "full"
 
@@ -9,6 +11,9 @@ export interface DetailBin {
   productCount: number
   maxCapacity: number | null
   productSkuList?: string[]
+  boxCount?: number
+  boxCodes?: string[]
+  products?: LocationMapBinProduct[]
 }
 
 export interface LevelStyle {
@@ -19,10 +24,30 @@ export interface LevelStyle {
 }
 
 export const LEVELS: LevelStyle[] = [
-  { key: "empty", bg: "bg-sky-50", border: "border-sky-200", text: "text-sky-600" },
-  { key: "low", bg: "bg-sky-100", border: "border-sky-300", text: "text-sky-700" },
-  { key: "medium", bg: "bg-sky-200", border: "border-sky-400", text: "text-sky-800" },
-  { key: "full", bg: "bg-sky-300", border: "border-sky-500 border-2", text: "text-sky-900" },
+  {
+    key: "empty",
+    bg: "bg-sky-50 dark:bg-sky-950",
+    border: "border-sky-200 dark:border-sky-900",
+    text: "text-sky-600 dark:text-sky-500",
+  },
+  {
+    key: "low",
+    bg: "bg-sky-100 dark:bg-sky-900",
+    border: "border-sky-300 dark:border-sky-800",
+    text: "text-sky-700 dark:text-sky-300",
+  },
+  {
+    key: "medium",
+    bg: "bg-sky-200 dark:bg-sky-800",
+    border: "border-sky-400 dark:border-sky-700",
+    text: "text-sky-800 dark:text-sky-200",
+  },
+  {
+    key: "full",
+    bg: "bg-sky-300 dark:bg-sky-700",
+    border: "border-sky-500 dark:border-sky-500 border-2",
+    text: "text-sky-900 dark:text-sky-100",
+  },
 ] as const
 
 /** Ngưỡng % capacity (dùng chung cho filter + màu) */

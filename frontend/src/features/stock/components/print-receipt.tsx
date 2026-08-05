@@ -1,101 +1,43 @@
 import { useTranslation } from "react-i18next"
 import { Printer } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { toast } from "@/utils/toast"
+import { getImportPrintHtml } from "@/services/import-service"
+import { getExportPrintHtml } from "@/services/export-service"
+import { getReturnPrintHtml } from "@/services/return-service"
+import { getPurchaseOrderPrintHtml } from "@/services/purchase-order-service"
+import { getStockCheckPrintHtml } from "@/services/stock-check-service"
+import { getBoxPrintHtml } from "@/services/box-service"
 
-interface ReceiptData {
-  code: string
-  type: "import" | "export"
-  status: string
-  createdAt: string
-  createdByName: string
-  approvedByName: string | null
-  note: string | null
-  totalAmount: number
-  items: Array<{
-    productName: string
-    productSku: string
-    quantity: number
-    unitPrice: number
-  }>
+export type PrintType = "import" | "export" | "return" | "po" | "stock-check" | "box"
+
+const FETCHERS: Record<PrintType, (id: number, lang: string) => Promise<string>> = {
+  import: getImportPrintHtml,
+  export: getExportPrintHtml,
+  return: getReturnPrintHtml,
+  po: getPurchaseOrderPrintHtml,
+  "stock-check": getStockCheckPrintHtml,
+  box: getBoxPrintHtml,
 }
 
-function renderReceiptHtml(r: ReceiptData, t: (key: string) => string): string {
-  const title = r.type === "import" ? t("print.importTitle") : t("print.exportTitle")
-  const rows = r.items
-    .map(
-      (item, i) =>
-        `<tr>
-          <td class="num">${i + 1}</td>
-          <td>${item.productName}<br/><span class="sku">${item.productSku}</span></td>
-          <td class="num">${item.quantity}</td>
-          <td class="num">${item.unitPrice.toLocaleString("vi-VN")}</td>
-          <td class="num">${(item.quantity * item.unitPrice).toLocaleString("vi-VN")}</td>
-        </tr>`,
-    )
-    .join("")
-
-  return `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <title>${r.code}</title>
-  <style>
-    @page { margin: 15mm }
-    body { font-family: 'Courier New', monospace; font-size: 12px; color: #000 }
-    h1 { text-align: center; font-size: 18px; margin-bottom: 4px }
-    .meta { margin-bottom: 16px }
-    .meta td { padding: 2px 8px; vertical-align: top }
-    .meta td:first-child { width: 80px; color: #555 }
-    table { width: 100%; border-collapse: collapse }
-    th { border-top: 2px solid #000; border-bottom: 1px solid #000; padding: 6px 4px; text-align: left; font-size: 11px }
-    td { padding: 4px }
-    td.num, th.num { text-align: right }
-    .total { text-align: right; font-weight: bold; font-size: 14px; margin-top: 12px }
-    .footer { text-align: center; margin-top: 24px; font-size: 10px; color: #888 }
-    .note { border-top: 1px solid #ccc; margin-top: 12px; padding-top: 8px }
-    .sku { font-size: 10px; color: #666 }
-    tr:nth-child(even) td { background: #f5f5f5 }
-  </style>
-</head>
-<body>
-  <h1>${title}</h1>
-  <p style="text-align:center;font-size:14px;font-weight:bold">${r.code}</p>
-  <table class="meta">
-    <tr><td>${t("print.date")}</td><td>${new Date(r.createdAt).toLocaleString("vi-VN")}</td></tr>
-    <tr><td>${t("print.creator")}</td><td>${r.createdByName}</td></tr>
-    ${r.approvedByName ? `<tr><td>${t("print.approver")}</td><td>${r.approvedByName}</td></tr>` : ""}
-  </table>
-  <table>
-    <thead><tr>
-      <th class="num" style="width:32px">#</th>
-      <th>${t("print.product")}</th>
-      <th class="num">${t("print.qty")}</th>
-      <th class="num">${t("print.unitPrice")}</th>
-      <th class="num">${t("print.subtotal")}</th>
-    </tr></thead>
-    <tbody>${rows}</tbody>
-  </table>
-  <div class="total">${t("print.total")} ${r.totalAmount.toLocaleString("vi-VN")}₫</div>
-  ${r.note ? `<div class="note"><strong>${t("print.note")}</strong> ${r.note}</div>` : ""}
-  <div class="footer">${t("print.footer")} &mdash; ${new Date().toLocaleString("vi-VN")}</div>
-  <script>window.onload = function() { window.print() } <\/script>
-</body>
-</html>`
-}
-
-export function PrintReceiptButton({ receipt, type }: { receipt: ReceiptData; type: "import" | "export" }) {
-  const { t } = useTranslation()
-  const handlePrint = () => {
-    const w = window.open("", "_blank")
-    if (!w) return
-    w.document.write(renderReceiptHtml({ ...receipt, type }, t))
-    w.document.close()
+export function PrintReceiptButton({ id, type, label }: { id: number; type: PrintType; label?: string }) {
+  const { t, i18n } = useTranslation()
+  const handlePrint = async () => {
+    try {
+      const html = await FETCHERS[type](id, i18n.language)
+      const w = window.open("", "_blank")
+      if (!w) return
+      w.document.write(html)
+      w.document.close()
+    } catch {
+      toast.error(t("print.printFailed"))
+    }
   }
 
   return (
     <Button variant="outline" size="sm" className="gap-1.5" onClick={handlePrint}>
       <Printer className="size-4" />
-      {t("print.print")}
+      {label ?? t("print.print")}
     </Button>
   )
 }

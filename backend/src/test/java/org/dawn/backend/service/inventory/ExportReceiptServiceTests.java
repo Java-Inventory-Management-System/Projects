@@ -78,8 +78,8 @@ class ExportReceiptServiceTests {
         ExportReceipt receipt = pendingReceipt(ExportReason.SALE.name(), 99L);
 
         when(exportReceiptRepository.findById(receiptId)).thenReturn(Optional.of(receipt));
+        when(securityPolicy.requireAuthenticated()).thenReturn(userId);
         stubSave();
-        stubToResponse();
 
         exportWorkflowService.cancel(receiptId);
 
@@ -92,6 +92,9 @@ class ExportReceiptServiceTests {
         receipt.setStatus(ExportReceiptStatus.CANCELLED);
 
         when(exportReceiptRepository.findById(receiptId)).thenReturn(Optional.of(receipt));
+        when(securityPolicy.requireAuthenticated()).thenReturn(userId);
+        doThrow(new InvalidRequestException("invalid transition"))
+                .when(exportReceiptStateMachine).validate(any(), eq(ExportReceiptStatus.CANCELLED));
 
         assertThrows(InvalidRequestException.class, () -> exportWorkflowService.cancel(receiptId));
     }
@@ -102,6 +105,9 @@ class ExportReceiptServiceTests {
         receipt.setStatus(ExportReceiptStatus.COMPLETED);
 
         when(exportReceiptRepository.findById(receiptId)).thenReturn(Optional.of(receipt));
+        when(securityPolicy.requireAuthenticated()).thenReturn(userId);
+        doThrow(new InvalidRequestException("invalid transition"))
+                .when(exportReceiptStateMachine).validate(any(), eq(ExportReceiptStatus.CANCELLED));
 
         assertThrows(InvalidRequestException.class, () -> exportWorkflowService.cancel(receiptId));
     }

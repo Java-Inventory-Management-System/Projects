@@ -13,6 +13,7 @@ import org.dawn.backend.exception.type.ResourceNotFoundException;
 import org.dawn.backend.repository.catalog.ProductRepository;
 import org.dawn.backend.repository.inventory.ProductUnitRepository;
 import org.dawn.backend.repository.inventory.ProductUnitStatusLogRepository;
+import org.dawn.backend.service.inventory.LocationCapacityValidator;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,6 +28,7 @@ public class AdjustmentUnitService {
     private final ProductUnitRepository productUnitRepository;
     private final ProductUnitStatusLogRepository statusLogRepository;
     private final ProductRepository productRepository;
+    private final LocationCapacityValidator capacityValidator;
 
     @Transactional
     public void applyDamaged(Long productUnitId, String sourceType, Long sourceId, Long userId) {
@@ -99,13 +101,17 @@ public class AdjustmentUnitService {
         }
 
         Long locationId = adj.getLocationId();
+        boolean isBulk = TrackingType.BULK.name().equals(trackingType);
+        BigDecimal incoming = isBulk && adj.getQuantity() != null
+                ? BigDecimal.valueOf(adj.getQuantity()) : BigDecimal.ONE;
+        capacityValidator.assertCapacity(locationId, incoming);
 
         ProductUnit newUnit = ProductUnit.builder()
                 .serialNumber(serialNumber)
                 .productId(product.getId())
                 .trackingType(trackingType)
                 .initialQuantity(adj.getQuantity() != null ? BigDecimal.valueOf(adj.getQuantity()) : BigDecimal.ONE)
-                .remainingQuantity(TrackingType.BULK.name().equals(trackingType) && adj.getQuantity() != null
+                .remainingQuantity(isBulk && adj.getQuantity() != null
                         ? BigDecimal.valueOf(adj.getQuantity()) : BigDecimal.ZERO)
                 .locationId(locationId)
                 .status(ProductUnitStatus.IN_STOCK)

@@ -1,12 +1,13 @@
 import { describe, it, expect } from "vitest"
-import { api, loginAsManager, ensureImport, randomSerial } from "./api-client"
+import { api, loginAsManager, ensureImport, randomSerial, createPurchaseOrder } from "./api-client"
 
 describe("Import Flow", () => {
   it("should create import receipt in DRAFT status", async () => {
     await loginAsManager()
     const serial = randomSerial()
+    const purchaseOrderId = await createPurchaseOrder()
     const res = await api.post("/import-receipt", {
-      supplierId: 1, note: "E2E DRAFT",
+      supplierId: 1, purchaseOrderId, note: "E2E DRAFT",
       items: [{ productId: 1, quantity: 1, unitPrice: 10000000, warrantyMonths: 12, serialNumbers: [serial], locationId: 1 }],
     })
     expect(res.status).toBe(201)

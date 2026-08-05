@@ -7,8 +7,7 @@ import {
   recordStockCheckItems,
   completeStockCheck,
   startStockCheck,
-  approveStockCheck,
-  rejectStockCheck,
+  cancelStockCheck,
 } from "@/services/stock-check-service"
 import { usePermission } from "@/hooks/use-permission"
 import { ROLES } from "@/utils/permissions"
@@ -26,13 +25,13 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
 import { Empty, EmptyTitle } from "@/components/ui/empty"
-import { AlertCircle, CheckCircle2, HelpCircle, Save, ClipboardCheck, Check, X, ListChecks, AlertTriangle, RotateCcw, Play } from "lucide-react"
+import { PrintReceiptButton } from "../components/print-receipt"
+import { AlertCircle, CheckCircle2, HelpCircle, Save, ClipboardCheck, ListChecks, AlertTriangle, RotateCcw, Play, Ban } from "lucide-react"
 import { Progress } from "@/components/ui/progress"
 import { ButtonGroup } from "@/components/ui/button-group"
 import { cn } from "@/utils/cn"
 import { toast } from "@/utils/toast"
 import { StockCheckItemsTable } from "../components/stock-check-items-table"
-import { ApprovalDialog } from "../components/approval-dialog"
 import {
   Dialog,
   DialogContent,
@@ -53,6 +52,12 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { saveDraft, loadDraft, deleteDraft } from "@/utils/indexed-db"
+import { getLocations } from "@/services/location-service"
+import { getBoxById, sealBox } from "@/services/box-service"
+import { Label } from "@/components/ui/label"
+import { LocationPicker } from "../components/location-picker"
+import { Textarea } from "@/components/ui/textarea"
+import { Boxes, PackageCheck } from "lucide-react"
 
 export const StockCheckDetailPage = () => {
   const { t } = useTranslation()
@@ -60,8 +65,9 @@ export const StockCheckDetailPage = () => {
   const statusLabel: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
     PENDING: { label: t("status.pending"), variant: "secondary" },
     IN_PROGRESS: { label: t("status.inProgress"), variant: "outline" },
-    COMPLETED: { label: t("status.pendingApproval"), variant: "default" },
+    COMPLETED: { label: t("status.completed"), variant: "default" },
     APPROVED: { label: t("status.approved"), variant: "default" },
+    CANCELLED: { label: t("status.cancelled"), variant: "destructive" },
   }
   const navigate = useNavigate()
   const qc = useQueryClient()
@@ -69,11 +75,18 @@ export const StockCheckDetailPage = () => {
 
   const [localItems, setLocalItems] = useState<StockCheckItem[]>([])
   const [searchQuery, setSearchQuery] = useState("")
-  const [approvalModal, setApprovalModal] = useState<"approve" | "reject" | null>(null)
+  const [cancelDialog, setCancelDialog] = useState(false)
   const [completeModal, setCompleteModal] = useState(false)
   const [resetDialog, setResetDialog] = useState(false)
+  const [sealTarget, setSealTarget] = useState<StockCheckItem | null>(null)
   const dirtyRef = useRef(false)
   const initialItemsRef = useRef<StockCheckItem[]>([])
+
+  const { data: locations } = useQuery({
+    queryKey: ["locations"],
+    queryFn: () => getLocations(),
+    enabled: sealTarget != null,
+  })
 
   const { data: check, isLoading } = useQuery({
     queryKey: ["stock-check", id],
@@ -149,6 +162,7 @@ export const StockCheckDetailPage = () => {
     onSuccess: (res) => {
       invalidateAll()
       deleteDraft(id!)
+      setCompleteModal(false)
       const filled = res.autoFilledCount
       if (filled > 0) {
         toast.success(t("stockCheckDetail.completeAutoFill", { count: filled }))
@@ -167,6 +181,17 @@ export const StockCheckDetailPage = () => {
       toast.success(t("stockCheckDetail.startSuccess"))
     },
     onError: (err: Error) => toast.error(err.message || t("stockCheckDetail.startError")),
+  })
+
+  const cancelMut = useMutation({
+    mutationFn: () => cancelStockCheck(Number(id!)),
+    onSuccess: () => {
+      invalidateAll()
+      deleteDraft(id!)
+      setCancelDialog(false)
+      toast.success(t("stockCheckDetail.cancelSuccess"))
+    },
+    onError: (err: Error) => toast.error(err.message || t("stockCheckDetail.cancelError")),
   })
 
   const handleSaveAndComplete = async () => {
@@ -218,6 +243,52 @@ export const StockCheckDetailPage = () => {
     toast.success(t("stockCheckDetail.resetSuccess"))
   }, [id])
 
+  const boxGroups = useMemo(() => {
+    const groups = new Map<number, StockCheckItem[]>()
+    for (const i of localItems) {
+      if (i.boxId == null) continue
+      const list = groups.get(i.boxId) ?? []
+      list.push(i)
+      groups.set(i.boxId, list)
+    }
+    return [...groups.entries()].map(([boxId, items]) => ({
+      boxId,
+      boxCode: items[0].boxCode ?? String(boxId),
+      items,
+      checked: items.filter((i) => i.actualStatus != null).length,
+      pendingCount: items.filter((i) => i.actualStatus == null).length,
+    }))
+  }, [localItems])
+
+  const confirmWholeBox = useCallback(async (boxId: number) => {
+    dirtyRef.current = true
+    const bulkItems = localItems.filter((i) => i.boxId === boxId && i.trackingType === "BULK")
+    let bulkQty: number | null = null
+    if (bulkItems.length === 1) {
+      const box = await getBoxById(boxId)
+      bulkQty = box.sealedQuantity
+    }
+    setLocalItems((prev) =>
+      prev.map((i) => {
+        if (i.boxId !== boxId || i.actualStatus != null) return i
+        if (i.trackingType === "BULK") return { ...i, actualStatus: i.expectedStatus ?? "IN_STOCK", countedQuantity: bulkQty }
+        return { ...i, actualStatus: i.expectedStatus ?? "IN_STOCK", countedQuantity: 1 }
+      }),
+    )
+  }, [localItems])
+
+  const sealMut = useMutation({
+    mutationFn: sealBox,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["stock-check", id] })
+      qc.invalidateQueries({ queryKey: ["boxes"] })
+      qc.invalidateQueries({ queryKey: ["product-units"] })
+      setSealTarget(null)
+      toast.success(t("box.sealSuccess"))
+    },
+    onError: (err: Error) => toast.error(err.message || t("box.error")),
+  })
+
   if (isLoading) {
     return (
       <div className="space-y-4">
@@ -239,10 +310,9 @@ export const StockCheckDetailPage = () => {
 
   const s = statusLabel[check.status] ?? { label: check.status, variant: "secondary" }
   const canOperateStock = perm.hasRole(...ROLES.CAN_OPERATE_STOCK)
-  const isManager = perm.hasRole(...ROLES.CAN_APPROVE)
   const canEdit = canOperateStock && (check.status === STOCK_CHECK_STATUS.PENDING || check.status === STOCK_CHECK_STATUS.IN_PROGRESS)
-  const canApprove = check.status === STOCK_CHECK_STATUS.COMPLETED && isManager
-  const isRejected = check.status === STOCK_CHECK_STATUS.IN_PROGRESS && check.approvalNote != null
+  const canCancel = canOperateStock && (check.status === STOCK_CHECK_STATUS.PENDING || check.status === STOCK_CHECK_STATUS.IN_PROGRESS)
+  const isRejectedBanner = check.status === STOCK_CHECK_STATUS.IN_PROGRESS && check.approvalNote != null
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
@@ -258,7 +328,7 @@ export const StockCheckDetailPage = () => {
         </BreadcrumbList>
       </Breadcrumb>
 
-      {isRejected && (
+      {isRejectedBanner && (
         <div className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 dark:bg-red-950/20 dark:border-red-800 px-4 py-3 text-sm">
           <AlertTriangle className="size-5 text-red-500 shrink-0 mt-0.5" />
           <div>
@@ -287,55 +357,72 @@ export const StockCheckDetailPage = () => {
           <Badge variant={s.variant}>{s.label}</Badge>
         </div>
         <div className="flex gap-2">
-          {canEdit && (
-            <ButtonGroup>
-              <Button variant="outline" onClick={handleSave}>
-                <Save className="size-4 mr-1" /> {t("stockCheckDetail.saveDraft")}
+          <PrintReceiptButton id={check.id} type="stock-check" />
+      {canEdit && (
+        <ButtonGroup>
+          <Button variant="outline" onClick={handleSave}>
+            <Save className="size-4 mr-1" /> {t("stockCheckDetail.saveDraft")}
+          </Button>
+          <AlertDialog open={resetDialog} onOpenChange={setResetDialog}>
+            <AlertDialogTrigger asChild>
+              <Button variant="outline">
+                <RotateCcw className="size-4 mr-1" /> {t("stockCheckDetail.reset")}
               </Button>
-              <AlertDialog open={resetDialog} onOpenChange={setResetDialog}>
-                <AlertDialogTrigger asChild>
-                  <Button variant="outline">
-                    <RotateCcw className="size-4 mr-1" /> {t("stockCheckDetail.reset")}
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>{t("stockCheckDetail.resetConfirmTitle")}</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      {t("stockCheckDetail.resetConfirmDesc")}
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleReset}>{t("stockCheckDetail.resetConfirm")}</AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-              {check.status === STOCK_CHECK_STATUS.PENDING ? (
-                <Button onClick={() => startMut.mutate()} disabled={startMut.isPending}>
-                  <Play className="size-4 mr-1" />
-                  {startMut.isPending ? t("stockCheckDetail.starting") : t("stockCheckDetail.start")}
-                </Button>
-              ) : (
-                <Button onClick={() => setCompleteModal(true)} disabled={recordMut.isPending || completeMut.isPending}>
-                  <ClipboardCheck className="size-4 mr-1" />
-                  {completeMut.isPending ? t("stockCheckDetail.completing") : t("stockCheckDetail.complete")}
-                </Button>
-              )}
-            </ButtonGroup>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>{t("stockCheckDetail.resetConfirmTitle")}</AlertDialogTitle>
+                <AlertDialogDescription>
+                  {t("stockCheckDetail.resetConfirmDesc")}
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+                <AlertDialogAction onClick={handleReset}>{t("stockCheckDetail.resetConfirm")}</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+          {check.status === STOCK_CHECK_STATUS.PENDING ? (
+            <Button onClick={() => startMut.mutate()} disabled={startMut.isPending}>
+              <Play className="size-4 mr-1" />
+              {startMut.isPending ? t("stockCheckDetail.starting") : t("stockCheckDetail.start")}
+            </Button>
+          ) : (
+            <Button onClick={() => setCompleteModal(true)} disabled={recordMut.isPending || completeMut.isPending}>
+              <ClipboardCheck className="size-4 mr-1" />
+              {completeMut.isPending ? t("stockCheckDetail.completing") : t("stockCheckDetail.complete")}
+            </Button>
           )}
-          {canApprove && (
-            <ButtonGroup>
-              <Button variant="outline" onClick={() => setApprovalModal("reject")}>
-                <X className="size-4 mr-1" /> {t("stockCheckDetail.reject")}
-              </Button>
-              <Button onClick={() => setApprovalModal("approve")}>
-                <Check className="size-4 mr-1" /> {t("stockCheckDetail.approveAll")}
-              </Button>
-            </ButtonGroup>
-          )}
-        </div>
-      </div>
+        </ButtonGroup>
+      )}
+      {canCancel && (
+        <AlertDialog open={cancelDialog} onOpenChange={setCancelDialog}>
+          <AlertDialogTrigger asChild>
+            <Button variant="outline" className="text-destructive hover:text-destructive">
+              <Ban className="size-4 mr-1" /> {t("stockCheckDetail.cancel")}
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{t("stockCheckDetail.cancelConfirmTitle")}</AlertDialogTitle>
+              <AlertDialogDescription>
+                {t("stockCheckDetail.cancelConfirmDesc")}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-destructive text-white hover:bg-destructive/90"
+                onClick={() => cancelMut.mutate()}
+              >
+                {cancelMut.isPending ? t("stockCheckDetail.cancelling") : t("stockCheckDetail.cancelConfirm")}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
+    </div>
+  </div>
 
       {itemsWithDiff.some((i) => i.difference && i.difference !== STOCK_CHECK_DIFF.MATCH) && (
         <div className="space-y-2">
@@ -364,6 +451,7 @@ export const StockCheckDetailPage = () => {
                   <div className="flex-1 min-w-0">
                     <span className="font-medium">{i.productName}</span>
                     {i.serialNumber && <span className="text-xs text-muted-foreground ml-1 font-mono">{i.serialNumber}</span>}
+                    {i.boxCode && <span className="text-[10px] ml-1.5 px-1.5 py-0.5 rounded bg-muted font-mono">{i.boxCode}</span>}
                   </div>
                   <Badge
                     variant="outline"
@@ -436,6 +524,31 @@ export const StockCheckDetailPage = () => {
         </TabsContent>
 
         <TabsContent value="results">
+          {boxGroups.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-muted-foreground">{t("stockCheckDetail.boxesTitle")}</p>
+              <div className="grid gap-2">
+                {boxGroups.map((g) => (
+                  <div
+                    key={g.boxId}
+                    className="flex items-center gap-3 rounded-lg border px-4 py-2.5 text-sm"
+                  >
+                    <Boxes className="size-4 text-muted-foreground shrink-0" />
+                    <span className="font-mono text-xs">{g.boxCode}</span>
+                    <Badge variant="outline" className="text-[10px]">
+                      {t("stockCheckDetail.checkedInBox", { checked: g.checked, total: g.items.length })}
+                    </Badge>
+                    <div className="flex-1" />
+                    {canEdit && g.pendingCount > 0 && (
+                      <Button variant="outline" size="sm" onClick={() => confirmWholeBox(g.boxId)}>
+                        <PackageCheck className="size-4 mr-1" /> {t("stockCheckDetail.confirmBox")}
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           <StockCheckItemsTable
             items={itemsWithDiff}
             canEdit={canEdit}
@@ -443,6 +556,16 @@ export const StockCheckDetailPage = () => {
             onBulkSet={handleBulkSet}
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
+            rowAction={
+              canEdit
+                ? (item) =>
+                    item.trackingType === "SERIALIZED" && item.actualStatus != null && item.boxId == null ? (
+                      <Button variant="outline" size="sm" className="text-xs" onClick={() => setSealTarget(item)}>
+                        <Boxes className="size-3 mr-1" /> {t("stockCheckDetail.closeToBox")}
+                      </Button>
+                    ) : null
+                : undefined
+            }
             onImportSerials={(e) => {
               const file = e.target.files?.[0]
               if (!file) return
@@ -468,19 +591,16 @@ export const StockCheckDetailPage = () => {
         </TabsContent>
       </Tabs>
 
-      <ApprovalDialog
-        open={!!approvalModal}
-        onOpenChange={(v) => {
-          if (!v) setApprovalModal(null)
-        }}
-        id={Number(id)}
-        title={approvalModal === "approve" ? t("stockCheckDetail.approveDialogTitle") : t("stockCheckDetail.rejectDialogTitle")}
-        actions={[
-          { label: t("stockCheckDetail.reject"), confirmLabel: t("stockCheckDetail.rejectConfirm"), variant: "destructive", service: rejectStockCheck },
-          { label: t("stockCheckDetail.approve"), confirmLabel: t("stockCheckDetail.approveConfirm"), service: approveStockCheck },
-        ]}
-        invalidateKeys={[["stock-check", id!], ["stock-checks"], ["inventory"], ["inventory-summary"]]}
-      />
+      <Dialog open={sealTarget != null} onOpenChange={(open) => !open && setSealTarget(null)}>
+        {sealTarget && (
+          <SealUnitDialog
+            unitId={sealTarget.productUnitId}
+            unitCode={sealTarget.serialNumber || sealTarget.productName}
+            onSeal={(data) => sealMut.mutate(data)}
+            pending={sealMut.isPending}
+          />
+        )}
+      </Dialog>
 
       <Dialog open={completeModal} onOpenChange={setCompleteModal}>
         <DialogContent>
@@ -503,5 +623,44 @@ export const StockCheckDetailPage = () => {
         </DialogContent>
       </Dialog>
     </div>
+  )
+}
+interface SealUnitDialogProps {
+  unitId: number
+  unitCode: string
+  onSeal: (data: { unitIds: number[]; locationId: number | null; note?: string }) => void
+  pending: boolean
+}
+
+function SealUnitDialog({ unitId, unitCode, onSeal, pending }: SealUnitDialogProps) {
+  const { t } = useTranslation()
+  const [locationId, setLocationId] = useState<string>("")
+  const [note, setNote] = useState("")
+
+  return (
+    <DialogContent>
+      <DialogHeader>
+        <DialogTitle>{t("box.sealUnitTitle")}</DialogTitle>
+        <DialogDescription>{unitCode}</DialogDescription>
+      </DialogHeader>
+      <div className="space-y-4">
+        <div className="space-y-2">
+          <Label>{t("box.location")}</Label>
+          <LocationPicker value={locationId} onSelect={setLocationId} />
+        </div>
+        <div className="space-y-2">
+          <Label>{t("box.note")}</Label>
+          <Textarea value={note} onChange={(e) => setNote(e.target.value)} rows={3} />
+        </div>
+      </div>
+      <DialogFooter>
+        <Button
+          onClick={() => onSeal({ unitIds: [unitId], locationId: locationId ? Number(locationId) : null, note: note || undefined })}
+          disabled={pending}
+        >
+          {t("box.seal")}
+        </Button>
+      </DialogFooter>
+    </DialogContent>
   )
 }

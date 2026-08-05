@@ -37,6 +37,8 @@ public record StockCheckResponse(
             String productName,
             String productSku,
             String trackingType,
+            Long boxId,
+            String boxCode,
             String expectedStatus,
             String actualStatus,
             BigDecimal countedQuantity,

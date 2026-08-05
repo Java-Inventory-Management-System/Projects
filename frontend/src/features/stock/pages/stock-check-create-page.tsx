@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react"
 import { useTranslation } from "react-i18next"
-import { useNavigate } from "react-router-dom"
+import { useNavigate, useSearchParams } from "react-router-dom"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createStockCheck } from "@/services/stock-check-service"
 import http from "@/utils/http-client"
@@ -17,9 +17,10 @@ import type { StockCheckScopeType } from "@/utils/types"
 export const StockCheckCreatePage = () => {
   const { t } = useTranslation()
   const navigate = useNavigate()
+  const [params] = useSearchParams()
   const qc = useQueryClient()
-  const [scopeType, setScopeType] = useState<StockCheckScopeType | "">("")
-  const [scopeId, setScopeId] = useState<string>("")
+  const [scopeType, setScopeType] = useState<StockCheckScopeType | "">((params.get("scopeType") as StockCheckScopeType | null) ?? "")
+  const [scopeId, setScopeId] = useState<string>(params.get("scopeId") ?? "")
   const [note, setNote] = useState("")
 
   const { data: locations } = useQuery({
@@ -58,6 +59,12 @@ export const StockCheckCreatePage = () => {
       })
     },
     enabled: scopeType === "CATEGORY",
+  })
+
+  const { data: boxes } = useQuery({
+    queryKey: ["boxes", "all"],
+    queryFn: async () => (await http.get("/box")) as unknown as Array<{ id: number; boxCode: string; locationCode: string | null; status: string }>,
+    enabled: scopeType === "BOX",
   })
 
   const handleSubmit = () => {
@@ -103,6 +110,7 @@ export const StockCheckCreatePage = () => {
             <SelectContent className="max-h-[50vh]">
               <SelectItem value="ZONE">{t("stockCheckCreate.zone")}</SelectItem>
               <SelectItem value="CATEGORY">{t("stockCheckCreate.category")}</SelectItem>
+              <SelectItem value="BOX">{t("stockCheckCreate.box")}</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -143,6 +151,28 @@ export const StockCheckCreatePage = () => {
                   {(categories.content ?? []).map((c) => (
                     <SelectItem key={c.id} value={String(c.id)}>
                       {c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
+        )}
+
+        {scopeType === "BOX" && (
+          <div className="space-y-2">
+            <Label>{t("stockCheckCreate.box")}</Label>
+            {!boxes ? (
+              <Skeleton className="h-10 w-full" />
+            ) : (
+              <Select value={scopeId} onValueChange={setScopeId}>
+                <SelectTrigger>
+                  <SelectValue placeholder={t("stockCheckCreate.selectBox")} />
+                </SelectTrigger>
+                <SelectContent className="max-h-[50vh]">
+                  {(boxes ?? []).map((b) => (
+                    <SelectItem key={b.id} value={String(b.id)}>
+                      {b.boxCode} ({b.locationCode ?? "—"})
                     </SelectItem>
                   ))}
                 </SelectContent>

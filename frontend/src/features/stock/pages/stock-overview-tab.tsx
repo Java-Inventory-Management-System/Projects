@@ -14,7 +14,10 @@ export function StockOverviewTab() {
   const { data: locationMap } = useLocationMap()
 
   const totalBins =
-    locationMap?.zones.reduce((s, z) => s + z.shelves.reduce((s2, sh) => s2 + sh.bins.length, 0), 0) ?? 0
+    (locationMap?.zones ?? []).reduce(
+      (s, z) => s + (z.shelves ?? []).reduce((s2, sh) => s2 + (sh.bins?.length ?? 0), 0),
+      0,
+    ) ?? 0
   const lowStockItems = lowStockRes?.content ?? []
   const recentImports = recentImportsRes?.content ?? []
   const recentExports = recentExportsRes?.content ?? []

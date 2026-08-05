@@ -31,7 +31,7 @@ public class PurchaseOrder extends AuditableEntity {
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)
     @Builder.Default
-    private PurchaseOrderStatus status = PurchaseOrderStatus.DRAFT;
+    private PurchaseOrderStatus status = PurchaseOrderStatus.OPEN;
 
     @Column(name = "expected_date")
     private LocalDate expectedDate;

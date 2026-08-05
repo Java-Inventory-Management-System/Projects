@@ -6,6 +6,7 @@ import type {
   StockValueItem,
   ActivityItem,
   DeadStockItem,
+  StockCheckOverview,
   ResponsePage,
 } from "@/utils/types"
 import {
@@ -52,4 +53,8 @@ export async function getDeadStock(
     params: { daysThreshold, keyword, categoryId },
   })) as unknown[]
   return res.map(mapDeadStockItem)
+}
+
+export async function getStockCheckOverview(from: string, to: string): Promise<StockCheckOverview> {
+  return (await http.get("/report/stock-check-overview", { params: { from, to } })) as unknown as StockCheckOverview
 }

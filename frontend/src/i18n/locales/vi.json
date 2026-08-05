@@ -1,4 +1,4 @@
-{
+﻿{
   "nav": {
     "dashboard": "Dashboard",
     "products": "Sản phẩm",
@@ -145,7 +145,8 @@
       "lowStock": "Sắp hết hàng",
       "stockValue": "Giá trị tồn",
       "activity": "Hoạt động",
-      "deadStock": "Tồn lâu"
+      "deadStock": "Tồn lâu",
+      "stockCheck": "Kiểm kho"
     },
     "category": {
       "productCount": "Số SP",
@@ -203,6 +204,20 @@
       "costPrice": "Giá vốn",
       "empty": "Không có hàng tồn lâu",
       "handle": "Xử lý"
+    },
+    "stockCheck": {
+      "checks": "Phiếu",
+      "lost": "Thiếu",
+      "found": "Thừa",
+      "damaged": "Hỏng",
+      "checksPerMonth": "Số phiếu hoàn thành theo tháng",
+      "adjustmentsPerMonth": "Điều chỉnh theo tháng",
+      "code": "Mã phiếu",
+      "date": "Ngày",
+      "missing": "Thiếu",
+      "unexpected": "Thừa",
+      "view": "Xem",
+      "empty": "Không có phiếu kiểm kho trong kỳ"
     }
   },
   "serial": {
@@ -260,8 +275,9 @@
     "statusFilter": "Trạng thái",
     "pending": "Chờ xử lý",
     "inProgress": "Đang kiểm",
-    "completed": "Chờ duyệt",
-    "approved": "Đã duyệt"
+    "completed": "Đã hoàn tất",
+    "approved": "Đã duyệt",
+    "cancelled": "Đã hủy"
   },
   "stockUnits": {
     "map": "Bản đồ kho"
@@ -310,9 +326,11 @@
     "categoryPlaceholder": "Chọn danh mục",
     "unit": "Đơn vị tính",
     "unitPlaceholder": "Chọn ĐVT",
+    "suppliers": "Nhà cung cấp",
+    "suppliersRequired": "Chọn ít nhất 1 nhà cung cấp",
     "trackingType": "Kiểu theo dõi",
     "trackingSerial": "Theo serial",
-    "trackingBulk": "Hàng rời",
+    "trackingBulk": "Theo số lượng",
     "sellPrice": "Giá bán",
     "minStock": "Tồn tối thiểu",
     "description": "Mô tả",
@@ -574,11 +592,8 @@
     "actionSuccess": "Thao tác thành công",
     "notFound": "Không tìm thấy phiếu xuất",
     "cancelReceipt": "Hủy phiếu",
-    "approve": "Duyệt",
     "fulfill": "Xuất kho",
     "total": "Tổng",
-    "approveConfirmTitle": "Duyệt phiếu xuất",
-    "approveConfirmDescription": "Xác nhận duyệt phiếu xuất này? Hàng sẽ chuyển sang trạng thái chờ xuất kho.",
     "cancelConfirmTitle": "Hủy phiếu xuất",
     "cancelConfirmDescription": "Xác nhận hủy phiếu xuất này? Hàng sẽ được trả lại kho."
   },
@@ -635,24 +650,8 @@
     "restoreTitle": "Khôi phục dữ liệu",
     "restoreDescription": "Bạn có dữ liệu xuất kho chưa lưu từ lần trước. Muốn khôi phục?"
   },
-  "exportReview": {
-    "actionSuccess": "Thao tác thành công",
-    "actionError": "Thao tác thất bại",
-    "notFound": "Không tìm thấy phiếu xuất",
-    "breadcrumb": "Duyệt phiếu {{code}}",
-    "total": "Tổng",
-    "reject": "Từ chối",
-    "approve": "Duyệt phiếu",
-    "approveConfirmTitle": "Duyệt phiếu xuất",
-    "approveConfirmDescription": "Xác nhận duyệt phiếu xuất này? Hàng sẽ chuyển sang trạng thái chờ xuất kho.",
-    "approveConfirm": "Xác nhận duyệt",
-    "rejectConfirmTitle": "Từ chối phiếu xuất",
-    "rejectConfirmDescription": "Vui lòng nhập lý do từ chối.",
-    "rejectReasonPlaceholder": "Lý do từ chối...",
-    "rejectConfirm": "Xác nhận từ chối"
-  },
   "poStatus": {
-    "draft": "Nháp",
+    "open": "Đang mở",
     "partial": "Giao một phần",
     "completed": "Hoàn tất",
     "cancelled": "Đã hủy"
@@ -667,6 +666,8 @@
     "searchProduct": "Tìm sản phẩm...",
     "searchPlaceholder": "Tìm theo tên hoặc SKU...",
     "noResults": "Không tìm thấy",
+    "selectSupplierFirst": "Chọn nhà cung cấp trước để xem sản phẩm",
+    "noProductsForSupplier": "Nhà cung cấp này chưa được gán sản phẩm",
     "add": "Thêm",
     "noProducts": "Chưa có sản phẩm",
     "total": "Tổng",
@@ -736,8 +737,16 @@
     "warrantyTransfer": "Chuyển BH"
   },
   "trackingType": {
-    "serialized": "SERIAL",
-    "bulk": "BULK"
+    "serialized": "Theo serial",
+    "bulk": "Theo số lượng"
+  },
+  "unit": {
+    "piece": "Cái",
+    "meter": "Mét",
+    "box": "Hộp",
+    "set": "Bộ",
+    "kg": "Kg",
+    "tube": "Tuýp"
   },
   "table": {
     "checkCode": "Mã phiếu",
@@ -793,19 +802,8 @@
     "restore": "Khôi phục"
   },
   "print": {
-    "importTitle": "PHIẾU NHẬP KHO",
-    "exportTitle": "PHIẾU XUẤT KHO",
-    "date": "Ngày",
-    "creator": "Người tạo",
-    "approver": "Người duyệt",
-    "product": "Sản phẩm",
-    "qty": "SL",
-    "unitPrice": "Đơn giá",
-    "subtotal": "Thành tiền",
-    "total": "Tổng:",
-    "note": "Ghi chú:",
-    "footer": "Phiếu được tạo từ hệ thống quản lý kho — ...",
-    "print": "In phiếu"
+    "print": "In phiếu",
+    "printFailed": "Không thể tạo phiếu in"
   },
   "stockCheck": {
     "serial": "Serial",
@@ -867,7 +865,18 @@
     "completeDialogSimple": "Hoàn tất kiểm kê?",
     "completeDialogAutoFillBtn": "Tự động điền & Hoàn tất",
     "completeDialogSimpleBtn": "Hoàn tất",
-    "approve": "Duyệt"
+    "cancel": "Hủy phiếu",
+    "cancelConfirmTitle": "Hủy phiếu kiểm kho?",
+    "cancelConfirmDesc": "Phiếu kiểm kho sẽ bị hủy và không tạo điều chỉnh nào. Hành động này không thể hoàn tác.",
+    "cancelConfirm": "Xác nhận hủy",
+    "cancelling": "Đang hủy...",
+    "cancelSuccess": "Đã hủy phiếu kiểm kho",
+    "cancelError": "Hủy phiếu kiểm kho thất bại",
+    "approve": "Duyệt",
+    "boxesTitle": "Hộp trong phiếu kiểm",
+    "confirmBox": "Xác nhận nguyên hộp",
+    "checkedInBox": "Dã đếm {{checked}}/{{total}}",
+    "closeToBox": "Đóng vào hộp"
   },
   "adjustment": {
     "serial": "Serial",
@@ -1312,19 +1321,30 @@
     "binInfo": "Thông tin vị trí",
     "products": "Sản phẩm",
     "capacityFraction": "{{count}}/{{max}}",
+    "capacityMax": "Sức chứa tối đa",
+    "capacityUnlimited": "Không giới hạn",
+    "capacitySave": "Lưu",
+    "capacitySaved": "Đã lưu sức chứa",
+    "capacityError": "Lưu sức chứa thất bại",
+    "capacityInvalid": "Sức chứa phải là số dương",
     "productCount": "{{count}} đơn vị",
     "productCountLabel": "{{count}} sản phẩm",
     "status": "Trạng thái",
     "active": "Đang hoạt động",
     "inactive": "Ngừng hoạt động",
+    "bulkUnits": "{{count}} đơn vị",
+    "bulkNoSerials": "Số lượng đếm theo khối, không có serial",
     "productsInBin": "Sản phẩm trong ngăn",
+    "boxesInBin": "Hộp trong ngăn ({{count}})",
+    "looseProducts": "Sản phẩm lẻ ({{count}})",
+    "inBoxes": "Trong hộp ({{count}})",
     "relocateTitle": "Di chuyển sản phẩm",
     "relocateDesc": "Từ {{source}} ({{sourceCount}}) → {{dest}} ({{destCount}})",
     "quantity": "Số lượng",
     "max": "Tối đa",
     "relocateRemaining": "Còn lại {{count}} ở {{code}}",
     "relocateAfter": "sau chuyển: {{count}} ở {{code}}",
-"autoCancel": "Tự động hủy sau {{countdown}}s"
+    "autoCancel": "Tự động hủy sau {{countdown}}s"
   },
   "viewImportModal": {
     "total": "Tổng",
@@ -1377,7 +1397,9 @@
     "loadError": "Lỗi tải vị trí",
     "selectLocation": "Chọn vị trí",
     "units": "đơn vị",
-    "zone": "Khu"
+    "boxes": "hộp",
+    "zone": "Khu",
+    "binNotFound": "Không tìm thấy vị trí trên bản đồ"
   },
   "approvalDialog": {
     "failure": "Xác nhận thất bại",
@@ -1461,7 +1483,9 @@
     "selectCategory": "Chọn danh mục",
     "selectScopeType": "Chọn loại phạm vi",
     "selectZone": "Chọn khu vực",
-    "zone": "Khu vực"
+    "zone": "Khu vực",
+    "box": "Hộp",
+    "selectBox": "Chọn hộp"
   },
   "stockCheckItems": {
     "autoFilled": "Tự động điền",
@@ -1476,6 +1500,60 @@
     "statusInStock": "Trong kho",
     "statusLost": "Mất",
     "statusRemoved": "Đã loại bỏ",
-    "unchecked": "Chưa kiểm"
+    "unchecked": "Chưa kiểm",
+    "box": "Hộp"
+  },
+  "box": {
+    "title": "Hộp",
+    "seal": "Đóng hộp",
+    "sealTitle": "Đóng hộp mới",
+    "sealed": "Đã đóng",
+    "unsealed": "Đã mở",
+    "unseal": "Mở hộp",
+    "move": "Di chuyển",
+    "moveTitle": "Di chuyển hộp",
+    "moving": "Đang di chuyển...",
+    "location": "Vị trí",
+    "selectLocation": "Chọn vị trí",
+    "quantity": "Số lượng",
+    "unitCount": "Số đơn vị",
+    "sealedAt": "Đóng lúc",
+    "code": "Mã hộp",
+    "status": "Trạng thái",
+    "chooseUnits": "Chọn các đơn vị hàng",
+    "noBoxableUnits": "Không có đơn vị hàng trong kho chưa đóng hộp",
+    "note": "Ghi chú",
+    "sealing": "Đang đóng...",
+    "sealSuccess": "Đã đóng hộp",
+    "unsealSuccess": "Đã mở hộp",
+    "moveSuccess": "Đã di chuyển hộp",
+    "error": "Thao tác hộp thất bại",
+    "empty": "Chưa có hộp nào",
+    "mismatchTitle": "Lệch số lượng khi mở hộp",
+    "mismatchDesc": "Ghi nhận {{sealed}}, thực tế {{actual}}. Nên kiểm kho hộp này.",
+    "createCheckForBox": "Tạo phiếu kiểm cho hộp này",
+    "importReceipt": "Đơn nhập",
+    "boxType": "Loại hộp",
+    "boxTypes": {
+      "SMALL": "Nhỏ",
+      "MEDIUM": "Vừa",
+      "LARGE": "Lớn"
+    },
+    "searchImportPlaceholder": "Tìm mã đơn nhập...",
+    "noBoxableImports": "Không có đơn nhập nào có hàng chưa đóng hộp",
+    "boxableUnitsCount": "{{count}} đơn vị chưa đóng hộp",
+    "selectedUnitsCount": "Đã chọn {{count}} đơn vị",
+    "back": "Quay lại",
+    "next": "Tiếp theo",
+    "progress": "{{count}}/{{max}}",
+    "maxUnitsHint": "Hộp {{type}} tối đa {{max}} đơn vị",
+    "maxUnitsReached": "Hộp {{type}} chỉ chứa tối đa {{max}} đơn vị",
+    "binCapacityExceeded": "Vị trí đã đầy — vượt sức chứa tối đa của bin",
+    "serialPlaceholder": "Quét hoặc nhập serial...",
+    "serialNotFound": "Không tìm thấy serial {{serial}}",
+    "serialDuplicate": "Serial {{serial}} đã được chọn",
+    "scanCamera": "Bật/tắt camera",
+    "continueSealing": "Đóng tiếp {{count}} đơn vị còn lại",
+    "sealAnother": "Đóng hộp khác"
   }
 }

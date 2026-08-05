@@ -16,6 +16,7 @@ import { ViewProductModal } from "../components/view-product-modal"
 import { usePermission } from "@/hooks/use-permission"
 import { ROLES } from "@/utils/permissions"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
+import { TrackingTypeBadge, UNIT_LABELS } from "@/components/tracking-type-badge"
 
 export const ProductsPage = () => {
   const { t } = useTranslation()
@@ -74,7 +75,8 @@ export const ProductsPage = () => {
       className: "w-[120px]",
       render: (p) => <span className="text-muted-foreground">{p.categoryName}</span>,
     },
-    { header: t("productForm.unit"), className: "w-[60px]", render: (p) => <span>{p.unit}</span> },
+    { header: t("productForm.unit"), className: "w-[70px]", render: (p) => <span>{t(UNIT_LABELS[p.unit] ?? p.unit)}</span> },
+    { header: t("productForm.trackingType"), className: "w-[110px]", render: (p) => <TrackingTypeBadge type={p.trackingType} /> },
     {
       header: t("productForm.sellPrice"),
       sortKey: "sellPrice",

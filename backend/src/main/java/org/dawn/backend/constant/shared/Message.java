@@ -79,6 +79,8 @@ public class Message {
         public static final String PRODUCT_NAME_REQUIRED = "Product name is required";
         public static final String SKU_REQUIRED = "SKU is required";
         public static final String SKU_ALREADY_EXISTS = "SKU already exists";
+        public static final String PRODUCT_SUPPLIERS_REQUIRED = "At least one supplier is required";
+        public static final String PRODUCT_NOT_FROM_SUPPLIER = "Product %s is not supplied by the selected supplier";
         public static final String IMAGE_NOT_FOUND = "Image not found";
         public static final String INVALID_UNIT_TRACKING = "Product unit %s requires tracking_type = %s";
     }
@@ -90,6 +92,7 @@ public class Message {
         public static final String LOCATION_NOT_FOUND = "Location not found";
         public static final String LOCATION_CODE_EXISTS = "Location code already exists";
         public static final String LOCATION_CODE_REQUIRED = "Zone code, shelf code, and bin code are required";
+        public static final String LOCATION_CAPACITY_EXCEEDED = "Bin {0} is full ({1}/{2})";
         public static final String CANNOT_DELETE_LOCATION_WITH_UNITS = "Cannot delete location with {0} product unit(s)";
         public static final String SOURCE_BIN_EMPTY = "Source bin has no product units to relocate";
         public static final String RELOCATE_SAME_BIN = "Cannot relocate to the same bin";
@@ -205,6 +208,21 @@ public class Message {
         public static final String STOCK_CHECK_PHOTO_REQUIRED_DAMAGED = "Photo is required when reporting DAMAGED status";
         public static final String STOCK_CHECK_BULK_MISSING_QTY = "Cannot complete: {0} bulk item(s) missing counted quantity: {1}";
         public static final String STOCK_CHECK_ADJUSTMENTS_EXIST = "Adjustments already created for this stock check";
+public static final String STOCK_CHECK_CANNOT_CANCEL_OTHERS = "Only the creator can cancel a stock check";
+public static final String BOX_NOT_FOUND = "Box not found";
+public static final String BOX_UNITS_REQUIRED = "At least one product unit is required to seal a box";
+public static final String BOX_LOCATION_REQUIRED = "Location is required";
+public static final String BOX_UNIT_ALREADY_IN_BOX = "Product unit {0} is already in another box";
+public static final String BOX_UNIT_NOT_IN_STOCK = "Product unit {0} is not in stock";
+    public static final String STOCK_CHECK_BOX_NOT_CONFIRMED = "Cannot complete: sealed box(es) not confirmed: {0}";
+    public static final String BOX_UNSEAL_ALREADY = "Box is not sealed";
+    public static final String BOX_MOVE_OPEN = "Only a sealed box can be moved";
+    public static final String BOX_UNIT_QTY_EXCEEDS = "Quantity {0} for unit {1} exceeds its remaining quantity {2}";
+    public static final String EXPORT_SERIAL_IN_BOX = "Serial {0} is inside a sealed box, unseal it first";
+    public static final String EXPORT_NOT_ENOUGH_LOOSE = "Not enough loose stock: {0} remaining in {1}. Unseal the box(es) before exporting";
+    public static final String BOX_UNIT_NO_IMPORT = "Product unit {0} has no import receipt source";
+    public static final String BOX_UNIT_MIXED_IMPORT = "All units in a box must come from the same import receipt";
+    public static final String BOX_MAX_UNITS = "Box of type {0} can hold at most {1} units";
     }
 
     // User

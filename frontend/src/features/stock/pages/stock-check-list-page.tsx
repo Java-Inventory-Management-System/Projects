@@ -27,6 +27,7 @@ export const StockCheckListPage = () => {
     IN_PROGRESS: { label: t("stockCheckList.inProgress"), variant: "outline" },
     COMPLETED: { label: t("stockCheckList.completed"), variant: "default" },
     APPROVED: { label: t("stockCheckList.approved"), variant: "default" },
+    CANCELLED: { label: t("stockCheckList.cancelled"), variant: "destructive" },
   }
 
   const statusOptions = [
@@ -35,6 +36,7 @@ export const StockCheckListPage = () => {
     { value: "IN_PROGRESS", label: t("stockCheckList.inProgress") },
     { value: "COMPLETED", label: t("stockCheckList.completed") },
     { value: "APPROVED", label: t("stockCheckList.approved") },
+    { value: "CANCELLED", label: t("stockCheckList.cancelled") },
   ]
 
   const handleSort = useCallback((key: string) => {
