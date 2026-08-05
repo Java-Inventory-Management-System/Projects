@@ -14,7 +14,11 @@ import org.dawn.backend.entity.inventory.ReturnReceipt;
 import org.dawn.backend.entity.inventory.ReturnReceiptItem;
 import org.dawn.backend.exception.type.InvalidRequestException;
 import org.dawn.backend.exception.type.ResourceNotFoundException;
+import org.dawn.backend.config.security.SecurityPolicy;
 import org.dawn.backend.repository.auth.UserRepository;
+import org.dawn.backend.repository.catalog.ProductRepository;
+import org.dawn.backend.repository.inventory.exports.ExportReceiptItemUnitRepository;
+import org.dawn.backend.shared.statemachine.StateMachine;
 import org.dawn.backend.repository.inventory.CustomerRepository;
 import org.dawn.backend.repository.inventory.ProductUnitRepository;
 import org.dawn.backend.repository.inventory.ProductUnitStatusLogRepository;
@@ -23,7 +27,6 @@ import org.dawn.backend.repository.inventory.returns.ReturnReceiptItemRepository
 import org.dawn.backend.repository.inventory.returns.ReturnReceiptRepository;
 import org.dawn.backend.service.inventory.returns.ReturnReceiptService;
 import org.dawn.backend.shared.util.ReceiptCodeGenerator;
-import org.dawn.backend.shared.util.SecurityUtils;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -52,6 +55,10 @@ class ReturnReceiptServiceTests {
     @Mock ProductUnitStatusLogRepository statusLogRepository;
     @Mock CustomerRepository customerRepository;
     @Mock UserRepository userRepository;
+    @Mock ProductRepository productRepository;
+    @Mock ExportReceiptItemUnitRepository exportReceiptItemUnitRepository;
+    @Mock StateMachine<ReturnReceiptStatus> returnReceiptStateMachine;
+    @Mock SecurityPolicy securityPolicy;
 
     @InjectMocks ReturnReceiptService returnReceiptService;
 
@@ -80,8 +87,8 @@ class ReturnReceiptServiceTests {
         ReturnReceiptRequest request = new ReturnReceiptRequest(
                 customerId, exportReceiptId, ReturnReason.DEFECTIVE.name(), null, List.of()
         );
-        try (MockedStatic<SecurityUtils> security = mockStatic(SecurityUtils.class)) {
-            security.when(SecurityUtils::getCurrentUserId).thenReturn(userId);
+        {
+            when(securityPolicy.requireAuthenticated()).thenReturn(userId);
             assertThrows(InvalidRequestException.class, () -> returnReceiptService.create(request));
         }
     }
@@ -92,8 +99,8 @@ class ReturnReceiptServiceTests {
                 customerId, exportReceiptId, "", null,
                 List.of(new ReturnItemRequest(null, 20L, BigDecimal.ONE, ReturnCondition.GOOD.name(), ResultingAction.RESTOCK.name()))
         );
-        try (MockedStatic<SecurityUtils> security = mockStatic(SecurityUtils.class)) {
-            security.when(SecurityUtils::getCurrentUserId).thenReturn(userId);
+        {
+            when(securityPolicy.requireAuthenticated()).thenReturn(userId);
             assertThrows(InvalidRequestException.class, () -> returnReceiptService.create(request));
         }
     }
@@ -104,8 +111,8 @@ class ReturnReceiptServiceTests {
                 customerId, null, ReturnReason.DEFECTIVE.name(), null,
                 List.of(new ReturnItemRequest(null, 20L, BigDecimal.ONE, ReturnCondition.GOOD.name(), ResultingAction.RESTOCK.name()))
         );
-        try (MockedStatic<SecurityUtils> security = mockStatic(SecurityUtils.class)) {
-            security.when(SecurityUtils::getCurrentUserId).thenReturn(userId);
+        {
+            when(securityPolicy.requireAuthenticated()).thenReturn(userId);
             assertThrows(InvalidRequestException.class, () -> returnReceiptService.create(request));
         }
     }
@@ -116,8 +123,8 @@ class ReturnReceiptServiceTests {
                 null, exportReceiptId, ReturnReason.DEFECTIVE.name(), null,
                 List.of(new ReturnItemRequest(null, 20L, BigDecimal.ONE, ReturnCondition.GOOD.name(), ResultingAction.RESTOCK.name()))
         );
-        try (MockedStatic<SecurityUtils> security = mockStatic(SecurityUtils.class)) {
-            security.when(SecurityUtils::getCurrentUserId).thenReturn(userId);
+        {
+            when(securityPolicy.requireAuthenticated()).thenReturn(userId);
             assertThrows(InvalidRequestException.class, () -> returnReceiptService.create(request));
         }
     }
@@ -129,8 +136,8 @@ class ReturnReceiptServiceTests {
                 List.of(new ReturnItemRequest(null, 20L, BigDecimal.ONE, ReturnCondition.GOOD.name(), ResultingAction.RESTOCK.name()))
         );
         when(exportReceiptRepository.findById(exportReceiptId)).thenReturn(Optional.empty());
-        try (MockedStatic<SecurityUtils> security = mockStatic(SecurityUtils.class)) {
-            security.when(SecurityUtils::getCurrentUserId).thenReturn(userId);
+        {
+            when(securityPolicy.requireAuthenticated()).thenReturn(userId);
             assertThrows(ResourceNotFoundException.class, () -> returnReceiptService.create(request));
         }
     }
@@ -144,12 +151,12 @@ class ReturnReceiptServiceTests {
         var exportReceipt = mock(ExportReceipt.class);
         var pu = mock(ProductUnit.class);
         when(exportReceiptRepository.findById(exportReceiptId)).thenReturn(Optional.of(exportReceipt));
+        when(exportReceipt.getCustomerId()).thenReturn(customerId);
         when(productUnitRepository.findById(productUnitId)).thenReturn(Optional.of(pu));
         when(pu.getStatus()).thenReturn(ProductUnitStatus.IN_STOCK);
 
-        try (MockedStatic<SecurityUtils> security = mockStatic(SecurityUtils.class);
-             MockedStatic<ReceiptCodeGenerator> gen = mockStatic(ReceiptCodeGenerator.class)) {
-            security.when(SecurityUtils::getCurrentUserId).thenReturn(userId);
+        try (MockedStatic<ReceiptCodeGenerator> gen = mockStatic(ReceiptCodeGenerator.class)) {
+            when(securityPolicy.requireAuthenticated()).thenReturn(userId);
             gen.when(() -> ReceiptCodeGenerator.generate(eq("RET-"), any())).thenReturn("RET-001");
             stubSave();
 
@@ -167,8 +174,9 @@ class ReturnReceiptServiceTests {
         var exportReceipt = mock(ExportReceipt.class);
         var pu = mock(ProductUnit.class);
         when(exportReceiptRepository.findById(exportReceiptId)).thenReturn(Optional.of(exportReceipt));
+        when(exportReceipt.getCustomerId()).thenReturn(customerId);
         when(productUnitRepository.findById(productUnitId)).thenReturn(Optional.of(pu));
-        when(pu.getStatus()).thenReturn(ProductUnitStatus.SOLD);
+        when(pu.getStatus()).thenReturn(ProductUnitStatus.EXPORTED);
         // save returns a receipt with ID (simulates DB generation)
         when(returnReceiptRepository.save(any())).thenAnswer(invocation -> {
             ReturnReceipt r = invocation.getArgument(0);
@@ -187,9 +195,8 @@ class ReturnReceiptServiceTests {
         when(customerRepository.findById(anyLong())).thenReturn(Optional.empty());
         when(userRepository.findById(anyLong())).thenReturn(Optional.empty());
 
-        try (MockedStatic<SecurityUtils> security = mockStatic(SecurityUtils.class);
-             MockedStatic<ReceiptCodeGenerator> gen = mockStatic(ReceiptCodeGenerator.class)) {
-            security.when(SecurityUtils::getCurrentUserId).thenReturn(userId);
+        try (MockedStatic<ReceiptCodeGenerator> gen = mockStatic(ReceiptCodeGenerator.class)) {
+            when(securityPolicy.requireAuthenticated()).thenReturn(userId);
             gen.when(() -> ReceiptCodeGenerator.generate(eq("RET-"), any())).thenReturn("RET-001");
 
             returnReceiptService.create(request);
@@ -210,11 +217,11 @@ class ReturnReceiptServiceTests {
         when(returnReceiptRepository.findById(receiptId)).thenReturn(Optional.of(receipt));
         stubSave();
         stubEnrich();
-        when(returnReceiptItemRepository.findByReturnReceiptId(receiptId)).thenReturn(List.of(item));
+        when(returnReceiptItemRepository.findByReturnReceiptId(receiptId)).thenReturn(List.of(item), List.of());
         when(productUnitRepository.findByIdForUpdate(productUnitId)).thenReturn(Optional.of(pu));
 
-        try (MockedStatic<SecurityUtils> security = mockStatic(SecurityUtils.class)) {
-            security.when(SecurityUtils::getCurrentUserId).thenReturn(userId);
+        {
+            when(securityPolicy.requireAuthenticated()).thenReturn(userId);
 
             returnReceiptService.approve(receiptId);
 
@@ -233,11 +240,11 @@ class ReturnReceiptServiceTests {
         when(returnReceiptRepository.findById(receiptId)).thenReturn(Optional.of(receipt));
         stubSave();
         stubEnrich();
-        when(returnReceiptItemRepository.findByReturnReceiptId(receiptId)).thenReturn(List.of(item));
+        when(returnReceiptItemRepository.findByReturnReceiptId(receiptId)).thenReturn(List.of(item), List.of());
         when(productUnitRepository.findByIdForUpdate(productUnitId)).thenReturn(Optional.of(pu));
 
-        try (MockedStatic<SecurityUtils> security = mockStatic(SecurityUtils.class)) {
-            security.when(SecurityUtils::getCurrentUserId).thenReturn(userId);
+        {
+            when(securityPolicy.requireAuthenticated()).thenReturn(userId);
 
             returnReceiptService.approve(receiptId);
 
@@ -254,11 +261,11 @@ class ReturnReceiptServiceTests {
         when(returnReceiptRepository.findById(receiptId)).thenReturn(Optional.of(receipt));
         stubSave();
         stubEnrich();
-        when(returnReceiptItemRepository.findByReturnReceiptId(receiptId)).thenReturn(List.of(item));
+        when(returnReceiptItemRepository.findByReturnReceiptId(receiptId)).thenReturn(List.of(item), List.of());
         when(productUnitRepository.findByIdForUpdate(productUnitId)).thenReturn(Optional.of(pu));
 
-        try (MockedStatic<SecurityUtils> security = mockStatic(SecurityUtils.class)) {
-            security.when(SecurityUtils::getCurrentUserId).thenReturn(userId);
+        {
+            when(securityPolicy.requireAuthenticated()).thenReturn(userId);
 
             returnReceiptService.approve(receiptId);
 
@@ -272,9 +279,10 @@ class ReturnReceiptServiceTests {
         receipt.setCreatedBy(userId);
 
         when(returnReceiptRepository.findById(receiptId)).thenReturn(Optional.of(receipt));
+        doThrow(new InvalidRequestException("creator")).when(securityPolicy).requireNotCreator(userId);
 
-        try (MockedStatic<SecurityUtils> security = mockStatic(SecurityUtils.class)) {
-            security.when(SecurityUtils::getCurrentUserId).thenReturn(userId);
+        {
+            when(securityPolicy.requireAuthenticated()).thenReturn(userId);
             assertThrows(InvalidRequestException.class, () -> returnReceiptService.approve(receiptId));
         }
     }
@@ -285,9 +293,10 @@ class ReturnReceiptServiceTests {
         receipt.setStatus(ReturnReceiptStatus.COMPLETED);
 
         when(returnReceiptRepository.findById(receiptId)).thenReturn(Optional.of(receipt));
+        doThrow(new InvalidRequestException("invalid transition")).when(returnReceiptStateMachine).validate(ReturnReceiptStatus.COMPLETED, ReturnReceiptStatus.COMPLETED);
 
-        try (MockedStatic<SecurityUtils> security = mockStatic(SecurityUtils.class)) {
-            security.when(SecurityUtils::getCurrentUserId).thenReturn(userId);
+        {
+            when(securityPolicy.requireAuthenticated()).thenReturn(userId);
             assertThrows(InvalidRequestException.class, () -> returnReceiptService.approve(receiptId));
         }
     }
@@ -313,6 +322,7 @@ class ReturnReceiptServiceTests {
         receipt.setStatus(ReturnReceiptStatus.CANCELLED);
 
         when(returnReceiptRepository.findById(receiptId)).thenReturn(Optional.of(receipt));
+        doThrow(new InvalidRequestException("invalid transition")).when(returnReceiptStateMachine).validate(any(), eq(ReturnReceiptStatus.CANCELLED));
 
         assertThrows(InvalidRequestException.class, () -> returnReceiptService.cancel(receiptId));
     }
@@ -323,6 +333,7 @@ class ReturnReceiptServiceTests {
         receipt.setStatus(ReturnReceiptStatus.COMPLETED);
 
         when(returnReceiptRepository.findById(receiptId)).thenReturn(Optional.of(receipt));
+        doThrow(new InvalidRequestException("invalid transition")).when(returnReceiptStateMachine).validate(any(), eq(ReturnReceiptStatus.CANCELLED));
 
         assertThrows(InvalidRequestException.class, () -> returnReceiptService.cancel(receiptId));
     }

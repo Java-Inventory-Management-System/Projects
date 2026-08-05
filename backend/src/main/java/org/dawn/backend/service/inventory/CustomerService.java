@@ -1,11 +1,11 @@
 package org.dawn.backend.service.inventory;
+import org.dawn.backend.constant.shared.ErrorCode;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dawn.backend.aspect.AuditLog;
 import org.dawn.backend.config.web.response.ResponsePage;
 import org.dawn.backend.constant.shared.LogConstant;
-import org.dawn.backend.constant.shared.Message;
 import org.dawn.backend.controller.inventory.request.CustomerRequest;
 import org.dawn.backend.controller.inventory.response.CustomerResponse;
 import org.dawn.backend.entity.inventory.Customer;
@@ -34,7 +34,7 @@ public class CustomerService {
         return customerRepository
                 .findById(id)
                 .map(CustomerMappingHelper::map)
-                .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.CUSTOMER_NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.CUSTOMER_NOT_FOUND));
     }
 
     @Transactional(readOnly = true)
@@ -62,7 +62,7 @@ public class CustomerService {
     public CustomerResponse update(Long id, CustomerRequest request) {
         Customer customer = customerRepository
                 .findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.CUSTOMER_NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.CUSTOMER_NOT_FOUND));
         if (request.name() != null) customer.setName(request.name().trim());
         if (request.phone() != null) customer.setPhone(request.phone());
         if (request.email() != null) customer.setEmail(request.email());
@@ -76,7 +76,7 @@ public class CustomerService {
     public CustomerResponse toggleActive(Long id) {
         Customer customer = customerRepository
                 .findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.CUSTOMER_NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.CUSTOMER_NOT_FOUND));
         customer.setIsActive(!Boolean.TRUE.equals(customer.getIsActive()));
         return CustomerMappingHelper.map(customerRepository.save(customer));
     }

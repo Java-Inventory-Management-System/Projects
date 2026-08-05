@@ -1,4 +1,5 @@
 package org.dawn.backend.service.auth;
+import org.dawn.backend.constant.shared.ErrorCode;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -7,7 +8,6 @@ import org.dawn.backend.config.web.response.ResponsePage;
 import org.dawn.backend.constant.enums.auth.URole;
 import org.dawn.backend.constant.enums.shared.ActiveStatus;
 import org.dawn.backend.constant.shared.LogConstant;
-import org.dawn.backend.constant.shared.Message;
 import org.dawn.backend.controller.auth.request.RegisterRequest;
 import org.dawn.backend.controller.auth.request.UpdateInfoRequest;
 import org.dawn.backend.controller.auth.response.CreateUserResponse;
@@ -50,7 +50,7 @@ public class UserService {
         return userRepository
                 .findById(id)
                 .map(UserMappingHelper::map)
-                .orElseThrow(() -> new ResourceNotFoundException(Message.User.USER_NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.USER_NOT_FOUND));
     }
 
     @Transactional(readOnly = true)
@@ -58,14 +58,14 @@ public class UserService {
         return userRepository
                 .findByUsername(username)
                 .map(UserMappingHelper::map)
-                .orElseThrow(() -> new ResourceNotFoundException(Message.User.USER_NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.USER_NOT_FOUND));
     }
 
     @Transactional
     @AuditLog(action = LogConstant.Action.CREATE_USER, entity = LogConstant.Entity.USER)
     public CreateUserResponse createUser(RegisterRequest request) {
         if (URole.ADMIN.name().equalsIgnoreCase(request.roleName())) {
-            throw new PermissionDeniedException(Message.User.CANNOT_ASSIGN_ADMIN_ROLE);
+            throw new PermissionDeniedException(ErrorCode.CANNOT_ASSIGN_ADMIN_ROLE);
         }
 
         String email = request.email();
@@ -75,10 +75,10 @@ public class UserService {
                 email = null;
             } else {
                 if (!email.matches("^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$")) {
-                    throw new InvalidRequestException(Message.User.EMAIL_INVALID_FORMAT);
+                    throw new InvalidRequestException(ErrorCode.EMAIL_INVALID_FORMAT);
                 }
                 if (userRepository.findByEmail(email).isPresent()) {
-                    throw new ResourceAlreadyExistedException(Message.User.EMAIL_ALREADY_USED);
+                    throw new ResourceAlreadyExistedException(ErrorCode.EMAIL_ALREADY_USED);
                 }
             }
         }
@@ -99,7 +99,7 @@ public class UserService {
 
         Role role = roleRepository
                 .findByName(URole.valueOf(request.roleName()))
-                .orElseThrow(() -> new ResourceNotFoundException(Message.User.ROLE_NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.ROLE_NOT_FOUND));
 
         User user = User.builder()
                 .username(finalUsername)
@@ -136,12 +136,12 @@ public class UserService {
     @AuditLog(action = LogConstant.Action.UPDATE_STATUS, entity = LogConstant.Entity.USER, entityClass = User.class)
     public UserResponse updateStatus(Long id, Boolean status) {
         if (Objects.equals(id, securityPolicy.requireAuthenticated())) {
-            throw new PermissionDeniedException(Message.User.CANNOT_UPDATE_YOURSELF);
+            throw new PermissionDeniedException(ErrorCode.CANNOT_UPDATE_YOURSELF);
         }
 
         User user = userRepository
                 .findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException(Message.User.USERNAME_NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.USERNAME_NOT_FOUND));
         user.setIsDeleted(!status);
         User savedUser = userRepository.save(user);
         return UserMappingHelper.map(savedUser);
@@ -152,7 +152,7 @@ public class UserService {
     public UserResponse updateInfo(Long id, UpdateInfoRequest request) {
         User user = userRepository
                 .findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException(Message.User.USERNAME_NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.USERNAME_NOT_FOUND));
 
         if (request.fullName() != null) {
             user.setFullName(request.fullName());
@@ -175,18 +175,18 @@ public class UserService {
     @AuditLog(action = LogConstant.Action.UPDATE_ROLE, entity = LogConstant.Entity.USER, entityClass = User.class)
     public UserResponse updateRole(Long id, URole roleName) {
         if (Objects.equals(id, securityPolicy.requireAuthenticated())) {
-            throw new PermissionDeniedException(Message.User.CANNOT_CHANGE_OWN_ROLE);
+            throw new PermissionDeniedException(ErrorCode.CANNOT_CHANGE_OWN_ROLE);
         }
 
         if (URole.ADMIN.equals(roleName)) {
-            throw new PermissionDeniedException(Message.User.CANNOT_ASSIGN_ADMIN_ROLE);
+            throw new PermissionDeniedException(ErrorCode.CANNOT_ASSIGN_ADMIN_ROLE);
         }
 
         User user = userRepository
                 .findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException(Message.User.USERNAME_NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.USERNAME_NOT_FOUND));
 
-        Role role = roleRepository.findByName(roleName).orElseThrow(() -> new ResourceNotFoundException(Message.User.ROLE_NOT_FOUND));
+        Role role = roleRepository.findByName(roleName).orElseThrow(() -> new ResourceNotFoundException(ErrorCode.ROLE_NOT_FOUND));
         user.setRoleId(role.getId());
 
         User savedUser = userRepository.save(user);
@@ -197,7 +197,7 @@ public class UserService {
     public boolean existsByRoleName(String roleName) {
         Role role = roleRepository
                 .findByName(URole.valueOf(roleName))
-                .orElseThrow(() -> new ResourceNotFoundException(Message.User.ROLE_NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.ROLE_NOT_FOUND));
 
         return userRepository.existsByRole_Name(role.getName().name());
     }

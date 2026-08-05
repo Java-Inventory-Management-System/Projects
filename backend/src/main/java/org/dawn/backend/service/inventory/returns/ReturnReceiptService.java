@@ -1,4 +1,5 @@
 package org.dawn.backend.service.inventory.returns;
+import org.dawn.backend.constant.shared.ErrorCode;
 
 import org.dawn.backend.shared.statemachine.StateMachine;
 import lombok.RequiredArgsConstructor;
@@ -13,7 +14,6 @@ import org.dawn.backend.constant.enums.inventory.stockcheck.*;
 
 import org.dawn.backend.constant.enums.inventory.*;
 import org.dawn.backend.constant.shared.LogConstant;
-import org.dawn.backend.constant.shared.Message;
 import org.dawn.backend.controller.inventory.request.ReturnReceiptRequest;
 import org.dawn.backend.controller.inventory.response.ReturnReceiptResponse;
 import org.dawn.backend.entity.auth.User;
@@ -93,7 +93,7 @@ public class ReturnReceiptService {
     @Transactional(readOnly = true)
     public ReturnReceiptResponse findOne(Long id) {
         var receipt = returnReceiptRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.RETURN_RECEIPT_NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.RETURN_RECEIPT_NOT_FOUND));
         return enrich(receipt);
     }
 
@@ -103,33 +103,33 @@ public class ReturnReceiptService {
         Long userId = securityPolicy.requireAuthenticated();
 
         if (request.items() == null || request.items().isEmpty()) {
-            throw new InvalidRequestException(Message.Inventory.RETURN_ITEMS_REQUIRED);
+            throw new InvalidRequestException(ErrorCode.RETURN_ITEMS_REQUIRED);
         }
         if (request.reason() == null || request.reason().isBlank()) {
-            throw new InvalidRequestException(Message.Inventory.RETURN_REASON_REQUIRED);
+            throw new InvalidRequestException(ErrorCode.RETURN_REASON_REQUIRED);
         }
         if (request.originalExportReceiptId() == null) {
-            throw new InvalidRequestException(Message.Inventory.RETURN_EXPORT_REQUIRED);
+            throw new InvalidRequestException(ErrorCode.RETURN_EXPORT_REQUIRED);
         }
         if (request.customerId() == null) {
-            throw new InvalidRequestException(Message.Inventory.RETURN_CUSTOMER_REQUIRED);
+            throw new InvalidRequestException(ErrorCode.RETURN_CUSTOMER_REQUIRED);
         }
 
         String reason = request.reason().toUpperCase();
         try {
             ReturnReason.valueOf(reason);
         } catch (IllegalArgumentException e) {
-            throw new InvalidRequestException(Message.format(Message.Inventory.RETURN_INVALID_REASON, request.reason()));
+            throw new InvalidRequestException(ErrorCode.RETURN_INVALID_REASON.format( request.reason()));
         }
 
         var exportReceipt = exportReceiptRepository.findById(request.originalExportReceiptId())
-                .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.EXPORT_RECEIPT_NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.EXPORT_RECEIPT_NOT_FOUND));
         if (!exportReceipt.getCustomerId().equals(request.customerId())) {
-            throw new InvalidRequestException(Message.Inventory.RETURN_EXPORT_NOT_BELONG_TO_CUSTOMER);
+            throw new InvalidRequestException(ErrorCode.RETURN_EXPORT_NOT_BELONG_TO_CUSTOMER);
         }
         if ("CHANGE_MIND".equals(reason) && exportReceipt.getCreatedAt() != null
                 && exportReceipt.getCreatedAt().plus(7, ChronoUnit.DAYS).isBefore(Instant.now())) {
-            throw new InvalidRequestException(Message.Inventory.RETURN_7_DAY_LIMIT);
+            throw new InvalidRequestException(ErrorCode.RETURN_7_DAY_LIMIT);
         }
 
         String receiptCode = ReceiptCodeGenerator.generate("RET-", returnReceiptRepository::existsByReceiptCode);
@@ -151,28 +151,28 @@ public class ReturnReceiptService {
             try {
                 ReturnCondition.valueOf(condition);
             } catch (IllegalArgumentException e) {
-                throw new InvalidRequestException(Message.format(Message.Inventory.RETURN_INVALID_CONDITION, itemReq.condition()));
+                throw new InvalidRequestException(ErrorCode.RETURN_INVALID_CONDITION.format( itemReq.condition()));
             }
 
             String action = itemReq.resultingAction().toUpperCase();
             try {
                 ResultingAction.valueOf(action);
             } catch (IllegalArgumentException e) {
-                throw new InvalidRequestException(Message.format(Message.Inventory.RETURN_INVALID_ACTION, itemReq.resultingAction()));
+                throw new InvalidRequestException(ErrorCode.RETURN_INVALID_ACTION.format( itemReq.resultingAction()));
             }
 
             boolean good = "GOOD".equals(condition);
             if (good && !"RESTOCK".equals(action)
                     || !good && "RESTOCK".equals(action)) {
                 throw new InvalidRequestException(
-                    Message.format(Message.Inventory.RETURN_CONDITION_ACTION_MISMATCH, condition, action));
+                    ErrorCode.RETURN_CONDITION_ACTION_MISMATCH.format( condition, action));
             }
 
             if (itemReq.productUnitId() != null && itemReq.productUnitId() > 0) {
                 var pu = productUnitRepository.findById(itemReq.productUnitId())
-                        .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.PRODUCT_UNIT_NOT_FOUND));
+                        .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.PRODUCT_UNIT_NOT_FOUND));
                 if (ProductUnitStatus.EXPORTED != pu.getStatus()) {
-                    throw new InvalidRequestException(Message.Inventory.RETURN_UNIT_NOT_SOLD);
+                    throw new InvalidRequestException(ErrorCode.RETURN_UNIT_NOT_SOLD);
                 }
             }
 
@@ -220,7 +220,7 @@ public class ReturnReceiptService {
     public ReturnReceiptResponse approve(Long id) {
         Long userId = securityPolicy.requireAuthenticated();
         var receipt = returnReceiptRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.RETURN_RECEIPT_NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.RETURN_RECEIPT_NOT_FOUND));
 
         securityPolicy.requireNotCreator(receipt.getCreatedBy());
         returnReceiptStateMachine.validate(receipt.getStatus(), ReturnReceiptStatus.COMPLETED);
@@ -268,7 +268,7 @@ public class ReturnReceiptService {
     @AuditLog(action = LogConstant.Action.CANCEL_RETURN, entity = LogConstant.Entity.RETURN_RECEIPT)
     public ReturnReceiptResponse cancel(Long id) {
         var receipt = returnReceiptRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.RETURN_RECEIPT_NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.RETURN_RECEIPT_NOT_FOUND));
 
         returnReceiptStateMachine.validate(receipt.getStatus(), ReturnReceiptStatus.CANCELLED);
 

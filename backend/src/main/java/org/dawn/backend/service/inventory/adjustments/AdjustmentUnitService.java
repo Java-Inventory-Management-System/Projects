@@ -1,10 +1,10 @@
 package org.dawn.backend.service.inventory.adjustments;
+import org.dawn.backend.constant.shared.ErrorCode;
 
 import lombok.RequiredArgsConstructor;
 import org.dawn.backend.constant.enums.catalog.TrackingType;
 import org.dawn.backend.constant.enums.inventory.ProductUnitStatus;
 import org.dawn.backend.constant.enums.inventory.SourceType;
-import org.dawn.backend.constant.shared.Message;
 import org.dawn.backend.entity.inventory.ProductUnit;
 import org.dawn.backend.entity.inventory.ProductUnitStatusLog;
 import org.dawn.backend.entity.inventory.StockAdjustment;
@@ -33,7 +33,7 @@ public class AdjustmentUnitService {
     @Transactional
     public void applyDamaged(Long productUnitId, String sourceType, Long sourceId, Long userId) {
         var unit = productUnitRepository.findById(productUnitId)
-                .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.PRODUCT_UNIT_NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.PRODUCT_UNIT_NOT_FOUND));
         ProductUnitStatus oldStatus = unit.getStatus();
         unit.setStatus(ProductUnitStatus.DAMAGED_IN_STORAGE);
         productUnitRepository.save(unit);
@@ -50,7 +50,7 @@ public class AdjustmentUnitService {
     @Transactional
     public void applyLost(Long productUnitId, String sourceType, Long sourceId, Long userId) {
         var unit = productUnitRepository.findById(productUnitId)
-                .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.PRODUCT_UNIT_NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.PRODUCT_UNIT_NOT_FOUND));
         ProductUnitStatus oldStatus = unit.getStatus();
         unit.setStatus(ProductUnitStatus.LOST);
         productUnitRepository.save(unit);
@@ -67,14 +67,14 @@ public class AdjustmentUnitService {
     @Transactional
     public void applyFoundRestore(Long productUnitId, String sourceType, Long sourceId, Long userId) {
         var unit = productUnitRepository.findById(productUnitId)
-                .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.PRODUCT_UNIT_NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.PRODUCT_UNIT_NOT_FOUND));
         ProductUnitStatus currentStatus = unit.getStatus();
 
         if (ProductUnitStatus.IN_STOCK == currentStatus) return;
 
         if (!Set.of(ProductUnitStatus.LOST, ProductUnitStatus.REMOVED, ProductUnitStatus.DAMAGED_IN_STORAGE).contains(currentStatus)) {
             throw new InvalidRequestException(
-                    Message.format(Message.Inventory.ADJUSTMENT_UNIT_NOT_RESTORABLE, currentStatus.name()));
+                    ErrorCode.ADJUSTMENT_UNIT_NOT_RESTORABLE.format( currentStatus.name()));
         }
 
         unit.setStatus(ProductUnitStatus.IN_STOCK);
@@ -92,7 +92,7 @@ public class AdjustmentUnitService {
     @Transactional
     public void applyFoundNew(StockAdjustment adj, Long userId) {
         var product = productRepository.findById(adj.getProductId())
-                .orElseThrow(() -> new ResourceNotFoundException(Message.Catalog.PRODUCT_NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.PRODUCT_NOT_FOUND));
         String trackingType = product.getTrackingType();
 
         String serialNumber = adj.getSerialNumber();

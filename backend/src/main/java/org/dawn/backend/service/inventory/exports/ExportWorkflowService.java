@@ -1,4 +1,5 @@
 package org.dawn.backend.service.inventory.exports;
+import org.dawn.backend.constant.shared.ErrorCode;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -6,7 +7,6 @@ import org.dawn.backend.shared.statemachine.StateMachine;
 import org.dawn.backend.aspect.AuditLog;
 import org.dawn.backend.constant.enums.inventory.exports.ExportReceiptStatus;
 import org.dawn.backend.constant.shared.LogConstant;
-import org.dawn.backend.constant.shared.Message;
 import org.dawn.backend.controller.inventory.response.ExportReceiptResponse;
 import org.dawn.backend.entity.inventory.ExportReceipt;
 import org.dawn.backend.entity.inventory.ExportReceiptStatusHistory;
@@ -33,7 +33,7 @@ public class ExportWorkflowService {
     public ExportReceiptResponse cancel(Long id) {
         Long userId = securityPolicy.requireAuthenticated();
         ExportReceipt receipt = exportReceiptRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.EXPORT_RECEIPT_NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.EXPORT_RECEIPT_NOT_FOUND));
 
         exportReceiptStateMachine.validate(receipt.getStatus(), ExportReceiptStatus.CANCELLED);
 

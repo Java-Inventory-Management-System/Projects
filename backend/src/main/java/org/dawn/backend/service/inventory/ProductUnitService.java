@@ -1,10 +1,10 @@
 package org.dawn.backend.service.inventory;
+import org.dawn.backend.constant.shared.ErrorCode;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dawn.backend.config.web.response.ResponsePage;
 import org.dawn.backend.constant.enums.inventory.ProductUnitStatus;
-import org.dawn.backend.constant.shared.Message;
 import org.springframework.data.domain.Page;
 import org.dawn.backend.controller.inventory.response.ProductUnitResponse;
 import org.dawn.backend.entity.catalog.Product;
@@ -52,7 +52,7 @@ public class ProductUnitService {
     @Transactional(readOnly = true)
     public ProductUnitResponse findOne(Long id) {
         var unit = productUnitRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.PRODUCT_UNIT_NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.PRODUCT_UNIT_NOT_FOUND));
         var p = productRepository.findById(unit.getProductId()).orElse(null);
         var loc = unit.getLocationId() != null ? locationRepository.findById(unit.getLocationId()).orElse(null) : null;
         return ProductUnitMappingHelper.map(unit,

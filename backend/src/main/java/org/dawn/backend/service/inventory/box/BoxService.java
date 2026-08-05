@@ -1,4 +1,5 @@
 package org.dawn.backend.service.inventory.box;
+import org.dawn.backend.constant.shared.ErrorCode;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -9,7 +10,6 @@ import org.dawn.backend.constant.enums.inventory.ProductUnitStatus;
 import org.dawn.backend.constant.enums.inventory.box.BoxStatus;
 import org.dawn.backend.constant.enums.inventory.box.BoxType;
 import org.dawn.backend.constant.shared.LogConstant;
-import org.dawn.backend.constant.shared.Message;
 import org.dawn.backend.controller.inventory.request.MoveBoxRequest;
 import org.dawn.backend.controller.inventory.request.SealBoxRequest;
 import org.dawn.backend.controller.inventory.response.BoxResponse;
@@ -87,7 +87,7 @@ public class BoxService {
     @Transactional(readOnly = true)
     public BoxResponse findOne(Long id) {
         var box = boxRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.BOX_NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.BOX_NOT_FOUND));
         var units = productUnitRepository.findByBoxIdAndStatus(id, ProductUnitStatus.IN_STOCK);
         return toResponse(box, fetchLocations(List.of(box)), fetchUserNames(List.of(box)), fetchReceiptCodes(List.of(box)), units, units.size());
     }
@@ -97,33 +97,33 @@ public class BoxService {
     public BoxResponse seal(SealBoxRequest request) {
         Long userId = securityPolicy.requireAuthenticated();
         if (request.unitIds() == null || request.unitIds().isEmpty()) {
-            throw new InvalidRequestException(Message.Inventory.BOX_UNITS_REQUIRED);
+            throw new InvalidRequestException(ErrorCode.BOX_UNITS_REQUIRED);
         }
         if (request.locationId() == null) {
-            throw new InvalidRequestException(Message.Inventory.BOX_LOCATION_REQUIRED);
+            throw new InvalidRequestException(ErrorCode.BOX_LOCATION_REQUIRED);
         }
         locationRepository.findById(request.locationId())
-                .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.LOCATION_NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.LOCATION_NOT_FOUND));
 
         var unitIds = request.unitIds().stream().distinct().toList();
         var units = productUnitRepository.findByIdsForUpdate(unitIds);
         if (units.size() != unitIds.size()) {
-            throw new InvalidRequestException(Message.Inventory.BOX_UNIT_NOT_IN_STOCK);
+            throw new InvalidRequestException(ErrorCode.BOX_UNIT_NOT_IN_STOCK);
         }
         for (var unit : units) {
             if (unit.getBoxId() != null) {
-                throw new InvalidRequestException(Message.format(Message.Inventory.BOX_UNIT_ALREADY_IN_BOX, unit.getId()));
+                throw new InvalidRequestException(ErrorCode.BOX_UNIT_ALREADY_IN_BOX.format( unit.getId()));
             }
             if (unit.getStatus() != ProductUnitStatus.IN_STOCK) {
-                throw new InvalidRequestException(Message.format(Message.Inventory.BOX_UNIT_NOT_IN_STOCK, unit.getId()));
+                throw new InvalidRequestException(ErrorCode.BOX_UNIT_NOT_IN_STOCK.format( unit.getId()));
             }
             if (unit.getImportReceiptItemId() == null) {
-                throw new InvalidRequestException(Message.format(Message.Inventory.BOX_UNIT_NO_IMPORT, unit.getId()));
+                throw new InvalidRequestException(ErrorCode.BOX_UNIT_NO_IMPORT.format( unit.getId()));
             }
         }
         Set<Long> receiptIds = resolveReceiptIds(units);
         if (receiptIds.size() > 1) {
-            throw new InvalidRequestException(Message.Inventory.BOX_UNIT_MIXED_IMPORT);
+            throw new InvalidRequestException(ErrorCode.BOX_UNIT_MIXED_IMPORT);
         }
 
         Map<Long, BigDecimal> requestedQty = request.items() == null ? Map.of()
@@ -142,7 +142,7 @@ public class BoxService {
                 if (!isBulk) {
                     wanted = BigDecimal.ONE;
                 } else if (wanted.compareTo(unitQty) > 0) {
-                    throw new InvalidRequestException(Message.format(Message.Inventory.BOX_UNIT_QTY_EXCEEDS,
+                    throw new InvalidRequestException(ErrorCode.BOX_UNIT_QTY_EXCEEDS.format(
                             wanted, unit.getId(), unitQty));
                 }
                 unitQty = wanted;
@@ -150,7 +150,7 @@ public class BoxService {
             quantity = quantity.add(unitQty);
         }
         if (quantity.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new InvalidRequestException(Message.Inventory.BOX_UNITS_REQUIRED);
+            throw new InvalidRequestException(ErrorCode.BOX_UNITS_REQUIRED);
         }
 
         capacityValidator.assertCapacity(request.locationId(), quantity, unitIds);
@@ -162,7 +162,7 @@ public class BoxService {
             default -> mediumMaxUnits;
         };
         if (quantity.compareTo(BigDecimal.valueOf(maxUnits)) > 0) {
-            throw new InvalidRequestException(Message.format(Message.Inventory.BOX_MAX_UNITS, boxType.name(), maxUnits));
+            throw new InvalidRequestException(ErrorCode.BOX_MAX_UNITS.format( boxType.name(), maxUnits));
         }
 
         Box box = Box.builder()
@@ -215,9 +215,9 @@ public class BoxService {
     public BoxResponse unseal(Long id) {
         Long userId = securityPolicy.requireAuthenticated();
         var box = boxRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.BOX_NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.BOX_NOT_FOUND));
         if (box.getStatus() != BoxStatus.SEALED) {
-            throw new InvalidRequestException(Message.Inventory.BOX_UNSEAL_ALREADY);
+            throw new InvalidRequestException(ErrorCode.BOX_UNSEAL_ALREADY);
         }
         for (var unit : productUnitRepository.findByBoxId(id)) {
             unit.setBoxId(null);
@@ -236,14 +236,14 @@ public class BoxService {
     public BoxResponse move(Long id, MoveBoxRequest request) {
         securityPolicy.requireAuthenticated();
         if (request.locationId() == null) {
-            throw new InvalidRequestException(Message.Inventory.BOX_LOCATION_REQUIRED);
+            throw new InvalidRequestException(ErrorCode.BOX_LOCATION_REQUIRED);
         }
         locationRepository.findById(request.locationId())
-                .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.LOCATION_NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.LOCATION_NOT_FOUND));
         var box = boxRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.BOX_NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.BOX_NOT_FOUND));
         if (box.getStatus() != BoxStatus.SEALED) {
-            throw new InvalidRequestException(Message.Inventory.BOX_MOVE_OPEN);
+            throw new InvalidRequestException(ErrorCode.BOX_MOVE_OPEN);
         }
         var units = productUnitRepository.findByBoxId(id);
         capacityValidator.assertCapacity(request.locationId(), box.getSealedQuantity(),

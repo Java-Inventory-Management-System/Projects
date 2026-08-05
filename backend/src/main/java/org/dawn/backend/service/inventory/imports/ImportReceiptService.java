@@ -1,4 +1,5 @@
 package org.dawn.backend.service.inventory.imports;
+import org.dawn.backend.constant.shared.ErrorCode;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -22,7 +23,6 @@ import org.dawn.backend.constant.enums.catalog.UnitOfMeasure;
 import org.dawn.backend.constant.enums.inventory.imports.ImportReceiptStatus;
 import org.dawn.backend.constant.enums.inventory.ProductUnitStatus;
 import org.dawn.backend.constant.shared.LogConstant;
-import org.dawn.backend.constant.shared.Message;
 import org.dawn.backend.controller.inventory.request.ImportReceiptRequest;
 import org.dawn.backend.controller.inventory.response.BoxableImportResponse;
 import org.dawn.backend.controller.inventory.response.ImportReceiptResponse;
@@ -92,7 +92,7 @@ public class ImportReceiptService {
 
     public ImportReceiptResponse findOne(Long id) {
         var receipt = importReceiptRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.IMPORT_RECEIPT_NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.IMPORT_RECEIPT_NOT_FOUND));
         var items = importReceiptItemRepository.findByReceiptId(receipt.getId());
         var products = fetchProducts(items);
         var unitCounts = getUnitCounts(items);
@@ -105,14 +105,14 @@ public class ImportReceiptService {
     @AuditLog(action = LogConstant.Action.CREATE_IMPORT, entity = LogConstant.Entity.IMPORT_RECEIPT)
     public ImportReceiptResponse create(ImportReceiptRequest request) {
         Long userId = securityPolicy.requireAuthenticated();
-        if (request.supplierId() == null) throw new InvalidRequestException(Message.Inventory.SUPPLIER_REQUIRED);
-        if (request.purchaseOrderId() == null) throw new InvalidRequestException(Message.Inventory.PO_REQUIRED);
+        if (request.supplierId() == null) throw new InvalidRequestException(ErrorCode.SUPPLIER_REQUIRED);
+        if (request.purchaseOrderId() == null) throw new InvalidRequestException(ErrorCode.PO_REQUIRED);
         purchaseOrderRepository.findById(request.purchaseOrderId())
-                .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.PO_NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.PO_NOT_FOUND));
 
         String receiptCode = request.receiptCode() != null ? request.receiptCode() : generateReceiptCode();
         if (importReceiptRepository.existsByReceiptCode(receiptCode)) {
-            throw new ResourceAlreadyExistedException(Message.Inventory.RECEIPT_CODE_EXISTS);
+            throw new ResourceAlreadyExistedException(ErrorCode.RECEIPT_CODE_EXISTS);
         }
 
         ImportReceipt receipt = ImportReceipt.builder()
@@ -131,7 +131,7 @@ public class ImportReceiptService {
         if (request.items() != null) {
             for (ImportReceiptRequest.ImportItemRequest itemReq : request.items()) {
                 productRepository.findById(itemReq.productId())
-                        .orElseThrow(() -> new ResourceNotFoundException(Message.Catalog.PRODUCT_NOT_FOUND));
+                        .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.PRODUCT_NOT_FOUND));
 
                 ImportReceiptItem item = ImportReceiptItem.builder()
                         .receiptId(receiptId)

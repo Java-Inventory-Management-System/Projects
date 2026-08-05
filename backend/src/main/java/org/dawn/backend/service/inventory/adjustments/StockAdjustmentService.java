@@ -1,4 +1,5 @@
 package org.dawn.backend.service.inventory.adjustments;
+import org.dawn.backend.constant.shared.ErrorCode;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -10,7 +11,6 @@ import org.dawn.backend.constant.enums.inventory.adjustments.AdjustmentStatus;
 import org.dawn.backend.constant.enums.inventory.adjustments.AdjustmentType;
 import org.dawn.backend.constant.enums.inventory.SourceType;
 import org.dawn.backend.constant.shared.LogConstant;
-import org.dawn.backend.constant.shared.Message;
 import org.dawn.backend.controller.inventory.request.ApproveAdjustmentRequest;
 import org.dawn.backend.controller.inventory.request.CreateStockAdjustmentRequest;
 import org.dawn.backend.controller.inventory.response.StockAdjustmentResponse;
@@ -58,7 +58,7 @@ public class StockAdjustmentService {
     @Transactional(readOnly = true)
     public StockAdjustmentResponse findOne(Long id) {
         var adj = adjustmentRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.ADJUSTMENT_NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.ADJUSTMENT_NOT_FOUND));
         return enrich(adj);
     }
 
@@ -97,38 +97,38 @@ public class StockAdjustmentService {
         Long userId = securityPolicy.requireAuthenticated();
 
         if (request.type() == null || request.type().isBlank()) {
-            throw new InvalidRequestException(Message.Inventory.ADJUSTMENT_TYPE_REQUIRED);
+            throw new InvalidRequestException(ErrorCode.ADJUSTMENT_TYPE_REQUIRED);
         }
         String type = request.type().toUpperCase();
         try {
             AdjustmentType.valueOf(type);
         } catch (IllegalArgumentException e) {
-            throw new InvalidRequestException(Message.format(Message.Inventory.INVALID_ADJUSTMENT_TYPE, type));
+            throw new InvalidRequestException(ErrorCode.INVALID_ADJUSTMENT_TYPE.format( type));
         }
 
         if (request.reason() == null || request.reason().isBlank()) {
-            throw new InvalidRequestException(Message.Inventory.ADJUSTMENT_REASON_REQUIRED);
+            throw new InvalidRequestException(ErrorCode.ADJUSTMENT_REASON_REQUIRED);
         }
 
         if (AdjustmentType.DAMAGED.name().equals(type) || AdjustmentType.LOST.name().equals(type)) {
             if (request.productUnitId() == null) {
                 throw new InvalidRequestException(
-                        Message.format(Message.Inventory.ADJUSTMENT_UNIT_REQUIRED, type.toLowerCase()));
+                        ErrorCode.ADJUSTMENT_UNIT_REQUIRED.format( type.toLowerCase()));
             }
             if (AdjustmentType.DAMAGED.name().equals(type) && (request.imageUrl() == null || request.imageUrl().isBlank())) {
-                throw new InvalidRequestException(Message.Inventory.ADJUSTMENT_PHOTO_REQUIRED_DAMAGED);
+                throw new InvalidRequestException(ErrorCode.ADJUSTMENT_PHOTO_REQUIRED_DAMAGED);
             }
         }
 
         if (AdjustmentType.FOUND.name().equals(type) && request.productUnitId() == null) {
             if (request.productId() == null) {
-                throw new InvalidRequestException(Message.Inventory.ADJUSTMENT_PRODUCT_REQUIRED);
+                throw new InvalidRequestException(ErrorCode.ADJUSTMENT_PRODUCT_REQUIRED);
             }
             if (request.serialNumber() == null || request.serialNumber().isBlank()) {
-                throw new InvalidRequestException(Message.Inventory.ADJUSTMENT_SERIAL_REQUIRED_FOUND);
+                throw new InvalidRequestException(ErrorCode.ADJUSTMENT_SERIAL_REQUIRED_FOUND);
             }
             if (request.locationId() == null) {
-                throw new InvalidRequestException(Message.Inventory.ADJUSTMENT_LOCATION_REQUIRED_FOUND);
+                throw new InvalidRequestException(ErrorCode.ADJUSTMENT_LOCATION_REQUIRED_FOUND);
             }
         }
 
@@ -160,7 +160,7 @@ public class StockAdjustmentService {
         Long userId = securityPolicy.requireAuthenticated();
 
         var adj = adjustmentRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.ADJUSTMENT_NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.ADJUSTMENT_NOT_FOUND));
 
         adjustmentStateMachine.validate(adj.getStatus(), AdjustmentStatus.APPROVED);
         securityPolicy.requireNotCreator(adj.getCreatedBy());
@@ -191,12 +191,12 @@ public class StockAdjustmentService {
         Long userId = securityPolicy.requireAuthenticated();
 
         var adj = adjustmentRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.ADJUSTMENT_NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.ADJUSTMENT_NOT_FOUND));
 
         adjustmentStateMachine.validate(adj.getStatus(), AdjustmentStatus.REJECTED);
 
         if (request == null || request.approvalNote() == null || request.approvalNote().isBlank()) {
-            throw new InvalidRequestException(Message.Inventory.REJECTION_REASON_REQUIRED);
+            throw new InvalidRequestException(ErrorCode.REJECTION_REASON_REQUIRED);
         }
 
         adj.setStatus(AdjustmentStatus.REJECTED);

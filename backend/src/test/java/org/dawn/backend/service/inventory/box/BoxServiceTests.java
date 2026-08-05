@@ -18,6 +18,7 @@ import org.dawn.backend.repository.inventory.ProductUnitRepository;
 import org.dawn.backend.repository.inventory.box.BoxRepository;
 import org.dawn.backend.repository.inventory.imports.ImportReceiptItemRepository;
 import org.dawn.backend.repository.inventory.imports.ImportReceiptRepository;
+import org.dawn.backend.service.inventory.LocationCapacityValidator;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -50,6 +51,7 @@ class BoxServiceTests {
     @Mock ImportReceiptItemRepository importReceiptItemRepository;
     @Mock ImportReceiptRepository importReceiptRepository;
     @Mock SecurityPolicy securityPolicy;
+    @Mock LocationCapacityValidator capacityValidator;
 
     @InjectMocks BoxService boxService;
 

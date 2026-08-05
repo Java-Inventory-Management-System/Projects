@@ -1,8 +1,8 @@
 package org.dawn.backend.service.system;
+import org.dawn.backend.constant.shared.ErrorCode;
 
 import com.cloudinary.Cloudinary;
 
-import org.dawn.backend.constant.shared.Message;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -25,7 +25,7 @@ public class CloudinaryService {
             log.info("File uploaded to Cloudinary: {}", url);
             return url;
         } catch (IOException e) {
-            throw new RuntimeException(Message.Common.CLOUDINARY_UPLOAD_FAILED, e);
+            throw new RuntimeException(ErrorCode.CLOUDINARY_UPLOAD_FAILED.format(), e);
         }
     }
 }

@@ -1,4 +1,5 @@
 package org.dawn.backend.service.inventory;
+import org.dawn.backend.constant.shared.ErrorCode;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -8,7 +9,6 @@ import org.dawn.backend.constant.enums.inventory.ProductUnitStatus;
 import org.dawn.backend.constant.enums.inventory.SourceType;
 import org.dawn.backend.constant.enums.inventory.box.BoxStatus;
 import org.dawn.backend.constant.shared.LogConstant;
-import org.dawn.backend.constant.shared.Message;
 import org.dawn.backend.controller.inventory.request.LocationRequest;
 import org.dawn.backend.controller.inventory.request.RelocateRequest;
 import org.dawn.backend.controller.inventory.response.LocationMapResponse;
@@ -135,7 +135,7 @@ public class LocationService {
         return locationRepository
                 .findById(id)
                 .map(LocationMappingHelper::map)
-                .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.LOCATION_NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.LOCATION_NOT_FOUND));
     }
 
     @Transactional(readOnly = true)
@@ -150,7 +150,7 @@ public class LocationService {
     public LocationResponse create(LocationRequest request) {
         String fullCode = request.zoneCode() + "-" + request.shelfCode() + "-" + request.binCode();
         if (locationRepository.existsByFullCode(fullCode)) {
-            throw new ResourceAlreadyExistedException(Message.Inventory.LOCATION_CODE_EXISTS);
+            throw new ResourceAlreadyExistedException(ErrorCode.LOCATION_CODE_EXISTS);
         }
         Location location = Location.builder()
                 .zoneCode(request.zoneCode().trim().toUpperCase())
@@ -168,7 +168,7 @@ public class LocationService {
     public LocationResponse update(Long id, LocationRequest request) {
         Location location = locationRepository
                 .findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.LOCATION_NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.LOCATION_NOT_FOUND));
         if (request.zoneCode() != null) location.setZoneCode(request.zoneCode().trim().toUpperCase());
         if (request.shelfCode() != null) location.setShelfCode(request.shelfCode().trim());
         if (request.binCode() != null) location.setBinCode(request.binCode().trim().toUpperCase());
@@ -183,7 +183,7 @@ public class LocationService {
     public LocationResponse toggleActive(Long id) {
         Location location = locationRepository
                 .findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.LOCATION_NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.LOCATION_NOT_FOUND));
         location.setIsActive(!Boolean.TRUE.equals(location.getIsActive()));
         return LocationMappingHelper.map(locationRepository.save(location));
     }
@@ -193,10 +193,10 @@ public class LocationService {
     public void delete(Long id) {
         Location location = locationRepository
                 .findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.LOCATION_NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.LOCATION_NOT_FOUND));
         long productCount = productUnitRepository.countByLocationId(id);
         if (productCount > 0) {
-            throw new InvalidRequestException(Message.format(Message.Inventory.CANNOT_DELETE_LOCATION_WITH_UNITS, productCount));
+            throw new InvalidRequestException(ErrorCode.CANNOT_DELETE_LOCATION_WITH_UNITS.format( productCount));
         }
         locationRepository.delete(location);
     }
@@ -208,26 +208,26 @@ public class LocationService {
         Long destId = request.destBinId();
 
         if (sourceId.equals(destId)) {
-            throw new InvalidRequestException(Message.Inventory.RELOCATE_SAME_BIN);
+            throw new InvalidRequestException(ErrorCode.RELOCATE_SAME_BIN);
         }
 
         Location sourceLocation = locationRepository
                 .findById(sourceId)
-                .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.LOCATION_NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.LOCATION_NOT_FOUND));
         Location destLocation = locationRepository
                 .findById(destId)
-                .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.LOCATION_NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.LOCATION_NOT_FOUND));
 
         List<ProductUnit> units = productUnitRepository.findByLocationIdInAndStatus(
                 List.of(sourceId), ProductUnitStatus.IN_STOCK);
 
         if (units.isEmpty()) {
-            throw new InvalidRequestException(Message.Inventory.SOURCE_BIN_EMPTY);
+            throw new InvalidRequestException(ErrorCode.SOURCE_BIN_EMPTY);
         }
 
         int quantity = request.quantity() != null ? request.quantity() : units.size();
         if (quantity <= 0 || quantity > units.size()) {
-            throw new InvalidRequestException(Message.format(Message.Inventory.INVALID_QUANTITY, quantity));
+            throw new InvalidRequestException(ErrorCode.INVALID_QUANTITY.format( quantity));
         }
 
         List<ProductUnit> toMove = quantity < units.size()

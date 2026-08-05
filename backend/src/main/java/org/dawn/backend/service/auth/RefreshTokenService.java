@@ -1,8 +1,8 @@
 package org.dawn.backend.service.auth;
+import org.dawn.backend.constant.shared.ErrorCode;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.dawn.backend.constant.shared.Message;
 import org.dawn.backend.entity.auth.RefreshToken;
 import org.dawn.backend.entity.auth.User;
 import org.dawn.backend.exception.type.ResourceNotFoundException;
@@ -28,7 +28,7 @@ public class RefreshTokenService {
     @Transactional
     public RefreshToken createRefreshToken(Long userId) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException(Message.User.USER_NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.USER_NOT_FOUND));
 
         refreshTokenRepository.deleteByUser(user);
 
@@ -48,7 +48,7 @@ public class RefreshTokenService {
     public RefreshToken verifyExpiration(RefreshToken token) {
         if (token.getExpiryDate().isBefore(Instant.now())) {
             refreshTokenRepository.deleteByToken(token.getToken());
-            throw new ResourceNotFoundException(Message.Auth.REFRESH_TOKEN_EXPIRED);
+            throw new ResourceNotFoundException(ErrorCode.REFRESH_TOKEN_EXPIRED);
         }
         return token;
     }

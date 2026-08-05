@@ -2,6 +2,7 @@ package org.dawn.backend.service.inventory.stockcheck;
 
 import org.dawn.backend.config.security.SecurityPolicy;
 import org.dawn.backend.constant.enums.inventory.ProductUnitStatus;
+import org.dawn.backend.constant.enums.inventory.box.BoxStatus;
 import org.dawn.backend.entity.inventory.Box;
 import org.dawn.backend.entity.inventory.Location;
 import org.dawn.backend.entity.inventory.ProductUnit;
@@ -50,16 +51,23 @@ class StockCheckServiceTests {
     @InjectMocks StockCheckService stockCheckService;
 
     private ProductUnit unit(Long id, Long productId, Long locationId, Long boxId, String trackingType) {
-        return ProductUnit.builder()
-                .id(id)
-                .productId(productId)
-                .trackingType(trackingType)
-                .remainingQuantity(trackingType.equals("BULK") ? BigDecimal.TEN : BigDecimal.ONE)
-                .locationId(locationId)
-                .boxId(boxId)
-                .status(ProductUnitStatus.IN_STOCK)
-                .importedAt(Instant.now())
-                .build();
+        ProductUnit u = new ProductUnit();
+        u.setId(id);
+        u.setProductId(productId);
+        u.setTrackingType(trackingType);
+        u.setRemainingQuantity(trackingType.equals("BULK") ? BigDecimal.TEN : BigDecimal.ONE);
+        u.setLocationId(locationId);
+        u.setBoxId(boxId);
+        u.setStatus(ProductUnitStatus.IN_STOCK);
+        u.setImportedAt(Instant.now());
+        return u;
+    }
+
+    private Location location(Long id) {
+        Location l = new Location();
+        l.setId(id);
+        l.setZoneCode("A");
+        return l;
     }
 
     @Test
@@ -74,21 +82,25 @@ class StockCheckServiceTests {
 
     @Test
     void zoneScope_includesUnitsWhoseBoxIsInZone_EvenWhenUnitLocationIsElsewhere() {
-        var refLocation = Location.builder().id(1L).zoneCode("A").build();
+        var refLocation = new Location();
+        refLocation.setId(1L);
+        refLocation.setZoneCode("A");
         var zoneLocations = List.of(
                 refLocation,
-                Location.builder().id(2L).zoneCode("A").build(),
-                Location.builder().id(3L).zoneCode("A").build(),
-                Location.builder().id(4L).zoneCode("A").build());
+                location(2L),
+                location(3L),
+                location(4L));
         var looseUnit = unit(4L, 2L, 4L, null, "SERIALIZED");
-        var boxInZone = Box.builder().id(9L).locationId(2L).build();
+        var boxInZone = new Box();
+        boxInZone.setId(9L);
+        boxInZone.setLocationId(2L);
         var staleLocationUnit = unit(34L, 2L, 34L, 9L, "SERIALIZED");
 
         when(locationRepository.findById(1L)).thenReturn(Optional.of(refLocation));
         when(locationRepository.findByZoneCode("A")).thenReturn(zoneLocations);
         when(productUnitRepository.findByLocationIdInAndStatus(List.of(1L, 2L, 3L, 4L), ProductUnitStatus.IN_STOCK))
                 .thenReturn(List.of(looseUnit));
-        when(boxRepository.findByLocationIdIn(List.of(1L, 2L, 3L, 4L))).thenReturn(List.of(boxInZone));
+        when(boxRepository.findByLocationIdInAndStatus(List.of(1L, 2L, 3L, 4L), BoxStatus.SEALED)).thenReturn(List.of(boxInZone));
         when(productUnitRepository.findByBoxIdInAndStatus(List.of(9L), ProductUnitStatus.IN_STOCK))
                 .thenReturn(List.of(staleLocationUnit));
 

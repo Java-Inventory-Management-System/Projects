@@ -1,4 +1,5 @@
 package org.dawn.backend.service.inventory;
+import org.dawn.backend.constant.shared.ErrorCode;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -8,7 +9,6 @@ import org.dawn.backend.constant.enums.inventory.PurchaseOrderStatus;
 import org.springframework.data.domain.Page;
 import org.dawn.backend.constant.enums.inventory.imports.ImportReceiptStatus;
 import org.dawn.backend.constant.shared.LogConstant;
-import org.dawn.backend.constant.shared.Message;
 import org.dawn.backend.controller.inventory.request.CreatePurchaseOrderRequest;
 import org.dawn.backend.controller.inventory.request.CreatePurchaseOrderRequest.POItemRequest;
 import org.dawn.backend.controller.inventory.response.PurchaseOrderResponse;
@@ -63,7 +63,7 @@ public class PurchaseOrderService {
     @Transactional(readOnly = true)
     public PurchaseOrderResponse findOne(Long id) {
         var po = purchaseOrderRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.PO_NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.PO_NOT_FOUND));
         return enrich(po);
     }
 
@@ -73,10 +73,10 @@ public class PurchaseOrderService {
         Long userId = securityPolicy.requireAuthenticated();
 
         if (request.items() == null || request.items().isEmpty()) {
-            throw new InvalidRequestException(Message.Inventory.AT_LEAST_ONE_ITEM_REQUIRED);
+            throw new InvalidRequestException(ErrorCode.AT_LEAST_ONE_ITEM_REQUIRED);
         }
         if (request.supplierId() == null) {
-            throw new InvalidRequestException(Message.Inventory.SUPPLIER_REQUIRED);
+            throw new InvalidRequestException(ErrorCode.SUPPLIER_REQUIRED);
         }
 
         String poCode = generatePoCode();
@@ -93,11 +93,11 @@ public class PurchaseOrderService {
         BigDecimal totalAmount = BigDecimal.ZERO;
         for (POItemRequest itemReq : request.items()) {
             Product product = productRepository.findById(itemReq.productId())
-                    .orElseThrow(() -> new ResourceNotFoundException(Message.Catalog.PRODUCT_NOT_FOUND));
+                    .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.PRODUCT_NOT_FOUND));
             List<Long> supplierIds = product.getSuppliers().stream().map(Supplier::getId).toList();
             if (!supplierIds.isEmpty() && !supplierIds.contains(request.supplierId())) {
                 throw new InvalidRequestException(
-                        Message.format(Message.Catalog.PRODUCT_NOT_FROM_SUPPLIER, itemReq.productId()));
+                        ErrorCode.PRODUCT_NOT_FROM_SUPPLIER.format( itemReq.productId()));
             }
             var item = PurchaseOrderItem.builder()
                     .poId(po.getId())
@@ -119,16 +119,16 @@ public class PurchaseOrderService {
     @AuditLog(action = LogConstant.Action.CANCEL_PURCHASE_ORDER, entity = LogConstant.Entity.PURCHASE_ORDER)
     public PurchaseOrderResponse cancel(Long id) {
         var po = purchaseOrderRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.PO_NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.PO_NOT_FOUND));
 
         if (PurchaseOrderStatus.CANCELLED == po.getStatus()) {
-            throw new InvalidRequestException(Message.Inventory.PO_ALREADY_CANCELLED);
+            throw new InvalidRequestException(ErrorCode.PO_ALREADY_CANCELLED);
         }
 
         boolean hasCompletedReceipts = importReceiptRepository.existsByPurchaseOrderIdAndStatus(id, ImportReceiptStatus.COMPLETED);
 
         if (hasCompletedReceipts) {
-            throw new InvalidRequestException(Message.Inventory.PO_HAS_COMPLETED_RECEIPTS);
+            throw new InvalidRequestException(ErrorCode.PO_HAS_COMPLETED_RECEIPTS);
         }
 
         po.setStatus(PurchaseOrderStatus.CANCELLED);

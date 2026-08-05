@@ -1,4 +1,5 @@
 package org.dawn.backend.service.inventory.adjustments;
+import org.dawn.backend.constant.shared.ErrorCode;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -8,7 +9,6 @@ import org.dawn.backend.config.web.response.ResponsePage;
 import org.dawn.backend.constant.enums.inventory.adjustments.AdjustmentStatus;
 import org.springframework.data.domain.Page;
 import org.dawn.backend.constant.shared.LogConstant;
-import org.dawn.backend.constant.shared.Message;
 import org.dawn.backend.controller.inventory.request.CreatePriceAdjustmentRequest;
 import org.dawn.backend.controller.inventory.response.AvailableItemResponse;
 import org.dawn.backend.controller.inventory.response.PriceAdjustmentResponse;
@@ -68,7 +68,7 @@ public class PriceAdjustmentService {
         Long userId = securityPolicy.requireAuthenticated();
 
         var adj = priceAdjustmentRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.PRICE_ADJ_NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.PRICE_ADJ_NOT_FOUND));
 
         securityPolicy.requireAdminOrManagerOrOwner(adj.getCreatedBy());
 
@@ -130,31 +130,31 @@ public class PriceAdjustmentService {
         Long userId = securityPolicy.requireAuthenticated();
 
         if (request.importReceiptItemId() == null) {
-            throw new InvalidRequestException(Message.Inventory.PRICE_ADJ_ITEM_REQUIRED);
+            throw new InvalidRequestException(ErrorCode.PRICE_ADJ_ITEM_REQUIRED);
         }
         if (request.newPrice() == null || request.newPrice().compareTo(java.math.BigDecimal.ONE) < 0) {
-            throw new InvalidRequestException(Message.Inventory.PRICE_ADJ_NEW_PRICE_NEGATIVE);
+            throw new InvalidRequestException(ErrorCode.PRICE_ADJ_NEW_PRICE_NEGATIVE);
         }
         if (request.newPrice().scale() > 0) {
-            throw new InvalidRequestException(Message.Inventory.PRICE_ADJ_WHOLE_NUMBER);
+            throw new InvalidRequestException(ErrorCode.PRICE_ADJ_WHOLE_NUMBER);
         }
         if (request.reason() == null || request.reason().isBlank()) {
-            throw new InvalidRequestException(Message.Inventory.PRICE_ADJ_REASON_REQUIRED);
+            throw new InvalidRequestException(ErrorCode.PRICE_ADJ_REASON_REQUIRED);
         }
 
         var existing = priceAdjustmentRepository.findByImportReceiptItemIdAndStatus(
                 request.importReceiptItemId(), AdjustmentStatus.PENDING);
         if (existing.isPresent()) {
             throw new InvalidRequestException(
-                    Message.format(Message.Inventory.PRICE_ADJ_DUPLICATE_PENDING, existing.get().getAdjustCode()));
+                    ErrorCode.PRICE_ADJ_DUPLICATE_PENDING.format( existing.get().getAdjustCode()));
         }
 
         var item = importReceiptItemRepository.findById(request.importReceiptItemId())
-                .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.IMPORT_ITEM_NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.IMPORT_ITEM_NOT_FOUND));
 
         var oldPrice = item.getUnitPrice() != null ? item.getUnitPrice() : java.math.BigDecimal.ZERO;
         if (oldPrice.compareTo(request.newPrice()) == 0) {
-            throw new InvalidRequestException(Message.Inventory.PRICE_ADJ_SAME_PRICE);
+            throw new InvalidRequestException(ErrorCode.PRICE_ADJ_SAME_PRICE);
         }
 
         String adjustCode = ReceiptCodeGenerator.generate("PADJ-", priceAdjustmentRepository::existsByAdjustCode);
@@ -178,15 +178,15 @@ public class PriceAdjustmentService {
         Long userId = securityPolicy.requireAuthenticated();
 
         var adj = priceAdjustmentRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.PRICE_ADJ_NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.PRICE_ADJ_NOT_FOUND));
 
         adjustmentStateMachine.validate(adj.getStatus(), AdjustmentStatus.APPROVED);
         securityPolicy.requireNotCreator(adj.getCreatedBy());
 
         var item = importReceiptItemRepository.findById(adj.getImportReceiptItemId())
-                .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.IMPORT_ITEM_NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.IMPORT_ITEM_NOT_FOUND));
         if (item.getUnitPrice().compareTo(adj.getOldPrice()) != 0) {
-            throw new InvalidRequestException(Message.Inventory.PRICE_ADJ_PRICE_CHANGED);
+            throw new InvalidRequestException(ErrorCode.PRICE_ADJ_PRICE_CHANGED);
         }
         item.setUnitPrice(adj.getNewPrice());
         importReceiptItemRepository.save(item);
@@ -194,7 +194,7 @@ public class PriceAdjustmentService {
         int updated = priceAdjustmentRepository.optimisticUpdateStatus(
                 id, AdjustmentStatus.APPROVED, userId, approvalNote);
         if (updated == 0) {
-            throw new InvalidRequestException(Message.Inventory.PRICE_ADJ_ONLY_PENDING_APPROVE);
+            throw new InvalidRequestException(ErrorCode.PRICE_ADJ_ONLY_PENDING_APPROVE);
         }
         adj.setStatus(AdjustmentStatus.APPROVED);
         return enrich(adj);
@@ -206,7 +206,7 @@ public class PriceAdjustmentService {
         Long userId = securityPolicy.requireAuthenticated();
 
         var adj = priceAdjustmentRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.PRICE_ADJ_NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.PRICE_ADJ_NOT_FOUND));
 
         adjustmentStateMachine.validate(adj.getStatus(), AdjustmentStatus.CANCELLED);
         securityPolicy.requireOwner(adj.getCreatedBy());
@@ -214,7 +214,7 @@ public class PriceAdjustmentService {
         int updated = priceAdjustmentRepository.optimisticUpdateStatus(
                 id, AdjustmentStatus.CANCELLED, userId, null);
         if (updated == 0) {
-            throw new InvalidRequestException(Message.Inventory.PRICE_ADJ_ONLY_PENDING_CANCEL);
+            throw new InvalidRequestException(ErrorCode.PRICE_ADJ_ONLY_PENDING_CANCEL);
         }
         return enrich(adj);
     }
@@ -225,18 +225,18 @@ public class PriceAdjustmentService {
         Long userId = securityPolicy.requireAuthenticated();
 
         if (reason == null || reason.isBlank()) {
-            throw new InvalidRequestException(Message.Inventory.PRICE_ADJ_REJECT_REASON_REQUIRED);
+            throw new InvalidRequestException(ErrorCode.PRICE_ADJ_REJECT_REASON_REQUIRED);
         }
 
         var adj = priceAdjustmentRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.PRICE_ADJ_NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.PRICE_ADJ_NOT_FOUND));
 
         adjustmentStateMachine.validate(adj.getStatus(), AdjustmentStatus.REJECTED);
 
         int updated = priceAdjustmentRepository.optimisticUpdateStatus(
                 id, AdjustmentStatus.REJECTED, userId, reason);
         if (updated == 0) {
-            throw new InvalidRequestException(Message.Inventory.PRICE_ADJ_ONLY_PENDING_REJECT);
+            throw new InvalidRequestException(ErrorCode.PRICE_ADJ_ONLY_PENDING_REJECT);
         }
         return enrich(adj);
     }

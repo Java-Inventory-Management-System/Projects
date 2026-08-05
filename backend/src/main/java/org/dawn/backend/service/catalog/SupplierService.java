@@ -1,11 +1,11 @@
 package org.dawn.backend.service.catalog;
+import org.dawn.backend.constant.shared.ErrorCode;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dawn.backend.aspect.AuditLog;
 import org.dawn.backend.config.web.response.ResponsePage;
 import org.dawn.backend.constant.shared.LogConstant;
-import org.dawn.backend.constant.shared.Message;
 import org.dawn.backend.controller.catalog.request.SupplierRequest;
 import org.dawn.backend.controller.catalog.response.SupplierResponse;
 import org.dawn.backend.entity.catalog.Supplier;
@@ -34,7 +34,7 @@ public class SupplierService {
         return supplierRepository
                 .findById(id)
                 .map(SupplierMappingHelper::map)
-                .orElseThrow(() -> new ResourceNotFoundException(Message.Catalog.SUPPLIER_NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.SUPPLIER_NOT_FOUND));
     }
 
     @Transactional
@@ -57,7 +57,7 @@ public class SupplierService {
     public SupplierResponse update(Long id, SupplierRequest request) {
         Supplier supplier = supplierRepository
                 .findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException(Message.Catalog.SUPPLIER_NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.SUPPLIER_NOT_FOUND));
         if (request.name() != null) supplier.setName(request.name());
         if (request.contactPerson() != null) supplier.setContactPerson(request.contactPerson());
         if (request.phone() != null) supplier.setPhone(request.phone());
@@ -73,7 +73,7 @@ public class SupplierService {
     public SupplierResponse toggleActive(Long id) {
         Supplier supplier = supplierRepository
                 .findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException(Message.Catalog.SUPPLIER_NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.SUPPLIER_NOT_FOUND));
         supplier.setIsActive(!Boolean.TRUE.equals(supplier.getIsActive()));
         return SupplierMappingHelper.map(supplierRepository.save(supplier));
     }

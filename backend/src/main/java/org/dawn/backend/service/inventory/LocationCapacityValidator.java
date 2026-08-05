@@ -1,7 +1,7 @@
 package org.dawn.backend.service.inventory;
+import org.dawn.backend.constant.shared.ErrorCode;
 
 import lombok.RequiredArgsConstructor;
-import org.dawn.backend.constant.shared.Message;
 import org.dawn.backend.entity.inventory.Location;
 import org.dawn.backend.exception.type.InvalidRequestException;
 import org.dawn.backend.repository.inventory.LocationRepository;
@@ -37,8 +37,7 @@ public class LocationCapacityValidator {
             used = used.subtract(excludedAtThisBin);
         }
         if (used.add(incoming).compareTo(location.getMaxCapacity()) > 0) {
-            throw new InvalidRequestException(Message.format(
-                    Message.Inventory.LOCATION_CAPACITY_EXCEEDED,
+            throw new InvalidRequestException(ErrorCode.LOCATION_CAPACITY_EXCEEDED.format(
                     location.getFullCode(), used, location.getMaxCapacity()));
         }
     }

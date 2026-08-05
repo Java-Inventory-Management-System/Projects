@@ -1,4 +1,5 @@
 package org.dawn.backend.service.catalog;
+import org.dawn.backend.constant.shared.ErrorCode;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -8,7 +9,6 @@ import org.dawn.backend.entity.catalog.ProductImage;
 import org.dawn.backend.exception.type.ResourceNotFoundException;
 import org.dawn.backend.repository.catalog.ProductImageRepository;
 import org.dawn.backend.constant.shared.LogConstant;
-import org.dawn.backend.constant.shared.Message;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -47,7 +47,7 @@ public class ProductImageService {
     public void delete(Long id) {
         ProductImage image = productImageRepository
                 .findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException(Message.Catalog.IMAGE_NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.IMAGE_NOT_FOUND));
         productImageRepository.delete(image);
     }
 

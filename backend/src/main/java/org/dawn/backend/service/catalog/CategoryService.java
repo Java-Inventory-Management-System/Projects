@@ -1,11 +1,11 @@
 package org.dawn.backend.service.catalog;
+import org.dawn.backend.constant.shared.ErrorCode;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dawn.backend.aspect.AuditLog;
 import org.dawn.backend.config.web.response.ResponsePage;
 import org.dawn.backend.constant.shared.LogConstant;
-import org.dawn.backend.constant.shared.Message;
 import org.dawn.backend.controller.catalog.request.CategoryRequest;
 import org.dawn.backend.controller.catalog.response.CategoryResponse;
 import org.dawn.backend.entity.catalog.Category;
@@ -34,7 +34,7 @@ public class CategoryService {
         return categoryRepository
                 .findById(id)
                 .map(CategoryMappingHelper::map)
-                .orElseThrow(() -> new ResourceNotFoundException(Message.Catalog.CATEGORY_NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.CATEGORY_NOT_FOUND));
     }
 
     @Transactional
@@ -52,7 +52,7 @@ public class CategoryService {
     public CategoryResponse update(Long id, CategoryRequest request) {
         Category category = categoryRepository
                 .findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException(Message.Catalog.CATEGORY_NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.CATEGORY_NOT_FOUND));
         if (request.name() != null && !request.name().isBlank()) {
             category.setName(request.name().trim());
         }
@@ -65,7 +65,7 @@ public class CategoryService {
     public CategoryResponse toggleActive(Long id) {
         Category category = categoryRepository
                 .findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException(Message.Catalog.CATEGORY_NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.CATEGORY_NOT_FOUND));
         category.setIsActive(!Boolean.TRUE.equals(category.getIsActive()));
         return CategoryMappingHelper.map(categoryRepository.save(category));
     }

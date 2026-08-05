@@ -1,4 +1,5 @@
 package org.dawn.backend.service.inventory.exports;
+import org.dawn.backend.constant.shared.ErrorCode;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -8,7 +9,6 @@ import org.dawn.backend.constant.enums.inventory.exports.ExportReceiptStatus;
 import org.dawn.backend.constant.enums.inventory.exports.ExportReason;
 import org.dawn.backend.constant.enums.inventory.ProductUnitStatus;
 import org.dawn.backend.constant.shared.LogConstant;
-import org.dawn.backend.constant.shared.Message;
 import org.dawn.backend.controller.inventory.request.ExportReceiptRequest;
 import org.dawn.backend.controller.inventory.response.ExportReceiptResponse;
 import org.dawn.backend.controller.inventory.response.ProductUnitResponse;
@@ -102,7 +102,7 @@ public class ExportReceiptService {
     @Transactional(readOnly = true)
     public ExportReceiptResponse findOne(Long id) {
         var receipt = exportReceiptRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.EXPORT_RECEIPT_NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.EXPORT_RECEIPT_NOT_FOUND));
         return toResponse(receipt);
     }
 
@@ -112,25 +112,25 @@ public class ExportReceiptService {
         Long userId = securityPolicy.requireAuthenticated();
 
         if (request.items() == null || request.items().isEmpty()) {
-            throw new InvalidRequestException(Message.Inventory.AT_LEAST_ONE_ITEM_REQUIRED);
+            throw new InvalidRequestException(ErrorCode.AT_LEAST_ONE_ITEM_REQUIRED);
         }
         if (request.reason() == null || request.reason().isBlank()) {
-            throw new InvalidRequestException(Message.Inventory.EXPORT_REASON_REQUIRED);
+            throw new InvalidRequestException(ErrorCode.EXPORT_REASON_REQUIRED);
         }
         if (ExportReason.SALE.name().equalsIgnoreCase(request.reason()) && request.customerId() == null) {
-            throw new InvalidRequestException(Message.Inventory.CUSTOMER_REQUIRED_FOR_SALE);
+            throw new InvalidRequestException(ErrorCode.CUSTOMER_REQUIRED_FOR_SALE);
         }
 
         String reason = request.reason().toUpperCase();
         try {
             ExportReason.valueOf(reason);
         } catch (IllegalArgumentException e) {
-            throw new InvalidRequestException(Message.format(Message.Inventory.INVALID_EXPORT_REASON, request.reason()));
+            throw new InvalidRequestException(ErrorCode.INVALID_EXPORT_REASON.format( request.reason()));
         }
 
         String receiptCode = generateReceiptCode();
         if (exportReceiptRepository.existsByReceiptCode(receiptCode)) {
-            throw new ResourceAlreadyExistedException(Message.Inventory.RECEIPT_CODE_EXISTS);
+            throw new ResourceAlreadyExistedException(ErrorCode.RECEIPT_CODE_EXISTS);
         }
 
         ExportReceipt receipt = ExportReceipt.builder()
@@ -149,7 +149,7 @@ public class ExportReceiptService {
 
         for (var itemReq : request.items()) {
             Product product = productRepository.findById(itemReq.productId())
-                    .orElseThrow(() -> new ResourceNotFoundException(Message.Catalog.PRODUCT_NOT_FOUND));
+                    .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.PRODUCT_NOT_FOUND));
 
             BigDecimal inStock = getInStockQuantity(product);
             BigDecimal committed = exportReceiptRepository.sumCommittedQuantityByProductIdAndStatusIn(
@@ -158,7 +158,7 @@ public class ExportReceiptService {
 
             if (available.compareTo(itemReq.quantity()) < 0) {
                 throw new InvalidRequestException(
-                        Message.format(Message.Inventory.INSUFFICIENT_STOCK, product.getName(), available, itemReq.quantity()));
+                        ErrorCode.INSUFFICIENT_STOCK.format( product.getName(), available, itemReq.quantity()));
             }
 
             BigDecimal totalPrice = itemReq.unitPrice() != null

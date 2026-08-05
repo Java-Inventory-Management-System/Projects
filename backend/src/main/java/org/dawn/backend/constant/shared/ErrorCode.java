@@ -36,6 +36,7 @@ public enum ErrorCode {
     EMAIL_SEND_FAILED("Failed to send email, please contact support"),
     METHOD_NOT_IMPLEMENTED("This feature is not yet implemented"),
     PASSWORD_TOO_SHORT("Password must be at least 6 characters"),
+    PASSWORD_NOT_MATCH("Passwords do not match"),
     INVALID_STATE_TRANSITION("Invalid transition: {0} -> {1}"),
 
     // ── Catalog ───────────────────────────────────────────────────
@@ -50,6 +51,8 @@ public enum ErrorCode {
     PRODUCT_NAME_REQUIRED("Product name is required"),
     SKU_REQUIRED("SKU is required"),
     SKU_ALREADY_EXISTS("SKU already exists"),
+    PRODUCT_SUPPLIERS_REQUIRED("At least one supplier is required"),
+    PRODUCT_NOT_FROM_SUPPLIER("Product {0} is not supplied by the selected supplier"),
     IMAGE_NOT_FOUND("Image not found"),
     INVALID_UNIT_TRACKING("Product unit {0} requires tracking_type = {1}"),
 
@@ -57,6 +60,7 @@ public enum ErrorCode {
     LOCATION_NOT_FOUND("Location not found"),
     LOCATION_CODE_EXISTS("Location code already exists"),
     LOCATION_CODE_REQUIRED("Zone code, shelf code, and bin code are required"),
+    LOCATION_CAPACITY_EXCEEDED("Bin {0} is full ({1}/{2})"),
     CANNOT_DELETE_LOCATION_WITH_UNITS("Cannot delete location with {0} product unit(s)"),
     SOURCE_BIN_EMPTY("Source bin has no product units to relocate"),
     RELOCATE_SAME_BIN("Cannot relocate to the same bin"),
@@ -160,6 +164,21 @@ public enum ErrorCode {
     STOCK_CHECK_PHOTO_REQUIRED_DAMAGED("Photo is required when reporting DAMAGED status"),
     STOCK_CHECK_BULK_MISSING_QTY("Cannot complete: {0} bulk item(s) missing counted quantity: {1}"),
     STOCK_CHECK_ADJUSTMENTS_EXIST("Adjustments already created for this stock check"),
+    STOCK_CHECK_CANNOT_CANCEL_OTHERS("Only the creator can cancel a stock check"),
+    STOCK_CHECK_BOX_NOT_CONFIRMED("Cannot complete: sealed box(es) not confirmed: {0}"),
+    BOX_NOT_FOUND("Box not found"),
+    BOX_UNITS_REQUIRED("At least one product unit is required to seal a box"),
+    BOX_LOCATION_REQUIRED("Location is required"),
+    BOX_UNIT_ALREADY_IN_BOX("Product unit {0} is already in another box"),
+    BOX_UNIT_NOT_IN_STOCK("Product unit {0} is not in stock"),
+    BOX_UNSEAL_ALREADY("Box is not sealed"),
+    BOX_MOVE_OPEN("Only a sealed box can be moved"),
+    BOX_UNIT_QTY_EXCEEDS("Quantity {0} for unit {1} exceeds its remaining quantity {2}"),
+    BOX_UNIT_NO_IMPORT("Product unit {0} has no import receipt source"),
+    BOX_UNIT_MIXED_IMPORT("All units in a box must come from the same import receipt"),
+    BOX_MAX_UNITS("Box of type {0} can hold at most {1} units"),
+    EXPORT_SERIAL_IN_BOX("Serial {0} is inside a sealed box, unseal it first"),
+    EXPORT_NOT_ENOUGH_LOOSE("Not enough loose stock: {0} remaining in {1}. Unseal the box(es) before exporting"),
 
     // ── User ──────────────────────────────────────────────────────
     NOT_FOUND_WITH_ID("User not found: {0}"),

@@ -1,4 +1,5 @@
 package org.dawn.backend.service.inventory.stockcheck;
+import org.dawn.backend.constant.shared.ErrorCode;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -14,7 +15,6 @@ import org.dawn.backend.constant.enums.inventory.adjustments.AdjustmentType;
 import org.dawn.backend.constant.enums.inventory.stockcheck.DifferenceType;
 import org.dawn.backend.constant.enums.inventory.stockcheck.StockCheckStatus;
 import org.dawn.backend.constant.shared.LogConstant;
-import org.dawn.backend.constant.shared.Message;
 import org.dawn.backend.controller.inventory.request.CreateStockCheckRequest;
 import org.dawn.backend.controller.inventory.request.StockCheckItemRequest;
 import org.dawn.backend.controller.inventory.response.StockCheckResponse;
@@ -74,7 +74,7 @@ public class StockCheckService {
     @Transactional(readOnly = true)
     public StockCheckResponse findOne(Long id) {
         var sc = stockCheckRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.STOCK_CHECK_NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.STOCK_CHECK_NOT_FOUND));
         return toResponse(sc);
     }
 
@@ -94,17 +94,17 @@ public class StockCheckService {
         Long userId = securityPolicy.requireAuthenticated();
 
         if (request.scopeType() == null || request.scopeId() == null) {
-            throw new InvalidRequestException(Message.Inventory.STOCK_CHECK_ITEMS_REQUIRED);
+            throw new InvalidRequestException(ErrorCode.STOCK_CHECK_ITEMS_REQUIRED);
         }
 
         String scopeType = request.scopeType().toUpperCase();
         if (!Set.of("ZONE", "CATEGORY", "BOX").contains(scopeType)) {
-            throw new InvalidRequestException(Message.Inventory.STOCK_CHECK_INVALID_SCOPE);
+            throw new InvalidRequestException(ErrorCode.STOCK_CHECK_INVALID_SCOPE);
         }
 
         List<Long> unitIds = resolveUnitIdsByScope(scopeType, request.scopeId());
         if (unitIds.isEmpty()) {
-            throw new InvalidRequestException(Message.Inventory.STOCK_CHECK_NO_UNITS_IN_SCOPE);
+            throw new InvalidRequestException(ErrorCode.STOCK_CHECK_NO_UNITS_IN_SCOPE);
         }
 
         String checkCode = generateCheckCode();
@@ -149,7 +149,7 @@ public class StockCheckService {
         }
         if ("ZONE".equals(scopeType)) {
             var refLocation = locationRepository.findById(scopeId)
-                    .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.LOCATION_NOT_FOUND));
+                    .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.LOCATION_NOT_FOUND));
             var locationIds = locationRepository.findByZoneCode(refLocation.getZoneCode())
                     .stream().map(Location::getId).toList();
             if (locationIds.isEmpty()) return List.of();
@@ -173,10 +173,10 @@ public class StockCheckService {
     public StockCheckResponse recordItems(Long stockCheckId, StockCheckItemRequest.BatchRequest request) {
         Long userId = securityPolicy.requireAuthenticated();
         var sc = stockCheckRepository.findById(stockCheckId)
-                .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.STOCK_CHECK_NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.STOCK_CHECK_NOT_FOUND));
 
         if (StockCheckStatus.IN_PROGRESS != sc.getStatus()) {
-            throw new InvalidRequestException(Message.Inventory.STOCK_CHECK_MUST_BE_IN_PROGRESS);
+            throw new InvalidRequestException(ErrorCode.STOCK_CHECK_MUST_BE_IN_PROGRESS);
         }
 
         var existingItems = stockCheckItemRepository.findByStockCheckId(stockCheckId);
@@ -186,7 +186,7 @@ public class StockCheckService {
         for (var req : request.items()) {
             var item = itemMap.get(req.productUnitId());
             if (item == null) {
-                throw new InvalidRequestException(Message.format(Message.Inventory.STOCK_CHECK_ITEM_NOT_IN_CHECK, req.productUnitId()));
+                throw new InvalidRequestException(ErrorCode.STOCK_CHECK_ITEM_NOT_IN_CHECK.format( req.productUnitId()));
             }
 
             String oldActual = item.getActualStatus();
@@ -209,7 +209,7 @@ public class StockCheckService {
                 }
 
                 if (ProductUnitStatus.DAMAGED_IN_STORAGE.name().equals(newActual) && (req.photo() == null || req.photo().isBlank())) {
-                    throw new InvalidRequestException(Message.Inventory.STOCK_CHECK_PHOTO_REQUIRED_DAMAGED);
+                    throw new InvalidRequestException(ErrorCode.STOCK_CHECK_PHOTO_REQUIRED_DAMAGED);
                 }
 
                 item.setActualStatus(newActual);
@@ -246,7 +246,7 @@ public class StockCheckService {
     public StockCheckResponse complete(Long id) {
         Long userId = securityPolicy.requireAuthenticated();
         var sc = stockCheckRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.STOCK_CHECK_NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.STOCK_CHECK_NOT_FOUND));
 
         var items = stockCheckItemRepository.findByStockCheckId(id);
         int autoFilledCount = 0;
@@ -274,7 +274,7 @@ public class StockCheckService {
 
         if (!bulkMissing.isEmpty()) {
             throw new InvalidRequestException(
-                    Message.format(Message.Inventory.STOCK_CHECK_BULK_MISSING_QTY, bulkMissing.size(), String.join(", ", bulkMissing)));
+                    ErrorCode.STOCK_CHECK_BULK_MISSING_QTY.format( bulkMissing.size(), String.join(", ", bulkMissing)));
         }
 
         var unitIds = items.stream().map(StockCheckItem::getProductUnitId).toList();
@@ -284,7 +284,7 @@ public class StockCheckService {
             var sealedBoxes = boxRepository.findAllById(boxIds).stream()
                     .filter(b -> BoxStatus.SEALED == b.getStatus()).toList();
             if (!sealedBoxes.isEmpty()) {
-                throw new InvalidRequestException(Message.format(Message.Inventory.STOCK_CHECK_BOX_NOT_CONFIRMED,
+                throw new InvalidRequestException(ErrorCode.STOCK_CHECK_BOX_NOT_CONFIRMED.format(
                         sealedBoxes.stream().map(Box::getBoxCode).collect(Collectors.joining(", "))));
             }
         }
@@ -292,7 +292,7 @@ public class StockCheckService {
         stockCheckStateMachine.validate(sc.getStatus(), StockCheckStatus.COMPLETED);
 
         if (adjustmentRepository.existsBySourceTypeAndSourceId(AdjustmentSourceType.STOCK_CHECK.name(), id)) {
-            throw new InvalidRequestException(Message.Inventory.STOCK_CHECK_ADJUSTMENTS_EXIST);
+            throw new InvalidRequestException(ErrorCode.STOCK_CHECK_ADJUSTMENTS_EXIST);
         }
         applyAdjustments(sc, items, userId);
 
@@ -346,10 +346,10 @@ public class StockCheckService {
     public StockCheckResponse cancel(Long id) {
         Long userId = securityPolicy.requireAuthenticated();
         var sc = stockCheckRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.STOCK_CHECK_NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.STOCK_CHECK_NOT_FOUND));
 
         if (!sc.getCreatedBy().equals(userId)) {
-            throw new InvalidRequestException(Message.Inventory.STOCK_CHECK_CANNOT_CANCEL_OTHERS);
+            throw new InvalidRequestException(ErrorCode.STOCK_CHECK_CANNOT_CANCEL_OTHERS);
         }
         stockCheckStateMachine.validate(sc.getStatus(), StockCheckStatus.CANCELLED);
         sc.setStatus(StockCheckStatus.CANCELLED);
@@ -361,7 +361,7 @@ public class StockCheckService {
     @AuditLog(action = LogConstant.Action.START_STOCK_CHECK, entity = LogConstant.Entity.STOCK_CHECK)
     public StockCheckResponse start(Long id) {
         var sc = stockCheckRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.STOCK_CHECK_NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.STOCK_CHECK_NOT_FOUND));
 
         stockCheckStateMachine.validate(sc.getStatus(), StockCheckStatus.IN_PROGRESS);
         sc.setStatus(StockCheckStatus.IN_PROGRESS);

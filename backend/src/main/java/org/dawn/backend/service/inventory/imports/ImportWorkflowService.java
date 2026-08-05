@@ -1,4 +1,5 @@
 package org.dawn.backend.service.inventory.imports;
+import org.dawn.backend.constant.shared.ErrorCode;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -9,7 +10,6 @@ import org.dawn.backend.constant.enums.inventory.PurchaseOrderStatus;
 import org.dawn.backend.constant.enums.inventory.SourceType;
 import org.dawn.backend.constant.enums.inventory.imports.ImportReceiptStatus;
 import org.dawn.backend.constant.shared.LogConstant;
-import org.dawn.backend.constant.shared.Message;
 import org.dawn.backend.controller.inventory.response.ImportReceiptResponse;
 import org.dawn.backend.entity.inventory.ImportReceipt;
 import org.dawn.backend.entity.inventory.ImportReceiptItem;
@@ -49,7 +49,7 @@ public class ImportWorkflowService {
     public ImportReceiptResponse approve(Long id) {
         Long userId = securityPolicy.requireAuthenticated();
         ImportReceipt receipt = importReceiptRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.IMPORT_RECEIPT_NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.IMPORT_RECEIPT_NOT_FOUND));
 
         securityPolicy.requireNotCreator(receipt.getCreatedBy());
         importReceiptStateMachine.validate(receipt.getStatus(), ImportReceiptStatus.COMPLETED);
@@ -69,7 +69,7 @@ public class ImportWorkflowService {
     @AuditLog(action = LogConstant.Action.CANCEL_IMPORT, entity = LogConstant.Entity.IMPORT_RECEIPT)
     public ImportReceiptResponse cancel(Long id) {
         ImportReceipt receipt = importReceiptRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.IMPORT_RECEIPT_NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.IMPORT_RECEIPT_NOT_FOUND));
 
         importReceiptStateMachine.validate(receipt.getStatus(), ImportReceiptStatus.CANCELLED);
 
@@ -78,11 +78,11 @@ public class ImportWorkflowService {
             var units = productUnitRepository.findByImportReceiptItemId(item.getId());
             for (var unit : units) {
                 if (ProductUnitStatus.IN_STOCK != unit.getStatus()) {
-                    throw new InvalidRequestException(Message.Inventory.IMPORT_CANNOT_CANCEL_UNITS_EXPORTED);
+                    throw new InvalidRequestException(ErrorCode.IMPORT_CANNOT_CANCEL_UNITS_EXPORTED);
                 }
                 boolean isBulk = unit.getInitialQuantity() != null;
                 if (isBulk && unit.getRemainingQuantity().compareTo(unit.getInitialQuantity()) != 0) {
-                    throw new InvalidRequestException(Message.Inventory.IMPORT_CANNOT_CANCEL_UNITS_EXPORTED);
+                    throw new InvalidRequestException(ErrorCode.IMPORT_CANNOT_CANCEL_UNITS_EXPORTED);
                 }
             }
         }

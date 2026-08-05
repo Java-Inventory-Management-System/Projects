@@ -1,4 +1,5 @@
 package org.dawn.backend.service.inventory.imports;
+import org.dawn.backend.constant.shared.ErrorCode;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -7,7 +8,6 @@ import org.dawn.backend.constant.enums.catalog.UnitOfMeasure;
 import org.dawn.backend.constant.enums.inventory.ProductUnitStatus;
 import org.dawn.backend.constant.enums.inventory.imports.ImportReceiptStatus;
 import org.dawn.backend.constant.shared.LogConstant;
-import org.dawn.backend.constant.shared.Message;
 import org.dawn.backend.controller.inventory.request.ConfirmImportRequest;
 import org.dawn.backend.controller.inventory.request.ImportReceiptRequest;
 import org.dawn.backend.controller.inventory.response.ImportReceiptResponse;
@@ -70,15 +70,15 @@ public class ImportConfirmationService {
         Long userId = securityPolicy.requireAuthenticated();
 
         if (request.items() == null || request.items().isEmpty()) {
-            throw new InvalidRequestException(Message.Inventory.AT_LEAST_ONE_ITEM_REQUIRED);
+            throw new InvalidRequestException(ErrorCode.AT_LEAST_ONE_ITEM_REQUIRED);
         }
         if (request.supplierId() == null) {
-            throw new InvalidRequestException(Message.Inventory.SUPPLIER_REQUIRED);
+            throw new InvalidRequestException(ErrorCode.SUPPLIER_REQUIRED);
         }
 
         String receiptCode = request.receiptCode() != null ? request.receiptCode() : generateReceiptCode();
         if (importReceiptRepository.existsByReceiptCode(receiptCode)) {
-            throw new ResourceAlreadyExistedException(Message.Inventory.RECEIPT_CODE_EXISTS);
+            throw new ResourceAlreadyExistedException(ErrorCode.RECEIPT_CODE_EXISTS);
         }
 
         ImportReceipt receipt = ImportReceipt.builder()
@@ -97,7 +97,7 @@ public class ImportConfirmationService {
 
         for (ImportReceiptRequest.ImportItemRequest itemReq : request.items()) {
             Product product = productRepository.findById(itemReq.productId())
-                    .orElseThrow(() -> new ResourceNotFoundException(Message.Catalog.PRODUCT_NOT_FOUND));
+                    .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.PRODUCT_NOT_FOUND));
 
             String unit = product.getUnit();
             String trackingType = product.getTrackingType();
@@ -132,23 +132,23 @@ public class ImportConfirmationService {
             } else {
                 List<String> serials = itemReq.serialNumbers();
                 if (serials == null || serials.isEmpty()) {
-                    throw new InvalidRequestException(Message.Inventory.SERIAL_REQUIRED_FOR_SERIALIZED);
+                    throw new InvalidRequestException(ErrorCode.SERIAL_REQUIRED_FOR_SERIALIZED);
                 }
                 if (serials.size() != qty.intValue()) {
-                    throw new InvalidRequestException(Message.Inventory.SERIAL_COUNT_MUST_MATCH);
+                    throw new InvalidRequestException(ErrorCode.SERIAL_COUNT_MUST_MATCH);
                 }
 
                 var trimmedSerials = serials.stream()
                         .map(String::trim)
                         .peek(s -> {
-                            if (s.isBlank()) throw new InvalidRequestException(Message.Inventory.SERIAL_BLANK);
+                            if (s.isBlank()) throw new InvalidRequestException(ErrorCode.SERIAL_BLANK);
                         })
                         .toList();
 
                 var existing = productUnitRepository.findExistingSerialNumbers(trimmedSerials);
                 if (!existing.isEmpty()) {
                     throw new ResourceAlreadyExistedException(
-                            Message.format(Message.Inventory.SERIAL_ALREADY_EXISTS_LIST, String.join(", ", existing))
+                            ErrorCode.SERIAL_ALREADY_EXISTS_LIST.format( String.join(", ", existing))
                     );
                 }
 
@@ -194,7 +194,7 @@ public class ImportConfirmationService {
         Long userId = securityPolicy.requireAuthenticated();
 
         ImportReceipt receipt = importReceiptRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.IMPORT_RECEIPT_NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.IMPORT_RECEIPT_NOT_FOUND));
         importReceiptStateMachine.validate(receipt.getStatus(), ImportReceiptStatus.PENDING_APPROVAL);
 
         var items = importReceiptItemRepository.findByReceiptId(id);
@@ -205,18 +205,18 @@ public class ImportConfirmationService {
 
         for (var serial : request.serials()) {
             ImportReceiptItem item = importReceiptItemRepository.findById(serial.itemId())
-                    .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.IMPORT_ITEM_NOT_FOUND));
+                    .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.IMPORT_ITEM_NOT_FOUND));
             Product product = productMap.get(item.getProductId());
             String trackingType = product != null ? product.getTrackingType() : "SERIALIZED";
 
             var serials = serial.serialNumbers().stream().map(String::trim).peek(s -> {
-                if (s.isBlank()) throw new InvalidRequestException(Message.Inventory.SERIAL_BLANK);
+                if (s.isBlank()) throw new InvalidRequestException(ErrorCode.SERIAL_BLANK);
             }).toList();
 
             var existing = productUnitRepository.findExistingSerialNumbers(serials);
             if (!existing.isEmpty()) {
                 throw new ResourceAlreadyExistedException(
-                        Message.format(Message.Inventory.SERIAL_ALREADY_EXISTS_LIST, String.join(", ", existing)));
+                        ErrorCode.SERIAL_ALREADY_EXISTS_LIST.format( String.join(", ", existing)));
             }
 
             capacityValidator.assertCapacity(serial.locationId(), BigDecimal.valueOf(serials.size()));

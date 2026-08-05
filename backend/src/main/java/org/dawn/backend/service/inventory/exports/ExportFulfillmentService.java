@@ -1,4 +1,5 @@
 package org.dawn.backend.service.inventory.exports;
+import org.dawn.backend.constant.shared.ErrorCode;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -11,7 +12,6 @@ import org.dawn.backend.constant.enums.inventory.ProductUnitStatus;
 import org.dawn.backend.constant.enums.inventory.SourceType;
 import org.dawn.backend.constant.enums.inventory.box.BoxStatus;
 import org.dawn.backend.constant.shared.LogConstant;
-import org.dawn.backend.constant.shared.Message;
 import org.dawn.backend.controller.inventory.request.FulfillExportRequest;
 import org.dawn.backend.controller.inventory.response.ExportReceiptResponse;
 import org.dawn.backend.entity.catalog.Product;
@@ -73,7 +73,7 @@ public class ExportFulfillmentService {
     public ExportReceiptResponse fulfill(Long id, FulfillExportRequest request) {
         Long userId = securityPolicy.requireAuthenticated();
         ExportReceipt receipt = exportReceiptRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.EXPORT_RECEIPT_NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.EXPORT_RECEIPT_NOT_FOUND));
 
         exportReceiptStateMachine.validate(receipt.getStatus(), ExportReceiptStatus.COMPLETED);
 
@@ -93,7 +93,7 @@ public class ExportFulfillmentService {
         for (var fulfillItem : request.items()) {
             ExportReceiptItem item = itemMap.get(fulfillItem.itemId());
             if (item == null) {
-                throw new InvalidRequestException(Message.format(Message.Inventory.EXPORT_ITEM_NOT_FOUND, fulfillItem.itemId()));
+                throw new InvalidRequestException(ErrorCode.EXPORT_ITEM_NOT_FOUND.format( fulfillItem.itemId()));
             }
 
             Product product = products.get(item.getProductId());
@@ -103,7 +103,7 @@ public class ExportFulfillmentService {
             if (isBulk) {
                 BigDecimal actualQty = fulfillItem.actualQuantity();
                 if (actualQty == null || actualQty.compareTo(BigDecimal.ZERO) <= 0) {
-                    throw new InvalidRequestException(Message.Inventory.EXPORT_ACTUAL_QTY_REQUIRED_BULK);
+                    throw new InvalidRequestException(ErrorCode.EXPORT_ACTUAL_QTY_REQUIRED_BULK);
                 }
 
                 var bulkUnits = productUnitRepository.findByProductIdAndStatusWithLock(item.getProductId());
@@ -141,8 +141,7 @@ public class ExportFulfillmentService {
                                     .map(b -> b.getBoxCode() + " tại " + locationMap.get(b.getLocationId())
                                             + " (" + perBox.get(b.getId()) + ")")
                                     .collect(Collectors.joining(", "));
-                            throw new InvalidRequestException(Message.format(
-                                    Message.Inventory.EXPORT_NOT_ENOUGH_LOOSE, totalInBoxes, summary));
+                            throw new InvalidRequestException(ErrorCode.EXPORT_NOT_ENOUGH_LOOSE.format( totalInBoxes, summary));
                         }
                     }
                 }
@@ -151,26 +150,26 @@ public class ExportFulfillmentService {
                 if (TrackingType.SERIALIZED.name().equals(trackingType)) {
                     List<String> serials = fulfillItem.serialNumbers();
                     if (serials == null || serials.isEmpty()) {
-                        throw new InvalidRequestException(Message.Inventory.EXPORT_SERIALS_REQUIRED);
+                        throw new InvalidRequestException(ErrorCode.EXPORT_SERIALS_REQUIRED);
                     }
 
                     for (String sn : serials) {
                         ProductUnit pu = productUnitRepository.findBySerialNumber(sn)
                                 .orElseThrow(() -> new InvalidRequestException(
-                                        Message.format(Message.Inventory.PRODUCT_UNIT_NOT_FOUND, sn)));
+                                        ErrorCode.PRODUCT_UNIT_NOT_FOUND.format( sn)));
 
                         if (!pu.getProductId().equals(item.getProductId())) {
-                            throw new InvalidRequestException(Message.format(Message.Inventory.EXPORT_SERIAL_WRONG_PRODUCT, sn, product.getName()));
+                            throw new InvalidRequestException(ErrorCode.EXPORT_SERIAL_WRONG_PRODUCT.format( sn, product.getName()));
                         }
                         if (ProductUnitStatus.IN_STOCK != pu.getStatus()) {
-                            throw new InvalidRequestException(Message.format(Message.Inventory.EXPORT_SERIAL_NOT_AVAILABLE, sn, pu.getStatus()));
+                            throw new InvalidRequestException(ErrorCode.EXPORT_SERIAL_NOT_AVAILABLE.format( sn, pu.getStatus()));
                         }
                         if (stockCheckItemRepository.existsByProductUnitIdInActiveCheck(pu.getId())) {
-                            throw new InvalidRequestException(Message.format(Message.Inventory.EXPORT_SERIAL_IN_STOCK_CHECK, sn));
+                            throw new InvalidRequestException(ErrorCode.EXPORT_SERIAL_IN_STOCK_CHECK.format( sn));
                         }
                         if (pu.getBoxId() != null && boxRepository.findById(pu.getBoxId())
                                 .map(b -> BoxStatus.SEALED == b.getStatus()).orElse(false)) {
-                            throw new InvalidRequestException(Message.format(Message.Inventory.EXPORT_SERIAL_IN_BOX, sn));
+                            throw new InvalidRequestException(ErrorCode.EXPORT_SERIAL_IN_BOX.format( sn));
                         }
 
                         ProductUnitStatus oldUnitStatus = pu.getStatus();
