@@ -11,7 +11,7 @@ import {
 } from "@/services/stock-check-service"
 import { usePermission } from "@/hooks/use-permission"
 import { ROLES } from "@/utils/permissions"
-import { STOCK_CHECK_STATUS, STOCK_CHECK_DIFF, PRODUCT_UNIT_STATUS, type StockCheckItem, type DifferenceType } from "@/utils/types"
+import { STOCK_CHECK_STATUS, STOCK_CHECK_DIFF, PRODUCT_UNIT_STATUS, TRACKING_TYPE, type StockCheckItem } from "@/utils/types"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -52,7 +52,6 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { saveDraft, loadDraft, deleteDraft } from "@/utils/indexed-db"
-import { getLocations } from "@/services/location-service"
 import { getBoxById, sealBox } from "@/services/box-service"
 import { Label } from "@/components/ui/label"
 import { LocationPicker } from "../components/location-picker"
@@ -82,12 +81,6 @@ export const StockCheckDetailPage = () => {
   const dirtyRef = useRef(false)
   const initialItemsRef = useRef<StockCheckItem[]>([])
 
-  const { data: locations } = useQuery({
-    queryKey: ["locations"],
-    queryFn: () => getLocations(),
-    enabled: sealTarget != null,
-  })
-
   const { data: check, isLoading } = useQuery({
     queryKey: ["stock-check", id],
     queryFn: () => getStockCheckById(Number(id)),
@@ -109,18 +102,18 @@ export const StockCheckDetailPage = () => {
   }, [check, id])
 
   const checkedCount = localItems.filter((i) => i.actualStatus != null).length
-  const autoFillCount = localItems.filter((i) => i.actualStatus == null && i.trackingType === "SERIALIZED").length
-  const bulkMissingCount = localItems.filter((i) => i.actualStatus == null && i.trackingType === "BULK" && i.countedQuantity == null).length
+  const autoFillCount = localItems.filter((i) => i.actualStatus == null && i.trackingType === TRACKING_TYPE.SERIALIZED).length
+  const bulkMissingCount = localItems.filter((i) => i.actualStatus == null && i.trackingType === TRACKING_TYPE.BULK && i.countedQuantity == null).length
 
   const itemsWithDiff = useMemo(() =>
     localItems.map((i) => {
       if (i.actualStatus == null) return i
       if (i.difference != null) return i
-      if (i.trackingType !== "SERIALIZED") return i
-      if (i.expectedStatus === i.actualStatus) return { ...i, difference: "MATCH" as DifferenceType }
+      if (i.trackingType !== TRACKING_TYPE.SERIALIZED) return i
+      if (i.expectedStatus === i.actualStatus) return { ...i, difference: STOCK_CHECK_DIFF.MATCH }
       const lostLike: readonly string[] = [PRODUCT_UNIT_STATUS.LOST, PRODUCT_UNIT_STATUS.REMOVED, PRODUCT_UNIT_STATUS.DISPOSED]
-      if (lostLike.includes(i.actualStatus)) return { ...i, difference: "MISSING" as DifferenceType }
-      return { ...i, difference: "UNEXPECTED" as DifferenceType }
+      if (lostLike.includes(i.actualStatus)) return { ...i, difference: STOCK_CHECK_DIFF.MISSING }
+      return { ...i, difference: STOCK_CHECK_DIFF.UNEXPECTED }
     }), [localItems])
 
   const recordMut = useMutation({
@@ -223,7 +216,7 @@ export const StockCheckDetailPage = () => {
         if (status === PRODUCT_UNIT_STATUS.LOST) {
           return { ...i, actualStatus: status, countedQuantity: 0 }
         }
-        return { ...i, actualStatus: status, countedQuantity: i.trackingType === "SERIALIZED" ? 1 : i.countedQuantity }
+        return { ...i, actualStatus: status, countedQuantity: i.trackingType === TRACKING_TYPE.SERIALIZED ? 1 : i.countedQuantity }
       }),
     )
   }, [])
@@ -233,7 +226,7 @@ export const StockCheckDetailPage = () => {
     saveDraft(id, localItems)
     dirtyRef.current = false
     toast.success(t("stockCheckDetail.saveDraftSuccess"))
-  }, [id, localItems])
+  }, [id, localItems, t])
 
   const handleReset = useCallback(() => {
     setLocalItems(initialItemsRef.current.map((i) => ({ ...i })))
@@ -241,7 +234,7 @@ export const StockCheckDetailPage = () => {
     dirtyRef.current = false
     setResetDialog(false)
     toast.success(t("stockCheckDetail.resetSuccess"))
-  }, [id])
+  }, [id, t])
 
   const boxGroups = useMemo(() => {
     const groups = new Map<number, StockCheckItem[]>()
@@ -262,7 +255,7 @@ export const StockCheckDetailPage = () => {
 
   const confirmWholeBox = useCallback(async (boxId: number) => {
     dirtyRef.current = true
-    const bulkItems = localItems.filter((i) => i.boxId === boxId && i.trackingType === "BULK")
+    const bulkItems = localItems.filter((i) => i.boxId === boxId && i.trackingType === TRACKING_TYPE.BULK)
     let bulkQty: number | null = null
     if (bulkItems.length === 1) {
       const box = await getBoxById(boxId)
@@ -271,8 +264,8 @@ export const StockCheckDetailPage = () => {
     setLocalItems((prev) =>
       prev.map((i) => {
         if (i.boxId !== boxId || i.actualStatus != null) return i
-        if (i.trackingType === "BULK") return { ...i, actualStatus: i.expectedStatus ?? "IN_STOCK", countedQuantity: bulkQty }
-        return { ...i, actualStatus: i.expectedStatus ?? "IN_STOCK", countedQuantity: 1 }
+if (i.trackingType === TRACKING_TYPE.BULK) return { ...i, actualStatus: i.expectedStatus ?? PRODUCT_UNIT_STATUS.IN_STOCK, countedQuantity: bulkQty }
+  return { ...i, actualStatus: i.expectedStatus ?? PRODUCT_UNIT_STATUS.IN_STOCK, countedQuantity: 1 }
       }),
     )
   }, [localItems])
@@ -559,7 +552,7 @@ export const StockCheckDetailPage = () => {
             rowAction={
               canEdit
                 ? (item) =>
-                    item.trackingType === "SERIALIZED" && item.actualStatus != null && item.boxId == null ? (
+                    item.trackingType === TRACKING_TYPE.SERIALIZED && item.actualStatus != null && item.boxId == null ? (
                       <Button variant="outline" size="sm" className="text-xs" onClick={() => setSealTarget(item)}>
                         <Boxes className="size-3 mr-1" /> {t("stockCheckDetail.closeToBox")}
                       </Button>

@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, useCallback, useRef } from "react"
+import { useMemo, useState, useEffect, useRef } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useLocationMap } from "@/hooks/use-location-map"
 import type { LocationMapData } from "@/utils/types"

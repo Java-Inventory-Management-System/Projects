@@ -1,5 +1,6 @@
 import { t } from "i18next"
 import { createStockAdjustment } from "@/services/stock-adjustment-service"
+import { ADJUSTMENT_TYPE, STOCK_CHECK_DIFF } from "@/utils/types"
 
 export interface BatchItem {
   productUnitId: number
@@ -28,7 +29,7 @@ type Listener = () => void
 let running = false
 let progress: BatchProgress | null = null
 let results: BatchResultItem[] = []
-let listeners = new Set<Listener>()
+const listeners = new Set<Listener>()
 let reason = ""
 
 function notify() {
@@ -51,7 +52,7 @@ export const backgroundBatch = {
         progress = { current: i + 1, total: itemsCopy.length, serialNumber: item.serialNumber, productName: item.productName }
         notify()
         try {
-          const type = item.difference === "UNEXPECTED" ? "FOUND" : "LOST"
+          const type = item.difference === STOCK_CHECK_DIFF.UNEXPECTED ? ADJUSTMENT_TYPE.FOUND : ADJUSTMENT_TYPE.LOST
           await createStockAdjustment({ type, productUnitId: item.productUnitId, reason: reason || `Batch from stock check` })
           results.push({ index: i, serialNumber: item.serialNumber, productName: item.productName, success: true })
         } catch (err) {

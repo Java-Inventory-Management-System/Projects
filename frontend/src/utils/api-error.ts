@@ -197,7 +197,7 @@ const MESSAGES: Record<string, string> = {
 }
 
 export function toApiError(raw: unknown): ApiError {
-  const data = (raw as any)?.response?.data
+  const data = (raw as { response?: { data?: ApiError } })?.response?.data
   const code: string = data?.code ?? FALLBACK_CODE
   const i18nKey = `errors.${code}`
   const message = i18n.exists(i18nKey, { lng: i18n.language })

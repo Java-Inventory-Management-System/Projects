@@ -4,10 +4,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createImportReceipt, confirmImportReceipt, getImportReceiptById } from "@/services/import-service"
 import { getExportReceipts, getExportUnits, type ExportUnit } from "@/services/export-service"
 import { usePurchaseOrders, usePurchaseOrderById } from "@/hooks/use-purchase-orders"
-import { useProducts } from "@/hooks/use-products"
 import { useLocationMap } from "@/hooks/use-location-map"
-import { useCategoryZones } from "@/hooks/use-category-zones"
-import { type DiscrepancyNote, type QcRecord } from "@/utils/types"
+import { type DiscrepancyNote } from "@/utils/types"
+import { EXPORT_RECEIPT_STATUS, EXPORT_REASON } from "@/utils/types"
 import { toast } from "@/utils/toast"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -24,6 +23,7 @@ import { itemReducer } from "../reducers/import-create-reducer"
 import { Label } from "@/components/ui/label"
 
 const WARRANTY_RESULT_TYPES = ["REPAIRED", "REJECTED", "REPLACED"]
+const ZONE_ORDER = ["A", "B", "C", "D", "E"]
 
 const steps = (t: (k: string) => string) => [
   { num: 1, label: t("importCreate.stepSelectOrder") },
@@ -73,7 +73,6 @@ export const ImportCreatePage = () => {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [searchParams] = useSearchParams()
-  const ZONE_ORDER = ["A", "B", "C", "D", "E"]
 
   const resumeId = searchParams.get("id")
   const isResume = !!resumeId
@@ -96,13 +95,10 @@ export const ImportCreatePage = () => {
   const [qcBlocked, setQcBlocked] = useState(false)
   const [note, setNote] = useState("")
   const [discrepancyNotes, setDiscrepancyNotes] = useState<DiscrepancyNote[]>([])
-  const [qcRecords, setQcRecords] = useState<QcRecord[]>([])
 
   const { data: poListRes } = usePurchaseOrders(0, 999, "createdAt,desc")
   const { data: po } = usePurchaseOrderById(Number(selectedPoId))
-  const { data: productsRes } = useProducts(0, 100)
   const { data: locationMap } = useLocationMap()
-  const { data: categoryZones } = useCategoryZones()
   const { data: exportListRes } = useQuery({
     queryKey: ["export-receipts"],
     queryFn: () => getExportReceipts(0, 999),
@@ -113,14 +109,12 @@ export const ImportCreatePage = () => {
     enabled: !!selectedWarrantyExportId,
   })
 
-  const products = useMemo(() => productsRes?.content ?? [], [productsRes])
-
   const specialExports = useMemo(
     () =>
       (exportListRes?.content ?? []).filter(
         (e) =>
-          (e.reason === "WARRANTY_REPLACEMENT" || e.reason === "RETURN_SUPPLIER") &&
-          e.status === "COMPLETED",
+          (e.reason === EXPORT_REASON.WARRANTY_REPLACEMENT || e.reason === EXPORT_REASON.RETURN_SUPPLIER) &&
+          e.status === EXPORT_RECEIPT_STATUS.COMPLETED,
       ),
     [exportListRes],
   )
@@ -128,7 +122,7 @@ export const ImportCreatePage = () => {
     () => specialExports.find((e) => e.id === selectedWarrantyExportId) ?? null,
     [specialExports, selectedWarrantyExportId],
   )
-  const isSupplierReturnExport = selectedWarrantyExport?.reason === "RETURN_SUPPLIER"
+  const isSupplierReturnExport = selectedWarrantyExport?.reason === EXPORT_REASON.RETURN_SUPPLIER
   const warrantyGroups = useMemo(() => {
     const groups = new Map<number, ExportUnit[]>()
     for (const u of warrantyUnits ?? []) {
@@ -177,14 +171,6 @@ export const ImportCreatePage = () => {
     setNote(receipt.note ?? "")
   }, [receipt])
 
-  const productCategoryMap = useMemo(() => {
-    const map: Record<number, number | null> = {}
-    for (const p of products) {
-      map[p.id] = p.categoryId
-    }
-    return map
-  }, [products])
-
   useEffect(() => {
     if (locationMap === undefined || items.length === 0) return
     const binOccupancy = new Map(
@@ -207,32 +193,6 @@ export const ImportCreatePage = () => {
       }
     }
   }, [locationMap, items])
-
-  const suggestedLocations = useMemo(() => {
-    const map: Record<number, number> = {}
-    if (!locationMap) return map
-    const catZones = categoryZones ?? {}
-    for (const item of items) {
-      const catId = item.categoryId ?? productCategoryMap[item.productId]
-      const preferredZone = catId ? catZones[catId] : undefined
-      const zonesToTry = preferredZone && ZONE_ORDER.includes(preferredZone)
-        ? [preferredZone, ...ZONE_ORDER.filter((z) => z !== preferredZone)]
-        : ZONE_ORDER
-      for (const zoneCode of zonesToTry) {
-        const zone = locationMap.zones.find((z) => z.zoneCode === zoneCode)
-        if (!zone) continue
-        const bins = zone.shelves
-          .flatMap((s) => s.bins)
-          .filter((b) => b.maxCapacity == null || b.productCount < b.maxCapacity)
-          .sort((a, b) => a.fullCode.localeCompare(b.fullCode))
-        if (bins.length > 0) {
-          map[item.tempId] = bins[0].id
-          break
-        }
-      }
-    }
-    return map
-  }, [items, productCategoryMap, categoryZones, locationMap])
 
   const createMut = useMutation({
     mutationFn: createImportReceipt,
@@ -418,7 +378,7 @@ export const ImportCreatePage = () => {
                           <span className="flex items-center gap-2">
                             <span className="font-medium">{e.receiptCode}</span>
                             <span className="text-[10px] uppercase text-muted-foreground">
-                              {e.reason === "RETURN_SUPPLIER"
+                              {e.reason === EXPORT_REASON.RETURN_SUPPLIER
                                 ? t("importWarranty.badgeReturnSupplier")
                                 : t("importWarranty.badgeWarranty")}
                             </span>
@@ -735,7 +695,6 @@ export const ImportCreatePage = () => {
               dispatch={dispatch}
               discrepancyNotes={discrepancyNotes}
               onDiscrepancyNotesChange={setDiscrepancyNotes}
-              suggestedLocations={suggestedLocations}
             />
           )}
         </>
@@ -748,7 +707,6 @@ export const ImportCreatePage = () => {
           note={note}
           setNote={setNote}
           onQcStatus={(status) => setQcBlocked(status.hasRecords && !status.done)}
-          onQcRecordsChange={setQcRecords}
         />
       )}
 

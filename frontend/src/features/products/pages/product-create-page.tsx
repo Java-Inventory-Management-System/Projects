@@ -15,7 +15,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "@/utils/toast"
 import { PRODUCT_UNIT_TYPE, TRACKING_TYPE } from "@/utils/types"
-import { UNIT_LABELS } from "@/components/tracking-type-badge"
+import { UNIT_LABELS } from "@/utils/labels"
 
 const UNITS = [
   PRODUCT_UNIT_TYPE.PIECE,

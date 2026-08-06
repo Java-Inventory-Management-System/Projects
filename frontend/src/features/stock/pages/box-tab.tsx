@@ -7,7 +7,7 @@ import { useLocationMap } from "@/hooks/use-location-map"
 import { PrintReceiptButton } from "../components/print-receipt"
 import { LocationPicker } from "../components/location-picker"
 import { LocationCodePopover } from "../components/location-code-popover"
-import { BOX_STATUS, type Box } from "@/utils/types"
+import { BOX_STATUS, TRACKING_TYPE, type Box } from "@/utils/types"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
@@ -40,7 +40,7 @@ export const BoxTab = () => {
     mutationFn: async (boxId: number) => {
       const detail = await getBoxById(boxId)
       const actual = (detail.units ?? []).reduce(
-        (sum, u) => sum + (u.trackingType === "BULK" ? u.quantity ?? 0 : 1),
+        (sum, u) => sum + (u.trackingType === TRACKING_TYPE.BULK ? u.quantity ?? 0 : 1),
         0,
       )
       const res = await unsealBox(boxId)

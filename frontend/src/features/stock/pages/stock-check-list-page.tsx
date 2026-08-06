@@ -10,6 +10,7 @@ import { Plus, Eye } from "lucide-react"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 import { DataTable, type Column } from "@/components/ui/data-table"
 import type { StockCheck } from "@/utils/types"
+import { STOCK_CHECK_STATUS } from "@/utils/types"
 
 export const StockCheckListPage = () => {
   const { t } = useTranslation()
@@ -32,11 +33,11 @@ export const StockCheckListPage = () => {
 
   const statusOptions = [
     { value: "all", label: t("common.all") },
-    { value: "PENDING", label: t("stockCheckList.pending") },
-    { value: "IN_PROGRESS", label: t("stockCheckList.inProgress") },
-    { value: "COMPLETED", label: t("stockCheckList.completed") },
-    { value: "APPROVED", label: t("stockCheckList.approved") },
-    { value: "CANCELLED", label: t("stockCheckList.cancelled") },
+    { value: STOCK_CHECK_STATUS.PENDING, label: t("stockCheckList.pending") },
+    { value: STOCK_CHECK_STATUS.IN_PROGRESS, label: t("stockCheckList.inProgress") },
+    { value: STOCK_CHECK_STATUS.COMPLETED, label: t("stockCheckList.completed") },
+    { value: STOCK_CHECK_STATUS.APPROVED, label: t("stockCheckList.approved") },
+    { value: STOCK_CHECK_STATUS.CANCELLED, label: t("stockCheckList.cancelled") },
   ]
 
   const handleSort = useCallback((key: string) => {

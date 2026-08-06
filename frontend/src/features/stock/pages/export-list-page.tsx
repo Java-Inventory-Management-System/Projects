@@ -10,23 +10,13 @@ import { Badge } from "@/components/ui/badge"
 import type { Column } from "@/components/ui/data-table"
 import { ROLES } from "@/utils/permissions"
 import { EXPORT_RECEIPT_STATUS, type ExportReceipt } from "@/utils/types"
+import { useExportStatusLabel, useExportReasonLabel } from "@/utils/labels"
 
 export function ExportListPage() {
   const { t } = useTranslation()
   const perm = usePermission()
-  const statusLabel: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
-    PENDING: { label: t("exportStatus.pending"), variant: "outline" },
-    APPROVED: { label: t("exportStatus.approved"), variant: "secondary" },
-    COMPLETED: { label: t("exportStatus.completed"), variant: "default" },
-    CANCELLED: { label: t("exportStatus.cancelled"), variant: "destructive" },
-  }
-  const reasonLabel: Record<string, string> = {
-    SALE: t("exportReason.sale"),
-    INTERNAL: t("exportReason.internal"),
-    RETURN_SUPPLIER: t("exportReason.returnSupplier"),
-    DISPOSE: t("exportReason.dispose"),
-    WARRANTY_REPLACEMENT: t("exportReason.warrantyReplacement"),
-  }
+  const statusLabel = useExportStatusLabel()
+  const reasonLabel = useExportReasonLabel()
   const columns: Column<ExportReceipt>[] = useMemo(() => [
     {
       header: t("exportList.receiptCode"),

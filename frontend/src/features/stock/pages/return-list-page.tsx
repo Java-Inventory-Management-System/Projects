@@ -23,7 +23,6 @@ export const ReturnListPage = () => {
   const page = Number(searchParams.get("page") ?? "0")
   const [pageSize, setPageSize] = useState(10)
   const [sort, setSort] = useState<{ key: string; dir: "asc" | "desc" } | undefined>(undefined)
-  const sortStr = sort ? `${sort.key},${sort.dir}` : undefined
 
   const [statusFilter, setStatusFilter] = useState<string | undefined>(undefined)
   const [reasonFilter, setReasonFilter] = useState<string | undefined>(undefined)

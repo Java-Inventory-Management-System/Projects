@@ -29,7 +29,7 @@ import { ArrowLeft, Search, Info, ScanLine, CheckCircle2, XCircle, Plus, List } 
 import { Empty, EmptyTitle } from "@/components/ui/empty"
 import { toast } from "@/utils/toast"
 import { mapResponsePage, mapProductUnit } from "@/utils/mappers"
-import { ADJUSTMENT_TYPE, STOCK_CHECK_DIFF, type ProductUnit } from "@/utils/types"
+import { ADJUSTMENT_STATUS, ADJUSTMENT_TYPE, PRODUCT_UNIT_STATUS, STOCK_CHECK_DIFF, type ProductUnit } from "@/utils/types"
 import { backgroundBatch } from "@/utils/background-batch"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
@@ -289,7 +289,7 @@ export const StockAdjustmentCreatePage = () => {
       setScanInput("")
       toast.success(t("stockAdjCreate.selected", { product: match.productName }))
     }
-  }, [unitsData, form])
+  }, [unitsData, form, t])
 
   const displayUnitSearch = watchedType === ADJUSTMENT_TYPE.DAMAGED
     || watchedType === ADJUSTMENT_TYPE.LOST
@@ -486,7 +486,7 @@ export const StockAdjustmentCreatePage = () => {
                               <span className="text-xs text-muted-foreground ml-1">{u.productSku}</span>
                             </td>
                             <td className="px-2 py-1">
-                              <Badge variant={u.status === "IN_STOCK" ? "default" : "secondary"} className="text-[10px]">
+                              <Badge variant={u.status === PRODUCT_UNIT_STATUS.IN_STOCK ? "default" : "secondary"} className="text-[10px]">
                                 {u.status}
                               </Badge>
                             </td>
@@ -503,11 +503,11 @@ export const StockAdjustmentCreatePage = () => {
                     <p className="font-medium text-amber-800 dark:text-amber-300">{t("stockAdjCreate.unitHistory")}</p>
                     {unitAdjustments.content.slice(0, 3).map((a) => (
                       <p key={a.id} className="text-amber-700 dark:text-amber-400">
-                        {a.type === "DAMAGED" ? t("adjustmentType.damaged") : a.type === "LOST" ? t("adjustmentType.lost") : t("adjustmentType.found")} — {a.status === "PENDING" ? t("status.pendingApproval") : a.status === "APPROVED" ? t("status.approved") : t("status.rejected")}
+                        {a.type === ADJUSTMENT_TYPE.DAMAGED ? t("adjustmentType.damaged") : a.type === ADJUSTMENT_TYPE.LOST ? t("adjustmentType.lost") : t("adjustmentType.found")} — {a.status === ADJUSTMENT_STATUS.PENDING ? t("status.pendingApproval") : a.status === ADJUSTMENT_STATUS.APPROVED ? t("status.approved") : t("status.rejected")}
                         {" · "}{new Date(a.createdAt).toLocaleDateString("vi-VN")}
                       </p>
                     ))}
-                    {unitAdjustments.content.some((a) => a.status === "PENDING") && (
+                    {unitAdjustments.content.some((a) => a.status === ADJUSTMENT_STATUS.PENDING) && (
                       <p className="text-amber-800 font-medium mt-1">⚠ {t("stockAdjCreate.pendingWarning")}</p>
                     )}
                   </div>

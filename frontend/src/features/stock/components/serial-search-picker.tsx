@@ -56,7 +56,7 @@ export const SerialSearchPicker = ({
       setLookupKey(0)
       setLookupSerial("")
     }
-  }, [value])
+  }, [value, lookupKey])
 
   const { data: lookup, isFetching, isError } = useQuery({
     queryKey: ["serial-search-picker", lookupKey, lookupSerial],

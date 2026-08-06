@@ -444,6 +444,13 @@ export const BOX_STATUS = {
   UNSEALED: "UNSEALED",
 } as const
 
+export type BoxType = "SMALL" | "MEDIUM" | "LARGE"
+
+// ponytail: FE hiển thị N theo loại hộp — backend là nguồn sự thật (app.box.max-units)
+export const BOX_TYPE_MAX: Record<BoxType, number> = { SMALL: 20, MEDIUM: 50, LARGE: 100 }
+
+export const BOX_TYPES: BoxType[] = ["SMALL", "MEDIUM", "LARGE"]
+
 export interface BoxUnit {
   productUnitId: number
   serialNumber: string | null
@@ -453,8 +460,6 @@ export interface BoxUnit {
   trackingType: "SERIALIZED" | "BULK" | null
   quantity: number
 }
-
-export type BoxType = "SMALL" | "MEDIUM" | "LARGE"
 
 export interface BoxableImport {
   receiptId: number

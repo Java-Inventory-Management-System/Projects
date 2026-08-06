@@ -106,10 +106,9 @@ interface Props {
   dispatch: React.Dispatch<ItemAction>
   discrepancyNotes: DiscrepancyNote[]
   onDiscrepancyNotesChange: (notes: DiscrepancyNote[]) => void
-  suggestedLocations?: Record<number, number>
 }
 
-export function ImportStepSerials({ items, dispatch, discrepancyNotes, onDiscrepancyNotesChange, suggestedLocations }: Props) {
+export function ImportStepSerials({ items, dispatch, discrepancyNotes, onDiscrepancyNotesChange }: Props) {
   const { t } = useTranslation()
   const [serialModalOpen, setSerialModalOpen] = useState(false)
   const [activeItemId, setActiveItemId] = useState<number | null>(null)
@@ -267,7 +266,6 @@ export function ImportStepSerials({ items, dispatch, discrepancyNotes, onDiscrep
                           onSelect={(locId) =>
                             dispatch({ type: "UPDATE_ITEM", tempId: item.tempId, field: "locationId", value: locId })
                           }
-                          suggestedLocationId={suggestedLocations?.[item.tempId]}
                         />
                       </TableCell>
                       <TableCell className="text-center">

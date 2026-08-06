@@ -8,16 +8,12 @@ import { ReceiptListPage } from "../components/receipt-list-page"
 import { Badge } from "@/components/ui/badge"
 import type { Column } from "@/components/ui/data-table"
 import { IMPORT_RECEIPT_STATUS, type ImportReceipt } from "@/utils/types"
+import { useImportStatusLabel } from "@/utils/labels"
 
 export function ImportListPage() {
   const { t } = useTranslation()
   const navigate = useNavigate()
-  const statusLabel: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
-    DRAFT: { label: t("importStatus.draft"), variant: "secondary" },
-    PENDING_APPROVAL: { label: t("importStatus.pendingApproval"), variant: "outline" },
-    COMPLETED: { label: t("importStatus.completed"), variant: "default" },
-    CANCELLED: { label: t("importStatus.cancelled"), variant: "destructive" },
-  }
+  const statusLabel = useImportStatusLabel()
   const columns = useMemo<Column<ImportReceipt>[]>(() => [
     {
       header: t("table.checkCode"),
@@ -51,7 +47,7 @@ export function ImportListPage() {
       ),
     },
     { header: t("table.approver"), render: (r) => <span className="text-muted-foreground">{r.approvedByName ?? "—"}</span> },
-  ], [navigate, t])
+  ], [navigate, t, statusLabel])
   return (
     <ReceiptListPage<ImportReceipt>
       title={t("importList.title")}

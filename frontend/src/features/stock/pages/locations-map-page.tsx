@@ -27,6 +27,7 @@ import {
 import type { FilterMode } from "@/features/stock/utils/location-map-utils"
 import { LEVELS, FILTERS, binColor } from "@/features/stock/utils/location-map-utils"
 import type { LocationMapBinProduct } from "@/utils/types"
+import { TRACKING_TYPE } from "@/utils/types"
 import { TrackingTypeBadge } from "@/components/tracking-type-badge"
 import { useLocationMapPage } from "@/features/stock/hooks/use-location-map-page"
 import { toast } from "@/utils/toast"
@@ -122,7 +123,7 @@ export function LocationsMapPage() {
           <span className="flex items-center gap-1.5 shrink-0">
             <TrackingTypeBadge type={p.trackingType} />
             <span className="rounded bg-primary/10 px-1.5 py-0.5 font-medium tabular-nums text-primary">
-              {p.trackingType === "BULK"
+{p.trackingType === TRACKING_TYPE.BULK
                 ? t("locMap.bulkUnits", { count: p.quantity })
                 : String(p.quantity)}
             </span>
@@ -130,7 +131,7 @@ export function LocationsMapPage() {
         </button>
         {expanded && (
           <ul className="mt-0.5 ml-5 space-y-0.5">
-            {p.trackingType === "BULK" ? (
+            {p.trackingType === TRACKING_TYPE.BULK ? (
               <li className="text-xs text-muted-foreground">{t("locMap.bulkNoSerials")}</li>
             ) : (
               p.serials.map((s) => (

@@ -44,7 +44,7 @@ import {
 import { Card, CardContent } from "@/components/ui/card"
 import { toast } from "@/utils/toast"
 import { PRODUCT_UNIT_TYPE, TRACKING_TYPE } from "@/utils/types"
-import { UNIT_LABELS } from "@/components/tracking-type-badge"
+import { UNIT_LABELS } from "@/utils/labels"
 
 const UNITS = [
   PRODUCT_UNIT_TYPE.PIECE,
@@ -110,7 +110,7 @@ export function ProductEditPage() {
         setImages(imgs)
       })
       .finally(() => setLoading(false))
-  }, [id])
+  }, [id, productId, reset])
 
   const save = useMutation({
     mutationFn: (values: FormData) => {

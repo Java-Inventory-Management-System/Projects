@@ -21,7 +21,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog"
-import { ArrowLeft, Plus, Search, X, Sparkles } from "lucide-react"
+import { ArrowLeft, Search, X, Sparkles } from "lucide-react"
 import { cn } from "@/utils/cn"
 import { toast } from "@/utils/toast"
 import {
@@ -29,6 +29,7 @@ import {
   RETURN_REASON,
   RETURN_ITEM_CONDITION,
   RETURN_RESULTING_ACTION,
+  TRACKING_TYPE,
 } from "@/utils/types"
 
 interface ReturnFormItem {
@@ -184,13 +185,13 @@ export const ReturnCreatePage = () => {
         productName: exportItem.productName ?? "",
         productSku: exportItem.productSku ?? "",
         serialNumber: "",
-        trackingType: "BULK",
+        trackingType: TRACKING_TYPE.BULK,
         quantity: qty,
         ...config,
       })
     }
 
-    for (const [exportItemIdStr, units] of Object.entries(itemSerialMap)) {
+    for (const units of Object.values(itemSerialMap)) {
       for (const unit of units) {
         const key = `ser:${unit.id}`
         const config = itemConfigMap[key] ?? DEFAULT_ITEM_CONFIG
@@ -201,7 +202,7 @@ export const ReturnCreatePage = () => {
           productName: unit.productName,
           productSku: unit.productSku,
           serialNumber: unit.serialNumber,
-          trackingType: "SERIALIZED",
+          trackingType: TRACKING_TYPE.SERIALIZED,
           quantity: 1,
           ...config,
         })
@@ -378,7 +379,7 @@ export const ReturnCreatePage = () => {
   const onSubmit = form.handleSubmit((values) => {
     if (!selectedCustomerId || !selectedExportId || returnItems.length === 0) return
     const missingSerial = returnItems.find(
-      (i) => i.trackingType === "SERIALIZED" && (!i.productUnitId || i.productUnitId <= 0),
+      (i) => i.trackingType === TRACKING_TYPE.SERIALIZED && (!i.productUnitId || i.productUnitId <= 0),
     )
     if (missingSerial) {
       toast.error(t("returnCreate.missingSerial", { name: missingSerial.productName }))
@@ -547,7 +548,7 @@ export const ReturnCreatePage = () => {
             <div className="rounded-lg border divide-y text-xs max-h-64 overflow-y-auto">
               {filteredExportItems.length > 0 ? (
                 filteredExportItems.map((item) => {
-                  const isSerialized = item.trackingType === "SERIALIZED"
+                  const isSerialized = item.trackingType === TRACKING_TYPE.SERIALIZED
                   const serialCount = itemSerialMap[item.id]?.length ?? 0
                   return (
                     <div key={item.id}>
@@ -564,7 +565,7 @@ export const ReturnCreatePage = () => {
                             ? "text-blue-600 bg-blue-50 dark:text-blue-400 dark:bg-blue-950/30"
                             : "text-amber-600 bg-amber-50 dark:text-amber-400 dark:bg-amber-950/30",
                         )}>
-                          {isSerialized ? "SERIALIZED" : "BULK"}
+                          {isSerialized ? t("trackingType.serialized") : t("trackingType.bulk")}
                         </span>
                         <span className="text-muted-foreground shrink-0">{t("returnCreate.purchased")}: {item.quantity}</span>
                         {isSerialized ? (

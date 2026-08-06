@@ -1,4 +1,4 @@
-import { PRODUCT_UNIT_STATUS, type ProductUnit } from "@/utils/types"
+import { PRODUCT_UNIT_STATUS, TRACKING_TYPE, type ProductUnit } from "@/utils/types"
 import { useTranslation } from "react-i18next"
 import { Badge } from "@/components/ui/badge"
 import { TrackingTypeBadge } from "@/components/tracking-type-badge"
@@ -24,8 +24,8 @@ export const ViewProductUnitModal = ({
   open: boolean
   onOpenChange: (v: boolean) => void
 }) => {
-  if (!unit) return null
   const { t } = useTranslation()
+  if (!unit) return null
   const statusLabel: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
     [PRODUCT_UNIT_STATUS.IN_STOCK]: { label: t("unitStatus.inStock"), variant: "default" },
     [PRODUCT_UNIT_STATUS.SOLD]: { label: t("unitStatus.sold"), variant: "secondary" },
@@ -73,7 +73,7 @@ export const ViewProductUnitModal = ({
             <span className="text-muted-foreground">{t("viewProductUnitModal.importDate")}</span>
             <p className="font-medium">{fmtFull(unit.importedAt)}</p>
           </div>
-          {unit.trackingType === "BULK" && (
+          {unit.trackingType === TRACKING_TYPE.BULK && (
             <div>
               <span className="text-muted-foreground">{t("viewProductUnitModal.quantity")}</span>
               <p className="font-medium">

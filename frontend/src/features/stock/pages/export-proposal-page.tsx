@@ -97,7 +97,7 @@ export const ExportProposalPage = () => {
   }
 
   const { data: waitingRmaUnits } = useQuery({
-    queryKey: ["qc-processing", "WAITING_RMA_EXPORT"],
+    queryKey: ["qc-processing", PRODUCT_UNIT_STATUS.WAITING_RMA_EXPORT],
     queryFn: () => getQcUnits([PRODUCT_UNIT_STATUS.WAITING_RMA_EXPORT]),
   })
   const warrantyAvailMap = useMemo(() => {

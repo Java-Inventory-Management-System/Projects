@@ -104,7 +104,20 @@ const StatCard = ({
   </Card>
 )
 
-const CustomTreemapContent = (props: any) => {
+interface TreemapContentProps {
+  x?: number
+  y?: number
+  width?: number
+  height?: number
+  name?: string
+  value?: number
+  colors?: string[]
+  index?: number
+  depth?: number
+  [key: string]: unknown
+}
+
+const CustomTreemapContent = (props: TreemapContentProps) => {
   const { x, y, width, height, name, value, colors, index } = props
   if (width < 20 || height < 20) return null
   const fontSize = width < 80 ? 9 : width < 140 ? 10 : 11
@@ -137,7 +150,7 @@ export function SummaryTab({ onNavigate }: SummaryTabProps) {
   const { data: stockValue } = useStockValue()
 
   const handleTreemapClick = useCallback(
-    (node: any) => {
+    (node: TreemapContentProps) => {
       if (node?.depth >= 0) onNavigate?.("category")
     },
     [onNavigate],

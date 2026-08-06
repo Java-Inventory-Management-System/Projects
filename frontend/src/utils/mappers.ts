@@ -29,6 +29,7 @@ import type {
   ReturnReceipt,
   ReturnReceiptItem,
 } from "@/utils/types"
+import { TRACKING_TYPE } from "@/utils/types"
 
 export function mapResponsePage<T>(raw: unknown, mapItem: (item: unknown) => T): ResponsePage<T> {
   const body = raw as {
@@ -124,7 +125,7 @@ export function mapProduct(raw: unknown): ProductResponse {
     brandName: r.brandName ?? null,
     categoryId: r.categoryId ?? null,
     categoryName: r.categoryName ?? null,
-    trackingType: r.trackingType ?? "BULK",
+    trackingType: r.trackingType ?? TRACKING_TYPE.BULK,
     minStock: r.minStock ?? 0,
     isActive: r.isActive ?? true,
     supplierIds: r.supplierIds ?? [],

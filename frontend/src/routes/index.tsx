@@ -79,8 +79,8 @@ const SealBoxPage = lazyPage(() => import("@/features/stock/pages/seal-box-page"
 const UsersPage = lazyPage(() => import("@/features/admin/pages/users-page"), "UsersPage")
 const AuditPage = lazyPage(() => import("@/features/admin/pages/audit-page"), "AuditPage")
 function PageGuard({ roles, children }: { roles?: URole[]; children: ReactNode }) {
-  if (!AUTH_ENABLED) return <>{children}</>
   const user = useAuthStore((s) => s.user)
+  if (!AUTH_ENABLED) return <>{children}</>
   if (!user) return <Navigate to="/login" replace />
   if (roles && !roles.includes(user.role as URole)) return <Navigate to="/403" replace />
   return <>{children}</>
@@ -92,8 +92,8 @@ function RedirectTo({ to }: { to: string }) {
 }
 
 function RootRedirect() {
-  if (!AUTH_ENABLED) return <DashboardPage />
   const user = useAuthStore((s) => s.user)
+  if (!AUTH_ENABLED) return <DashboardPage />
   if (user?.role === "STOCK") return <Navigate to="/stock/imports" replace />
   if (user?.role === "SALES") return <Navigate to="/stock/exports" replace />
   return <DashboardPage />

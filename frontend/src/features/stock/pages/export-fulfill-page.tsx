@@ -23,7 +23,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog"
 import { toast } from "@/utils/toast"
-import { EXPORT_RECEIPT_STATUS, EXPORT_REASON, PRODUCT_UNIT_STATUS, type ProductUnit } from "@/utils/types"
+import { EXPORT_RECEIPT_STATUS, EXPORT_REASON, PRODUCT_UNIT_STATUS, TRACKING_TYPE, type ProductUnit } from "@/utils/types"
 import { formatDateVN, formatDateTime } from "@/utils/format"
 import { useBarcodeScanner } from "@/hooks/use-barcode-scanner"
 import { ScanLine } from "lucide-react"
@@ -74,7 +74,7 @@ export function ExportFulfillPage() {
     enabled: !!id,
   })
 
-  const isSerialized = (item: { trackingType?: string }) => item.trackingType === "SERIALIZED"
+  const isSerialized = (item: { trackingType?: string }) => item.trackingType === TRACKING_TYPE.SERIALIZED
 
   const itemsWithTracking = useMemo(() => {
     if (!receipt) return []

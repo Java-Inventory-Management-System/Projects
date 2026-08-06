@@ -11,10 +11,9 @@ import { MapPin } from "lucide-react"
 interface LocationPickerProps {
   value: string
   onSelect: (locationId: string) => void
-  suggestedLocationId?: number | null
 }
 
-export function LocationPicker({ value, onSelect, suggestedLocationId }: LocationPickerProps) {
+export function LocationPicker({ value, onSelect }: LocationPickerProps) {
   const { t } = useTranslation()
   const { data, isLoading } = useLocationMap()
 

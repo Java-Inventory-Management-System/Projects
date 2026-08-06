@@ -5,7 +5,6 @@ import { cn } from "@/utils/cn"
 import { useAuthStore } from "@/store/auth-store"
 import { AUTH_ENABLED } from "@/utils/http-client"
 import { filterNavItems, navSections } from "@/utils/navigation"
-import { ROLES } from "@/utils/permissions"
 import { getImportReceipts } from "@/services/import-service"
 import { getExportReceipts } from "@/services/export-service"
 import { IMPORT_RECEIPT_STATUS, EXPORT_RECEIPT_STATUS } from "@/utils/types"
@@ -19,12 +18,6 @@ interface SidebarProps {
 export function Sidebar({ collapsed, onNavigate }: SidebarProps) {
   const { t } = useTranslation()
   const user = useAuthStore((s) => s.user)
-  const userRole = useAuthStore((s) => s.user?.role)
-  if (!user && AUTH_ENABLED) return null
-
-  const visibleSections = !AUTH_ENABLED
-    ? navSections
-    : navSections.map((s) => ({ ...s, items: filterNavItems(s.items, user.role) })).filter((s) => s.items.length > 0)
 
   const { data: importPending } = useQuery({
     queryKey: ["import-pending-count"],
@@ -32,7 +25,7 @@ export function Sidebar({ collapsed, onNavigate }: SidebarProps) {
       const r = await getImportReceipts(0, 1, undefined, IMPORT_RECEIPT_STATUS.PENDING_APPROVAL)
       return r.pagination.totalElements
     },
-    enabled: true,
+    enabled: !AUTH_ENABLED || !!user,
     staleTime: 60_000,
   })
 
@@ -42,8 +35,15 @@ export function Sidebar({ collapsed, onNavigate }: SidebarProps) {
       const r = await getExportReceipts(0, 1, undefined, EXPORT_RECEIPT_STATUS.PENDING)
       return r.pagination.totalElements
     },
+    enabled: !AUTH_ENABLED || !!user,
     staleTime: 60_000,
   })
+
+  const visibleSections = AUTH_ENABLED && !user
+    ? []
+    : !AUTH_ENABLED
+      ? navSections
+      : navSections.map((s) => ({ ...s, items: filterNavItems(s.items, user.role) })).filter((s) => s.items.length > 0)
 
   const badgeCount: Record<string, number> = {}
   if (importPending && importPending > 0) badgeCount["/stock/imports"] = importPending

@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next"
 import type { ImportReceipt } from "@/utils/types"
+import { IMPORT_RECEIPT_STATUS } from "@/utils/types"
 import { useNavigate } from "react-router-dom"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -9,10 +10,10 @@ import { ScanLine, Eye } from "lucide-react"
 
 const getStatusLabel = (status: string, t: (k: string) => string): { label: string; variant: "default" | "secondary" | "outline" | "destructive" } => {
   const keyMap: Record<string, string> = {
-    DRAFT: "draft", PENDING_APPROVAL: "pendingApproval", COMPLETED: "completed", CANCELLED: "cancelled",
+    [IMPORT_RECEIPT_STATUS.DRAFT]: "draft", [IMPORT_RECEIPT_STATUS.PENDING_APPROVAL]: "pendingApproval", [IMPORT_RECEIPT_STATUS.COMPLETED]: "completed", [IMPORT_RECEIPT_STATUS.CANCELLED]: "cancelled",
   }
   const variantMap: Record<string, "secondary" | "outline" | "default" | "destructive"> = {
-    DRAFT: "secondary", PENDING_APPROVAL: "outline", COMPLETED: "default", CANCELLED: "destructive",
+    [IMPORT_RECEIPT_STATUS.DRAFT]: "secondary", [IMPORT_RECEIPT_STATUS.PENDING_APPROVAL]: "outline", [IMPORT_RECEIPT_STATUS.COMPLETED]: "default", [IMPORT_RECEIPT_STATUS.CANCELLED]: "destructive",
   }
   return { label: t(`importStatus.${keyMap[status] ?? status}`, status), variant: variantMap[status] ?? "secondary" }
 }
@@ -118,7 +119,7 @@ export const ViewImportModal = ({
           <Button variant="outline" onClick={() => { onOpenChange(false); navigate(`/stock/imports/${receipt.id}`) }}>
             <Eye className="size-4 mr-1" /> {t("viewImportModal.viewDetail")}
           </Button>
-          {receipt.status === "DRAFT" && (
+          {receipt.status === IMPORT_RECEIPT_STATUS.DRAFT && (
             <Button onClick={() => { onOpenChange(false); navigate(`/stock/imports/new?id=${receipt.id}`) }}>
               <ScanLine className="size-4 mr-1" /> {t("viewImportModal.enterSerials")}
             </Button>

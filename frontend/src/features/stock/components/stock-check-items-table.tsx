@@ -1,6 +1,6 @@
 import { useRef } from "react"
 import { useTranslation } from "react-i18next"
-import { PRODUCT_UNIT_STATUS, STOCK_CHECK_DIFF, type StockCheckItem } from "@/utils/types"
+import { PRODUCT_UNIT_STATUS, STOCK_CHECK_DIFF, TRACKING_TYPE, type StockCheckItem } from "@/utils/types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -73,7 +73,7 @@ export function StockCheckItemsTable({
     )
   })
 
-  const hasBulk = filtered.some((i) => i.trackingType === "BULK")
+  const hasBulk = filtered.some((i) => i.trackingType === TRACKING_TYPE.BULK)
 
   return (
     <div className="space-y-4">
@@ -161,7 +161,7 @@ export function StockCheckItemsTable({
                         : diff === STOCK_CHECK_DIFF.MATCH
                           ? "text-muted-foreground"
                           : ""
-                const isSerialized = item.trackingType === "SERIALIZED"
+                const isSerialized = item.trackingType === TRACKING_TYPE.SERIALIZED
                 return (
                   <TableRow key={item.id} className={rowClass}>
                     <TableCell className="font-mono text-xs">{item.serialNumber}</TableCell>

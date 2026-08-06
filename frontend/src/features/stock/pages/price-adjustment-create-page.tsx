@@ -113,7 +113,7 @@ export function PriceAdjustmentCreatePage() {
         reason: values.reason.trim(),
       })
     },
-    [availableItems, oldPrice, save],
+    [availableItems, oldPrice, save, t],
   )
 
   const products = productsRes?.content ?? []

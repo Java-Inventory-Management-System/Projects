@@ -16,7 +16,8 @@ import { ViewProductModal } from "../components/view-product-modal"
 import { usePermission } from "@/hooks/use-permission"
 import { ROLES } from "@/utils/permissions"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
-import { TrackingTypeBadge, UNIT_LABELS } from "@/components/tracking-type-badge"
+import { TrackingTypeBadge } from "@/components/tracking-type-badge"
+import { UNIT_LABELS } from "@/utils/labels"
 
 export const ProductsPage = () => {
   const { t } = useTranslation()

@@ -17,7 +17,10 @@ import { getLocations } from "@/services/location-service"
 import { useBarcodeScanner } from "@/hooks/use-barcode-scanner"
 import { toast } from "@/utils/toast"
 import {
+  BOX_TYPE_MAX,
+  BOX_TYPES,
   PRODUCT_UNIT_STATUS,
+  TRACKING_TYPE,
   type Box,
   type BoxType,
   type ProductUnit,
@@ -25,18 +28,6 @@ import {
 import { ArrowLeft, ArrowRight, Camera, CheckCircle2, ChevronDown, ChevronRight, PackageSearch, ScanLine } from "lucide-react"
 
 const COLLAPSE_THRESHOLD = 6
-
-// ponytail: FE hiển thị N theo loại hộp — backend là nguồn sự thật (app.box.max-units)
-export const BOX_TYPE_MAX: Record<BoxType, number> = { SMALL: 20, MEDIUM: 50, LARGE: 100 }
-const BOX_TYPES: BoxType[] = ["SMALL", "MEDIUM", "LARGE"]
-
-export interface SealBoxPayload {
-  unitIds: number[]
-  items?: Array<{ unitId: number; quantity: number }>
-  locationId: number
-  note?: string
-  boxType?: BoxType
-}
 
 export function SealBoxPage() {
   const { t } = useTranslation()
@@ -110,7 +101,7 @@ export function SealBoxPage() {
     const next = new Set(collapsed)
     let changed = false
     for (const g of groups) {
-      const n = g.units.filter((u) => u.trackingType !== "BULK").length
+      const n = g.units.filter((u) => u.trackingType !== TRACKING_TYPE.BULK).length
       if (n > COLLAPSE_THRESHOLD && !next.has(g.productId)) {
         next.add(g.productId)
         changed = true
@@ -140,7 +131,7 @@ export function SealBoxPage() {
   }, [boxableImports, search])
 
   const unitQty = (u: ProductUnit) =>
-    u.trackingType === "BULK" ? bulkQty[u.id] ?? u.remainingQuantity ?? 0 : 1
+    u.trackingType === TRACKING_TYPE.BULK ? bulkQty[u.id] ?? u.remainingQuantity ?? 0 : 1
 
   const selectedTotal = useMemo(() => {
     let total = 0
@@ -199,7 +190,7 @@ export function SealBoxPage() {
   }
 
   const toggleProduct = (g: (typeof groups)[number]) => {
-    const serialized = g.units.filter((u) => u.trackingType !== "BULK")
+    const serialized = g.units.filter((u) => u.trackingType !== TRACKING_TYPE.BULK)
     if (serialized.some((u) => selected.has(u.id))) {
       const next = new Set(selected)
       for (const u of serialized) next.delete(u.id)
@@ -254,7 +245,7 @@ export function SealBoxPage() {
     const unitIds: number[] = []
     for (const u of boxable) {
       if (!selected.has(u.id)) continue
-      if (u.trackingType === "BULK" && bulkQty[u.id] != null && u.remainingQuantity != null && bulkQty[u.id] < u.remainingQuantity) {
+      if (u.trackingType === TRACKING_TYPE.BULK && bulkQty[u.id] != null && u.remainingQuantity != null && bulkQty[u.id] < u.remainingQuantity) {
         items.push({ unitId: u.id, quantity: bulkQty[u.id] })
       } else {
         unitIds.push(u.id)
@@ -404,7 +395,7 @@ export function SealBoxPage() {
               <p className="p-4 text-sm text-muted-foreground">{t("box.noBoxableUnits")}</p>
             )}
             {groups.map((g) => {
-              const serialized = g.units.filter((u) => u.trackingType !== "BULK")
+              const serialized = g.units.filter((u) => u.trackingType !== TRACKING_TYPE.BULK)
               const allSelected = serialized.length > 0 && serialized.every((u) => selected.has(u.id))
               const isCollapsed = collapsed.has(g.productId)
               return (
@@ -454,7 +445,7 @@ export function SealBoxPage() {
                         {u.serialNumber && (
                           <span className="ml-2 truncate text-muted-foreground">{u.productName}</span>
                         )}
-                        {u.trackingType === "BULK" && selected.has(u.id) && (
+                        {u.trackingType === TRACKING_TYPE.BULK && selected.has(u.id) && (
                           <Input
                             type="number"
                             min={0}
@@ -464,7 +455,7 @@ export function SealBoxPage() {
                             onChange={(e) => changeBulkQty(u, Number(e.target.value))}
                           />
                         )}
-                        {u.trackingType !== "BULK" && (
+                        {u.trackingType !== TRACKING_TYPE.BULK && (
                           <span className="ml-auto">
                             <LocationCodePopover code={u.locationCode} />
                           </span>

@@ -13,10 +13,9 @@ interface Props {
   note: string
   setNote: (v: string) => void
   onQcStatus: (status: { hasRecords: boolean; done: boolean }) => void
-  onQcRecordsChange?: (records: QcRecord[]) => void
 }
 
-export function ImportStepQc({ items, note, setNote, onQcStatus, onQcRecordsChange }: Props) {
+export function ImportStepQc({ items, note, setNote, onQcStatus }: Props) {
   const { t } = useTranslation()
   const allSerials = useMemo(
     () =>
@@ -55,8 +54,7 @@ export function ImportStepQc({ items, note, setNote, onQcStatus, onQcRecordsChan
       hasRecords: qcRecords.length > 0,
       done: qcRecords.length > 0 && qcRecords.every((r) => r.passed || r.failReason.trim().length > 0),
     })
-    onQcRecordsChange?.(qcRecords)
-  }, [qcRecords, onQcStatus, onQcRecordsChange])
+  }, [qcRecords, onQcStatus])
 
   const qcFailed = qcRecords.filter((r) => !r.passed)
   const checkedCount = qcRecords.filter((r) => r.failReason || r.passed).length

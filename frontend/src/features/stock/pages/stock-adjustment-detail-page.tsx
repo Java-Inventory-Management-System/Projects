@@ -7,7 +7,7 @@ import {
   rejectStockAdjustment,
 } from "@/services/stock-adjustment-service"
 import { usePermission } from "@/hooks/use-permission"
-import { ADJUSTMENT_STATUS } from "@/utils/types"
+import { ADJUSTMENT_STATUS, ADJUSTMENT_TYPE } from "@/utils/types"
 import { ROLES } from "@/utils/permissions"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -73,16 +73,16 @@ export const StockAdjustmentDetailPage = () => {
     onError: (err: Error) => toast.error(err.message || t("stockAdjDetail.rejectFail")),
   })
 
-  const typeLabel: Record<string, string> = { DAMAGED: t("adjustmentType.damaged"), LOST: t("adjustmentType.lost"), FOUND: t("adjustmentType.found") }
+  const typeLabel: Record<string, string> = { [ADJUSTMENT_TYPE.DAMAGED]: t("adjustmentType.damaged"), [ADJUSTMENT_TYPE.LOST]: t("adjustmentType.lost"), [ADJUSTMENT_TYPE.FOUND]: t("adjustmentType.found") }
   const typeColor: Record<string, "destructive" | "outline" | "default"> = {
-    DAMAGED: "destructive",
-    LOST: "destructive",
-    FOUND: "default",
+    [ADJUSTMENT_TYPE.DAMAGED]: "destructive",
+    [ADJUSTMENT_TYPE.LOST]: "destructive",
+    [ADJUSTMENT_TYPE.FOUND]: "default",
   }
   const statusLabel: Record<string, { label: string; variant: "default" | "secondary" | "destructive" }> = {
-    PENDING: { label: t("status.pending"), variant: "secondary" },
-    APPROVED: { label: t("status.approved"), variant: "default" },
-    REJECTED: { label: t("status.rejected"), variant: "destructive" },
+    [ADJUSTMENT_STATUS.PENDING]: { label: t("status.pending"), variant: "secondary" },
+    [ADJUSTMENT_STATUS.APPROVED]: { label: t("status.approved"), variant: "default" },
+    [ADJUSTMENT_STATUS.REJECTED]: { label: t("status.rejected"), variant: "destructive" },
   }
 
   if (isLoading) {

@@ -14,7 +14,7 @@ import {
 import type { ChartConfig } from "@/components/ui/chart"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
-import { DataTable, type Column } from "@/components/ui/data-table"
+import { DataTable } from "@/components/ui/data-table"
 import { FileDown } from "lucide-react"
 import { DatePicker } from "@/components/ui/date-picker"
 import { downloadCsv } from "@/utils/download-csv"

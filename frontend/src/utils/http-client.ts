@@ -76,7 +76,6 @@ http.interceptors.response.use(
       }
     }
 
-    const message = (error.response?.data as { message?: string })?.message || error.message || t("error.connectionError")
     return Promise.reject(toApiError(error))
   },
 )

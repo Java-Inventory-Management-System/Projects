@@ -274,11 +274,11 @@ export const QcProcessingPage = () => {
                 {t("qcPage.hintPending")}
               </p>
               <p className="flex items-center gap-2">
-                <Badge variant="outline">RMA_UNREPAIRABLE</Badge>
+                <Badge variant="outline">{PRODUCT_UNIT_STATUS.RMA_UNREPAIRABLE}</Badge>
                 {t("qcPage.hintRma")}
               </p>
               <p className="flex items-center gap-2">
-                <Badge variant="outline">WAITING_RMA_EXPORT</Badge>
+                <Badge variant="outline">{PRODUCT_UNIT_STATUS.WAITING_RMA_EXPORT}</Badge>
                 {t("qcPage.hintWaitingRma")}
               </p>
             </CardContent>

@@ -2,7 +2,8 @@ import { useTranslation } from "react-i18next"
 import type { ProductResponse } from "@/utils/types"
 import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { TrackingTypeBadge, UNIT_LABELS } from "@/components/tracking-type-badge"
+import { TrackingTypeBadge } from "@/components/tracking-type-badge"
+import { UNIT_LABELS } from "@/utils/labels"
 
 export const ViewProductModal = ({
   product,
