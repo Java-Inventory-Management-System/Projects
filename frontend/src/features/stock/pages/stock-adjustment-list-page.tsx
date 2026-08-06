@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react"
+import { useState, useCallback, useEffect, useSyncExternalStore } from "react"
 import { useTranslation } from "react-i18next"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
@@ -81,21 +81,20 @@ export const StockAdjustmentListPage = () => {
 
   const [batchDone, setBatchDone] = useState(false)
 
+  const batch = useSyncExternalStore(backgroundBatch.subscribe, backgroundBatch.getSnapshot)
+
   useEffect(() => {
-    const unsub = backgroundBatch.subscribe(() => {
-      if (!backgroundBatch.isRunning() && backgroundBatch.getResults().length > 0 && !batchDone) {
-        setBatchDone(true)
-        const ok = backgroundBatch.getResults().filter((r) => r.success).length
-        const total = backgroundBatch.getResults().length
-        if (ok === total) {
-          toast.success(t("stockAdjList.batchSuccess", { ok, total }))
-        } else {
-          toast.warning(t("stockAdjList.batchWarning", { ok, total, fail: total - ok }))
-        }
+    if (!batch.running && batch.results.length > 0 && !batchDone) {
+      setBatchDone(true)
+      const ok = batch.results.filter((r) => r.success).length
+      const total = batch.results.length
+      if (ok === total) {
+        toast.success(t("stockAdjList.batchSuccess", { ok, total }))
+      } else {
+        toast.warning(t("stockAdjList.batchWarning", { ok, total, fail: total - ok }))
       }
-    })
-    return unsub
-  }, [batchDone, t])
+    }
+  }, [batch, batchDone, t])
 
   const handleClearBatch = useCallback(() => {
     backgroundBatch.reset()
@@ -203,13 +202,13 @@ export const StockAdjustmentListPage = () => {
       {backgroundBatch.isRunning() && (
         <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-800 dark:border-blue-800 dark:bg-blue-950/20 dark:text-blue-300">
           <Loader2 className="size-4 animate-spin" />
-          {t("stockAdjList.batchRunning", { current: backgroundBatch.getProgress()?.current ?? "?", total: backgroundBatch.getProgress()?.total ?? "?" })}
+          {t("stockAdjList.batchRunning", { current: batch.progress?.current ?? "?", total: batch.progress?.total ?? "?" })}
         </div>
       )}
-      {batchDone && backgroundBatch.getResults().length > 0 && (
+      {batchDone && batch.results.length > 0 && (
         <div className="flex items-center justify-between rounded-lg border border-green-200 bg-green-50 px-4 py-2 text-sm text-green-800 dark:border-green-800 dark:bg-green-950/20 dark:text-green-300">
           <span>
-            {t("stockAdjList.batchDone", { ok: backgroundBatch.getResults().filter((r) => r.success).length, total: backgroundBatch.getResults().length })}
+            {t("stockAdjList.batchDone", { ok: batch.results.filter((r) => r.success).length, total: batch.results.length })}
           </span>
           <Button variant="ghost" size="sm" onClick={handleClearBatch}>{t("stockAdjList.hide")}</Button>
         </div>

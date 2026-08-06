@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react"
+import { useState, useMemo, useEffect, useReducer } from "react"
 import { useNavigate } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
@@ -61,6 +61,83 @@ const DEFAULT_ITEM_CONFIG: ReturnItemConfig = {
   evidenceImage: "",
 }
 
+interface ReturnItemsState {
+  qty: Record<number, number>
+  serials: Record<number, ExportUnit[]>
+  configs: Record<string, ReturnItemConfig>
+}
+
+type ReturnItemsAction =
+  | { type: "setQty"; exportItemId: number; qty: number }
+  | { type: "setSerials"; exportItemId: number; units: ExportUnit[] }
+  | { type: "removeItem"; key: string }
+  | { type: "updateConfig"; key: string; field: keyof ReturnItemConfig; value: string }
+  | { type: "applyConfig"; condition: string; resultingAction: string }
+  | { type: "applyWarranty" }
+  | { type: "clear" }
+
+const initialState: ReturnItemsState = { qty: {}, serials: {}, configs: {} }
+
+function itemsReducer(state: ReturnItemsState, action: ReturnItemsAction): ReturnItemsState {
+  switch (action.type) {
+    case "setQty": {
+      const qty = { ...state.qty }
+      if (action.qty > 0) qty[action.exportItemId] = action.qty
+      else delete qty[action.exportItemId]
+      return { ...state, qty }
+    }
+    case "setSerials": {
+      const serials = { ...state.serials }
+      if (action.units.length > 0) serials[action.exportItemId] = action.units
+      else delete serials[action.exportItemId]
+      return { ...state, serials }
+    }
+    case "removeItem": {
+      const next: ReturnItemsState = { qty: { ...state.qty }, serials: { ...state.serials }, configs: { ...state.configs } }
+      delete next.configs[action.key]
+      if (action.key.startsWith("bulk:")) {
+        delete next.qty[Number(action.key.slice(5))]
+      } else if (action.key.startsWith("ser:")) {
+        const unitId = Number(action.key.slice(4))
+        for (const [eId, units] of Object.entries(next.serials)) {
+          const filtered = units.filter((u) => u.id !== unitId)
+          if (filtered.length > 0) next.serials[Number(eId)] = filtered
+          else delete next.serials[Number(eId)]
+        }
+      }
+      return next
+    }
+    case "updateConfig":
+      return {
+        ...state,
+        configs: {
+          ...state.configs,
+          [action.key]: { ...(state.configs[action.key] ?? DEFAULT_ITEM_CONFIG), [action.field]: action.value },
+        },
+      }
+    case "applyConfig": {
+      const configs: typeof state.configs = {}
+      for (const key of Object.keys(state.configs)) {
+        configs[key] = { condition: action.condition, resultingAction: action.resultingAction }
+      }
+      return { ...state, configs }
+    }
+    case "applyWarranty": {
+      let changed = false
+      const configs = { ...state.configs }
+      for (const [key, cfg] of Object.entries(configs)) {
+        if (cfg.condition === RETURN_ITEM_CONDITION.DEFECTIVE && cfg.resultingAction !== RETURN_RESULTING_ACTION.WARRANTY_TRANSFER) {
+          configs[key] = { ...cfg, resultingAction: RETURN_RESULTING_ACTION.WARRANTY_TRANSFER }
+          changed = true
+        }
+      }
+      return changed ? { ...state, configs } : state
+    }
+    case "clear":
+      return initialState
+  }
+}
+
 export const ReturnCreatePage = () => {
   const navigate = useNavigate()
   const qc = useQueryClient()
@@ -74,9 +151,7 @@ export const ReturnCreatePage = () => {
   const [selectedExportCode, setSelectedExportCode] = useState<string | null>(null)
   const [selectedExportCreatedAt, setSelectedExportCreatedAt] = useState<string | null>(null)
 
-  const [itemQtyMap, setItemQtyMap] = useState<Record<number, number>>({})
-  const [itemSerialMap, setItemSerialMap] = useState<Record<number, ExportUnit[]>>({})
-  const [itemConfigMap, setItemConfigMap] = useState<Record<string, ReturnItemConfig>>({})
+  const [items, dispatch] = useReducer(itemsReducer, initialState)
 
   const [productSearchQuery, setProductSearchQuery] = useState("")
 
@@ -101,21 +176,7 @@ export const ReturnCreatePage = () => {
   const isWarrantyClaim = watchedReason === RETURN_REASON.WARRANTY_CLAIM
 
   useEffect(() => {
-    if (!isWarrantyClaim) return
-    setItemConfigMap((prev) => {
-      let changed = false
-      const next = { ...prev }
-      for (const [key, cfg] of Object.entries(prev)) {
-        if (
-          cfg.condition === RETURN_ITEM_CONDITION.DEFECTIVE &&
-          cfg.resultingAction !== RETURN_RESULTING_ACTION.WARRANTY_TRANSFER
-        ) {
-          next[key] = { ...cfg, resultingAction: RETURN_RESULTING_ACTION.WARRANTY_TRANSFER }
-          changed = true
-        }
-      }
-      return changed ? next : prev
-    })
+    if (isWarrantyClaim) dispatch({ type: "applyWarranty" })
   }, [isWarrantyClaim])
 
   const { data: customersData } = useQuery({
@@ -170,15 +231,15 @@ export const ReturnCreatePage = () => {
   }, [exportDetail, productSearchQuery])
 
   const returnItems = useMemo((): ReturnFormItem[] => {
-    const items: ReturnFormItem[] = []
+    const result: ReturnFormItem[] = []
 
-    for (const [exportItemIdStr, qty] of Object.entries(itemQtyMap)) {
+    for (const [exportItemIdStr, qty] of Object.entries(items.qty)) {
       if (qty <= 0) continue
       const exportItem = exportDetail?.items.find((i) => i.id === Number(exportItemIdStr))
       if (!exportItem) continue
       const key = `bulk:${exportItem.id}`
-      const config = itemConfigMap[key] ?? DEFAULT_ITEM_CONFIG
-      items.push({
+      const config = items.configs[key] ?? DEFAULT_ITEM_CONFIG
+      result.push({
         key,
         productUnitId: null,
         productId: exportItem.productId,
@@ -191,11 +252,11 @@ export const ReturnCreatePage = () => {
       })
     }
 
-    for (const units of Object.values(itemSerialMap)) {
+    for (const units of Object.values(items.serials)) {
       for (const unit of units) {
         const key = `ser:${unit.id}`
-        const config = itemConfigMap[key] ?? DEFAULT_ITEM_CONFIG
-        items.push({
+        const config = items.configs[key] ?? DEFAULT_ITEM_CONFIG
+        result.push({
           key,
           productUnitId: unit.id,
           productId: unit.productId,
@@ -209,23 +270,18 @@ export const ReturnCreatePage = () => {
       }
     }
 
-    return items
-  }, [itemQtyMap, itemSerialMap, itemConfigMap, exportDetail])
+    return result
+  }, [items, exportDetail])
 
   const handleQtyChange = (exportItemId: number, qty: number) => {
     const clamped = Math.max(0, Math.min(qty, exportDetail?.items.find((i) => i.id === exportItemId)?.quantity ?? qty))
-    setItemQtyMap((prev) => {
-      const next = { ...prev }
-      if (clamped > 0) next[exportItemId] = clamped
-      else delete next[exportItemId]
-      return next
-    })
+    dispatch({ type: "setQty", exportItemId, qty: clamped })
   }
 
   const openSerialPicker = async (exportItem: ExportReceiptItem) => {
     if (!selectedExportId) return
     setSerialPickerExportItemId(exportItem.id)
-    setSerialPickerSelection(new Set(itemSerialMap[exportItem.id]?.map((u) => u.id) ?? []))
+    setSerialPickerSelection(new Set(items.serials[exportItem.id]?.map((u) => u.id) ?? []))
     setSerialSearchQuery("")
     setSerialPickerLoading(true)
     try {
@@ -243,12 +299,7 @@ export const ReturnCreatePage = () => {
     const exportItemId = serialPickerExportItemId
     if (exportItemId === null) return
     const selectedUnits = serialPickerUnits.filter((u) => serialPickerSelection.has(u.id))
-    setItemSerialMap((prev) => {
-      const next = { ...prev }
-      if (selectedUnits.length > 0) next[exportItemId] = selectedUnits
-      else delete next[exportItemId]
-      return next
-    })
+    dispatch({ type: "setSerials", exportItemId, units: selectedUnits })
     setSerialPickerExportItemId(null)
     setSerialPickerSelection(new Set())
     setSerialPickerUnits([])
@@ -261,34 +312,7 @@ export const ReturnCreatePage = () => {
   }
 
   const removeReturnItem = (itemKey: string) => {
-    if (itemKey.startsWith("bulk:")) {
-      const exportItemId = Number(itemKey.slice(5))
-      setItemQtyMap((prev) => {
-        const next = { ...prev }
-        delete next[exportItemId]
-        return next
-      })
-    } else if (itemKey.startsWith("ser:")) {
-      const unitId = Number(itemKey.slice(4))
-      for (const [eIdStr, units] of Object.entries(itemSerialMap)) {
-        if (units.some((u) => u.id === unitId)) {
-          const exportItemId = Number(eIdStr)
-          setItemSerialMap((prev) => {
-            const next = { ...prev }
-            const filtered = next[exportItemId]?.filter((u) => u.id !== unitId) ?? []
-            if (filtered.length > 0) next[exportItemId] = filtered
-            else delete next[exportItemId]
-            return next
-          })
-          break
-        }
-      }
-    }
-    setItemConfigMap((prev) => {
-      const next = { ...prev }
-      delete next[itemKey]
-      return next
-    })
+    dispatch({ type: "removeItem", key: itemKey })
   }
 
   const updateItemConfig = (
@@ -296,25 +320,13 @@ export const ReturnCreatePage = () => {
     field: keyof ReturnItemConfig,
     value: string,
   ) => {
-    setItemConfigMap((prev) => ({
-      ...prev,
-      [key]: {
-        ...(prev[key] ?? DEFAULT_ITEM_CONFIG),
-        [field]: value,
-      },
-    }))
+    dispatch({ type: "updateConfig", key, field, value })
   }
 
   const applyAllConfig = () => {
     if (returnItems.length === 0) return
     const first = returnItems[0]
-    setItemConfigMap((prev) => {
-      const next: typeof prev = {}
-      for (const key of Object.keys(prev)) {
-        next[key] = { condition: first.condition, resultingAction: first.resultingAction }
-      }
-      return next
-    })
+    dispatch({ type: "applyConfig", condition: first.condition, resultingAction: first.resultingAction })
     toast.success(t("returnCreate.applyAllSuccess"))
   }
 
@@ -355,9 +367,7 @@ export const ReturnCreatePage = () => {
     setSelectedExportCode(e.receiptCode)
     setSelectedExportCreatedAt(e.createdAt)
     setExportQuery("")
-    setItemQtyMap({})
-    setItemSerialMap({})
-    setItemConfigMap({})
+    dispatch({ type: "clear" })
     setProductSearchQuery("")
   }
 
@@ -365,9 +375,7 @@ export const ReturnCreatePage = () => {
     setSelectedExportId(null)
     setSelectedExportCode(null)
     setSelectedExportCreatedAt(null)
-    setItemQtyMap({})
-    setItemSerialMap({})
-    setItemConfigMap({})
+    dispatch({ type: "clear" })
   }
 
   const clearCustomer = () => {
@@ -549,7 +557,7 @@ export const ReturnCreatePage = () => {
               {filteredExportItems.length > 0 ? (
                 filteredExportItems.map((item) => {
                   const isSerialized = item.trackingType === TRACKING_TYPE.SERIALIZED
-                  const serialCount = itemSerialMap[item.id]?.length ?? 0
+                  const serialCount = items.serials[item.id]?.length ?? 0
                   return (
                     <div key={item.id}>
                       <div className="flex items-center gap-3 px-3 py-2">
@@ -589,7 +597,7 @@ export const ReturnCreatePage = () => {
                               type="number"
                               min={0}
                               max={item.quantity}
-                              value={itemQtyMap[item.id] ?? 0}
+                              value={items.qty[item.id] ?? 0}
                               onChange={(e) => {
                                 const v = parseInt(e.target.value) || 0
                                 handleQtyChange(item.id, v)

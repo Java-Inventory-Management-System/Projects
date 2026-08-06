@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useMemo, useCallback } from "react"
+import { useEffect, useState, useMemo, useCallback } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
@@ -7,6 +7,7 @@ import { useTranslation } from "react-i18next"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createPriceAdjustment, getAvailableItemsByProduct } from "@/services/price-adjustment-service"
 import { getProducts } from "@/services/product-service"
+import { useDebounce } from "@/hooks/use-debounce"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -38,11 +39,9 @@ export function PriceAdjustmentCreatePage() {
   const { t } = useTranslation()
   const qc = useQueryClient()
   const [confirmLeave, setConfirmLeave] = useState(false)
-  const [searchTerm, setSearchTerm] = useState("")
-  const [debouncedSearch, setDebouncedSearch] = useState("")
-  const [selectedProductId, setSelectedProductId] = useState<number | null>(null)
-  const [displayPrice, setDisplayPrice] = useState("")
-  const searchTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+const [searchTerm, setSearchTerm] = useState("")
+const [selectedProductId, setSelectedProductId] = useState<number | null>(null)
+const [displayPrice, setDisplayPrice] = useState("")
 
   const form = useForm({ resolver: zodResolver(getSchema(t)), defaultValues: { selectedItem: "", newPrice: 0, reason: "" } })
   const selectedItemStr = form.watch("selectedItem")
@@ -58,12 +57,7 @@ export function PriceAdjustmentCreatePage() {
     return () => window.removeEventListener("beforeunload", handler)
   }, [isDirty])
 
-  // Debounced search
-  useEffect(() => {
-    clearTimeout(searchTimer.current)
-    searchTimer.current = setTimeout(() => setDebouncedSearch(searchTerm), 300)
-    return () => clearTimeout(searchTimer.current)
-  }, [searchTerm])
+  const debouncedSearch = useDebounce(searchTerm, 300)
 
   const { data: productsRes, isLoading: searchLoading } = useQuery({
     queryKey: ["products", "list", "100", debouncedSearch],

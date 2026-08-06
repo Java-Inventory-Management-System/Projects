@@ -95,14 +95,12 @@ export const UsersPage = () => {
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ["users"] })
 
-  const [createOpen, setCreateOpen] = useState(false)
+  const [dialog, setDialog] = useState<"create" | "edit" | "role" | null>(null)
   const [tempPassword, setTempPassword] = useState<string | null>(null)
   const createForm = useForm({ defaultValues: { fullName: "", email: "", roleName: "STOCK", status: USER_STATUS.ACTIVE } })
 
-  const [editOpen, setEditOpen] = useState(false)
   const [editUser, setEditUser] = useState<UserResponse | null>(null)
   const editForm = useForm({ defaultValues: { fullName: "", phoneNumber: "", gender: "" } })
-  const [roleOpen, setRoleOpen] = useState(false)
   const [roleUserId, setRoleUserId] = useState<number | null>(null)
   const [roleVal, setRoleVal] = useState<string>("")
 
@@ -129,7 +127,7 @@ export const UsersPage = () => {
   const openEdit = (u: UserResponse) => {
     setEditUser(u)
     editForm.reset({ fullName: u.fullName, phoneNumber: u.phoneNumber ?? "", gender: u.gender != null ? String(u.gender) : "" })
-    setEditOpen(true)
+    setDialog("edit")
   }
 
   const handleEdit = editForm.handleSubmit(async (values) => {
@@ -137,7 +135,7 @@ export const UsersPage = () => {
     try {
       await updateMut.mutateAsync({ id: editUser.id, data: { fullName: values.fullName, phoneNumber: values.phoneNumber || null, gender: values.gender ? Number(values.gender) : null } })
       toast.success(t('usersPage.updateSuccessToast'))
-      setEditOpen(false)
+      setDialog(null)
     } catch (err) {
       toast.error((err as Error).message || t('usersPage.errorOccurred'))
     }
@@ -148,7 +146,7 @@ export const UsersPage = () => {
     try {
       await roleMut.mutateAsync({ id: roleUserId, role: roleVal })
       toast.success(t('usersPage.roleChangeSuccess'))
-      setRoleOpen(false)
+      setDialog(null)
     } catch (err) {
       toast.error((err as Error).message || t('usersPage.errorOccurred'))
     }
@@ -217,7 +215,7 @@ export const UsersPage = () => {
                 onClick={() => {
                   setRoleUserId(u.id)
                   setRoleVal(u.role)
-                  setRoleOpen(true)
+                  setDialog("role")
                 }}
               >
                 <Shield className="size-4" />
@@ -258,7 +256,7 @@ export const UsersPage = () => {
           onClick={() => {
             createForm.reset()
             setTempPassword(null)
-            setCreateOpen(true)
+            setDialog("create")
           }}
         >
           <Plus className="size-4 mr-1" /> {t('usersPage.addUser')}
@@ -309,9 +307,9 @@ export const UsersPage = () => {
       )}
 
       <Dialog
-        open={createOpen}
+        open={dialog === "create"}
         onOpenChange={(v) => {
-          setCreateOpen(v)
+          setDialog(v ? "create" : null)
           if (!v) setTempPassword(null)
         }}
       >
@@ -333,7 +331,7 @@ export const UsersPage = () => {
               <DialogFooter>
                 <Button
                   onClick={() => {
-                    setCreateOpen(false)
+                    setDialog(null)
                     setTempPassword(null)
                   }}
                 >
@@ -375,7 +373,7 @@ export const UsersPage = () => {
                 </div>
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setCreateOpen(false)}>
+                <Button variant="outline" onClick={() => setDialog(null)}>
                   {t('usersPage.cancel')}
                 </Button>
                 <Button onClick={handleCreate} disabled={createMut.isPending}>
@@ -387,7 +385,7 @@ export const UsersPage = () => {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+      <Dialog open={dialog === "edit"} onOpenChange={(v) => setDialog(v ? "edit" : null)}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t('usersPage.editDialogTitle')}</DialogTitle>
@@ -425,7 +423,7 @@ export const UsersPage = () => {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditOpen(false)}>
+            <Button variant="outline" onClick={() => setDialog(null)}>
               {t('usersPage.cancel')}
             </Button>
             <Button onClick={handleEdit} disabled={updateMut.isPending}>
@@ -435,7 +433,7 @@ export const UsersPage = () => {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={roleOpen} onOpenChange={setRoleOpen}>
+      <Dialog open={dialog === "role"} onOpenChange={(v) => setDialog(v ? "role" : null)}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t('usersPage.roleDialogTitle')}</DialogTitle>
@@ -456,7 +454,7 @@ export const UsersPage = () => {
             </Select>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setRoleOpen(false)}>
+            <Button variant="outline" onClick={() => setDialog(null)}>
               {t('usersPage.cancel')}
             </Button>
             <Button onClick={handleRoleChange}>{t('usersPage.roleSave')}</Button>

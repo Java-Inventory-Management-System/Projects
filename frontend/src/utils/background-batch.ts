@@ -24,6 +24,13 @@ export interface BatchResultItem {
   error?: string
 }
 
+export interface BatchSnapshot {
+  _v: number
+  running: boolean
+  progress: BatchProgress | null
+  results: BatchResultItem[]
+}
+
 type Listener = () => void
 
 let running = false
@@ -31,9 +38,19 @@ let progress: BatchProgress | null = null
 let results: BatchResultItem[] = []
 const listeners = new Set<Listener>()
 let reason = ""
+let snapVersion = 0
+let cachedSnapshot: BatchSnapshot | null = null
 
 function notify() {
+  snapVersion++
   listeners.forEach((l) => l())
+}
+
+function getSnapshot(): BatchSnapshot {
+  if (cachedSnapshot === null || snapVersion !== cachedSnapshot._v) {
+    cachedSnapshot = { _v: snapVersion, running, progress, results: [...results] }
+  }
+  return cachedSnapshot
 }
 
 export const backgroundBatch = {
@@ -71,8 +88,8 @@ export const backgroundBatch = {
     return () => { listeners.delete(l) }
   },
 
-  getProgress() { return progress },
-  getResults() { return [...results] },
+  getSnapshot,
+
   isRunning() { return running },
   reset() { running = false; progress = null; results = []; notify() },
 }

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from "react"
+import { useState, useEffect, useMemo, useCallback, useRef, useSyncExternalStore } from "react"
 import { useTranslation } from "react-i18next"
 import { useForm, Controller } from "react-hook-form"
 import { useNavigate, useLocation } from "react-router-dom"
@@ -50,14 +50,6 @@ interface AdjustmentForm {
   imageUrl: string
 }
 
-interface BatchResult {
-  index: number
-  serialNumber: string
-  productName: string
-  success: boolean
-  error?: string
-}
-
 export const StockAdjustmentCreatePage = () => {
   const { t } = useTranslation()
   const navigate = useNavigate()
@@ -85,15 +77,14 @@ export const StockAdjustmentCreatePage = () => {
 
   const [searchUnit, setSearchUnit] = useState("")
   const [searchProduct, setSearchProduct] = useState("")
-  const [showConfirm, setShowConfirm] = useState(false)
-  const [showManualConfirm, setShowManualConfirm] = useState(false)
-  const [showResult, setShowResult] = useState(false)
-  const [showDraftDialog, setShowDraftDialog] = useState(false)
-  const [foundMode, setFoundMode] = useState<"existing" | "new" | null>(null)
+  const [dialog, setDialog] = useState<"confirm" | "manual" | "result" | "draft" | null>(null)
+  const [rawFoundMode, setRawFoundMode] = useState<"existing" | "new" | null>(null)
   const [scanInput, setScanInput] = useState("")
-  const [batchProgress, setBatchProgress] = useState<{ current: number; total: number } | null>(null)
-  const [batchResults, setBatchResults] = useState<BatchResult[]>([])
   const [successResult, setSuccessResult] = useState<{ adjustCode: string } | null>(null)
+
+  const batch = useSyncExternalStore(backgroundBatch.subscribe, backgroundBatch.getSnapshot)
+
+  const foundMode = watchedType === ADJUSTMENT_TYPE.FOUND ? (rawFoundMode ?? "existing") : null
 
   const form = useForm<AdjustmentForm>({
     defaultValues: { type: "", selectedUnitId: null, selectedProductId: null, quantity: 1, foundSerialNumber: "", foundLocationId: "", reason: initialReason, imageUrl: "" },
@@ -102,14 +93,6 @@ export const StockAdjustmentCreatePage = () => {
   const formValues = form.getValues()
   const watchedType = form.watch("type")
   const watchedReason = form.watch("reason")
-
-  useEffect(() => {
-    if (watchedType === ADJUSTMENT_TYPE.FOUND) {
-      if (!foundMode) setFoundMode("existing")
-    } else {
-      setFoundMode(null)
-    }
-  }, [watchedType, foundMode])
 
   const draftState = useMemo(() => ({ type: watchedType, reason: watchedReason }), [watchedType, watchedReason])
   const isDirty = !!watchedType || !!watchedReason.trim()
@@ -124,7 +107,7 @@ export const StockAdjustmentCreatePage = () => {
     },
   )
   useEffect(() => {
-    if (draftAvailable) setShowDraftDialog(true)
+    if (draftAvailable) setDialog("draft")
   }, [draftAvailable])
 
   const { data: unitsData, isLoading: unitsLoading } = useQuery({
@@ -170,26 +153,18 @@ export const StockAdjustmentCreatePage = () => {
       const code = (data as { adjustCode?: string }).adjustCode ?? ""
       setSuccessResult({ adjustCode: code })
       form.reset()
-      setFoundMode(null)
+      setRawFoundMode(null)
       setScanInput("")
       toast.success(t("stockAdjCreate.createSuccess"))
     },
     onError: (err: Error) => toast.error(err.message || t("common.error")),
   })
 
-  const showResultRef = useRef(showResult)
-  showResultRef.current = showResult
-
   useEffect(() => {
-    return backgroundBatch.subscribe(() => {
-      const p = backgroundBatch.getProgress()
-      setBatchProgress(p ? { current: p.current, total: p.total } : null)
-      setBatchResults(backgroundBatch.getResults())
-      if (!backgroundBatch.isRunning() && backgroundBatch.getResults().length > 0 && !showResultRef.current) {
-        setShowResult(true)
-      }
-    })
-  }, [])
+    if (!batch.running && batch.results.length > 0) {
+      setDialog("result")
+    }
+  }, [batch])
 
   const validate = (): boolean => {
     form.clearErrors()
@@ -243,15 +218,15 @@ export const StockAdjustmentCreatePage = () => {
   const handleSubmit = () => {
     if (submittingRef.current) return
     if (locationState?.batch && locationState.mismatches) {
-      setShowConfirm(true)
+      setDialog("confirm")
       return
     }
     if (!validate()) return
-    setShowManualConfirm(true)
+    setDialog("manual")
   }
 
   const confirmManual = () => {
-    setShowManualConfirm(false)
+    setDialog(null)
     submittingRef.current = true
     createMut.mutate(buildSubmitData(), {
       onSettled: () => { submittingRef.current = false },
@@ -259,7 +234,7 @@ export const StockAdjustmentCreatePage = () => {
   }
 
   const confirmBatch = () => {
-    setShowConfirm(false)
+    setDialog(null)
     const reason = form.getValues("reason").trim()
     backgroundBatch.start(
       locationState!.mismatches!.map((m) => ({
@@ -313,7 +288,7 @@ export const StockAdjustmentCreatePage = () => {
           )}
           <p className="text-sm text-muted-foreground max-w-sm">{t("stockAdjCreate.createSuccessDesc")}</p>
           <div className="flex gap-3 pt-2">
-            <Button onClick={() => { setSuccessResult(null); form.reset(); setFoundMode(null); setScanInput("") }}>
+            <Button onClick={() => { setSuccessResult(null); form.reset(); setRawFoundMode(null); setScanInput("") }}>
               <Plus className="size-4 mr-1" /> {t("stockAdjCreate.createAnother")}
             </Button>
             <Button variant="outline" onClick={() => navigate("/stock/ops/adjustments")}>
@@ -348,7 +323,7 @@ export const StockAdjustmentCreatePage = () => {
                 field.onChange(v)
                 form.setValue("selectedUnitId", null)
                 form.setValue("selectedProductId", null)
-                setFoundMode(null)
+                setRawFoundMode(null)
                 setScanInput("")
                 form.clearErrors()
               }}
@@ -385,7 +360,7 @@ export const StockAdjustmentCreatePage = () => {
                   variant={foundMode === "existing" ? "default" : "outline"}
                   size="sm"
                   onClick={() => {
-                    setFoundMode("existing")
+                    setRawFoundMode("existing")
                     form.setValue("selectedUnitId", null)
                     form.setValue("selectedProductId", null)
                     form.setValue("foundSerialNumber", "")
@@ -400,7 +375,7 @@ export const StockAdjustmentCreatePage = () => {
                   variant={foundMode === "new" ? "default" : "outline"}
                   size="sm"
                   onClick={() => {
-                    setFoundMode("new")
+                    setRawFoundMode("new")
                     form.setValue("selectedUnitId", null)
                     form.setValue("selectedProductId", null)
                     form.clearErrors()
@@ -679,7 +654,7 @@ export const StockAdjustmentCreatePage = () => {
           {createMut.isPending
             ? t("stockAdjCreate.creating")
             : backgroundBatch.isRunning()
-              ? t("stockAdjCreate.batchProgress", { current: batchProgress?.current ?? 0, total: batchProgress?.total ?? 0 })
+              ? t("stockAdjCreate.batchProgress", { current: batch.progress?.current ?? 0, total: batch.progress?.total ?? 0 })
               : locationState?.batch
                 ? t("stockAdjCreate.createBatch", { count: locationState.mismatches?.length ?? 0 })
                 : t("stockAdjCreate.create")}
@@ -687,10 +662,10 @@ export const StockAdjustmentCreatePage = () => {
       </div>
 
       <Dialog
-        open={showDraftDialog}
+        open={dialog === "draft"}
         onOpenChange={(v) => {
           if (!v) {
-            setShowDraftDialog(false)
+            setDialog(null)
             dismiss()
           }
         }}
@@ -706,7 +681,7 @@ export const StockAdjustmentCreatePage = () => {
             <Button
               variant="outline"
               onClick={() => {
-                setShowDraftDialog(false)
+                setDialog(null)
                 dismiss()
               }}
             >
@@ -714,7 +689,7 @@ export const StockAdjustmentCreatePage = () => {
             </Button>
             <Button
               onClick={() => {
-                setShowDraftDialog(false)
+                setDialog(null)
                 restore()
               }}
             >
@@ -725,9 +700,9 @@ export const StockAdjustmentCreatePage = () => {
       </Dialog>
 
       <Dialog
-        open={showConfirm}
+        open={dialog === "confirm"}
         onOpenChange={(v) => {
-          if (!v) setShowConfirm(false)
+          if (!v) setDialog(null)
         }}
       >
         <DialogContent>
@@ -763,7 +738,7 @@ export const StockAdjustmentCreatePage = () => {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowConfirm(false)}>
+            <Button variant="outline" onClick={() => setDialog(null)}>
               {t("dialog.back")}
             </Button>
             <Button onClick={confirmBatch} disabled={backgroundBatch.isRunning()}>
@@ -773,13 +748,13 @@ export const StockAdjustmentCreatePage = () => {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={showResult} onOpenChange={(v) => { if (!v) { setShowResult(false); navigate("/stock/ops/adjustments") } }}>
+      <Dialog open={dialog === "result"} onOpenChange={(v) => { if (!v) { setDialog(null); navigate("/stock/ops/adjustments") } }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t("stockAdjCreate.batchResultTitle")}</DialogTitle>
           </DialogHeader>
           <div className="space-y-2 max-h-64 overflow-y-auto">
-            {batchResults.map((r) => (
+            {batch.results.map((r) => (
               <div key={r.index} className="flex items-start gap-2 rounded-lg border px-3 py-2 text-sm">
                 {r.success ? (
                   <CheckCircle2 className="size-4 mt-0.5 text-green-600 shrink-0" />
@@ -797,14 +772,14 @@ export const StockAdjustmentCreatePage = () => {
             ))}
           </div>
           <DialogFooter>
-            <Button onClick={() => { setShowResult(false); navigate("/stock/ops/adjustments") }}>
-              {t("stockAdjCreate.batchResultSummary", { success: batchResults.filter((r) => r.success).length, total: batchResults.length })}
+            <Button onClick={() => { setDialog(null); navigate("/stock/ops/adjustments") }}>
+              {t("stockAdjCreate.batchResultSummary", { success: batch.results.filter((r) => r.success).length, total: batch.results.length })}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      <Dialog open={showManualConfirm} onOpenChange={(v) => { if (!v) setShowManualConfirm(false) }}>
+      <Dialog open={dialog === "manual"} onOpenChange={(v) => { if (!v) setDialog(null) }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t("stockAdjCreate.confirmTitle")}</DialogTitle>
@@ -855,7 +830,7 @@ export const StockAdjustmentCreatePage = () => {
             })()}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowManualConfirm(false)}>
+            <Button variant="outline" onClick={() => setDialog(null)}>
               {t("dialog.back")}
             </Button>
             <Button onClick={confirmManual} disabled={createMut.isPending}>
