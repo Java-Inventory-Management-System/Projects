@@ -244,7 +244,7 @@ public class ReturnReceiptService {
     @AuditLog(action = LogConstant.Action.APPROVE_RETURN, entity = LogConstant.Entity.RETURN_RECEIPT)
     public ReturnReceiptResponse approve(Long id) {
         Long userId = securityPolicy.requireAuthenticated();
-        var receipt = returnReceiptRepository.findById(id)
+        var receipt = returnReceiptRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.RETURN_RECEIPT_NOT_FOUND));
 
         securityPolicy.requireNotCreator(receipt.getCreatedBy());
@@ -363,7 +363,7 @@ public class ReturnReceiptService {
 
     @Transactional
     @AuditLog(action = LogConstant.Action.CANCEL_RETURN, entity = LogConstant.Entity.RETURN_RECEIPT)
-    public ReturnReceiptResponse cancel(Long id) {        var receipt = returnReceiptRepository.findById(id)
+    public ReturnReceiptResponse cancel(Long id) {        var receipt = returnReceiptRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.RETURN_RECEIPT_NOT_FOUND));
 
         returnReceiptStateMachine.validate(receipt.getStatus(), ReturnReceiptStatus.CANCELLED);

@@ -7,7 +7,9 @@ import org.dawn.backend.exception.payload.ExceptionMessage;
 import org.springframework.context.MessageSource;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.validation.FieldError;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -52,6 +54,20 @@ public class ApiExceptionHandler {
         log.warn("Access denied: user={} {} {}",
                 principal, request.getMethod(), request.getRequestURI());
         return buildResponse(HttpStatus.FORBIDDEN, "ACCESS_DENIED", localize("ACCESS_DENIED", null, "Access denied", locale));
+    }
+
+    @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
+    public ResponseEntity<ExceptionMessage> handleOptimisticLock(ObjectOptimisticLockingFailureException e, Locale locale) {
+        log.warn("Optimistic lock conflict: {}", e.getMessage());
+        return buildResponse(HttpStatus.CONFLICT, "CONFLICT_DATA_CHANGED",
+                localize("CONFLICT_DATA_CHANGED", null, "Data was changed by another operation. Please refresh and retry.", locale));
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ExceptionMessage> handleDataIntegrityViolation(DataIntegrityViolationException e, Locale locale) {
+        log.warn("Data integrity violation: {}", e.getMessage());
+        return buildResponse(HttpStatus.CONFLICT, "CONFLICT_DUPLICATE",
+                localize("CONFLICT_DUPLICATE", null, "Duplicate data (code or serial already exists).", locale));
     }
 
     @ExceptionHandler(Exception.class)

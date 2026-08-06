@@ -48,7 +48,7 @@ public class ImportWorkflowService {
     @AuditLog(action = LogConstant.Action.APPROVE_IMPORT, entity = LogConstant.Entity.IMPORT_RECEIPT)
     public ImportReceiptResponse approve(Long id) {
         Long userId = securityPolicy.requireAuthenticated();
-        ImportReceipt receipt = importReceiptRepository.findById(id)
+        ImportReceipt receipt = importReceiptRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.IMPORT_RECEIPT_NOT_FOUND));
 
         securityPolicy.requireNotCreator(receipt.getCreatedBy());
@@ -68,7 +68,7 @@ public class ImportWorkflowService {
     @Transactional
     @AuditLog(action = LogConstant.Action.CANCEL_IMPORT, entity = LogConstant.Entity.IMPORT_RECEIPT)
     public ImportReceiptResponse cancel(Long id) {
-        ImportReceipt receipt = importReceiptRepository.findById(id)
+        ImportReceipt receipt = importReceiptRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.IMPORT_RECEIPT_NOT_FOUND));
 
         importReceiptStateMachine.validate(receipt.getStatus(), ImportReceiptStatus.CANCELLED);
@@ -111,7 +111,7 @@ public class ImportWorkflowService {
     }
 
     private void updatePOProgress(Long poId) {
-        var po = purchaseOrderRepository.findById(poId).orElse(null);
+        var po = purchaseOrderRepository.findByIdForUpdate(poId).orElse(null);
         if (po == null) return;
 
         var items = purchaseOrderItemRepository.findByPoId(poId);

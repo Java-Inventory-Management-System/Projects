@@ -180,7 +180,7 @@ public class StockCheckService {
     @AuditLog(action = LogConstant.Action.RECORD_STOCK_CHECK, entity = LogConstant.Entity.STOCK_CHECK)
     public StockCheckResponse recordItems(Long stockCheckId, StockCheckItemRequest.BatchRequest request) {
         Long userId = securityPolicy.requireAuthenticated();
-        var sc = stockCheckRepository.findById(stockCheckId)
+        var sc = stockCheckRepository.findByIdForUpdate(stockCheckId)
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.STOCK_CHECK_NOT_FOUND));
 
         if (StockCheckStatus.IN_PROGRESS != sc.getStatus()) {
@@ -253,7 +253,7 @@ public class StockCheckService {
     @AuditLog(action = LogConstant.Action.COMPLETE_STOCK_CHECK, entity = LogConstant.Entity.STOCK_CHECK)
     public StockCheckResponse complete(Long id) {
         Long userId = securityPolicy.requireAuthenticated();
-        var sc = stockCheckRepository.findById(id)
+        var sc = stockCheckRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.STOCK_CHECK_NOT_FOUND));
 
         var items = stockCheckItemRepository.findByStockCheckId(id);
@@ -351,7 +351,7 @@ public class StockCheckService {
     @AuditLog(action = LogConstant.Action.CANCEL_STOCK_CHECK, entity = LogConstant.Entity.STOCK_CHECK)
     public StockCheckResponse cancel(Long id) {
         Long userId = securityPolicy.requireAuthenticated();
-        var sc = stockCheckRepository.findById(id)
+        var sc = stockCheckRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.STOCK_CHECK_NOT_FOUND));
 
         if (!sc.getCreatedBy().equals(userId)) {
@@ -366,7 +366,7 @@ public class StockCheckService {
     @Transactional
     @AuditLog(action = LogConstant.Action.START_STOCK_CHECK, entity = LogConstant.Entity.STOCK_CHECK)
     public StockCheckResponse start(Long id) {
-        var sc = stockCheckRepository.findById(id)
+        var sc = stockCheckRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.STOCK_CHECK_NOT_FOUND));
 
         stockCheckStateMachine.validate(sc.getStatus(), StockCheckStatus.IN_PROGRESS);

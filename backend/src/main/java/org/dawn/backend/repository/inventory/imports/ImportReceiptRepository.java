@@ -1,10 +1,12 @@
 package org.dawn.backend.repository.inventory.imports;
 
+import jakarta.persistence.LockModeType;
 import org.dawn.backend.constant.enums.inventory.imports.ImportReceiptStatus;
 import org.dawn.backend.entity.inventory.ImportReceipt;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -17,6 +19,11 @@ import java.util.Optional;
 @Repository
 public interface ImportReceiptRepository extends JpaRepository<ImportReceipt, Long> {
     Optional<ImportReceipt> findByReceiptCode(String receiptCode);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT r FROM ImportReceipt r WHERE r.id = :id")
+    Optional<ImportReceipt> findByIdForUpdate(@Param("id") Long id);
+
     Page<ImportReceipt> findByStatus(ImportReceiptStatus status, Pageable pageable);
     Page<ImportReceipt> findBySupplierId(Long supplierId, Pageable pageable);
     boolean existsByReceiptCode(String receiptCode);

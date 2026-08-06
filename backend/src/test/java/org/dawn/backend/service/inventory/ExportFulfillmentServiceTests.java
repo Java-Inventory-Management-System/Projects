@@ -114,7 +114,7 @@ class ExportFulfillmentServiceTests {
     }
 
     private void stubFulfillContext(String reason, Product product) {
-        when(exportReceiptRepository.findById(receiptId)).thenReturn(Optional.of(receipt(reason)));
+        when(exportReceiptRepository.findByIdForUpdate(receiptId)).thenReturn(Optional.of(receipt(reason)));
         when(exportReceiptItemRepository.findByReceiptId(receiptId)).thenReturn(List.of(item()));
         when(productRepository.findAllById(List.of(productId))).thenReturn(List.of(product));
     }

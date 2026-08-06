@@ -299,7 +299,7 @@ class ReturnReceiptServiceTests {
         ReturnReceiptItem item = returnItem(receiptId, productUnitId, ResultingAction.RESTOCK.name());
         ProductUnit pu = serializedUnit(productUnitId, ProductUnitStatus.SOLD, BigDecimal.TEN);
 
-        when(returnReceiptRepository.findById(receiptId)).thenReturn(Optional.of(receipt));
+        when(returnReceiptRepository.findByIdForUpdate(receiptId)).thenReturn(Optional.of(receipt));
         stubSave();
         stubEnrich();
         when(returnReceiptItemRepository.findByReturnReceiptId(receiptId)).thenReturn(List.of(item), List.of());
@@ -323,7 +323,7 @@ class ReturnReceiptServiceTests {
         ReturnReceiptItem item = returnItem(receiptId, productUnitId, ResultingAction.SCRAP.name());
         ProductUnit pu = serializedUnit(productUnitId, ProductUnitStatus.SOLD, BigDecimal.TEN);
 
-        when(returnReceiptRepository.findById(receiptId)).thenReturn(Optional.of(receipt));
+        when(returnReceiptRepository.findByIdForUpdate(receiptId)).thenReturn(Optional.of(receipt));
         stubSave();
         stubEnrich();
         when(returnReceiptItemRepository.findByReturnReceiptId(receiptId)).thenReturn(List.of(item), List.of());
@@ -344,7 +344,7 @@ class ReturnReceiptServiceTests {
         ReturnReceiptItem item = returnItem(receiptId, productUnitId, ResultingAction.REJECT.name());
         ProductUnit pu = serializedUnit(productUnitId, ProductUnitStatus.SOLD, BigDecimal.TEN);
 
-        when(returnReceiptRepository.findById(receiptId)).thenReturn(Optional.of(receipt));
+        when(returnReceiptRepository.findByIdForUpdate(receiptId)).thenReturn(Optional.of(receipt));
         stubSave();
         stubEnrich();
         when(returnReceiptItemRepository.findByReturnReceiptId(receiptId)).thenReturn(List.of(item), List.of());
@@ -370,7 +370,7 @@ class ReturnReceiptServiceTests {
         ReturnReceiptItem item = returnItem(receiptId, productUnitId, ResultingAction.WARRANTY_TRANSFER.name());
         ProductUnit pu = serializedUnit(productUnitId, ProductUnitStatus.SOLD, BigDecimal.TEN);
 
-        when(returnReceiptRepository.findById(receiptId)).thenReturn(Optional.of(receipt));
+        when(returnReceiptRepository.findByIdForUpdate(receiptId)).thenReturn(Optional.of(receipt));
         stubSave();
         stubEnrich();
         when(returnReceiptItemRepository.findByReturnReceiptId(receiptId)).thenReturn(List.of(item), List.of());
@@ -391,7 +391,7 @@ class ReturnReceiptServiceTests {
         ReturnReceipt receipt = pendingReceipt(ReturnReason.DEFECTIVE.name());
         receipt.setCreatedBy(userId);
 
-        when(returnReceiptRepository.findById(receiptId)).thenReturn(Optional.of(receipt));
+        when(returnReceiptRepository.findByIdForUpdate(receiptId)).thenReturn(Optional.of(receipt));
         doThrow(new InvalidRequestException("creator")).when(securityPolicy).requireNotCreator(userId);
 
         {
@@ -405,7 +405,7 @@ class ReturnReceiptServiceTests {
         ReturnReceipt receipt = pendingReceipt(ReturnReason.DEFECTIVE.name());
         receipt.setStatus(ReturnReceiptStatus.COMPLETED);
 
-        when(returnReceiptRepository.findById(receiptId)).thenReturn(Optional.of(receipt));
+        when(returnReceiptRepository.findByIdForUpdate(receiptId)).thenReturn(Optional.of(receipt));
         doThrow(new InvalidRequestException("invalid transition")).when(returnReceiptStateMachine).validate(ReturnReceiptStatus.COMPLETED, ReturnReceiptStatus.COMPLETED);
 
         {
@@ -420,7 +420,7 @@ class ReturnReceiptServiceTests {
     void cancel_success() {
         ReturnReceipt receipt = pendingReceipt(ReturnReason.DEFECTIVE.name());
 
-        when(returnReceiptRepository.findById(receiptId)).thenReturn(Optional.of(receipt));
+        when(returnReceiptRepository.findByIdForUpdate(receiptId)).thenReturn(Optional.of(receipt));
         stubEnrich();
         stubSave();
 
@@ -434,7 +434,7 @@ class ReturnReceiptServiceTests {
         ReturnReceipt receipt = pendingReceipt(ReturnReason.DEFECTIVE.name());
         receipt.setStatus(ReturnReceiptStatus.CANCELLED);
 
-        when(returnReceiptRepository.findById(receiptId)).thenReturn(Optional.of(receipt));
+        when(returnReceiptRepository.findByIdForUpdate(receiptId)).thenReturn(Optional.of(receipt));
         doThrow(new InvalidRequestException("invalid transition")).when(returnReceiptStateMachine).validate(any(), eq(ReturnReceiptStatus.CANCELLED));
 
         assertThrows(InvalidRequestException.class, () -> returnReceiptService.cancel(receiptId));
@@ -445,7 +445,7 @@ class ReturnReceiptServiceTests {
         ReturnReceipt receipt = pendingReceipt(ReturnReason.DEFECTIVE.name());
         receipt.setStatus(ReturnReceiptStatus.COMPLETED);
 
-        when(returnReceiptRepository.findById(receiptId)).thenReturn(Optional.of(receipt));
+        when(returnReceiptRepository.findByIdForUpdate(receiptId)).thenReturn(Optional.of(receipt));
         doThrow(new InvalidRequestException("invalid transition")).when(returnReceiptStateMachine).validate(any(), eq(ReturnReceiptStatus.CANCELLED));
 
         assertThrows(InvalidRequestException.class, () -> returnReceiptService.cancel(receiptId));

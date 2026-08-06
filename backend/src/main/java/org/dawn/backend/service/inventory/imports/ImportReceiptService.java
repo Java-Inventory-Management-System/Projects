@@ -80,13 +80,26 @@ public class ImportReceiptService {
                 : status != null && !status.isBlank()
                     ? Page.empty(pageable)
                     : importReceiptRepository.findAll(pageable);
+        List<ImportReceipt> receipts = page.getContent();
+        if (receipts.isEmpty()) {
+            return ResponsePage.of(page.map(r -> ImportReceiptMappingHelper.map(r, null, null, null, null, List.of(), Map.of(), Map.of(), Map.of())));
+        }
+        List<Long> receiptIds = page.getContent().stream().map(ImportReceipt::getId).toList();
+        Map<Long, List<ImportReceiptItem>> itemsByReceipt = importReceiptItemRepository
+                .findByReceiptIdIn(receiptIds).stream()
+                .collect(Collectors.groupingBy(ImportReceiptItem::getReceiptId));
+        List<ImportReceiptItem> allItems = itemsByReceipt.values().stream()
+                .flatMap(List::stream).toList();
+        var products = fetchProducts(allItems);
+        var unitCounts = getUnitCounts(allItems);
+        var unitIds = getUnitIds(allItems);
+        var enrichmentMap = fetchEnrichmentDataFor(receipts);
         return ResponsePage.of(page.map(r -> {
-            var items = importReceiptItemRepository.findByReceiptId(r.getId());
-            var products = fetchProducts(items);
-            var unitCounts = getUnitCounts(items);
-            var unitIds = getUnitIds(items);
-            var enrichment = fetchEnrichmentData(r);
-            return ImportReceiptMappingHelper.map(r, enrichment.supplierName(), enrichment.createdByName(), enrichment.approvedByName(), enrichment.poCode(), items, products, unitCounts, unitIds);
+            var items = itemsByReceipt.getOrDefault(r.getId(), List.of());
+            var enrichment = enrichmentMap.get(r.getId());
+            return ImportReceiptMappingHelper.map(r,
+                    enrichment.supplierName(), enrichment.createdByName(), enrichment.approvedByName(), enrichment.poCode(),
+                    items, products, unitCounts, unitIds);
         }));
     }
 
@@ -205,6 +218,9 @@ public class ImportReceiptService {
         }
         if (countsByReceipt.isEmpty()) return List.of();
         var receipts = importReceiptRepository.findAllById(countsByReceipt.keySet());
+        Map<Long, String> supplierNames = receipts.isEmpty() ? Map.of() : supplierRepository.findAllById(
+                        receipts.stream().map(ImportReceipt::getSupplierId).filter(java.util.Objects::nonNull).distinct().toList())
+                .stream().collect(Collectors.toMap(Supplier::getId, Supplier::getName));
         return receipts.stream()
                 .sorted((a, b) -> {
                     Instant aAt = a.getCreatedAt();
@@ -216,7 +232,7 @@ public class ImportReceiptService {
                 .map(r -> BoxableImportResponse.builder()
                         .receiptId(r.getId())
                         .receiptCode(r.getReceiptCode())
-                        .supplierName(supplierRepository.findById(r.getSupplierId()).map(Supplier::getName).orElse(null))
+                        .supplierName(supplierNames.getOrDefault(r.getSupplierId(), null))
                         .importedAt(r.getCreatedAt())
                         .boxableUnits(countsByReceipt.getOrDefault(r.getId(), 0L))
                         .build())
@@ -255,19 +271,36 @@ public class ImportReceiptService {
 
     private record ReceiptEnrichment(String supplierName, String createdByName, String approvedByName, String poCode) {}
 
+    private Map<Long, ReceiptEnrichment> fetchEnrichmentDataFor(List<ImportReceipt> receipts) {
+        List<Long> supplierIds = receipts.stream()
+                .map(ImportReceipt::getSupplierId).filter(java.util.Objects::nonNull).distinct().toList();
+        List<Long> userIds = receipts.stream()
+                .flatMap(r -> r.getApprovedBy() != null
+                        ? java.util.stream.Stream.of(r.getCreatedBy(), r.getApprovedBy())
+                        : java.util.stream.Stream.of(r.getCreatedBy()))
+                .distinct().toList();
+        List<Long> poIds = receipts.stream()
+                .map(ImportReceipt::getPurchaseOrderId)
+                .filter(java.util.Objects::nonNull).distinct().toList();
+
+        Map<Long, String> supplierNames = supplierIds.isEmpty() ? Map.of() : supplierRepository.findAllById(supplierIds).stream()
+                .collect(Collectors.toMap(Supplier::getId, Supplier::getName));
+        Map<Long, String> userNames = userIds.isEmpty() ? Map.of() : userRepository.findAllById(userIds).stream()
+                .collect(Collectors.toMap(User::getId, User::getFullName));
+        Map<Long, String> poCodes = poIds.isEmpty() ? Map.of() : purchaseOrderRepository.findAllById(poIds).stream()
+                .collect(Collectors.toMap(PurchaseOrder::getId, PurchaseOrder::getPoCode));
+
+        return receipts.stream().collect(Collectors.toMap(
+                ImportReceipt::getId,
+                r -> new ReceiptEnrichment(
+                        supplierNames.get(r.getSupplierId()),
+                        userNames.get(r.getCreatedBy()),
+                        r.getApprovedBy() != null ? userNames.get(r.getApprovedBy()) : null,
+                        r.getPurchaseOrderId() != null ? poCodes.get(r.getPurchaseOrderId()) : null)) );
+    }
+
     private ReceiptEnrichment fetchEnrichmentData(ImportReceipt receipt) {
-        var supplierName = supplierRepository.findById(receipt.getSupplierId())
-                .map(Supplier::getName).orElse(null);
-        var createdByName = userRepository.findById(receipt.getCreatedBy())
-                .map(User::getFullName).orElse(null);
-        var approvedByName = receipt.getApprovedBy() != null
-                ? userRepository.findById(receipt.getApprovedBy()).map(User::getFullName).orElse(null)
-                : null;
-        var poCode = receipt.getPurchaseOrderId() != null
-                ? purchaseOrderRepository.findById(receipt.getPurchaseOrderId())
-                    .map(PurchaseOrder::getPoCode).orElse(null)
-                : null;
-        return new ReceiptEnrichment(supplierName, createdByName, approvedByName, poCode);
+        return fetchEnrichmentDataFor(List.of(receipt)).get(receipt.getId());
     }
 
     private ImportReceiptStatus safeParseImportStatus(String value) {

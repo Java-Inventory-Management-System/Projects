@@ -36,9 +36,13 @@ public class ScheduledTaskService {
         Instant cutoff = Instant.now().minus(Duration.ofDays(1));
         var stale = stockCheckRepository.findByStatusInAndCreatedAtBefore(activeStatuses, cutoff);
         for (var sc : stale) {
-            sc.setStatus(StockCheckStatus.EXPIRED);
-            stockCheckRepository.save(sc);
-            log.warn("Stock check {} auto-expired (created at {}, older than 1 day)", sc.getCheckCode(), sc.getCreatedAt());
+            stockCheckRepository.findByIdForUpdate(sc.getId())
+                    .filter(s -> activeStatuses.contains(s.getStatus()))
+                    .ifPresent(s -> {
+                        s.setStatus(StockCheckStatus.EXPIRED);
+                        stockCheckRepository.save(s);
+                        log.warn("Stock check {} auto-expired (created at {}, older than 1 day)", s.getCheckCode(), s.getCreatedAt());
+                    });
         }
         if (!stale.isEmpty()) {
             log.info("Expired {} stale stock check(s)", stale.size());
@@ -51,10 +55,14 @@ public class ScheduledTaskService {
         Instant cutoff = Instant.now().minus(Duration.ofDays(30));
         var stale = returnReceiptRepository.findByStatusAndCreatedAtBefore(ReturnReceiptStatus.PENDING_APPROVAL, cutoff);
         for (var receipt : stale) {
-            receipt.setStatus(ReturnReceiptStatus.CANCELLED);
-            returnReceiptRepository.save(receipt);
-            log.warn("Return receipt {} auto-cancelled (created at {}, older than 30 days)",
-                    receipt.getReceiptCode(), receipt.getCreatedAt());
+            returnReceiptRepository.findByIdForUpdate(receipt.getId())
+                    .filter(r -> ReturnReceiptStatus.PENDING_APPROVAL == r.getStatus())
+                    .ifPresent(r -> {
+                        r.setStatus(ReturnReceiptStatus.CANCELLED);
+                        returnReceiptRepository.save(r);
+                        log.warn("Return receipt {} auto-cancelled (created at {}, older than 30 days)",
+                                r.getReceiptCode(), r.getCreatedAt());
+                    });
         }
         if (!stale.isEmpty()) {
             log.info("Auto-cancelled {} stale return receipt(s)", stale.size());

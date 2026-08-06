@@ -214,7 +214,7 @@ public class BoxService {
     @AuditLog(action = LogConstant.Action.UNSEAL_BOX, entity = LogConstant.Entity.BOX)
     public BoxResponse unseal(Long id) {
         Long userId = securityPolicy.requireAuthenticated();
-        var box = boxRepository.findById(id)
+        var box = boxRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.BOX_NOT_FOUND));
         if (box.getStatus() != BoxStatus.SEALED) {
             throw new InvalidRequestException(ErrorCode.BOX_UNSEAL_ALREADY);
@@ -240,7 +240,7 @@ public class BoxService {
         }
         locationRepository.findById(request.locationId())
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.LOCATION_NOT_FOUND));
-        var box = boxRepository.findById(id)
+        var box = boxRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.BOX_NOT_FOUND));
         if (box.getStatus() != BoxStatus.SEALED) {
             throw new InvalidRequestException(ErrorCode.BOX_MOVE_OPEN);
@@ -289,8 +289,12 @@ public class BoxService {
     }
 
     private BoxResponse toResponse(Box box, Map<Long, String> locationMap, Map<Long, String> userMap, Map<Long, String> receiptCodeMap, List<ProductUnit> units, int unitCount) {
+        Map<Long, Product> productMap = units == null || units.isEmpty() ? Map.of()
+                : productRepository.findAllById(units.stream()
+                        .map(ProductUnit::getProductId).distinct().toList()).stream()
+                        .collect(Collectors.toMap(Product::getId, p -> p));
         List<BoxResponse.BoxUnitResponse> unitResponses = units == null ? List.of() : units.stream().map(u -> {
-            Product p = productRepository.findById(u.getProductId()).orElse(null);
+            Product p = productMap.get(u.getProductId());
             return BoxResponse.BoxUnitResponse.builder()
                     .productUnitId(u.getId())
                     .serialNumber(u.getSerialNumber())

@@ -216,7 +216,7 @@ public class ImportConfirmationService {
     public ImportReceiptResponse confirm(Long id, ConfirmImportRequest request) {
         Long userId = securityPolicy.requireAuthenticated();
 
-        ImportReceipt receipt = importReceiptRepository.findById(id)
+        ImportReceipt receipt = importReceiptRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.IMPORT_RECEIPT_NOT_FOUND));
         importReceiptStateMachine.validate(receipt.getStatus(), ImportReceiptStatus.PENDING_APPROVAL);
 

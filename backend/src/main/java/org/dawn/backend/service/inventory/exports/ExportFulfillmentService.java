@@ -72,7 +72,7 @@ public class ExportFulfillmentService {
     @AuditLog(action = LogConstant.Action.FULFILL_EXPORT, entity = LogConstant.Entity.EXPORT_RECEIPT)
     public ExportReceiptResponse fulfill(Long id, FulfillExportRequest request) {
         Long userId = securityPolicy.requireAuthenticated();
-        ExportReceipt receipt = exportReceiptRepository.findById(id)
+        ExportReceipt receipt = exportReceiptRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.EXPORT_RECEIPT_NOT_FOUND));
 
         exportReceiptStateMachine.validate(receipt.getStatus(), ExportReceiptStatus.COMPLETED);

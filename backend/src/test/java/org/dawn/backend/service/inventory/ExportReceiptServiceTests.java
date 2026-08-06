@@ -84,7 +84,7 @@ class ExportReceiptServiceTests {
     void cancel_success() {
         ExportReceipt receipt = pendingReceipt(ExportReason.SALE.name(), 99L);
 
-        when(exportReceiptRepository.findById(receiptId)).thenReturn(Optional.of(receipt));
+        when(exportReceiptRepository.findByIdForUpdate(receiptId)).thenReturn(Optional.of(receipt));
         when(securityPolicy.requireAuthenticated()).thenReturn(userId);
         stubSave();
 
@@ -98,7 +98,7 @@ class ExportReceiptServiceTests {
         ExportReceipt receipt = pendingReceipt(ExportReason.SALE.name(), 99L);
         receipt.setStatus(ExportReceiptStatus.CANCELLED);
 
-        when(exportReceiptRepository.findById(receiptId)).thenReturn(Optional.of(receipt));
+        when(exportReceiptRepository.findByIdForUpdate(receiptId)).thenReturn(Optional.of(receipt));
         when(securityPolicy.requireAuthenticated()).thenReturn(userId);
         doThrow(new InvalidRequestException("invalid transition"))
                 .when(exportReceiptStateMachine).validate(any(), eq(ExportReceiptStatus.CANCELLED));
@@ -111,7 +111,7 @@ class ExportReceiptServiceTests {
         ExportReceipt receipt = pendingReceipt(ExportReason.SALE.name(), 99L);
         receipt.setStatus(ExportReceiptStatus.COMPLETED);
 
-        when(exportReceiptRepository.findById(receiptId)).thenReturn(Optional.of(receipt));
+        when(exportReceiptRepository.findByIdForUpdate(receiptId)).thenReturn(Optional.of(receipt));
         when(securityPolicy.requireAuthenticated()).thenReturn(userId);
         doThrow(new InvalidRequestException("invalid transition"))
                 .when(exportReceiptStateMachine).validate(any(), eq(ExportReceiptStatus.CANCELLED));

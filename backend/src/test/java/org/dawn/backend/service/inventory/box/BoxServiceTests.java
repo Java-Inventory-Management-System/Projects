@@ -92,7 +92,7 @@ class BoxServiceTests {
         when(productUnitRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(locationRepository.findAllById(anyList())).thenReturn(List.of(location));
         when(userRepository.findAllById(anyList())).thenReturn(List.of());
-        when(productRepository.findById(any())).thenReturn(Optional.of(Product.builder()
+        when(productRepository.findAllById(any())).thenReturn(List.of(Product.builder()
                 .id(2L).name("Cable").sku("CBL").build()));
     }
 

@@ -32,7 +32,7 @@ public class ExportWorkflowService {
     @AuditLog(action = LogConstant.Action.CANCEL_EXPORT, entity = LogConstant.Entity.EXPORT_RECEIPT)
     public ExportReceiptResponse cancel(Long id) {
         Long userId = securityPolicy.requireAuthenticated();
-        ExportReceipt receipt = exportReceiptRepository.findById(id)
+        ExportReceipt receipt = exportReceiptRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.EXPORT_RECEIPT_NOT_FOUND));
 
         exportReceiptStateMachine.validate(receipt.getStatus(), ExportReceiptStatus.CANCELLED);

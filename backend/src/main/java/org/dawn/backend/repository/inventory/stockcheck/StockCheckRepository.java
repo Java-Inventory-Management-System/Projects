@@ -1,15 +1,24 @@
 package org.dawn.backend.repository.inventory.stockcheck;
 
+import jakarta.persistence.LockModeType;
 import org.dawn.backend.constant.enums.inventory.stockcheck.StockCheckStatus;
 import org.dawn.backend.entity.inventory.StockCheck;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface StockCheckRepository extends JpaRepository<StockCheck, Long> {
     boolean existsByCheckCode(String checkCode);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT s FROM StockCheck s WHERE s.id = :id")
+    Optional<StockCheck> findByIdForUpdate(@Param("id") Long id);
 
     Page<StockCheck> findByCreatedBy(Long createdBy, Pageable pageable);
 

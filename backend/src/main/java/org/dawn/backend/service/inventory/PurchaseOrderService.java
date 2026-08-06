@@ -118,7 +118,7 @@ public class PurchaseOrderService {
     @Transactional
     @AuditLog(action = LogConstant.Action.CANCEL_PURCHASE_ORDER, entity = LogConstant.Entity.PURCHASE_ORDER)
     public PurchaseOrderResponse cancel(Long id) {
-        var po = purchaseOrderRepository.findById(id)
+        var po = purchaseOrderRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.PO_NOT_FOUND));
 
         if (PurchaseOrderStatus.CANCELLED == po.getStatus()) {

@@ -70,7 +70,7 @@ public class QcPassService {
             throw new InvalidRequestException(ErrorCode.QC_PASS_UNITS_REQUIRED);
         }
 
-        var units = productUnitRepository.findAllById(unitIds);
+        var units = productUnitRepository.findByIdsForUpdate(unitIds);
         for (var unit : units) {
             if (!PASSABLE_STATUSES.contains(unit.getStatus())) {
                 throw new InvalidRequestException(
@@ -106,8 +106,11 @@ public class QcPassService {
         var evidence = returnReceiptItemRepository.findByProductUnitIdIn(unitIds).stream()
                 .collect(Collectors.toMap(ReturnReceiptItem::getProductUnitId, i -> i, (a, b) -> a));
         var lastLog = new java.util.HashMap<Long, ProductUnitStatusLog>();
-        units.forEach(u -> statusLogRepository.findByProductUnitIdOrderByCreatedAtDesc(u.getId()).stream()
-                .findFirst().ifPresent(l -> lastLog.put(u.getId(), l)));
+        List<ProductUnitStatusLog> recentLogs = unitIds.isEmpty() ? List.of()
+                : statusLogRepository.findByProductUnitIdInOrderByCreatedAtDesc(unitIds);
+        for (var log : recentLogs) {
+            lastLog.putIfAbsent(log.getProductUnitId(), log);
+        }
         var userIds = lastLog.values().stream().map(ProductUnitStatusLog::getChangedBy).distinct().toList();
         var userNames = userRepository.findAllById(userIds).stream()
                 .collect(Collectors.toMap(org.dawn.backend.entity.auth.User::getId, org.dawn.backend.entity.auth.User::getFullName));

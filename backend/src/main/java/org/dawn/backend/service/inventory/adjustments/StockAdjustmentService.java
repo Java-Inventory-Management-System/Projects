@@ -1,6 +1,11 @@
 package org.dawn.backend.service.inventory.adjustments;
 import org.dawn.backend.constant.shared.ErrorCode;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dawn.backend.shared.statemachine.StateMachine;
@@ -52,7 +57,7 @@ public class StockAdjustmentService {
         else if (t != null) page = adjustmentRepository.findByType(t, pageable);
         else if (s != null) page = adjustmentRepository.findByStatus(s, pageable);
         else page = adjustmentRepository.findAll(pageable);
-        return ResponsePage.of(page.map(this::enrich));
+        return enrichPage(page);
     }
 
     @Transactional(readOnly = true)
@@ -72,13 +77,13 @@ public class StockAdjustmentService {
         else if (t != null) page = adjustmentRepository.findByCreatedByAndType(userId, t, pageable);
         else if (s != null) page = adjustmentRepository.findByCreatedByAndStatus(userId, s, pageable);
         else page = adjustmentRepository.findByCreatedBy(userId, pageable);
-        return ResponsePage.of(page.map(this::enrich));
+        return enrichPage(page);
     }
 
     @Transactional(readOnly = true)
     public ResponsePage<StockAdjustmentResponse> findByProductUnitId(Long productUnitId, Pageable pageable) {
         var page = adjustmentRepository.findByProductUnitIdOrderByCreatedAtDesc(productUnitId, pageable);
-        return ResponsePage.of(page.map(this::enrich));
+        return enrichPage(page);
     }
 
     private String normalize(String value) {
@@ -161,7 +166,7 @@ public class StockAdjustmentService {
     public StockAdjustmentResponse approve(Long id, ApproveAdjustmentRequest request) {
         Long userId = securityPolicy.requireAuthenticated();
 
-        var adj = adjustmentRepository.findById(id)
+        var adj = adjustmentRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.ADJUSTMENT_NOT_FOUND));
 
         adjustmentStateMachine.validate(adj.getStatus(), AdjustmentStatus.APPROVED);
@@ -192,7 +197,7 @@ public class StockAdjustmentService {
     public StockAdjustmentResponse reject(Long id, ApproveAdjustmentRequest request) {
         Long userId = securityPolicy.requireAuthenticated();
 
-        var adj = adjustmentRepository.findById(id)
+        var adj = adjustmentRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.ADJUSTMENT_NOT_FOUND));
 
         adjustmentStateMachine.validate(adj.getStatus(), AdjustmentStatus.REJECTED);
@@ -206,6 +211,51 @@ public class StockAdjustmentService {
         adj.setApprovalNote(request.approvalNote());
         adj = adjustmentRepository.save(adj);
         return enrich(adj);
+    }
+
+    private ResponsePage<StockAdjustmentResponse> enrichPage(org.springframework.data.domain.Page<StockAdjustment> page) {
+        List<StockAdjustment> adjs = page.getContent();
+        if (adjs.isEmpty()) {
+            return ResponsePage.of(page.map(this::enrichSingle));
+        }
+        List<Long> userIds = adjs.stream()
+                .flatMap(a -> a.getApprovedBy() != null
+                        ? java.util.stream.Stream.of(a.getCreatedBy(), a.getApprovedBy())
+                        : java.util.stream.Stream.of(a.getCreatedBy()))
+                .distinct().toList();
+        Map<Long, String> userMap = userRepository.findAllById(userIds).stream()
+                .collect(Collectors.toMap(User::getId, User::getFullName));
+
+        List<Long> unitIds = adjs.stream().map(StockAdjustment::getProductUnitId)
+                .filter(java.util.Objects::nonNull).distinct().toList();
+        Map<Long, ProductUnit> unitMap = unitIds.isEmpty() ? Map.of()
+                : productUnitRepository.findAllById(unitIds).stream()
+                    .collect(Collectors.toMap(ProductUnit::getId, u -> u));
+
+        List<Long> productIds = new ArrayList<>(adjs.stream().map(StockAdjustment::getProductId)
+                .filter(java.util.Objects::nonNull).toList());
+        unitMap.values().stream().map(ProductUnit::getProductId)
+                .filter(java.util.Objects::nonNull).forEach(productIds::add);
+        productIds = productIds.stream().distinct().toList();
+        Map<Long, Product> productMap = productIds.isEmpty() ? Map.of()
+                : productRepository.findAllById(productIds).stream()
+                    .collect(Collectors.toMap(Product::getId, p -> p));
+
+        return ResponsePage.of(page.map(a -> enrichBatch(a, userMap, unitMap, productMap)));
+    }
+
+    private StockAdjustmentResponse enrichBatch(StockAdjustment adj, Map<Long, String> userMap, Map<Long, ProductUnit> unitMap, Map<Long, Product> productMap) {
+        var createdByName = userMap.get(adj.getCreatedBy());
+        var approvedByName = adj.getApprovedBy() != null ? userMap.get(adj.getApprovedBy()) : null;
+        ProductUnit unit = adj.getProductUnitId() != null ? unitMap.get(adj.getProductUnitId()) : null;
+        Long productId = adj.getProductId() != null ? adj.getProductId()
+                : (unit != null ? unit.getProductId() : null);
+        Product product = productId != null ? productMap.get(productId) : null;
+        return StockAdjustmentMappingHelper.map(adj, createdByName, approvedByName, unit, product);
+    }
+
+    private StockAdjustmentResponse enrichSingle(StockAdjustment adj) {
+        return enrichBatch(adj, Map.of(), Map.of(), Map.of());
     }
 
     private StockAdjustmentResponse enrich(StockAdjustment adj) {

@@ -1,19 +1,11 @@
 package org.dawn.backend.service.inventory.returns;
 
 import org.dawn.backend.constant.enums.inventory.ProductUnitStatus;
-import org.dawn.backend.entity.catalog.Category;
-import org.dawn.backend.entity.catalog.CategoryZone;
-import org.dawn.backend.entity.catalog.Product;
-import org.dawn.backend.entity.inventory.Location;
 import org.dawn.backend.entity.inventory.ProductUnit;
 import org.dawn.backend.exception.type.InvalidRequestException;
 import org.dawn.backend.config.security.SecurityPolicy;
-import org.dawn.backend.repository.catalog.CategoryZoneRepository;
-import org.dawn.backend.repository.catalog.ProductRepository;
-import org.dawn.backend.repository.inventory.LocationRepository;
 import org.dawn.backend.repository.inventory.ProductUnitRepository;
 import org.dawn.backend.repository.inventory.ProductUnitStatusLogRepository;
-import org.dawn.backend.repository.inventory.returns.ReturnReceiptItemRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -21,7 +13,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
-import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -32,10 +23,6 @@ class QcPassServiceTests {
 
     @Mock ProductUnitRepository productUnitRepository;
     @Mock ProductUnitStatusLogRepository statusLogRepository;
-    @Mock ProductRepository productRepository;
-    @Mock CategoryZoneRepository categoryZoneRepository;
-    @Mock LocationRepository locationRepository;
-    @Mock ReturnReceiptItemRepository returnReceiptItemRepository;
     @Mock SecurityPolicy securityPolicy;
 
     @InjectMocks QcPassService service;
@@ -54,27 +41,14 @@ class QcPassServiceTests {
     }
 
     @Test
-    void confirm_restockHold_movesToInStockAtCategoryZone() {
+    void confirm_restockHold_movesToInStock() {
         ProductUnit pu = unit(1L, ProductUnitStatus.RETURN_QC_HOLD, 5L, 20L);
-        when(productUnitRepository.findAllById(List.of(1L))).thenReturn(List.of(pu));
+        when(productUnitRepository.findByIdsForUpdate(List.of(1L))).thenReturn(List.of(pu));
         when(securityPolicy.requireAuthenticated()).thenReturn(userId);
-
-        Product product = mock(Product.class);
-        Category category = mock(Category.class);
-        when(product.getCategory()).thenReturn(category);
-        when(category.getId()).thenReturn(2L);
-        when(productRepository.findById(20L)).thenReturn(Optional.of(product));
-        when(categoryZoneRepository.findByCategoryId(2L)).thenReturn(Optional.of(CategoryZone.builder()
-                .categoryId(2L).zoneCode("A").build()));
-        Location binA = mock(Location.class);
-        when(binA.getId()).thenReturn(9L);
-        when(binA.getIsActive()).thenReturn(true);
-        when(locationRepository.findByZoneCode("A")).thenReturn(List.of(binA));
 
         service.confirm(List.of(1L));
 
         assertEquals(ProductUnitStatus.IN_STOCK, pu.getStatus());
-        assertEquals(9L, pu.getLocationId());
         verify(statusLogRepository).save(argThat(log ->
                 "QC_PROCESSING".equals(log.getSourceType())
                         && "RETURN_QC_HOLD".equals(log.getFromStatus())
@@ -84,14 +58,12 @@ class QcPassServiceTests {
     @Test
     void confirm_rmaRepairedReturned_movesToInStock() {
         ProductUnit pu = unit(2L, ProductUnitStatus.RMA_REPAIRED_RETURNED, 7L, 20L);
-        when(productUnitRepository.findAllById(List.of(2L))).thenReturn(List.of(pu));
+        when(productUnitRepository.findByIdsForUpdate(List.of(2L))).thenReturn(List.of(pu));
         when(securityPolicy.requireAuthenticated()).thenReturn(userId);
-        when(productRepository.findById(20L)).thenReturn(Optional.empty());
 
         service.confirm(List.of(2L));
 
         assertEquals(ProductUnitStatus.IN_STOCK, pu.getStatus());
-        assertNull(pu.getLocationId());
     }
 
     @Test
@@ -106,9 +78,8 @@ class QcPassServiceTests {
                 .status(ProductUnitStatus.RETURN_QC_HOLD)
                 .locationId(5L)
                 .build();
-        when(productUnitRepository.findAllById(List.of(3L))).thenReturn(List.of(pu));
+        when(productUnitRepository.findByIdsForUpdate(List.of(3L))).thenReturn(List.of(pu));
         when(securityPolicy.requireAuthenticated()).thenReturn(userId);
-        when(productRepository.findById(20L)).thenReturn(Optional.empty());
 
         service.confirm(List.of(3L));
 
@@ -120,7 +91,7 @@ class QcPassServiceTests {
     @Test
     void confirm_wrongStatus_rejected() {
         ProductUnit pu = unit(4L, ProductUnitStatus.WAITING_RMA_EXPORT, 6L, 20L);
-        when(productUnitRepository.findAllById(List.of(4L))).thenReturn(List.of(pu));
+        when(productUnitRepository.findByIdsForUpdate(List.of(4L))).thenReturn(List.of(pu));
         when(securityPolicy.requireAuthenticated()).thenReturn(userId);
 
         assertThrows(InvalidRequestException.class, () -> service.confirm(List.of(4L)));

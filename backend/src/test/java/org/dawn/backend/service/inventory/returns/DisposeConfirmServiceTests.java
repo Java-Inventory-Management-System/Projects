@@ -4,8 +4,13 @@ import org.dawn.backend.constant.enums.inventory.ProductUnitStatus;
 import org.dawn.backend.entity.inventory.ProductUnit;
 import org.dawn.backend.exception.type.InvalidRequestException;
 import org.dawn.backend.config.security.SecurityPolicy;
+import org.dawn.backend.repository.catalog.ProductRepository;
 import org.dawn.backend.repository.inventory.ProductUnitRepository;
 import org.dawn.backend.repository.inventory.ProductUnitStatusLogRepository;
+import org.dawn.backend.repository.inventory.exports.ExportReceiptItemRepository;
+import org.dawn.backend.repository.inventory.exports.ExportReceiptItemUnitRepository;
+import org.dawn.backend.repository.inventory.exports.ExportReceiptRepository;
+import org.dawn.backend.repository.inventory.exports.ExportReceiptStatusHistoryRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -23,6 +28,11 @@ class DisposeConfirmServiceTests {
 
     @Mock ProductUnitRepository productUnitRepository;
     @Mock ProductUnitStatusLogRepository statusLogRepository;
+    @Mock ProductRepository productRepository;
+    @Mock ExportReceiptRepository exportReceiptRepository;
+    @Mock ExportReceiptItemRepository exportReceiptItemRepository;
+    @Mock ExportReceiptItemUnitRepository exportReceiptItemUnitRepository;
+    @Mock ExportReceiptStatusHistoryRepository exportReceiptStatusHistoryRepository;
     @Mock SecurityPolicy securityPolicy;
 
     @InjectMocks DisposeConfirmService service;
@@ -43,7 +53,7 @@ class DisposeConfirmServiceTests {
     @Test
     void confirm_pendingDisposal_toDisposed() {
         ProductUnit pu = unit(1L, ProductUnitStatus.PENDING_DISPOSAL, 8L);
-        when(productUnitRepository.findAllById(List.of(1L))).thenReturn(List.of(pu));
+        when(productUnitRepository.findByIdsForUpdate(List.of(1L))).thenReturn(List.of(pu));
         when(securityPolicy.requireAuthenticated()).thenReturn(userId);
 
         service.confirm(List.of(1L), "DISPOSED");
@@ -57,7 +67,7 @@ class DisposeConfirmServiceTests {
     @Test
     void confirm_pendingDisposal_toRejectedReturn() {
         ProductUnit pu = unit(2L, ProductUnitStatus.PENDING_DISPOSAL, 8L);
-        when(productUnitRepository.findAllById(List.of(2L))).thenReturn(List.of(pu));
+        when(productUnitRepository.findByIdsForUpdate(List.of(2L))).thenReturn(List.of(pu));
         when(securityPolicy.requireAuthenticated()).thenReturn(userId);
 
         service.confirm(List.of(2L), "REJECTED_RETURN");
@@ -69,19 +79,27 @@ class DisposeConfirmServiceTests {
     @Test
     void confirm_rmaUnrepairable_toReturnedToSupplier() {
         ProductUnit pu = unit(3L, ProductUnitStatus.RMA_UNREPAIRABLE, 8L);
-        when(productUnitRepository.findAllById(List.of(3L))).thenReturn(List.of(pu));
+        when(productUnitRepository.findByIdsForUpdate(List.of(3L))).thenReturn(List.of(pu));
         when(securityPolicy.requireAuthenticated()).thenReturn(userId);
+        when(productRepository.findAllById(anySet())).thenReturn(List.of());
+        when(exportReceiptRepository.existsByReceiptCode(anyString())).thenReturn(false);
+        when(exportReceiptRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(exportReceiptItemRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(exportReceiptItemUnitRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(exportReceiptStatusHistoryRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
         service.confirm(List.of(3L), "RETURNED_TO_SUPPLIER");
 
         assertEquals(ProductUnitStatus.RETURNED_TO_SUPPLIER, pu.getStatus());
         assertNull(pu.getLocationId());
+        verify(exportReceiptRepository).save(argThat(receipt ->
+                "RETURN_SUPPLIER".equals(receipt.getReason())));
     }
 
     @Test
     void confirm_rmaUnrepairable_toDisposed() {
         ProductUnit pu = unit(4L, ProductUnitStatus.RMA_UNREPAIRABLE, 8L);
-        when(productUnitRepository.findAllById(List.of(4L))).thenReturn(List.of(pu));
+        when(productUnitRepository.findByIdsForUpdate(List.of(4L))).thenReturn(List.of(pu));
         when(securityPolicy.requireAuthenticated()).thenReturn(userId);
 
         service.confirm(List.of(4L), "DISPOSED");
@@ -93,7 +111,7 @@ class DisposeConfirmServiceTests {
     @Test
     void confirm_wrongPair_rejected() {
         ProductUnit pu = unit(5L, ProductUnitStatus.RMA_UNREPAIRABLE, 8L);
-        when(productUnitRepository.findAllById(List.of(5L))).thenReturn(List.of(pu));
+        when(productUnitRepository.findByIdsForUpdate(List.of(5L))).thenReturn(List.of(pu));
         when(securityPolicy.requireAuthenticated()).thenReturn(userId);
 
         assertThrows(InvalidRequestException.class, () -> service.confirm(List.of(5L), "REJECTED_RETURN"));
@@ -104,7 +122,7 @@ class DisposeConfirmServiceTests {
     @Test
     void confirm_wrongStatus_rejected() {
         ProductUnit pu = unit(6L, ProductUnitStatus.RETURN_QC_HOLD, 5L);
-        when(productUnitRepository.findAllById(List.of(6L))).thenReturn(List.of(pu));
+        when(productUnitRepository.findByIdsForUpdate(List.of(6L))).thenReturn(List.of(pu));
         when(securityPolicy.requireAuthenticated()).thenReturn(userId);
 
         assertThrows(InvalidRequestException.class, () -> service.confirm(List.of(6L), "DISPOSED"));
@@ -114,7 +132,7 @@ class DisposeConfirmServiceTests {
     @Test
     void confirm_invalidAction_rejected() {
         ProductUnit pu = unit(7L, ProductUnitStatus.PENDING_DISPOSAL, 8L);
-        when(productUnitRepository.findAllById(List.of(7L))).thenReturn(List.of(pu));
+        when(productUnitRepository.findByIdsForUpdate(List.of(7L))).thenReturn(List.of(pu));
         when(securityPolicy.requireAuthenticated()).thenReturn(userId);
 
         assertThrows(InvalidRequestException.class, () -> service.confirm(List.of(7L), "IN_STOCK"));
@@ -126,6 +144,6 @@ class DisposeConfirmServiceTests {
         when(securityPolicy.requireAuthenticated()).thenReturn(userId);
 
         assertThrows(InvalidRequestException.class, () -> service.confirm(List.of(), "DISPOSED"));
-        verify(productUnitRepository, never()).findAllById(any());
+        verify(productUnitRepository, never()).findByIdsForUpdate(any());
     }
 }

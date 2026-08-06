@@ -29,7 +29,7 @@ public class LocationCapacityValidator {
      */
     public void assertCapacity(Long locationId, BigDecimal incoming, Collection<Long> excludedUnitIds) {
         if (locationId == null) return;
-        Location location = locationRepository.findById(locationId).orElse(null);
+        Location location = locationRepository.findByIdForUpdate(locationId).orElse(null);
         if (location == null || location.getMaxCapacity() == null) return;
         BigDecimal used = productUnitRepository.usageByLocation().getOrDefault(locationId, BigDecimal.ZERO);
         if (excludedUnitIds != null && !excludedUnitIds.isEmpty()) {

@@ -88,7 +88,7 @@ public class DisposeConfirmService {
                     ErrorCode.DISPOSE_CONFIRM_UNIT_NOT_PENDING.format("?", action));
         }
 
-        var units = productUnitRepository.findAllById(unitIds);
+        var units = productUnitRepository.findByIdsForUpdate(unitIds);
         for (var unit : units) {
             Set<ProductUnitStatus> allowed = ALLOWED_ACTIONS.getOrDefault(unit.getStatus(), Set.of());
             if (!allowed.contains(targetStatus)) {

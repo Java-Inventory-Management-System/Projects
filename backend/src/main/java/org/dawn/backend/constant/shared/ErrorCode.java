@@ -36,6 +36,8 @@ public enum ErrorCode {
     FILE_UPLOAD_SAVE_FAILED("Failed to save file: {0}"),
     EMAIL_SEND_FAILED("Failed to send email, please contact support"),
     METHOD_NOT_IMPLEMENTED("This feature is not yet implemented"),
+    CONFLICT_DATA_CHANGED("Data was changed by another operation. Please refresh and retry."),
+    CONFLICT_DUPLICATE("Duplicate data (code or serial already exists)"),
     PASSWORD_TOO_SHORT("Password must be at least 6 characters"),
     PASSWORD_NOT_MATCH("Passwords do not match"),
     INVALID_STATE_TRANSITION("Invalid transition: {0} -> {1}"),
