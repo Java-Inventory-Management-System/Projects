@@ -29,7 +29,10 @@ public class ApiExceptionHandler {
     public ResponseEntity<ExceptionMessage> handleApiRequestException(ApiException e, Locale locale) {
         String code = e.getCode() != null ? e.getCode() : "UNKNOWN_ERROR";
         log.warn("ApiException: code={} args={} -> {}", code, Arrays.toString(e.getArgs()), e.getMessage());
-        return buildResponse(e.getStatus(), code, localize(code, e.getArgs(), e.getMessage(), locale));
+        String message = e.getCode() != null
+                ? localize(e.getCode(), e.getArgs(), e.getMessage(), locale)
+                : e.getMessage();
+        return buildResponse(e.getStatus(), code, message);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

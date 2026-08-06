@@ -81,6 +81,7 @@ export const UsersPage = () => {
   const { data: usersRes, isLoading, error: fetchError } = useQuery({
     queryKey: ["users", debouncedSearch || "paged", debouncedSearch ? 0 : page, pageSize, sortStr],
     queryFn: () => debouncedSearch ? getUsers(0, 10000, sortStr) : getUsers(page, pageSize, sortStr),
+    placeholderData: (prev) => prev,
   })
 
   const filtered = debouncedSearch

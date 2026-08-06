@@ -10,6 +10,7 @@ import java.util.List;
 @Component
 public class CorsConfig {
     public final List<String> ALLOWED_DOMAINS = Arrays.asList(
+            "http://localhost",
             "http://localhost:3000",
             "http://localhost:4200",
             "http://localhost:5173");

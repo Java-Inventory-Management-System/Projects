@@ -1,4 +1,4 @@
-﻿{
+{
   "nav": {
     "dashboard": "Dashboard",
     "products": "Products",
@@ -15,8 +15,11 @@
     "returns": "Returns",
     "priceAdj": "Price Adj.",
     "users": "Users",
-    "audit": "Audit"
-  },
+    "audit": "Audit",
+    "qcProcessing": "QC Station",
+    "stockOps": "Checks & Adjustments",
+    "returnsQc": "Returns & QC",
+    "catalogSettings": "System Catalog"  },
   "common": {
     "pageNotFound": "Page Not Found",
     "pageNotFoundDesc": "The page you are looking for doesn't exist.",
@@ -329,6 +332,27 @@
     "completed": "Completed",
     "cancelled": "Cancelled"
   },
+  "importWarranty": {
+    "modePo": "Import from PO",
+    "modeSpecial": "Warranty / Supplier Return",
+    "selectSpecial": "Export receipt (warranty or supplier return)",
+    "selectSpecialPlaceholder": "Select a completed export to receive back.",
+    "noExports": "No completed warranty / supplier-return exports",
+    "noExportSelected": "Please select an export receipt",
+    "badgeWarranty": "Warranty",
+    "badgeReturnSupplier": "Supplier return",
+    "createWarranty": "Create Warranty Import",
+    "createSupplierReturn": "Create Supplier Return Import",
+    "invalidNewSerials": "Enter exactly {{count}} new serials for \"{{name}}\"",
+    "newSerialsButton": "Enter new serials",
+    "enteredSerials": "{{count}}/{{required}} serials entered",
+    "locationNote": "Warranty / supplier-return imports do NOT go to stock shelves: repaired or replaced units are stored at the QC staging shelf (QC-01-03), unrepairable ones at QC-01-04. Units only enter salable stock after QC approval; units awaiting customer pickup stay in the QC zone.",
+    "result": {
+      "repaired": "Repaired",
+      "rejected": "Cannot be repaired",
+      "replaced": "Replaced"
+    }
+  },
   "importCreate": {
     "title": "Create Import",
     "stepSelectOrder": "Select Order",
@@ -437,15 +461,13 @@
     "done": "Done"
   },
   "exportStatus": {
-    "pending": "Pending",
+    "pending": "Pending Export",
     "approved": "Approved",
     "completed": "Completed",
     "cancelled": "Cancelled"
   },
   "exportCreate": {
-    "title": "Create Export Receipt",
-    "reason": "Export Reason",
-    "reasonPlaceholder": "Select reason",
+    "title": "Create Export Receipt","reasonPlaceholder": "Select reason",
     "customer": "Customer",
     "searchCustomer": "Search / Select customer...",
     "addProductLabel": "Add Product",
@@ -505,9 +527,7 @@
     "empty": "No export receipts yet"
   },
   "exportProposal": {
-    "title": "Export Proposal",
-    "reason": "Export Reason",
-    "reasonPlaceholder": "Select reason",
+    "title": "Export Proposal","reasonPlaceholder": "Select reason",
     "reasonRequired": "Please select an export reason",
     "customer": "Customer",
     "customerRequired": "Please select a customer",
@@ -515,6 +535,8 @@
     "warrantyCode": "Warranty Code",
     "warrantyPlaceholder": "e.g. WR-2026-00123",
     "addProductLabel": "Add Product",
+    "searchProduct": "Search products...",
+    "noProducts": "No products found",
     "selectProductPlaceholder": "Select product...",
     "noItems": "No products added",
     "total": "Total",
@@ -526,7 +548,11 @@
     "maxQuantity": "Maximum export quantity is {{max}}",
     "inStock": "Stock: {{count}}",
     "restoreTitle": "Restore Data",
-    "restoreDescription": "You have unsaved export data from last time. Restore?"
+    "restoreDescription": "You have unsaved export data from last time. Restore?",
+    "chooseReason": "Select export reason",
+    "supplier": "Supplier",
+    "noSupplier": "Product has no supplier assigned",
+    "supplierMismatch": "All products must belong to the same supplier"
   },
   "poStatus": {
     "open": "Open",
@@ -582,8 +608,8 @@
     "cancelled": "Cancelled"
   },
   "returnStatus": {
-    "pendingApproval": "Pending Approval",
-    "completed": "Approved",
+    "pendingApproval": "Pending Receipt",
+    "completed": "Received",
     "cancelled": "Cancelled"
   },
   "unitStatus": {
@@ -602,7 +628,43 @@
     "quarantined": "Quarantined",
     "warranty": "Under Warranty",
     "warrantyDone": "Warranty Done",
-    "warrantyReplaced": "Warranty Replaced"
+    "warrantyReplaced": "Warranty Replaced",
+    "returnQcHold": "QC Hold (returned)",
+    "waitingRmaExport": "Waiting RMA Export",
+    "rmaRepairedReturned": "Repaired by Supplier",
+    "rmaUnrepairable": "Unrepairable",
+    "rejectedReturn": "Rejected Return",
+    "pendingDisposal": "Pending Disposal"
+  },
+  "qcPage": {
+    "tabQcPass": "QC Pass",
+    "tabDispose": "Dispose / Return to Supplier",
+    "tabDone": "Processed",
+    "processedBy": "Processed by",
+    "processedAt": "Time",
+    "qcPass": "QC Pass ({{count}})",
+    "dispose": "Dispose ({{count}})",
+    "returnSupplier": "Return to Supplier ({{count}})",
+    "passSuccess": "QC-passed {{count}} unit(s)",
+    "disposeSuccess": "Processing completed",
+    "empty": "No units",
+    "emptyDescription": "No units in this status yet",
+    "rejectReason": "Reason",
+    "exportCode": "Export Code",
+    "hintPending": "Returned → choose Dispose or Return to Customer (reject receipt)",
+    "hintRma": "Unrepairable by supplier → choose Dispose or Return to Supplier",
+    "hintWaitingRma": "Waiting RMA export → choose Send to Manufacturer (auto-creates warranty export)",
+    "sendWarranty": "Send to Manufacturer ({{count}})",
+    "sendWarrantyConfirmTitle": "Confirm send to manufacturer",
+    "sendWarrantyConfirmDesc": "Selected units will be sent to the manufacturer. A warranty export receipt is created automatically. This cannot be undone.",
+    "disposeConfirmTitle": "Confirm disposal",
+    "disposeConfirmDesc": "Selected units will be disposed and leave the warehouse. This cannot be undone.",
+    "returnSupplier": "Return to Supplier ({{count}})",
+    "returnSupplierConfirmTitle": "Confirm return to supplier",
+    "returnSupplierConfirmDesc": "Selected units will be returned to the supplier. This cannot be undone.",
+    "returnCustomer": "Return to Customer ({{count}})",
+    "returnCustomerConfirmTitle": "Confirm return to customer",
+    "returnCustomerConfirmDesc": "Selected units will be rejected and returned to the customer. This cannot be undone."
   },
   "returnCondition": {
     "good": "Good",
@@ -945,6 +1007,8 @@
     "applyAllSuccess": "Applied to all",
     "serialLookupError": "Serial lookup error",
     "missingSerial": "Please select a serial for \"{{name}}\"",
+    "missingEvidence": "Please enter description and evidence image for \"{{name}}\"",
+    "descriptionPlaceholder": "Describe the defect / condition…",
     "selectSerialTitle": "Select Serial",
     "noSerialsAvailable": "No serials available",
     "searchSerialPlaceholder": "Search serial...",
@@ -955,21 +1019,21 @@
     "notFound": "Return receipt not found.",
     "breadcrumb": "Returns",
     "createReceipt": "Create Receipt",
-    "approve": "Approve",
+    "approve": "Receive",
     "originalExport": "Original Export",
     "note": "Note",
     "returnProducts": "Return Products ({{count}})",
     "print": "Print Receipt",
     "cancelReceipt": "Cancel Receipt",
-    "approveDialogTitle": "Approve Return Receipt",
-    "approveDialogDesc": "Confirm approving receipt {{code}}? Returned goods will be updated in inventory.",
-    "approving": "Approving...",
+    "approveDialogTitle": "Receive Return Receipt",
+    "approveDialogDesc": "Confirm receiving receipt {{code}}? Returned goods will be updated in inventory.",
+    "approving": "Receiving...",
     "cancelDialogTitle": "Cancel Return Receipt",
     "cancelDialogDesc": "Are you sure you want to cancel this return receipt?",
     "cancelling": "Cancelling...",
     "cancelConfirm": "Confirm Cancellation",
-    "approveSuccess": "Approved return receipt",
-    "approveFail": "Approval failed",
+    "approveSuccess": "Received return receipt",
+    "approveFail": "Receiving failed",
     "cancelSuccess": "Cancelled return receipt",
     "cancelFail": "Cancellation failed"
   },
@@ -1284,6 +1348,7 @@
     "selectLocation": "Select Location",
     "units": "units",
     "boxes": "boxes",
+    "empty": "empty",
     "zone": "Zone",
     "binNotFound": "Location not found on map"
   },
@@ -1422,6 +1487,10 @@
     "batchConfirmTitle": "Confirm Batch",
     "batchResultTitle": "Batch Results",
     "batchReasonPlaceholder": "Reason for batch...",
+    "batchProgress": "Creating {{current}}/{{total}}...",
+    "batchResultSummary": "Succeeded {{success}}/{{total}}",
+    "createBatch": "Batch Create ({{count}})",
+    "selected": "Selected {{product}}",
     "product": "Product",
     "quantity": "Quantity",
     "reason": "Reason",
@@ -1494,6 +1563,7 @@
     "diffPartialShortage": "Partial Shortage",
     "diffUnexpected": "Unexpected Surplus",
     "searchPlaceholder": "Search product...",
+    "mismatchCount": "{{count}} mismatch",
     "statusDamagedInStorage": "Damaged in Storage",
     "statusDefective": "Defective",
     "statusDisposed": "Disposed",
@@ -1539,6 +1609,7 @@
     "title": "Boxes",
     "seal": "Seal Box",
     "sealTitle": "Seal a new box",
+    "sealUnitTitle": "Seal a unit",
     "sealed": "Sealed",
     "unsealed": "Unsealed",
     "unseal": "Unseal",

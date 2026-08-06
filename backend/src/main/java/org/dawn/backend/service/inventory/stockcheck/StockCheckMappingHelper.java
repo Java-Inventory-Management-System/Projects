@@ -49,10 +49,13 @@ public interface StockCheckMappingHelper {
         for (var item : items) {
             ProductUnit pu = unitMap.get(item.getProductUnitId());
             Product p = pu != null ? productMap.get(pu.getProductId()) : null;
-            String diff = item.getDifference();
-            if (DifferenceType.MATCH.name().equals(diff)) matchCount++;
-            else if (DifferenceType.MISSING.name().equals(diff)) missingCount++;
-            else if (DifferenceType.UNEXPECTED.name().equals(diff)) unexpectedCount++;
+            DifferenceType diff = item.getDifference() == null ? null : DifferenceType.valueOf(item.getDifference());
+            if (diff != null) switch (diff) {
+                case MATCH -> matchCount++;
+                case MISSING -> missingCount++;
+                case UNEXPECTED -> unexpectedCount++;
+                default -> { }
+            }
             itemResponses.add(StockCheckItemResponse.builder()
                     .id(item.getId())
                     .productUnitId(item.getProductUnitId())

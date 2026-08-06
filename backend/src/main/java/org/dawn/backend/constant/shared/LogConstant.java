@@ -61,6 +61,8 @@ public class LogConstant {
         public static final String CREATE_RETURN = "CREATE_RETURN";
         public static final String APPROVE_RETURN = "APPROVE_RETURN";
         public static final String CANCEL_RETURN = "CANCEL_RETURN";
+        public static final String QC_PASS = "QC_PASS";
+        public static final String DISPOSE_CONFIRM = "DISPOSE_CONFIRM";
     }
 
     public static class Entity {

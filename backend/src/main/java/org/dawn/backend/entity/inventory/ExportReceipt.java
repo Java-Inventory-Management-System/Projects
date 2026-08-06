@@ -28,6 +28,9 @@ public class ExportReceipt extends AuditableEntity {
     @Column(name = "customer_id")
     private Long customerId;
 
+    @Column(name = "supplier_id")
+    private Long supplierId;
+
     @Column(name = "total_amount", precision = 15, scale = 2)
     private BigDecimal totalAmount;
 

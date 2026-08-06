@@ -73,6 +73,8 @@ public interface ReturnReceiptMappingHelper {
                 .quantity(item.getQuantity())
                 .condition(item.getCondition())
                 .resultingAction(item.getResultingAction())
+                .description(item.getDescription())
+                .evidenceImage(item.getEvidenceImage())
                 .productName(productName)
                 .productSku(productSku)
                 .serialNumber(serialNumber)

@@ -113,7 +113,7 @@ export const ReturnDetailPage = () => {
       <Breadcrumb>
         <BreadcrumbList>
           <BreadcrumbItem>
-            <BreadcrumbLink onClick={() => navigate("/returns")}>{t("returnDetail.breadcrumb")}</BreadcrumbLink>
+            <BreadcrumbLink onClick={() => navigate("/returns-qc/returns")}>{t("returnDetail.breadcrumb")}</BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator />
           <BreadcrumbItem>

@@ -238,6 +238,28 @@ export type ProductUnitStatus =
   | "SENT_TO_MANUFACTURER"
   | "RETURNED_TO_SUPPLIER"
   | "REMOVED"
+  | "RETURN_QC_HOLD"
+  | "WAITING_RMA_EXPORT"
+  | "RMA_REPAIRED_RETURNED"
+  | "RMA_UNREPAIRABLE"
+  | "REJECTED_RETURN"
+  | "PENDING_DISPOSAL"
+
+export interface QcUnit {
+  id: number
+  serialNumber: string | null
+  productId: number
+  productName: string
+  status: ProductUnitStatus
+  locationFullCode: string | null
+  initialQuantity: number | null
+  remainingQuantity: number | null
+  description: string | null
+  evidenceImage: string | null
+  processedAt: string | null
+  processedByName: string | null
+  exportReceiptCode: string | null
+}
 
 // ============ Import Receipt ============
 
@@ -781,6 +803,12 @@ export const PRODUCT_UNIT_STATUS = {
   SENT_TO_MANUFACTURER: "SENT_TO_MANUFACTURER",
   RETURNED_TO_SUPPLIER: "RETURNED_TO_SUPPLIER",
   REMOVED: "REMOVED",
+  RETURN_QC_HOLD: "RETURN_QC_HOLD",
+  WAITING_RMA_EXPORT: "WAITING_RMA_EXPORT",
+  RMA_REPAIRED_RETURNED: "RMA_REPAIRED_RETURNED",
+  RMA_UNREPAIRABLE: "RMA_UNREPAIRABLE",
+  REJECTED_RETURN: "REJECTED_RETURN",
+  PENDING_DISPOSAL: "PENDING_DISPOSAL",
 } as const
 
 export const USER_STATUS = {

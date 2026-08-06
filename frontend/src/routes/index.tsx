@@ -1,11 +1,12 @@
 /* eslint-disable react-refresh/only-export-components */
 import { lazy, Suspense } from "react"
-import { Navigate, createBrowserRouter } from "react-router-dom"
+import { Navigate, createBrowserRouter, useParams } from "react-router-dom"
 import type { ComponentType, ReactNode } from "react"
 import { AppShell } from "@/layouts/app-shell"
 import { ProtectedRoute } from "@/layouts/protected-route"
 import { ErrorBoundary } from "@/components/ui/error-boundary"
 import { PageSkeleton } from "@/components/ui/page-skeleton"
+import { SectionTabsLayout } from "@/features/stock/components/section-tabs-layout"
 import { useAuthStore } from "@/store/auth-store"
 import { AUTH_ENABLED } from "@/utils/http-client"
 import type { URole } from "@/utils/types"
@@ -70,6 +71,7 @@ const POListPage = lazyPage(() => import("@/features/stock/pages/po-list-page"),
 const ReturnListPage = lazyPage(() => import("@/features/stock/pages/return-list-page"), "ReturnListPage")
 const ReturnCreatePage = lazyPage(() => import("@/features/stock/pages/return-create-page"), "ReturnCreatePage")
 const ReturnDetailPage = lazyPage(() => import("@/features/stock/pages/return-detail-page"), "ReturnDetailPage")
+const QcProcessingPage = lazyPage(() => import("@/features/stock/pages/qc-processing-page"), "QcProcessingPage")
 const POCreatePage = lazyPage(() => import("@/features/stock/pages/po-create-page"), "POCreatePage")
 const PODetailPage = lazyPage(() => import("@/features/stock/pages/po-detail-page"), "PODetailPage")
 const StockUnitsPage = lazyPage(() => import("@/features/stock/pages/stock-units-page"), "StockUnitsPage")
@@ -82,6 +84,11 @@ function PageGuard({ roles, children }: { roles?: URole[]; children: ReactNode }
   if (!user) return <Navigate to="/login" replace />
   if (roles && !roles.includes(user.role as URole)) return <Navigate to="/403" replace />
   return <>{children}</>
+}
+
+function RedirectTo({ to }: { to: string }) {
+  const { id } = useParams()
+  return <Navigate to={id ? `${to}/${id}` : to} replace />
 }
 
 function RootRedirect() {
@@ -127,7 +134,7 @@ export const router = createBrowserRouter([
             path: "products",
             element: (
               <Lazy>
-                <PageGuard roles={ROLES.CAN_VIEW_INVENTORY}>
+                <PageGuard roles={ROLES.CAN_OPERATE}>
                   <ProductsPage />
                 </PageGuard>
               </Lazy>
@@ -154,35 +161,51 @@ export const router = createBrowserRouter([
             ),
           },
           {
-            path: "brands",
+            path: "catalog-settings",
             element: (
               <Lazy>
                 <PageGuard roles={ROLES.CAN_VIEW_INVENTORY}>
-                  <BrandsPage />
+                  <SectionTabsLayout
+                    tabs={[
+                      { path: "/catalog-settings/brands", labelKey: "nav.brands" },
+                      { path: "/catalog-settings/categories", labelKey: "nav.categories" },
+                      { path: "/catalog-settings/suppliers", labelKey: "nav.suppliers" },
+                    ]}
+                  />
                 </PageGuard>
               </Lazy>
             ),
+            children: [
+              { index: true, element: <Navigate to="brands" replace /> },
+              {
+                path: "brands",
+                element: (
+                  <Lazy>
+                    <BrandsPage />
+                  </Lazy>
+                ),
+              },
+              {
+                path: "categories",
+                element: (
+                  <Lazy>
+                    <CategoriesPage />
+                  </Lazy>
+                ),
+              },
+              {
+                path: "suppliers",
+                element: (
+                  <Lazy>
+                    <SuppliersPage />
+                  </Lazy>
+                ),
+              },
+            ],
           },
-          {
-            path: "categories",
-            element: (
-              <Lazy>
-                <PageGuard roles={ROLES.CAN_VIEW_INVENTORY}>
-                  <CategoriesPage />
-                </PageGuard>
-              </Lazy>
-            ),
-          },
-          {
-            path: "suppliers",
-            element: (
-              <Lazy>
-                <PageGuard roles={ROLES.CAN_VIEW_INVENTORY}>
-                  <SuppliersPage />
-                </PageGuard>
-              </Lazy>
-            ),
-          },
+          { path: "brands", element: <RedirectTo to="/catalog-settings/brands" /> },
+          { path: "categories", element: <RedirectTo to="/catalog-settings/categories" /> },
+          { path: "suppliers", element: <RedirectTo to="/catalog-settings/suppliers" /> },
           {
             path: "customers",
             element: (
@@ -199,20 +222,75 @@ export const router = createBrowserRouter([
             element: (
               <Lazy>
                 <PageGuard roles={ROLES.CAN_VIEW_INVENTORY}>
-                  <ImportListPage />
+                    <SectionTabsLayout
+                      tabs={[
+                        { path: "/stock/imports/purchase-orders", labelKey: "nav.purchaseOrders", roles: ROLES.MANAGER },
+                        { path: "/stock/imports", labelKey: "nav.imports" },
+                      ]}
+                    />
                 </PageGuard>
               </Lazy>
             ),
-          },
-          {
-            path: "stock/imports/new",
-            element: (
-              <Lazy>
-                <PageGuard roles={ROLES.CAN_OPERATE_STOCK}>
-                  <ImportCreatePage />
-                </PageGuard>
-              </Lazy>
-            ),
+            children: [
+              {
+                index: true,
+                element: (
+                  <Lazy>
+                    <ImportListPage />
+                  </Lazy>
+                ),
+              },
+              {
+                path: "purchase-orders",
+                element: (
+                  <Lazy>
+                    <PageGuard roles={ROLES.MANAGER}>
+                      <POListPage />
+                    </PageGuard>
+                  </Lazy>
+                ),
+              },
+              {
+                path: "purchase-orders/new",
+                element: (
+                  <Lazy>
+                    <PageGuard roles={ROLES.MANAGER}>
+                      <POCreatePage />
+                    </PageGuard>
+                  </Lazy>
+                ),
+              },
+              {
+                path: "purchase-orders/:id",
+                element: (
+                  <Lazy>
+                    <PageGuard roles={ROLES.MANAGER}>
+                      <PODetailPage />
+                    </PageGuard>
+                  </Lazy>
+                ),
+              },
+              {
+                path: "new",
+                element: (
+                  <Lazy>
+                    <PageGuard roles={ROLES.CAN_OPERATE_STOCK}>
+                      <ImportCreatePage />
+                    </PageGuard>
+                  </Lazy>
+                ),
+              },
+              {
+                path: ":id",
+                element: (
+                  <Lazy>
+                    <PageGuard roles={ROLES.CAN_VIEW_INVENTORY}>
+                      <ImportDetailPage />
+                    </PageGuard>
+                  </Lazy>
+                ),
+              },
+            ],
           },
           {
             path: "stock/exports",
@@ -245,74 +323,95 @@ export const router = createBrowserRouter([
             ),
           },
           {
-            path: "stock/checks",
+            path: "stock/ops",
             element: (
               <Lazy>
                 <PageGuard roles={ROLES.CAN_VIEW_INVENTORY}>
-                  <StockCheckListPage />
+                  <SectionTabsLayout
+                    tabs={[
+                      { path: "/stock/ops/checks", labelKey: "nav.stockChecks" },
+                      { path: "/stock/ops/adjustments", labelKey: "nav.adjustments" },
+                      { path: "/stock/ops/price-adjustments", labelKey: "nav.priceAdj" },
+                    ]}
+                  />
                 </PageGuard>
               </Lazy>
             ),
-          },
-          {
-            path: "stock/checks/new",
-            element: (
-              <Lazy>
-                <PageGuard roles={ROLES.CAN_OPERATE_STOCK}>
-                  <StockCheckCreatePage />
-                </PageGuard>
-              </Lazy>
-            ),
-          },
-          {
-            path: "stock/checks/:id",
-            element: (
-              <Lazy>
-                <PageGuard roles={ROLES.CAN_VIEW_INVENTORY}>
-                  <StockCheckDetailPage />
-                </PageGuard>
-              </Lazy>
-            ),
-          },
-          {
-            path: "stock/adjustments",
-            element: (
-              <Lazy>
-                <PageGuard roles={ROLES.CAN_VIEW_INVENTORY}>
-                  <StockAdjustmentListPage />
-                </PageGuard>
-              </Lazy>
-            ),
-          },
-          {
-            path: "stock/adjustments/new",
-            element: (
-              <Lazy>
-                <PageGuard roles={ROLES.CAN_OPERATE_STOCK}>
-                  <StockAdjustmentCreatePage />
-                </PageGuard>
-              </Lazy>
-            ),
-          },
-          {
-            path: "stock/adjustments/:id",
-            element: (
-              <Lazy>
-                <PageGuard roles={ROLES.CAN_VIEW_INVENTORY}>
-                  <StockAdjustmentDetailPage />
-                </PageGuard>
-              </Lazy>
-            ),
-          },
-          {
-            path: "stock/imports/:id",
-            element: (
-              <Lazy>
-                <PageGuard roles={ROLES.CAN_VIEW_INVENTORY}>
-                  <ImportDetailPage />
-                </PageGuard>
-              </Lazy>
-            ),
+            children: [
+              { index: true, element: <Navigate to="checks" replace /> },
+              {
+                path: "checks",
+                element: (
+                  <Lazy>
+                    <StockCheckListPage />
+                  </Lazy>
+                ),
+              },
+              {
+                path: "checks/new",
+                element: (
+                  <Lazy>
+                    <StockCheckCreatePage />
+                  </Lazy>
+                ),
+              },
+              {
+                path: "checks/:id",
+                element: (
+                  <Lazy>
+                    <StockCheckDetailPage />
+                  </Lazy>
+                ),
+              },
+              {
+                path: "adjustments",
+                element: (
+                  <Lazy>
+                    <StockAdjustmentListPage />
+                  </Lazy>
+                ),
+              },
+              {
+                path: "adjustments/new",
+                element: (
+                  <Lazy>
+                    <StockAdjustmentCreatePage />
+                  </Lazy>
+                ),
+              },
+              {
+                path: "adjustments/:id",
+                element: (
+                  <Lazy>
+                    <StockAdjustmentDetailPage />
+                  </Lazy>
+                ),
+              },
+              {
+                path: "price-adjustments",
+                element: (
+                  <Lazy>
+                    <PriceAdjustmentListPage />
+                  </Lazy>
+                ),
+              },
+              {
+                path: "price-adjustments/new",
+                element: (
+                  <Lazy>
+                    <PriceAdjustmentCreatePage />
+                  </Lazy>
+                ),
+              },
+              {
+                path: "price-adjustments/:id",
+                element: (
+                  <Lazy>
+                    <PriceAdjustmentDetailPage />
+                  </Lazy>
+                ),
+              },
+            ],
           },
           {
             path: "stock/exports/:id",
@@ -354,67 +453,75 @@ export const router = createBrowserRouter([
               </Lazy>
             ),
           },
-          {
-            path: "stock/purchase-orders",
-            element: (
-              <Lazy>
-                <PageGuard roles={ROLES.MANAGER}>
-                  <POListPage />
-                </PageGuard>
-              </Lazy>
-            ),
-          },
-          {
-            path: "stock/purchase-orders/new",
-            element: (
-              <Lazy>
-                <PageGuard roles={ROLES.MANAGER}>
-                  <POCreatePage />
-                </PageGuard>
-              </Lazy>
-            ),
-          },
-          {
-            path: "stock/purchase-orders/:id",
-            element: (
-              <Lazy>
-                <PageGuard roles={ROLES.MANAGER}>
-                  <PODetailPage />
-                </PageGuard>
-              </Lazy>
-            ),
-          },
+          { path: "stock/purchase-orders", element: <RedirectTo to="/stock/imports/purchase-orders" /> },
+          { path: "stock/purchase-orders/new", element: <RedirectTo to="/stock/imports/purchase-orders/new" /> },
+          { path: "stock/purchase-orders/:id", element: <RedirectTo to="/stock/imports/purchase-orders" /> },
           { path: "reports", element: <Navigate to="/" replace /> },
           {
-            path: "returns",
+            path: "returns-qc",
             element: (
               <Lazy>
                 <PageGuard roles={ROLES.CAN_OPERATE}>
-                  <ReturnListPage />
+                  <SectionTabsLayout
+                    tabs={[
+                      { path: "/returns-qc/returns", labelKey: "nav.returns" },
+                      { path: "/returns-qc/qc", labelKey: "nav.qcProcessing" },
+                    ]}
+                  />
                 </PageGuard>
               </Lazy>
             ),
+            children: [
+              { index: true, element: <Navigate to="returns" replace /> },
+              {
+                path: "returns",
+                element: (
+                  <Lazy>
+                    <ReturnListPage />
+                  </Lazy>
+                ),
+              },
+              {
+                path: "returns/new",
+                element: (
+                  <Lazy>
+                    <ReturnCreatePage />
+                  </Lazy>
+                ),
+              },
+              {
+                path: "returns/:id",
+                element: (
+                  <Lazy>
+                    <ReturnDetailPage />
+                  </Lazy>
+                ),
+              },
+              {
+                path: "qc",
+                element: (
+                  <Lazy>
+                    <PageGuard roles={ROLES.CAN_OPERATE_STOCK}>
+                      <QcProcessingPage />
+                    </PageGuard>
+                  </Lazy>
+                ),
+              },
+            ],
           },
-          {
-            path: "returns/new",
-            element: (
-              <Lazy>
-                <PageGuard roles={ROLES.CAN_OPERATE}>
-                  <ReturnCreatePage />
-                </PageGuard>
-              </Lazy>
-            ),
-          },
-          {
-            path: "returns/:id",
-            element: (
-              <Lazy>
-                <PageGuard roles={ROLES.CAN_OPERATE}>
-                  <ReturnDetailPage />
-                </PageGuard>
-              </Lazy>
-            ),
-          },
+          { path: "stock/checks", element: <RedirectTo to="/stock/ops/checks" /> },
+          { path: "stock/checks/new", element: <RedirectTo to="/stock/ops/checks/new" /> },
+          { path: "stock/checks/:id", element: <RedirectTo to="/stock/ops/checks" /> },
+          { path: "stock/adjustments", element: <RedirectTo to="/stock/ops/adjustments" /> },
+          { path: "stock/adjustments/new", element: <RedirectTo to="/stock/ops/adjustments/new" /> },
+          { path: "stock/adjustments/:id", element: <RedirectTo to="/stock/ops/adjustments" /> },
+          { path: "stock/price-adjustments", element: <RedirectTo to="/stock/ops/price-adjustments" /> },
+          { path: "stock/price-adjustments/new", element: <RedirectTo to="/stock/ops/price-adjustments/new" /> },
+          { path: "stock/price-adjustments/:id", element: <RedirectTo to="/stock/ops/price-adjustments" /> },
+          { path: "returns", element: <RedirectTo to="/returns-qc/returns" /> },
+          { path: "returns/new", element: <RedirectTo to="/returns-qc/returns/new" /> },
+          { path: "returns/:id", element: <RedirectTo to="/returns-qc/returns" /> },
+          { path: "qc-processing", element: <RedirectTo to="/returns-qc/qc" /> },
           {
             path: "stock/units",
             element: (
@@ -429,7 +536,7 @@ export const router = createBrowserRouter([
                 path: "box/new",
                 element: (
                   <Lazy>
-                    <PageGuard roles={ROLES.CAN_OPERATE}>
+                <PageGuard roles={ROLES.CAN_VIEW_PRODUCTS}>
                       <SealBoxPage />
                     </PageGuard>
                   </Lazy>

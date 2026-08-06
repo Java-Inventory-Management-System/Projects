@@ -13,6 +13,7 @@ import org.dawn.backend.constant.enums.inventory.adjustments.AdjustmentSourceTyp
 import org.dawn.backend.constant.enums.inventory.adjustments.AdjustmentStatus;
 import org.dawn.backend.constant.enums.inventory.adjustments.AdjustmentType;
 import org.dawn.backend.constant.enums.inventory.stockcheck.DifferenceType;
+import org.dawn.backend.constant.enums.inventory.stockcheck.StockCheckScopeType;
 import org.dawn.backend.constant.enums.inventory.stockcheck.StockCheckStatus;
 import org.dawn.backend.constant.shared.LogConstant;
 import org.dawn.backend.controller.inventory.request.CreateStockCheckRequest;
@@ -97,8 +98,10 @@ public class StockCheckService {
             throw new InvalidRequestException(ErrorCode.STOCK_CHECK_ITEMS_REQUIRED);
         }
 
-        String scopeType = request.scopeType().toUpperCase();
-        if (!Set.of("ZONE", "CATEGORY", "BOX").contains(scopeType)) {
+        StockCheckScopeType scopeType;
+        try {
+            scopeType = StockCheckScopeType.valueOf(request.scopeType().toUpperCase());
+        } catch (IllegalArgumentException e) {
             throw new InvalidRequestException(ErrorCode.STOCK_CHECK_INVALID_SCOPE);
         }
 
@@ -111,7 +114,7 @@ public class StockCheckService {
         StockCheck sc = StockCheck.builder()
                 .checkCode(checkCode)
                 .status(StockCheckStatus.PENDING)
-                .scopeType(scopeType)
+                .scopeType(scopeType.name())
                 .scopeId(request.scopeId())
                 .note(request.note())
                 .createdBy(userId)
@@ -124,15 +127,15 @@ public class StockCheckService {
         var products = productRepository.findAllById(productIds).stream()
                 .collect(Collectors.toMap(Product::getId, p -> p));
         for (var unit : units) {
-            String tt = unit.getTrackingType();
+            TrackingType tt = unit.getTrackingType() == null ? null : TrackingType.valueOf(unit.getTrackingType());
             if (tt == null) {
                 var p = products.get(unit.getProductId());
-                tt = p != null ? p.getTrackingType() : TrackingType.SERIALIZED.name();
+                tt = p != null ? TrackingType.valueOf(p.getTrackingType()) : TrackingType.SERIALIZED;
             }
             stockCheckItemRepository.save(StockCheckItem.builder()
                     .stockCheckId(scId)
                     .productUnitId(unit.getId())
-                    .trackingType(tt)
+                    .trackingType(tt.name())
                     .expectedStatus(unit.getStatus().name())
                     .build());
         }
@@ -142,30 +145,35 @@ public class StockCheckService {
         return toResponse(sc);
     }
 
-    List<Long> resolveUnitIdsByScope(String scopeType, Long scopeId) {
-        if ("BOX".equals(scopeType)) {
-            return productUnitRepository.findByBoxIdAndStatus(scopeId, ProductUnitStatus.IN_STOCK).stream()
-                    .map(ProductUnit::getId).toList();
-        }
-        if ("ZONE".equals(scopeType)) {
-            var refLocation = locationRepository.findById(scopeId)
-                    .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.LOCATION_NOT_FOUND));
-            var locationIds = locationRepository.findByZoneCode(refLocation.getZoneCode())
-                    .stream().map(Location::getId).toList();
-            if (locationIds.isEmpty()) return List.of();
-            var unitIds = new ArrayList<>(productUnitRepository.findByLocationIdInAndStatus(
-                    locationIds, ProductUnitStatus.IN_STOCK).stream()
-                    .map(ProductUnit::getId).toList());
-            var boxIds = boxRepository.findByLocationIdInAndStatus(locationIds, BoxStatus.SEALED).stream().map(Box::getId).toList();
-            if (!boxIds.isEmpty()) {
-                unitIds.addAll(productUnitRepository.findByBoxIdInAndStatus(boxIds, ProductUnitStatus.IN_STOCK)
-                        .stream().map(ProductUnit::getId).toList());
+    List<Long> resolveUnitIdsByScope(StockCheckScopeType scopeType, Long scopeId) {
+        switch (scopeType) {
+            case BOX -> {
+                return productUnitRepository.findByBoxIdAndStatus(scopeId, ProductUnitStatus.IN_STOCK).stream()
+                        .map(ProductUnit::getId).toList();
             }
-            return unitIds.stream().distinct().toList();
+            case ZONE -> {
+                var refLocation = locationRepository.findById(scopeId)
+                        .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.LOCATION_NOT_FOUND));
+                var locationIds = locationRepository.findByZoneCode(refLocation.getZoneCode())
+                        .stream().map(Location::getId).toList();
+                if (locationIds.isEmpty()) return List.of();
+                var unitIds = new ArrayList<>(productUnitRepository.findByLocationIdInAndStatus(
+                        locationIds, ProductUnitStatus.IN_STOCK).stream()
+                        .map(ProductUnit::getId).toList());
+                var boxIds = boxRepository.findByLocationIdInAndStatus(locationIds, BoxStatus.SEALED).stream().map(Box::getId).toList();
+                if (!boxIds.isEmpty()) {
+                    unitIds.addAll(productUnitRepository.findByBoxIdInAndStatus(boxIds, ProductUnitStatus.IN_STOCK)
+                            .stream().map(ProductUnit::getId).toList());
+                }
+                return unitIds.stream().distinct().toList();
+            }
+            case CATEGORY -> {
+                return productUnitRepository.findByProductIdInAndStatus(
+                        List.of(scopeId), ProductUnitStatus.IN_STOCK).stream()
+                        .map(ProductUnit::getId).toList();
+            }
         }
-        return productUnitRepository.findByProductIdInAndStatus(
-                List.of(scopeId), ProductUnitStatus.IN_STOCK).stream()
-                .map(ProductUnit::getId).toList();
+        return List.of();
     }
 
     @Transactional
@@ -189,18 +197,17 @@ public class StockCheckService {
                 throw new InvalidRequestException(ErrorCode.STOCK_CHECK_ITEM_NOT_IN_CHECK.format( req.productUnitId()));
             }
 
-            String oldActual = item.getActualStatus();
-            String newActual = req.actualStatus();
+            ProductUnitStatus oldActual = item.getActualStatus() == null ? null : ProductUnitStatus.valueOf(item.getActualStatus());
+            ProductUnitStatus newActual = req.actualStatus() == null ? null : ProductUnitStatus.valueOf(req.actualStatus().toUpperCase());
 
             if (newActual != null) {
-                newActual = newActual.toUpperCase();
 
-                if (oldActual != null && !oldActual.equals(newActual)) {
+                if (oldActual != null && oldActual != newActual) {
                     itemHistoryRepository.save(StockCheckItemHistory.builder()
                             .stockCheckId(stockCheckId)
                             .productUnitId(req.productUnitId())
-                            .oldActualStatus(oldActual)
-                            .newActualStatus(newActual)
+                            .oldActualStatus(oldActual.name())
+                            .newActualStatus(newActual.name())
                             .oldCountedQuantity(item.getCountedQuantity())
                             .newCountedQuantity(req.countedQuantity())
                             .note("Recorded by user " + userId)
@@ -208,21 +215,22 @@ public class StockCheckService {
                             .build());
                 }
 
-                if (ProductUnitStatus.DAMAGED_IN_STORAGE.name().equals(newActual) && (req.photo() == null || req.photo().isBlank())) {
+                if (newActual == ProductUnitStatus.DAMAGED_IN_STORAGE && (req.photo() == null || req.photo().isBlank())) {
                     throw new InvalidRequestException(ErrorCode.STOCK_CHECK_PHOTO_REQUIRED_DAMAGED);
                 }
 
-                item.setActualStatus(newActual);
+                item.setActualStatus(newActual.name());
                 item.setCountedQuantity(req.countedQuantity());
                 item.setPhoto(req.photo());
                 item.setAutoFilled(false);
 
-                String expected = item.getExpectedStatus();
-                if (expected == null) expected = ProductUnitStatus.IN_STOCK.name();
+                ProductUnitStatus expected = item.getExpectedStatus() == null
+                        ? ProductUnitStatus.IN_STOCK
+                        : ProductUnitStatus.valueOf(item.getExpectedStatus());
 
-                if (newActual.equals(expected)) {
+                if (newActual == expected) {
                     item.setDifference(org.dawn.backend.constant.enums.inventory.stockcheck.DifferenceType.MATCH.name());
-                } else if (ProductUnitStatus.LOST.name().equals(newActual) || org.dawn.backend.constant.enums.inventory.stockcheck.DifferenceType.MISSING.name().equalsIgnoreCase(newActual)) {
+                } else if (newActual == ProductUnitStatus.LOST) {
                     item.setDifference(org.dawn.backend.constant.enums.inventory.stockcheck.DifferenceType.MISSING.name());
                 } else {
                     item.setDifference(org.dawn.backend.constant.enums.inventory.stockcheck.DifferenceType.UNEXPECTED.name());
@@ -255,8 +263,8 @@ public class StockCheckService {
         for (var item : items) {
             if (item.getActualStatus() != null) continue;
 
-            String tt = item.getTrackingType();
-            boolean isBulk = tt != null && TrackingType.BULK.name().equals(tt);
+            TrackingType tt = item.getTrackingType() == null ? null : TrackingType.valueOf(item.getTrackingType());
+            boolean isBulk = tt == TrackingType.BULK;
 
             if (isBulk) {
                 if (item.getCountedQuantity() == null) {
@@ -291,7 +299,7 @@ public class StockCheckService {
 
         stockCheckStateMachine.validate(sc.getStatus(), StockCheckStatus.COMPLETED);
 
-        if (adjustmentRepository.existsBySourceTypeAndSourceId(AdjustmentSourceType.STOCK_CHECK.name(), id)) {
+        if (adjustmentRepository.existsBySourceTypeAndSourceId(SourceType.STOCK_CHECK.name(), id)) {
             throw new InvalidRequestException(ErrorCode.STOCK_CHECK_ADJUSTMENTS_EXIST);
         }
         applyAdjustments(sc, items, userId);
@@ -303,18 +311,16 @@ public class StockCheckService {
 
     private void applyAdjustments(StockCheck sc, List<StockCheckItem> items, Long userId) {
         for (var item : items) {
-            String actual = item.getActualStatus();
-            String diff = item.getDifference();
-            if (actual == null || DifferenceType.MATCH.name().equals(diff)) continue;
+            ProductUnitStatus actual = item.getActualStatus() == null ? null : ProductUnitStatus.valueOf(item.getActualStatus());
+            DifferenceType diff = item.getDifference() == null ? null : DifferenceType.valueOf(item.getDifference());
+            if (actual == null || diff == DifferenceType.MATCH) continue;
 
-            AdjustmentType adjType;
-            if (DifferenceType.MISSING.name().equals(diff)) {
-                adjType = AdjustmentType.LOST;
-            } else if (ProductUnitStatus.DAMAGED_IN_STORAGE.name().equals(actual)) {
-                adjType = AdjustmentType.DAMAGED;
-            } else {
-                adjType = AdjustmentType.FOUND;
-            }
+            AdjustmentType adjType = switch (diff) {
+                case MISSING -> AdjustmentType.LOST;
+                default -> actual == ProductUnitStatus.DAMAGED_IN_STORAGE
+                        ? AdjustmentType.DAMAGED
+                        : AdjustmentType.FOUND;
+            };
 
             adjustmentRepository.save(StockAdjustment.builder()
                     .adjustCode(ReceiptCodeGenerator.generate("ADJ-", adjustmentRepository::existsByAdjustCode))
@@ -324,7 +330,7 @@ public class StockCheckService {
                     .reason("Auto-generated from stock check #" + sc.getCheckCode())
                     .imageUrl(item.getPhoto())
                     .status(AdjustmentStatus.APPROVED)
-                    .sourceType(AdjustmentSourceType.STOCK_CHECK.name())
+                    .sourceType(SourceType.STOCK_CHECK.name())
                     .sourceId(sc.getId())
                     .createdBy(userId)
                     .approvedBy(userId)
@@ -332,11 +338,11 @@ public class StockCheckService {
 
             switch (adjType) {
                 case DAMAGED -> adjustmentUnitService.applyDamaged(
-                        item.getProductUnitId(), AdjustmentSourceType.STOCK_CHECK.name(), sc.getId(), userId);
+                        item.getProductUnitId(), SourceType.STOCK_CHECK, sc.getId(), userId);
                 case LOST -> adjustmentUnitService.applyLost(
-                        item.getProductUnitId(), AdjustmentSourceType.STOCK_CHECK.name(), sc.getId(), userId);
+                        item.getProductUnitId(), SourceType.STOCK_CHECK, sc.getId(), userId);
                 case FOUND -> adjustmentUnitService.applyFoundRestore(
-                        item.getProductUnitId(), AdjustmentSourceType.STOCK_CHECK.name(), sc.getId(), userId);
+                        item.getProductUnitId(), SourceType.STOCK_CHECK, sc.getId(), userId);
             }
         }
     }

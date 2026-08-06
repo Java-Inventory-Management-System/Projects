@@ -11,4 +11,5 @@ export const ROLES = {
   CAN_OPERATE_STOCK: ["MANAGER", "STOCK"] as URole[],
   CAN_VIEW_INVENTORY: ["MANAGER", "ADMIN", "STOCK"] as URole[],
   CAN_OPERATE: ["ADMIN", "SALES", "STOCK", "MANAGER"] as URole[],
+  CAN_VIEW_PRODUCTS: ["ADMIN", "SALES", "STOCK", "MANAGER"] as URole[],
 }

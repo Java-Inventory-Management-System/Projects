@@ -6,6 +6,7 @@ import java.util.List;
 public record ExportReceiptRequest(
         String reason,
         Long customerId,
+        Long supplierId,
         String note,
         String externalReference,
         List<ExportItemRequest> items

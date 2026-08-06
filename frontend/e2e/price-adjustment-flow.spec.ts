@@ -49,7 +49,7 @@ test.describe("Price Adjustment Flow (Điều chỉnh giá) — SOP §8", () => 
     expect(adjRes.ok()).toBeTruthy()
     const adjId: number = (await adjRes.json()).data.id
 
-    await navigateTo(mgr, `/stock/price-adjustments/${adjId}`)
+    await navigateTo(mgr, `/stock/ops/price-adjustments/${adjId}`)
     await approveDialog(mgr, adjId)
 
     const detail = await mgr.request.get(`${API_URL}/price-adjustment/${adjId}`, {

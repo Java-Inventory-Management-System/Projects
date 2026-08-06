@@ -14,6 +14,7 @@ public record ImportReceiptResponse(
         String supplierName,
         Long purchaseOrderId,
         String poCode,
+        Long originalWarrantyExportId,
         BigDecimal totalAmount,
         String status,
         String note,
@@ -34,6 +35,7 @@ public record ImportReceiptResponse(
             BigDecimal quantity,
             BigDecimal unitPrice,
             Integer warrantyMonths,
+            String warrantyResultType,
             Integer createdUnits,
             List<Long> productUnitIds
     ) {}

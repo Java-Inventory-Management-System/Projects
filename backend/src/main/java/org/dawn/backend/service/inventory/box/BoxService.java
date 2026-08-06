@@ -306,24 +306,28 @@ public class BoxService {
                 .id(box.getId())
                 .boxCode(box.getBoxCode())
                 .importReceiptId(box.getImportReceiptId())
-                .importReceiptCode(receiptCodeMap.get(box.getImportReceiptId()))
+                .importReceiptCode(getOrNull(receiptCodeMap, box.getImportReceiptId()))
                 .boxType(box.getBoxType() == null ? null : box.getBoxType().name())
                 .locationId(box.getLocationId())
                 .locationCode(locationMap.get(box.getLocationId()))
                 .status(box.getStatus().name())
                 .sealedQuantity(box.getSealedQuantity())
                 .sealedBy(box.getSealedBy())
-                .sealedByName(userMap.get(box.getSealedBy()))
+                .sealedByName(getOrNull(userMap, box.getSealedBy()))
                 .sealedAt(box.getSealedAt())
                 .unsealedBy(box.getUnsealedBy())
-                .unsealedByName(userMap.get(box.getUnsealedBy()))
+                .unsealedByName(getOrNull(userMap, box.getUnsealedBy()))
                 .unsealedAt(box.getUnsealedAt())
                 .note(box.getNote())
                 .createdBy(box.getCreatedBy())
-                .createdByName(userMap.get(box.getCreatedBy()))
+                .createdByName(getOrNull(userMap, box.getCreatedBy()))
                 .createdAt(box.getCreatedAt())
                 .unitCount(unitCount)
                 .units(unitResponses)
                 .build();
+    }
+
+    private static <K, V> V getOrNull(Map<K, V> map, K key) {
+        return key == null ? null : map.get(key);
     }
 }

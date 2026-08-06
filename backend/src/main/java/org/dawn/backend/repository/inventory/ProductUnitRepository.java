@@ -68,7 +68,7 @@ public interface ProductUnitRepository extends JpaRepository<ProductUnit, Long> 
     long countByProductIdAndStatusAndBoxIdIsNull(@Param("productId") Long productId, @Param("status") ProductUnitStatus status);
     long countByLocationId(Long locationId);
     Page<ProductUnit> findByStatus(ProductUnitStatus status, Pageable pageable);
-    Page<ProductUnit> findByProductId(Long productId, Pageable pageable);
+    List<ProductUnit> findByStatusInOrderById(Collection<ProductUnitStatus> statuses);    Page<ProductUnit> findByProductId(Long productId, Pageable pageable);
 
     List<ProductUnit> findByProductIdInAndStatus(List<Long> productIds, ProductUnitStatus status);
 

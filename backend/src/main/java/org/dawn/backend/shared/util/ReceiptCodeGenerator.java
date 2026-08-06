@@ -6,7 +6,7 @@ import java.util.function.Function;
 
 public class ReceiptCodeGenerator {
 
-    public static String generate(String prefix, Function<String, Boolean> existsChecker) {
+    public static synchronized String generate(String prefix, Function<String, Boolean> existsChecker) {
         String datePart = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
         String fullPrefix = prefix + datePart + "-";
         int seq = 1;

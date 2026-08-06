@@ -101,6 +101,7 @@ export const AuditPage = () => {
       from: fromDate ? fromDate + "T00:00:00Z" : undefined,
       to: toDate ? toDate + "T23:59:59Z" : undefined,
     }),
+    placeholderData: (prev) => prev,
   })
 
   const { data: usersPage } = useUsers(0, 200)

@@ -85,10 +85,7 @@ public class ExportFulfillmentService {
                 .collect(Collectors.toMap(Product::getId, p -> p));
 
         BigDecimal totalCogs = BigDecimal.ZERO;
-        String reason = receipt.getReason();
-        boolean isSale = ExportReason.SALE.name().equals(reason);
-        boolean isReturnSupplier = ExportReason.RETURN_SUPPLIER.name().equals(reason);
-        boolean isDispose = ExportReason.DISPOSE.name().equals(reason);
+        ExportReason reason = ExportReason.valueOf(receipt.getReason());
 
         for (var fulfillItem : request.items()) {
             ExportReceiptItem item = itemMap.get(fulfillItem.itemId());
@@ -99,6 +96,10 @@ public class ExportFulfillmentService {
             Product product = products.get(item.getProductId());
             String unit = product.getUnit();
             boolean isBulk = BULK_UNITS.contains(unit);
+
+            if (reason == ExportReason.WARRANTY_REPLACEMENT && isBulk) {
+                throw new InvalidRequestException(ErrorCode.WARRANTY_BULK_NOT_ALLOWED);
+            }
 
             if (isBulk) {
                 BigDecimal actualQty = fulfillItem.actualQuantity();
@@ -146,8 +147,8 @@ public class ExportFulfillmentService {
                     }
                 }
             } else {
-                String trackingType = product.getTrackingType();
-                if (TrackingType.SERIALIZED.name().equals(trackingType)) {
+                TrackingType trackingType = TrackingType.valueOf(product.getTrackingType());
+                if (trackingType == TrackingType.SERIALIZED) {
                     List<String> serials = fulfillItem.serialNumbers();
                     if (serials == null || serials.isEmpty()) {
                         throw new InvalidRequestException(ErrorCode.EXPORT_SERIALS_REQUIRED);
@@ -157,11 +158,16 @@ public class ExportFulfillmentService {
                         ProductUnit pu = productUnitRepository.findBySerialNumber(sn)
                                 .orElseThrow(() -> new InvalidRequestException(
                                         ErrorCode.PRODUCT_UNIT_NOT_FOUND.format( sn)));
+                        pu = productUnitRepository.findByIdForUpdate(pu.getId())
+                                .orElseThrow(() -> new InvalidRequestException(
+                                        ErrorCode.PRODUCT_UNIT_NOT_FOUND.format( sn)));
 
                         if (!pu.getProductId().equals(item.getProductId())) {
                             throw new InvalidRequestException(ErrorCode.EXPORT_SERIAL_WRONG_PRODUCT.format( sn, product.getName()));
                         }
-                        if (ProductUnitStatus.IN_STOCK != pu.getStatus()) {
+                        boolean qcHoldAllowed = reason == ExportReason.WARRANTY_REPLACEMENT
+                                && ProductUnitStatus.WAITING_RMA_EXPORT == pu.getStatus();
+                        if (ProductUnitStatus.IN_STOCK != pu.getStatus() && !qcHoldAllowed) {
                             throw new InvalidRequestException(ErrorCode.EXPORT_SERIAL_NOT_AVAILABLE.format( sn, pu.getStatus()));
                         }
                         if (stockCheckItemRepository.existsByProductUnitIdInActiveCheck(pu.getId())) {
@@ -173,17 +179,20 @@ public class ExportFulfillmentService {
                         }
 
                         ProductUnitStatus oldUnitStatus = pu.getStatus();
-                        ProductUnitStatus targetStatus;
-                        if (isDispose) {
-                            targetStatus = ProductUnitStatus.DISPOSED;
-                        } else if (isReturnSupplier) {
-                            targetStatus = ProductUnitStatus.RETURNED_TO_SUPPLIER;
-                        } else {
-                            targetStatus = ProductUnitStatus.EXPORTED;
-                        }
+                        ProductUnitStatus targetStatus = switch (reason) {
+                            case DISPOSE -> ProductUnitStatus.DISPOSED;
+                            case RETURN_SUPPLIER -> ProductUnitStatus.RETURNED_TO_SUPPLIER;
+                            case WARRANTY_REPLACEMENT -> ProductUnitStatus.SENT_TO_MANUFACTURER;
+                            default -> ProductUnitStatus.EXPORTED;
+                        };
 
                         pu.setStatus(targetStatus);
-                        if (isSale) {
+                        if (ProductUnitStatus.SENT_TO_MANUFACTURER == targetStatus
+                                || ProductUnitStatus.RETURNED_TO_SUPPLIER == targetStatus
+                                || ProductUnitStatus.DISPOSED == targetStatus) {
+                            pu.setLocationId(null);
+                        }
+                        if (reason == ExportReason.SALE) {
                             Instant now = Instant.now();
                             pu.setWarrantyStartDate(now);
                             if (pu.getWarrantyMonths() != null) {
@@ -208,7 +217,7 @@ public class ExportFulfillmentService {
                                 .changedBy(userId)
                                 .build());
 
-                        if (isSale || ExportReason.INTERNAL.name().equals(reason)) {
+                        if (reason == ExportReason.SALE || reason == ExportReason.INTERNAL) {
                             if (pu.getCostPrice() != null) {
                                 totalCogs = totalCogs.add(pu.getCostPrice());
                             }
@@ -232,17 +241,5 @@ public class ExportFulfillmentService {
                 .build());
 
         return exportReceiptService.toResponse(receipt);
-    }
-
-    BigDecimal getInStockQuantity(Product product) {
-        String unit = product.getUnit();
-        boolean isBulk = BULK_UNITS.contains(unit);
-        if (isBulk) {
-            var units = productUnitRepository.findByProductIdAndStatusAndBoxIdIsNull(product.getId(), ProductUnitStatus.IN_STOCK);
-            return units.stream().map(ProductUnit::getRemainingQuantity)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
-        }
-        return BigDecimal.valueOf(productUnitRepository.countByProductIdAndStatusAndBoxIdIsNull(
-                product.getId(), ProductUnitStatus.IN_STOCK));
     }
 }

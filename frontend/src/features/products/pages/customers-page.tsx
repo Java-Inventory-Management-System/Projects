@@ -98,11 +98,18 @@ export function CustomersPage() {
     { header: t("common.phone"), render: (c) => <span className="text-sm">{c.phone ?? "—"}</span> },
     { header: t("common.email"), render: (c) => <span className="text-sm">{c.email ?? "—"}</span> },
     { header: t("common.address"), render: (c) => <span className="text-sm">{c.address ?? "—"}</span> },
-    { header: t("customerPage.note"), render: (c) => <span className="text-sm text-muted-foreground">{c.note ?? "—"}</span> },
+    {
+      header: t("customerPage.note"),
+      render: (c) => <span className="text-sm text-muted-foreground">{c.note ?? "—"}</span>,
+    },
     {
       header: t("common.status"),
       className: "w-24 text-center",
-      render: (c) => <Badge variant={c.isActive ? "default" : "secondary"}>{c.isActive ? t("common.active") : t("common.inactive")}</Badge>,
+      render: (c) => (
+        <Badge variant={c.isActive ? "default" : "secondary"}>
+          {c.isActive ? t("common.active") : t("common.inactive")}
+        </Badge>
+      ),
     },
     {
       header: t("common.actions"),
@@ -138,9 +145,11 @@ export function CustomersPage() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-semibold tracking-tight">{t("customerPage.heading")}</h1>
-        <Button onClick={openCreate}>
-          <Plus className="size-4 mr-1" /> {t("common.add")}
-        </Button>
+        {perm.hasRole(...ROLES.MANAGER) && (
+          <Button onClick={openCreate}>
+            <Plus className="size-4 mr-1" /> {t("common.add")}
+          </Button>
+        )}
       </div>
 
       <div className="relative max-w-sm">
@@ -151,7 +160,13 @@ export function CustomersPage() {
           value={search}
           onChange={(e) => {
             setSearch(e.target.value)
-            setSearchParams((prev) => { prev.delete("page"); return prev }, { replace: true })
+            setSearchParams(
+              (prev) => {
+                prev.delete("page")
+                return prev
+              },
+              { replace: true },
+            )
           }}
         />
       </div>
@@ -165,7 +180,15 @@ export function CustomersPage() {
         totalPages={totalPages}
         totalElements={data?.pagination?.totalElements}
         pageSize={20}
-        onPageChange={(p) => setSearchParams((prev) => { prev.set("page", String(p)); return prev }, { replace: true })}
+        onPageChange={(p) =>
+          setSearchParams(
+            (prev) => {
+              prev.set("page", String(p))
+              return prev
+            },
+            { replace: true },
+          )
+        }
       />
 
       <Dialog

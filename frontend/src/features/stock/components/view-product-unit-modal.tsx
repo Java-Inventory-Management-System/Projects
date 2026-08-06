@@ -38,6 +38,12 @@ export const ViewProductUnitModal = ({
     [PRODUCT_UNIT_STATUS.RETURNED_TO_SUPPLIER]: { label: t("unitStatus.returnedToSupplier"), variant: "secondary" },
     [PRODUCT_UNIT_STATUS.REMOVED]: { label: t("unitStatus.removed"), variant: "outline" },
     [PRODUCT_UNIT_STATUS.DISPOSED]: { label: t("unitStatus.disposed"), variant: "destructive" },
+    [PRODUCT_UNIT_STATUS.RETURN_QC_HOLD]: { label: t("unitStatus.returnQcHold"), variant: "outline" },
+    [PRODUCT_UNIT_STATUS.WAITING_RMA_EXPORT]: { label: t("unitStatus.waitingRmaExport"), variant: "outline" },
+    [PRODUCT_UNIT_STATUS.RMA_REPAIRED_RETURNED]: { label: t("unitStatus.rmaRepairedReturned"), variant: "secondary" },
+    [PRODUCT_UNIT_STATUS.RMA_UNREPAIRABLE]: { label: t("unitStatus.rmaUnrepairable"), variant: "destructive" },
+    [PRODUCT_UNIT_STATUS.REJECTED_RETURN]: { label: t("unitStatus.rejectedReturn"), variant: "secondary" },
+    [PRODUCT_UNIT_STATUS.PENDING_DISPOSAL]: { label: t("unitStatus.pendingDisposal"), variant: "destructive" },
   }
   const s = statusLabel[unit.status] ?? { label: unit.status, variant: "secondary" }
   return (

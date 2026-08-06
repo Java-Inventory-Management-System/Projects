@@ -38,6 +38,9 @@ public class ImportReceipt extends AuditableEntity {
     @Column(name = "purchase_order_id")
     private Long purchaseOrderId;
 
+    @Column(name = "original_warranty_export_id")
+    private Long originalWarrantyExportId;
+
     @Column(name = "created_by", nullable = false)
     private Long createdBy;
 

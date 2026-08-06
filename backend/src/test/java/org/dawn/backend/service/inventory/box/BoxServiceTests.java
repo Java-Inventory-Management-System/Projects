@@ -102,6 +102,29 @@ class BoxServiceTests {
     }
 
     @Test
+    void findAll_boxWithoutImportAndUserIds_noNpe() {
+        var box = Box.builder()
+                .id(7L)
+                .boxCode("BOX-0001")
+                .locationId(1L)
+                .status(org.dawn.backend.constant.enums.inventory.box.BoxStatus.UNSEALED)
+                .build();
+        when(boxRepository.findAll(org.mockito.ArgumentMatchers.any(org.springframework.data.domain.Sort.class)))
+                .thenReturn(List.of(box));
+        when(productUnitRepository.findByBoxIdInAndStatus(anyList(), any()))
+                .thenReturn(List.of());
+        when(locationRepository.findAllById(anyList())).thenReturn(List.of(location));
+        when(userRepository.findAllById(anyList())).thenReturn(List.of());
+
+        var responses = boxService.findAll(null, null);
+
+        assertEquals(1, responses.size());
+        assertNull(responses.get(0).importReceiptCode());
+        assertNull(responses.get(0).sealedByName());
+        assertNull(responses.get(0).createdByName());
+    }
+
+    @Test
     void seal_withPartialBulkQuantity_splitsRow_keepsLooseRemainder() {
         var bulk = bulkUnit(5L, new BigDecimal("50"));
         stubBase(1L, List.of(bulk));

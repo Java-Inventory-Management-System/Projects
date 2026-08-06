@@ -5,7 +5,7 @@ COPY package*.json ./
 RUN npm install
 COPY . .
 
-ARG VITE_BASE_API_URL
+ARG VITE_BASE_API_URL=http://localhost:8888/api/v1
 ENV VITE_BASE_API_URL=$VITE_BASE_API_URL
 
 ARG VITE_ENABLED_AUTH

@@ -3,11 +3,13 @@ package org.dawn.backend.service.system;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dawn.backend.constant.enums.inventory.ProductUnitStatus;
+import org.dawn.backend.constant.enums.inventory.returns.ReturnReceiptStatus;
 import org.dawn.backend.constant.enums.inventory.stockcheck.StockCheckStatus;
 import org.dawn.backend.entity.catalog.Product;
 import org.dawn.backend.entity.inventory.ProductUnit;
 import org.dawn.backend.repository.catalog.ProductRepository;
 import org.dawn.backend.repository.inventory.ProductUnitRepository;
+import org.dawn.backend.repository.inventory.returns.ReturnReceiptRepository;
 import org.dawn.backend.repository.inventory.stockcheck.StockCheckRepository;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -25,6 +27,7 @@ public class ScheduledTaskService {
     private final StockCheckRepository stockCheckRepository;
     private final ProductUnitRepository productUnitRepository;
     private final ProductRepository productRepository;
+    private final ReturnReceiptRepository returnReceiptRepository;
 
     @Scheduled(cron = "0 0 2 * * ?")
     @Transactional
@@ -39,6 +42,22 @@ public class ScheduledTaskService {
         }
         if (!stale.isEmpty()) {
             log.info("Expired {} stale stock check(s)", stale.size());
+        }
+    }
+
+    @Scheduled(cron = "0 0 2 * * ?")
+    @Transactional
+    public void cancelStaleReturnReceipts() {
+        Instant cutoff = Instant.now().minus(Duration.ofDays(30));
+        var stale = returnReceiptRepository.findByStatusAndCreatedAtBefore(ReturnReceiptStatus.PENDING_APPROVAL, cutoff);
+        for (var receipt : stale) {
+            receipt.setStatus(ReturnReceiptStatus.CANCELLED);
+            returnReceiptRepository.save(receipt);
+            log.warn("Return receipt {} auto-cancelled (created at {}, older than 30 days)",
+                    receipt.getReceiptCode(), receipt.getCreatedAt());
+        }
+        if (!stale.isEmpty()) {
+            log.info("Auto-cancelled {} stale return receipt(s)", stale.size());
         }
     }
 

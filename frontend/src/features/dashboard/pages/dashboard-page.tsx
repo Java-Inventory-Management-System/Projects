@@ -696,7 +696,7 @@ function StockCheckTab() {
           )},
           { header: "", render: (d) => (
             <Button variant="outline" size="sm" className="text-xs h-7 px-2" asChild>
-              <a href={`/stock/checks/${d.id}`}>{t('dashboard.stockCheck.view')}</a>
+              <a href={`/stock/ops/checks/${d.id}`}>{t('dashboard.stockCheck.view')}</a>
             </Button>
           )},
         ]}

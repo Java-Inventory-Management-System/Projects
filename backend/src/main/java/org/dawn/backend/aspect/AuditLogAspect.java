@@ -19,6 +19,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
+import java.net.InetAddress;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -161,10 +162,21 @@ public class AuditLogAspect {
         try {
             HttpServletRequest request = ((ServletRequestAttributes) RequestContextHolder.currentRequestAttributes()).getRequest();
             String ip = request.getHeader("X-Forwarded-For");
-            if (ip == null || ip.isBlank()) ip = request.getRemoteAddr();
-            return ip;
+            if (ip != null && !ip.isBlank()) {
+                String first = ip.split(",")[0].trim();
+                if (isValidIp(first)) return first;
+            }
+            return request.getRemoteAddr();
         } catch (Exception e) {
             return "";
+        }
+    }
+
+    private boolean isValidIp(String ip) {
+        try {
+            return InetAddress.getByName(ip).getHostAddress().equals(ip);
+        } catch (Exception e) {
+            return false;
         }
     }
 }

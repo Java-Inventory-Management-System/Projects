@@ -181,7 +181,7 @@ export function PriceAdjustmentListPage() {
         <div className="flex items-center gap-1">
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" onClick={() => navigate(`/stock/price-adjustments/${r.id}`)}>
+              <Button variant="ghost" size="icon" onClick={() => navigate(`/stock/ops/price-adjustments/${r.id}`)}>
                 <Eye className="size-4" />
               </Button>
             </TooltipTrigger>
@@ -206,7 +206,7 @@ export function PriceAdjustmentListPage() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-semibold tracking-tight">{t("priceAdjList.title")}</h1>
-        <Button onClick={() => navigate("/stock/price-adjustments/new")}>
+        <Button onClick={() => navigate("/stock/ops/price-adjustments/new")}>
           <Plus className="size-4 mr-1" /> {t("priceAdjList.create")}
         </Button>
       </div>
@@ -286,7 +286,7 @@ export function PriceAdjustmentListPage() {
       {filtered.length === 0 && !isError && !isLoading && !searchTerm && !statusFilter && (
         <div className="text-center py-8">
           <p className="text-muted-foreground mb-3">{t("priceAdjList.empty")}</p>
-          <Button onClick={() => navigate("/stock/price-adjustments/new")}>
+          <Button onClick={() => navigate("/stock/ops/price-adjustments/new")}>
             <Plus className="size-4 mr-1" /> {t("priceAdjList.createFirst")}
           </Button>
         </div>

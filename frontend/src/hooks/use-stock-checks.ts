@@ -6,6 +6,7 @@ export function useStockChecks(page = 0, size = 20, sort?: string, status?: stri
     queryKey: ["stock-checks", page, size, sort, status],
     queryFn: () => getStockChecks(page, size, sort, status),
     placeholderData: (prev) => prev,
+    staleTime: 60_000,
   })
 }
 
@@ -14,5 +15,6 @@ export function useMyStockChecks(page = 0, size = 20, sort?: string, status?: st
     queryKey: ["my-stock-checks", page, size, sort, status],
     queryFn: () => getMyStockChecks(page, size, sort, status),
     placeholderData: (prev) => prev,
+    staleTime: 60_000,
   })
 }

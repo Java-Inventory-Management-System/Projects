@@ -22,6 +22,7 @@ import type {
   ActivityItem,
   DeadStockItem,
   ProductUnit,
+  QcUnit,
   ProductImage,
   PurchaseOrderItem,
   PurchaseOrder,
@@ -489,5 +490,24 @@ export function mapPurchaseOrder(raw: unknown): PurchaseOrder {
     createdAt: r.createdAt,
     updatedAt: r.updatedAt,
     items: (r.items ?? []).map(mapPurchaseOrderItem),
+  }
+}
+
+export function mapQcUnit(raw: unknown): QcUnit {
+  const r = raw as unknown as QcUnit
+  return {
+    id: r.id,
+    serialNumber: r.serialNumber ?? null,
+    productId: r.productId,
+    productName: r.productName,
+    status: r.status as QcUnit["status"],
+    locationFullCode: r.locationFullCode ?? null,
+    initialQuantity: r.initialQuantity ?? null,
+    remainingQuantity: r.remainingQuantity ?? null,
+    description: r.description ?? null,
+    evidenceImage: r.evidenceImage ?? null,
+    processedAt: r.processedAt ?? null,
+    processedByName: r.processedByName ?? null,
+    exportReceiptCode: r.exportReceiptCode ?? null,
   }
 }

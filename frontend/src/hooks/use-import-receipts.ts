@@ -6,5 +6,6 @@ export function useImportReceipts(page = 0, size = 20, sort?: string, status?: s
     queryKey: ["import-receipts", page, size, sort, status],
     queryFn: () => getImportReceipts(page, size, sort, status),
     placeholderData: (prev) => prev,
+    staleTime: 60_000,
   })
 }

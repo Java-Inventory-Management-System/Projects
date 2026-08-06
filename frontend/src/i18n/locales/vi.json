@@ -1,4 +1,4 @@
-﻿{
+{
   "nav": {
     "dashboard": "Dashboard",
     "products": "Sản phẩm",
@@ -15,7 +15,11 @@
     "returns": "Trả hàng",
     "priceAdj": "Điều chỉnh giá",
     "users": "Người dùng",
-    "audit": "Nhật ký"
+    "audit": "Nhật ký",
+    "qcProcessing": "Trạm QC",
+    "stockOps": "Kiểm kho & điều chỉnh",
+    "returnsQc": "Trả hàng & QC",
+    "catalogSettings": "Danh mục hệ thống"
   },
   "common": {
     "pageNotFound": "Không tìm thấy trang",
@@ -451,6 +455,27 @@
     "completed": "Hoàn tất",
     "cancelled": "Đã hủy"
   },
+  "importWarranty": {
+    "modePo": "Nhập theo PO",
+    "modeSpecial": "Bảo hành / Nhận lại từ NCC",
+    "selectSpecial": "Phiếu xuất (bảo hành hoặc trả NCC)",
+    "selectSpecialPlaceholder": "Chọn phiếu xuất đã hoàn tất để nhập về.",
+    "noExports": "Không có phiếu bảo hành / trả NCC nào đã hoàn thành",
+    "noExportSelected": "Vui lòng chọn phiếu xuất",
+    "badgeWarranty": "Bảo hành",
+    "badgeReturnSupplier": "Trả NCC",
+    "createWarranty": "Tạo phiếu nhập bảo hành",
+    "createSupplierReturn": "Tạo phiếu nhận lại từ NCC",
+    "invalidNewSerials": "Cần nhập đủ {{count}} serial mới cho \"{{name}}\"",
+    "newSerialsButton": "Nhập serial mới",
+    "enteredSerials": "Đã nhập {{count}}/{{required}} serial",
+    "locationNote": "Hàng bảo hành / nhận lại từ NCC KHÔNG vào kệ tồn kho: đã sửa xong hoặc đổi mới được lưu tại khoang chờ QC (QC-01-03), không sửa được lưu tại QC-01-04. Sau khi QC duyệt mới chuyển vào tồn kho; hàng chờ khách nhận được giữ tại khu QC.",
+    "result": {
+      "repaired": "Đã sửa xong",
+      "rejected": "Không sửa được",
+      "replaced": "Đổi mới"
+    }
+  },
   "importCreate": {
     "title": "Nhập kho",
     "stepSelectOrder": "Chọn đơn hàng",
@@ -559,15 +584,13 @@
     "done": "Xong"
   },
   "exportStatus": {
-    "pending": "Chờ duyệt",
+    "pending": "Chờ xuất kho",
     "approved": "Đã duyệt",
     "completed": "Hoàn tất",
     "cancelled": "Đã hủy"
   },
   "exportCreate": {
-    "title": "Tạo phiếu xuất kho",
-    "reason": "Lý do xuất",
-    "reasonPlaceholder": "Chọn lý do",
+    "title": "Tạo phiếu xuất kho","reasonPlaceholder": "Chọn lý do",
     "customer": "Khách hàng",
     "searchCustomer": "Tìm kiếm / Chọn khách hàng...",
     "addProductLabel": "Thêm sản phẩm",
@@ -627,9 +650,7 @@
     "empty": "Chưa có phiếu xuất nào"
   },
   "exportProposal": {
-    "title": "Đề xuất xuất kho",
-    "reason": "Lý do xuất",
-    "reasonPlaceholder": "Chọn lý do",
+    "title": "Đề xuất xuất kho","reasonPlaceholder": "Chọn lý do",
     "reasonRequired": "Vui lòng chọn lý do xuất",
     "customer": "Khách hàng",
     "customerRequired": "Vui lòng chọn khách hàng",
@@ -637,6 +658,8 @@
     "warrantyCode": "Mã bảo hành",
     "warrantyPlaceholder": "VD: WR-2026-00123",
     "addProductLabel": "Thêm sản phẩm",
+    "searchProduct": "Tìm sản phẩm...",
+    "noProducts": "Không tìm thấy sản phẩm",
     "selectProductPlaceholder": "Chọn sản phẩm...",
     "noItems": "Chưa có sản phẩm nào",
     "total": "Tổng",
@@ -648,7 +671,11 @@
     "maxQuantity": "Số lượng xuất tối đa là {{max}}",
     "inStock": "Tồn: {{count}}",
     "restoreTitle": "Khôi phục dữ liệu",
-    "restoreDescription": "Bạn có dữ liệu xuất kho chưa lưu từ lần trước. Muốn khôi phục?"
+    "restoreDescription": "Bạn có dữ liệu xuất kho chưa lưu từ lần trước. Muốn khôi phục?",
+    "chooseReason": "Chọn lý do xuất kho",
+    "supplier": "Nhà cung cấp",
+    "noSupplier": "Sản phẩm chưa được gán nhà cung cấp",
+    "supplierMismatch": "Các sản phẩm phải thuộc cùng một nhà cung cấp"
   },
   "poStatus": {
     "open": "Đang mở",
@@ -704,8 +731,8 @@
     "cancelled": "Đã huỷ"
   },
   "returnStatus": {
-    "pendingApproval": "Chờ duyệt",
-    "completed": "Đã duyệt",
+    "pendingApproval": "Chờ tiếp nhận",
+    "completed": "Đã tiếp nhận",
     "cancelled": "Đã hủy"
   },
   "unitStatus": {
@@ -724,7 +751,42 @@
     "quarantined": "Cách ly",
     "warranty": "Đang bảo hành",
     "warrantyDone": "Đã BH xong",
-    "warrantyReplaced": "Đã thay thế"
+    "warrantyReplaced": "Đã thay thế",
+    "returnQcHold": "Chờ QC (trả về)",
+    "waitingRmaExport": "Chờ gửi NSX",
+    "rmaRepairedReturned": "NSX trả về",
+    "rmaUnrepairable": "Không sửa được",
+    "rejectedReturn": "Từ chối trả",
+    "pendingDisposal": "Chờ hủy"
+  },
+  "qcPage": {
+    "tabQcPass": "QC Pass",
+    "tabDispose": "Xử lý hủy / trả NCC",
+    "tabDone": "Đã xử lý",
+    "processedBy": "Người xử lý",
+    "processedAt": "Thời gian",
+    "qcPass": "QC Pass ({{count}})",
+    "dispose": "Hủy ({{count}})",
+    "passSuccess": "Đã QC pass {{count}} đơn vị",
+    "disposeSuccess": "Đã xử lý xong",
+    "empty": "Không có đơn vị nào",
+    "emptyDescription": "Chưa có đơn vị nào ở trạng thái này",
+    "rejectReason": "Lý do",
+    "exportCode": "Mã xuất",
+    "hintPending": "Trả về → chọn Hủy (hủy bỏ) hoặc Trả lại khách (từ chối nhận trả)",
+    "hintRma": "NSX không sửa được → chọn Hủy hoặc Trả NCC (gửi lại cho NSX)",
+    "hintWaitingRma": "Chờ gửi NSX → chọn Gửi bảo hành (tự tạo phiếu xuất bảo hành)",
+    "sendWarranty": "Gửi bảo hành ({{count}})",
+    "sendWarrantyConfirmTitle": "Xác nhận gửi bảo hành",
+    "sendWarrantyConfirmDesc": "Các đơn vị được chọn sẽ được gửi đến nhà sản xuất. Hệ thống tự tạo phiếu xuất bảo hành. Hành động này không thể hoàn tác.",
+    "disposeConfirmTitle": "Xác nhận hủy",
+    "disposeConfirmDesc": "Các đơn vị được chọn sẽ bị hủy bỏ và rời khỏi kho. Hành động này không thể hoàn tác.",
+    "returnSupplier": "Trả NCC ({{count}})",
+    "returnSupplierConfirmTitle": "Xác nhận trả NCC",
+    "returnSupplierConfirmDesc": "Các đơn vị được chọn sẽ được trả lại nhà cung cấp. Hành động này không thể hoàn tác.",
+    "returnCustomer": "Trả lại khách ({{count}})",
+    "returnCustomerConfirmTitle": "Xác nhận trả lại khách",
+    "returnCustomerConfirmDesc": "Các đơn vị được chọn sẽ bị từ chối nhận trả và trả lại cho khách hàng. Hành động này không thể hoàn tác."
   },
   "returnCondition": {
     "good": "Còn nguyên",
@@ -1067,6 +1129,8 @@
     "applyAllSuccess": "Đã áp dụng cho tất cả",
     "serialLookupError": "Lỗi tra cứu serial",
     "missingSerial": "Vui lòng chọn serial cho \"{{name}}\"",
+    "missingEvidence": "Vui lòng nhập mô tả và ảnh minh chứng cho \"{{name}}\"",
+    "descriptionPlaceholder": "Mô tả lỗi / tình trạng sản phẩm…",
     "selectSerialTitle": "Chọn serial",
     "noSerialsAvailable": "Không có serial khả dụng",
     "searchSerialPlaceholder": "Tìm serial...",
@@ -1077,21 +1141,21 @@
     "notFound": "Không tìm thấy phiếu trả hàng.",
     "breadcrumb": "Trả hàng",
     "createReceipt": "Tạo phiếu",
-    "approve": "Duyệt",
+    "approve": "Tiếp nhận",
     "originalExport": "Đơn xuất gốc",
     "note": "Ghi chú",
     "returnProducts": "Sản phẩm trả ({{count}})",
     "print": "In phiếu",
     "cancelReceipt": "Hủy phiếu",
-    "approveDialogTitle": "Duyệt phiếu trả hàng",
-    "approveDialogDesc": "Xác nhận duyệt phiếu {{code}}? Hàng trả sẽ được cập nhật vào kho.",
-    "approving": "Đang duyệt...",
+    "approveDialogTitle": "Tiếp nhận phiếu trả hàng",
+    "approveDialogDesc": "Xác nhận tiếp nhận phiếu {{code}}? Hàng trả sẽ được cập nhật vào kho.",
+    "approving": "Đang tiếp nhận...",
     "cancelDialogTitle": "Hủy phiếu trả hàng",
     "cancelDialogDesc": "Bạn có chắc muốn hủy phiếu trả hàng này?",
     "cancelling": "Đang hủy...",
     "cancelConfirm": "Xác nhận hủy",
-    "approveSuccess": "Đã duyệt phiếu trả hàng",
-    "approveFail": "Duyệt thất bại",
+    "approveSuccess": "Đã tiếp nhận phiếu trả hàng",
+    "approveFail": "Tiếp nhận thất bại",
     "cancelSuccess": "Đã hủy phiếu trả hàng",
     "cancelFail": "Hủy thất bại"
   },
@@ -1398,6 +1462,7 @@
     "selectLocation": "Chọn vị trí",
     "units": "đơn vị",
     "boxes": "hộp",
+    "empty": "trống",
     "zone": "Khu",
     "binNotFound": "Không tìm thấy vị trí trên bản đồ"
   },
@@ -1422,6 +1487,10 @@
     "batchConfirmTitle": "Xác nhận batch",
     "batchResultTitle": "Kết quả batch",
     "batchReasonPlaceholder": "Lý do cho batch...",
+    "batchProgress": "Đang tạo {{current}}/{{total}}...",
+    "batchResultSummary": "Thành công {{success}}/{{total}}",
+    "createBatch": "Tạo hàng loạt ({{count}})",
+    "selected": "Đã chọn {{product}}",
     "product": "Sản phẩm",
     "quantity": "Số lượng",
     "reason": "Lý do",
@@ -1494,6 +1563,7 @@
     "diffPartialShortage": "Thiếu một phần",
     "diffUnexpected": "Dư bất thường",
     "searchPlaceholder": "Tìm kiếm sản phẩm...",
+    "mismatchCount": "{{count}} lệch",
     "statusDamagedInStorage": "Hỏng trong kho",
     "statusDefective": "Lỗi",
     "statusDisposed": "Đã hủy",
@@ -1507,6 +1577,7 @@
     "title": "Hộp",
     "seal": "Đóng hộp",
     "sealTitle": "Đóng hộp mới",
+    "sealUnitTitle": "Đóng hộp đơn vị hàng",
     "sealed": "Đã đóng",
     "unsealed": "Đã mở",
     "unseal": "Mở hộp",

@@ -114,7 +114,7 @@ export const StockAdjustmentCreatePage = () => {
   const draftState = useMemo(() => ({ type: watchedType, reason: watchedReason }), [watchedType, watchedReason])
   const isDirty = !!watchedType || !!watchedReason.trim()
   const { draftAvailable, restore, dismiss } = useFormDraft(
-    "/stock/adjustments/new",
+    "/stock/ops/adjustments/new",
     draftState as unknown as Record<string, unknown>,
     isDirty,
     (data) => {
@@ -165,7 +165,7 @@ export const StockAdjustmentCreatePage = () => {
   const createMut = useMutation({
     mutationFn: createStockAdjustment,
     onSuccess: (data) => {
-      clearDraft("/stock/adjustments/new")
+      clearDraft("/stock/ops/adjustments/new")
       qc.invalidateQueries({ queryKey: ["stock-adjustments"] })
       const code = (data as { adjustCode?: string }).adjustCode ?? ""
       setSuccessResult({ adjustCode: code })
@@ -316,7 +316,7 @@ export const StockAdjustmentCreatePage = () => {
             <Button onClick={() => { setSuccessResult(null); form.reset(); setFoundMode(null); setScanInput("") }}>
               <Plus className="size-4 mr-1" /> {t("stockAdjCreate.createAnother")}
             </Button>
-            <Button variant="outline" onClick={() => navigate("/stock/adjustments")}>
+            <Button variant="outline" onClick={() => navigate("/stock/ops/adjustments")}>
               <List className="size-4 mr-1" /> {t("stockAdjCreate.backToList")}
             </Button>
           </div>
@@ -328,7 +328,7 @@ export const StockAdjustmentCreatePage = () => {
   return (
     <div className={cn("mx-auto space-y-6", density === "spacious" ? "max-w-4xl" : "max-w-3xl")}>
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size={density === "spacious" ? "default" : "sm"} onClick={() => navigate("/stock/adjustments")}>
+        <Button variant="ghost" size={density === "spacious" ? "default" : "sm"} onClick={() => navigate("/stock/ops/adjustments")}>
           <ArrowLeft className="size-4" />
         </Button>
         <h1 className={cn("font-semibold tracking-tight", density === "spacious" ? "text-2xl" : "text-xl")}>{t("stockAdjCreate.title")}</h1>
@@ -669,7 +669,7 @@ export const StockAdjustmentCreatePage = () => {
       )}
 
       <div className="flex justify-end gap-3">
-        <Button variant="outline" onClick={() => navigate("/stock/adjustments")}>
+        <Button variant="outline" onClick={() => navigate("/stock/ops/adjustments")}>
           {t("common.cancel")}
         </Button>
         <Button
@@ -773,7 +773,7 @@ export const StockAdjustmentCreatePage = () => {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={showResult} onOpenChange={(v) => { if (!v) { setShowResult(false); navigate("/stock/adjustments") } }}>
+      <Dialog open={showResult} onOpenChange={(v) => { if (!v) { setShowResult(false); navigate("/stock/ops/adjustments") } }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t("stockAdjCreate.batchResultTitle")}</DialogTitle>
@@ -797,7 +797,7 @@ export const StockAdjustmentCreatePage = () => {
             ))}
           </div>
           <DialogFooter>
-            <Button onClick={() => { setShowResult(false); navigate("/stock/adjustments") }}>
+            <Button onClick={() => { setShowResult(false); navigate("/stock/ops/adjustments") }}>
               {t("stockAdjCreate.batchResultSummary", { success: batchResults.filter((r) => r.success).length, total: batchResults.length })}
             </Button>
           </DialogFooter>

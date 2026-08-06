@@ -98,7 +98,7 @@ test.describe("Return Flow (Trả hàng) — SOP §7", () => {
     const retId: number = (await retRes.json()).data.id
 
     // ── Step 2: MANAGER approves via UI ──
-    await navigateTo(mgr, `/returns/${retId}`)
+    await navigateTo(mgr, `/returns-qc/returns/${retId}`)
     await approveDialog(mgr, retId)
 
     // ── Step 3: Verify COMPLETED (approve sets status to COMPLETED for return receipts) ──

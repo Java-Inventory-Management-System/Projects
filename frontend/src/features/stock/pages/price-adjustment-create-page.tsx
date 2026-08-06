@@ -94,7 +94,7 @@ export function PriceAdjustmentCreatePage() {
       qc.invalidateQueries({ queryKey: ["price-adjustments"] })
       qc.invalidateQueries({ queryKey: ["my-price-adjustments"] })
       toast.success(t("priceAdjCreate.createSuccess", { code: result.adjustCode }))
-      navigate("/stock/price-adjustments")
+      navigate("/stock/ops/price-adjustments")
     },
     onError: (e: Error) => toast.error(e.message || t("priceAdjCreate.createError")),
   })
@@ -123,7 +123,7 @@ export function PriceAdjustmentCreatePage() {
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="sm" onClick={() => {
           if (isDirty) setConfirmLeave(true)
-          else navigate("/stock/price-adjustments")
+          else navigate("/stock/ops/price-adjustments")
         }}>
           <ArrowLeft className="size-4 mr-1" /> {t("common.back")}
         </Button>
@@ -304,7 +304,7 @@ export function PriceAdjustmentCreatePage() {
       <div className="flex gap-2 justify-end">
         <Button variant="outline" type="button" onClick={() => {
           if (isDirty) setConfirmLeave(true)
-          else navigate("/stock/price-adjustments")
+          else navigate("/stock/ops/price-adjustments")
         }}>
           {t("common.cancel")}
         </Button>
@@ -329,7 +329,7 @@ export function PriceAdjustmentCreatePage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>{t("dialog.stay")}</AlertDialogCancel>
-            <AlertDialogAction onClick={() => { setConfirmLeave(false); navigate("/stock/price-adjustments") }}>
+            <AlertDialogAction onClick={() => { setConfirmLeave(false); navigate("/stock/ops/price-adjustments") }}>
               {t("dialog.leave")}
             </AlertDialogAction>
           </AlertDialogFooter>

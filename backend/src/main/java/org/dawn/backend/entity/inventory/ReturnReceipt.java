@@ -47,4 +47,8 @@ public class ReturnReceipt extends AuditableEntity {
 
     @Column(name = "approved_at")
     private Instant approvedAt;
+
+    @Version
+    @Column(name = "version")
+    private Long version;
 }

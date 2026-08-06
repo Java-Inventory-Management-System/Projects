@@ -97,7 +97,7 @@ export const ReturnListPage = () => {
       render: (r) => (
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" onClick={() => navigate(`/returns/${r.id}`)}>
+            <Button variant="ghost" size="icon" onClick={() => navigate(`/returns-qc/returns/${r.id}`)}>
               <Eye className="size-4" />
             </Button>
           </TooltipTrigger>
@@ -112,7 +112,7 @@ export const ReturnListPage = () => {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-semibold tracking-tight">{t("returnList.title")}</h1>
         {perm.hasRole(...ROLES.CAN_VIEW_INVENTORY) && (
-          <Button onClick={() => navigate("/returns/new")}>
+          <Button onClick={() => navigate("/returns-qc/returns/new")}>
             <Plus className="size-4 mr-1" /> {t("returnList.create")}
           </Button>
         )}

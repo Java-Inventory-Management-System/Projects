@@ -13,8 +13,9 @@ import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog"
+import { DataTable, type Column } from "@/components/ui/data-table"
 import { toast } from "@/utils/toast"
-import { Package, Boxes, ClipboardList, AlertTriangle } from "lucide-react"
+import { Boxes, ClipboardList, AlertTriangle } from "lucide-react"
 
 function fmt(d: string | null) {
   if (!d) return "—"
@@ -31,6 +32,8 @@ export const BoxTab = () => {
   const { data: boxes, isLoading } = useQuery({
     queryKey: ["boxes", status],
     queryFn: () => getBoxes(status === "all" ? undefined : { status }),
+    placeholderData: (prev) => prev,
+    staleTime: 60_000,
   })
 
   const unsealMut = useMutation({
@@ -67,6 +70,37 @@ export const BoxTab = () => {
     onError: (err: Error) => toast.error(err.message || t("box.error")),
   })
 
+  const columns: Column<Box>[] = [
+    { header: <BoxHeader i18nKey="box.code" />, render: (b) => <span className="font-mono text-xs">{b.boxCode}</span> },
+    { header: <BoxHeader i18nKey="box.importReceipt" />, render: (b) => <span className="font-mono text-xs text-muted-foreground">{b.importReceiptCode ?? "—"}</span> },
+    { header: <BoxHeader i18nKey="box.boxType" />, render: (b) => <span className="text-xs">{b.boxType ? t(`box.boxTypes.${b.boxType}`) : "—"}</span> },
+    {
+      header: <BoxHeader i18nKey="box.status" />,
+      render: (b) => (
+        <Badge variant={b.status === BOX_STATUS.SEALED ? "default" : "secondary"}>
+          {b.status === BOX_STATUS.SEALED ? t("box.sealed") : t("box.unsealed")}
+        </Badge>
+      ),
+    },
+    { header: <BoxHeader i18nKey="box.location" />, render: (b) => <LocationCodePopover code={b.locationCode} /> },
+    { header: <BoxHeader i18nKey="box.quantity" right />, className: "text-right", render: (b) => <span className="tabular-nums">{b.sealedQuantity}</span> },
+    { header: <BoxHeader i18nKey="box.unitCount" right />, className: "text-right", render: (b) => <span className="tabular-nums">{b.unitCount}</span> },
+    { header: <BoxHeader i18nKey="box.sealedAt" />, render: (b) => <span className="text-muted-foreground text-xs">{fmt(b.sealedAt)}</span> },
+    {
+      header: <BoxHeader i18nKey="table.actions" right />,
+      className: "text-right",
+      render: (b) => (
+        <BoxActions
+          box={b}
+          onUnseal={() => unsealMut.mutate(b.id)}
+          unsealPending={unsealMut.isPending}
+          onMove={(loc) => moveMut.mutate({ id: b.id, locationId: loc })}
+          movePending={moveMut.isPending}
+        />
+      ),
+    },
+  ]
+
   return (
     <div className="space-y-4">
       {mismatch && (
@@ -83,7 +117,7 @@ export const BoxTab = () => {
           <Button
             size="sm"
             variant="outline"
-            onClick={() => navigate(`/stock/checks/new?scopeType=BOX&scopeId=${mismatch.boxId}`)}
+            onClick={() => navigate(`/stock/ops/checks/new?scopeType=BOX&scopeId=${mismatch.boxId}`)}
           >
             <ClipboardList className="size-4 mr-1" /> {t("box.createCheckForBox")}
           </Button>
@@ -110,69 +144,47 @@ export const BoxTab = () => {
         </Select>
       </div>
 
-      <div className="overflow-x-auto rounded-lg border">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
-              <th className="px-4 py-2.5">{t("box.code")}</th>
-              <th className="px-4 py-2.5">{t("box.importReceipt")}</th>
-              <th className="px-4 py-2.5">{t("box.boxType")}</th>
-              <th className="px-4 py-2.5">{t("box.status")}</th>
-              <th className="px-4 py-2.5">{t("box.location")}</th>
-              <th className="px-4 py-2.5 text-right">{t("box.quantity")}</th>
-              <th className="px-4 py-2.5 text-right">{t("box.unitCount")}</th>
-              <th className="px-4 py-2.5">{t("box.sealedAt")}</th>
-              <th className="px-4 py-2.5 text-right">{t("table.actions")}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {(boxes ?? []).map((b) => (
-              <tr key={b.id} className="border-b last:border-0">
-                <td className="px-4 py-2.5 font-mono text-xs">{b.boxCode}</td>
-                <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">{b.importReceiptCode ?? "—"}</td>
-                <td className="px-4 py-2.5 text-xs">
-                  {b.boxType ? t(`box.boxTypes.${b.boxType}`) : "—"}
-                </td>
-                <td className="px-4 py-2.5">
-                  <Badge variant={b.status === BOX_STATUS.SEALED ? "default" : "secondary"}>
-                    {b.status === BOX_STATUS.SEALED ? t("box.sealed") : t("box.unsealed")}
-                  </Badge>
-                </td>
-                <td className="px-4 py-2.5"><LocationCodePopover code={b.locationCode} /></td>
-                <td className="px-4 py-2.5 text-right">{b.sealedQuantity}</td>
-                <td className="px-4 py-2.5 text-right">{b.unitCount}</td>
-                <td className="px-4 py-2.5 text-muted-foreground text-xs">{fmt(b.sealedAt)}</td>
-                <td className="px-4 py-2.5">
-                  <div className="flex justify-end gap-1">
-                    <PrintReceiptButton id={b.id} type="box" />
-                    {b.status === BOX_STATUS.SEALED && (
-                      <>
-                        <MoveBoxButton box={b} onMove={(loc) => moveMut.mutate({ id: b.id, locationId: loc })} pending={moveMut.isPending} />
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => unsealMut.mutate(b.id)}
-                          disabled={unsealMut.isPending}
-                        >
-                          {t("box.unseal")}
-                        </Button>
-                      </>
-                    )}
-                  </div>
-                </td>
-              </tr>
-            ))}
-            {!isLoading && (boxes ?? []).length === 0 && (
-              <tr>
-                <td colSpan={9} className="px-4 py-10 text-center text-sm text-muted-foreground">
-                  <Package className="mx-auto mb-2 size-8 opacity-40" />
-                  {t("box.empty")}
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      <DataTable
+        columns={columns}
+        data={boxes ?? []}
+        isLoading={isLoading}
+        emptyMessage={t("box.empty")}
+        totalElements={boxes?.length}
+        rowKey={(b) => b.id}
+      />
+    </div>
+  )
+}
+
+function BoxHeader({ i18nKey, right }: { i18nKey: string; right?: boolean }) {
+  const { t } = useTranslation()
+  return <span className={right ? "w-full inline-flex justify-end" : undefined}>{t(i18nKey)}</span>
+}
+
+function BoxActions({ box, onUnseal, unsealPending, onMove, movePending }: {
+  box: Box
+  onUnseal: () => void
+  unsealPending: boolean
+  onMove: (locationId: number) => void
+  movePending: boolean
+}) {
+  const { t } = useTranslation()
+  return (
+    <div className="flex justify-end gap-1">
+      <PrintReceiptButton id={box.id} type="box" />
+      {box.status === BOX_STATUS.SEALED && (
+        <>
+          <MoveBoxButton box={box} onMove={onMove} pending={movePending} />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onUnseal}
+            disabled={unsealPending}
+          >
+            {t("box.unseal")}
+          </Button>
+        </>
+      )}
     </div>
   )
 }

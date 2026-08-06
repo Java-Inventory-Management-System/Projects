@@ -2,6 +2,7 @@ import { useState, useMemo, useReducer, useEffect, useRef } from "react"
 import { useNavigate, useBlocker, useSearchParams } from "react-router-dom"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createImportReceipt, confirmImportReceipt, getImportReceiptById } from "@/services/import-service"
+import { getExportReceipts, getExportUnits, type ExportUnit } from "@/services/export-service"
 import { usePurchaseOrders, usePurchaseOrderById } from "@/hooks/use-purchase-orders"
 import { useProducts } from "@/hooks/use-products"
 import { useLocationMap } from "@/hooks/use-location-map"
@@ -18,8 +19,11 @@ import { useTranslation } from "react-i18next"
 import { Check, ChevronLeft, ChevronRight } from "lucide-react"
 import { ImportStepSerials } from "../components/import-create-step-serials"
 import { ImportStepQc } from "../components/import-create-step-qc"
+import { SerialModal } from "../components/serial-modal"
 import { itemReducer } from "../reducers/import-create-reducer"
 import { Label } from "@/components/ui/label"
+
+const WARRANTY_RESULT_TYPES = ["REPAIRED", "REJECTED", "REPLACED"]
 
 const steps = (t: (k: string) => string) => [
   { num: 1, label: t("importCreate.stepSelectOrder") },
@@ -77,6 +81,16 @@ export const ImportCreatePage = () => {
   const [step, setStep] = useState(isResume ? 2 : 1)
   const [receiptId, setReceiptId] = useState<number | null>(isResume ? Number(resumeId) : null)
   const [selectedPoId, setSelectedPoId] = useState<number | null>(null)
+  const [specialMode, setSpecialMode] = useState(false)
+  const [selectedWarrantyExportId, setSelectedWarrantyExportId] = useState<number | null>(null)
+  const [warrantyResultMap, setWarrantyResultMap] = useState<Record<string, string>>({})
+  const [newSerialMap, setNewSerialMap] = useState<Record<string, string>>({})
+  const [serialModalFor, setSerialModalFor] = useState<{
+    productId: number
+    productName: string
+    productSku: string
+    required: number
+  } | null>(null)
   const [items, dispatch] = useReducer(itemReducer, [])
   const navigatingAfterMut = useRef(false)
   const [qcBlocked, setQcBlocked] = useState(false)
@@ -89,8 +103,46 @@ export const ImportCreatePage = () => {
   const { data: productsRes } = useProducts(0, 100)
   const { data: locationMap } = useLocationMap()
   const { data: categoryZones } = useCategoryZones()
+  const { data: exportListRes } = useQuery({
+    queryKey: ["export-receipts"],
+    queryFn: () => getExportReceipts(0, 999),
+  })
+  const { data: warrantyUnits } = useQuery({
+    queryKey: ["export-units", selectedWarrantyExportId],
+    queryFn: () => getExportUnits(Number(selectedWarrantyExportId)),
+    enabled: !!selectedWarrantyExportId,
+  })
 
   const products = useMemo(() => productsRes?.content ?? [], [productsRes])
+
+  const specialExports = useMemo(
+    () =>
+      (exportListRes?.content ?? []).filter(
+        (e) =>
+          (e.reason === "WARRANTY_REPLACEMENT" || e.reason === "RETURN_SUPPLIER") &&
+          e.status === "COMPLETED",
+      ),
+    [exportListRes],
+  )
+  const selectedWarrantyExport = useMemo(
+    () => specialExports.find((e) => e.id === selectedWarrantyExportId) ?? null,
+    [specialExports, selectedWarrantyExportId],
+  )
+  const isSupplierReturnExport = selectedWarrantyExport?.reason === "RETURN_SUPPLIER"
+  const warrantyGroups = useMemo(() => {
+    const groups = new Map<number, ExportUnit[]>()
+    for (const u of warrantyUnits ?? []) {
+      const list = groups.get(u.productId) ?? []
+      list.push(u)
+      groups.set(u.productId, list)
+    }
+    return [...groups.entries()].map(([productId, units]) => ({
+      productId,
+      productName: units[0].productName,
+      productSku: units[0].productSku,
+      units,
+    }))
+  }, [warrantyUnits])
 
   const availablePOs = useMemo(
     () => (poListRes?.content ?? []).filter((po) => po.status !== "COMPLETED" && po.status !== "CANCELLED"),
@@ -185,6 +237,10 @@ export const ImportCreatePage = () => {
   const createMut = useMutation({
     mutationFn: createImportReceipt,
     onSuccess: (data) => {
+      if (specialMode) {
+        navigate("/stock/imports")
+        return
+      }
       setReceiptId(data.id)
       setStep(2)
       queryClient.invalidateQueries({ queryKey: ["import-receipts"] })
@@ -225,6 +281,45 @@ export const ImportCreatePage = () => {
         quantity: item.quantity,
         unitPrice: item.unitPrice,
       })),
+    })
+  }
+
+  const handleWarrantyCreate = () => {
+    if (!selectedWarrantyExport || warrantyGroups.length === 0) return
+    if (!isSupplierReturnExport) {
+      for (const g of warrantyGroups) {
+        const result = warrantyResultMap[String(g.productId)] ?? "REPAIRED"
+        const newSerials =
+          (newSerialMap[String(g.productId)] ?? "")
+            .split(/\r?\n/)
+            .map((s) => s.trim())
+            .filter(Boolean) ?? []
+        if (result === "REPLACED" && newSerials.length !== g.units.length) {
+          toast.error(t("importWarranty.invalidNewSerials", { name: g.productName }))
+          return
+        }
+      }
+    }
+    createMut.mutate({
+      originalWarrantyExportId: selectedWarrantyExport.id,
+      supplierId: null,
+      items: warrantyGroups.map((g) => {
+        const result = warrantyResultMap[String(g.productId)] ?? "REPAIRED"
+        const oldSerials = g.units.map((u) => u.serialNumber).filter(Boolean)
+        const newSerials =
+          (newSerialMap[String(g.productId)] ?? "")
+            .split(/\r?\n/)
+            .map((s) => s.trim())
+            .filter(Boolean) ?? []
+        return {
+          productId: g.productId,
+          quantity: g.units.length,
+          unitPrice: 0,
+          warrantyResultType: isSupplierReturnExport ? undefined : result,
+          serialNumbers: isSupplierReturnExport || result !== "REPLACED" ? oldSerials : newSerials,
+          replacementSourceSerials: !isSupplierReturnExport && result === "REPLACED" ? oldSerials : undefined,
+        }
+      }),
     })
   }
 
@@ -275,11 +370,197 @@ export const ImportCreatePage = () => {
         )}
       </div>
 
-      <StepIndicator current={step} />
+      {!specialMode && <StepIndicator current={step} />}
 
       {/* Step 1: Chọn đơn hàng */}
       {step === 1 && (
         <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <Button
+              variant={specialMode ? "outline" : "default"}
+              size="sm"
+              onClick={() => {
+                setSpecialMode(false)
+                setSelectedWarrantyExportId(null)
+                setStep(1)
+              }}
+            >
+              {t("importWarranty.modePo")}
+            </Button>
+            <Button
+              variant={specialMode ? "default" : "outline"}
+              size="sm"
+              onClick={() => {
+                setSpecialMode(true)
+                setSelectedWarrantyExportId(null)
+                setStep(1)
+              }}
+            >
+              {t("importWarranty.modeSpecial")}
+            </Button>
+          </div>
+
+          {specialMode ? (
+            <>
+              <div className="max-w-sm space-y-2">
+                <Label htmlFor="warrantyExport">{t("importWarranty.selectSpecial")}</Label>
+                <Select
+                  value={selectedWarrantyExportId ? String(selectedWarrantyExportId) : ""}
+                  onValueChange={(v) => setSelectedWarrantyExportId(Number(v))}
+                >
+                  <SelectTrigger id="warrantyExport">
+                    <SelectValue placeholder={t("importWarranty.selectSpecialPlaceholder")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {specialExports.map((e) => (
+                      <SelectItem key={e.id} value={String(e.id)}>
+                        <span className="block">
+                          <span className="flex items-center gap-2">
+                            <span className="font-medium">{e.receiptCode}</span>
+                            <span className="text-[10px] uppercase text-muted-foreground">
+                              {e.reason === "RETURN_SUPPLIER"
+                                ? t("importWarranty.badgeReturnSupplier")
+                                : t("importWarranty.badgeWarranty")}
+                            </span>
+                          </span>
+                          <span className="block max-w-72 truncate text-xs text-muted-foreground">
+                            {[...new Set((e.items ?? []).map((i) => i.productName))].filter(Boolean).join(", ") ||
+                              (e.customerName ?? "-")}
+                          </span>
+                        </span>
+                      </SelectItem>
+                    ))}
+                    {specialExports.length === 0 && (
+                      <div className="px-2 py-4 text-xs text-muted-foreground text-center">
+                        {t("importWarranty.noExports")}
+                      </div>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {selectedWarrantyExport && (
+                <div className="rounded-md border bg-muted/60 px-3 py-2 text-xs text-muted-foreground">
+                  {t("importWarranty.locationNote")}
+                </div>
+              )}
+
+              {selectedWarrantyExport && warrantyGroups.length > 0 && (
+                <div className="space-y-3">
+                  {warrantyGroups.map((g) => {
+                    const result = warrantyResultMap[String(g.productId)] ?? "REPAIRED"
+                    const enteredCount = (newSerialMap[String(g.productId)] ?? "")
+                      .split(/\r?\n/)
+                      .map((s) => s.trim())
+                      .filter(Boolean).length
+                    return (
+                      <Card key={g.productId}>
+                        <CardContent className="pt-4 pb-3 space-y-3">
+                          <div className="flex flex-wrap items-center gap-2 text-sm">
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium">{g.productName}</p>
+                              <p className="text-xs text-muted-foreground">
+                                x{g.units.length}
+                                {g.productSku ? ` — SKU: ${g.productSku}` : ""}
+                              </p>
+                            </div>
+                            <div className="flex flex-wrap gap-1">
+                              {g.units.map((u) => (
+                                <span
+                                  key={u.id}
+                                  className="rounded bg-muted px-1.5 py-0.5 text-xs font-mono"
+                                >
+                                  {u.serialNumber}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                          {!isSupplierReturnExport && (
+                            <div className="flex flex-wrap items-center gap-2">
+                              <select
+                                value={result}
+                                onChange={(e) =>
+                                  setWarrantyResultMap((prev) => ({
+                                    ...prev,
+                                    [String(g.productId)]: e.target.value,
+                                  }))
+                                }
+                                className="h-8 text-xs rounded-md border border-input bg-background px-2"
+                              >
+                                {WARRANTY_RESULT_TYPES.map((rt) => (
+                                  <option key={rt} value={rt}>
+                                    {t(`importWarranty.result.${rt.toLowerCase()}`)}
+                                  </option>
+                                ))}
+                              </select>
+                              {result === "REPLACED" && (
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-8 gap-1 text-xs"
+                                    onClick={() =>
+                                      setSerialModalFor({
+                                        productId: g.productId,
+                                        productName: g.productName,
+                                        productSku: g.productSku ?? "",
+                                        required: g.units.length,
+                                      })
+                                    }
+                                  >
+                                    {t("importWarranty.newSerialsButton")}
+                                  </Button>
+                                  {enteredCount > 0 && (
+                                    <span className="text-xs text-muted-foreground">
+                                      {t("importWarranty.enteredSerials", {
+                                        count: enteredCount,
+                                        required: g.units.length,
+                                      })}
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    )
+                  })}
+                </div>
+              )}
+
+              <SerialModal
+                open={!!serialModalFor}
+                onOpenChange={(open) => !open && setSerialModalFor(null)}
+                productName={serialModalFor?.productName ?? ""}
+                productSku={serialModalFor?.productSku ?? ""}
+                required={serialModalFor?.required ?? 0}
+                serials={
+                  serialModalFor
+                    ? (newSerialMap[String(serialModalFor.productId)] ?? "")
+                        .split(/\r?\n/)
+                        .map((s) => s.trim())
+                        .filter(Boolean)
+                    : []
+                }
+                onSave={(list) => {
+                  if (serialModalFor) {
+                    setNewSerialMap((prev) => ({
+                      ...prev,
+                      [String(serialModalFor.productId)]: list.join("\n"),
+                    }))
+                  }
+                  setSerialModalFor(null)
+                }}
+              />
+            </>
+          ) : (
+            <></>
+          )}
+
+          {!specialMode && (
+          <>
           <h2 className="text-sm font-semibold text-muted-foreground">
             {receiptId ? t("importCreate.orderSelected") : t("importCreate.stepIndicator")}
           </h2>
@@ -410,6 +691,8 @@ export const ImportCreatePage = () => {
               </>
             )
           )}
+          </>
+          )}
         </div>
       )}
 
@@ -488,7 +771,7 @@ export const ImportCreatePage = () => {
               {t("importCreate.cancel")}
             </Button>
           )}
-          {!isResume && step === 1 && (
+          {!isResume && step === 1 && !specialMode && (
             <Tooltip>
               <TooltipTrigger asChild>
                 <span>
@@ -500,6 +783,29 @@ export const ImportCreatePage = () => {
               {!selectedPoId && (
                 <TooltipContent side="top" className="text-xs">
                   <p>{t("importCreate.noOrderSelected")}</p>
+                </TooltipContent>
+              )}
+            </Tooltip>
+          )}
+          {!isResume && step === 1 && specialMode && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span>
+                  <Button
+                    onClick={handleWarrantyCreate}
+                    disabled={!selectedWarrantyExportId || createMut.isPending}
+                  >
+                    {createMut.isPending
+                      ? t("importCreate.creating")
+                      : isSupplierReturnExport
+                        ? t("importWarranty.createSupplierReturn")
+                        : t("importWarranty.createWarranty")}
+                  </Button>
+                </span>
+              </TooltipTrigger>
+              {!selectedWarrantyExportId && (
+                <TooltipContent side="top" className="text-xs">
+                  <p>{t("importWarranty.noExportSelected")}</p>
                 </TooltipContent>
               )}
             </Tooltip>

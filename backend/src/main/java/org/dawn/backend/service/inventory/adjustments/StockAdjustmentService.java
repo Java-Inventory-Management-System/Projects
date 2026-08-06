@@ -99,28 +99,28 @@ public class StockAdjustmentService {
         if (request.type() == null || request.type().isBlank()) {
             throw new InvalidRequestException(ErrorCode.ADJUSTMENT_TYPE_REQUIRED);
         }
-        String type = request.type().toUpperCase();
+        AdjustmentType type;
         try {
-            AdjustmentType.valueOf(type);
+            type = AdjustmentType.valueOf(request.type().toUpperCase());
         } catch (IllegalArgumentException e) {
-            throw new InvalidRequestException(ErrorCode.INVALID_ADJUSTMENT_TYPE.format( type));
+            throw new InvalidRequestException(ErrorCode.INVALID_ADJUSTMENT_TYPE.format( request.type()));
         }
 
         if (request.reason() == null || request.reason().isBlank()) {
             throw new InvalidRequestException(ErrorCode.ADJUSTMENT_REASON_REQUIRED);
         }
 
-        if (AdjustmentType.DAMAGED.name().equals(type) || AdjustmentType.LOST.name().equals(type)) {
+        if (type == AdjustmentType.DAMAGED || type == AdjustmentType.LOST) {
             if (request.productUnitId() == null) {
                 throw new InvalidRequestException(
-                        ErrorCode.ADJUSTMENT_UNIT_REQUIRED.format( type.toLowerCase()));
+                        ErrorCode.ADJUSTMENT_UNIT_REQUIRED.format( type.name().toLowerCase()));
             }
-            if (AdjustmentType.DAMAGED.name().equals(type) && (request.imageUrl() == null || request.imageUrl().isBlank())) {
+            if (type == AdjustmentType.DAMAGED && (request.imageUrl() == null || request.imageUrl().isBlank())) {
                 throw new InvalidRequestException(ErrorCode.ADJUSTMENT_PHOTO_REQUIRED_DAMAGED);
             }
         }
 
-        if (AdjustmentType.FOUND.name().equals(type) && request.productUnitId() == null) {
+        if (type == AdjustmentType.FOUND && request.productUnitId() == null) {
             if (request.productId() == null) {
                 throw new InvalidRequestException(ErrorCode.ADJUSTMENT_PRODUCT_REQUIRED);
             }
@@ -133,11 +133,13 @@ public class StockAdjustmentService {
         }
 
         String adjustCode = generateAdjustCode();
-        String sourceType = request.sourceType() != null ? request.sourceType().toUpperCase() : AdjustmentSourceType.MANUAL.name();
+        AdjustmentSourceType sourceType = request.sourceType() != null
+                ? AdjustmentSourceType.valueOf(request.sourceType().toUpperCase())
+                : AdjustmentSourceType.MANUAL;
 
         StockAdjustment adj = StockAdjustment.builder()
                 .adjustCode(adjustCode)
-                .type(type)
+                .type(type.name())
                 .productUnitId(request.productUnitId())
                 .productId(request.productId())
                 .quantity(request.quantity() != null ? request.quantity() : 1)
@@ -145,7 +147,7 @@ public class StockAdjustmentService {
                 .imageUrl(request.imageUrl())
                 .serialNumber(request.serialNumber())
                 .locationId(request.locationId())
-                .sourceType(sourceType)
+                .sourceType(sourceType.name())
                 .sourceId(request.sourceId())
                 .status(AdjustmentStatus.PENDING)
                 .createdBy(userId)
@@ -165,16 +167,16 @@ public class StockAdjustmentService {
         adjustmentStateMachine.validate(adj.getStatus(), AdjustmentStatus.APPROVED);
         securityPolicy.requireNotCreator(adj.getCreatedBy());
 
-        String type = adj.getType();
-        if (AdjustmentType.DAMAGED.name().equals(type)) {
-            adjustmentUnitService.applyDamaged(adj.getProductUnitId(), SourceType.STOCK_ADJUSTMENT.name(), adj.getId(), userId);
-        } else if (AdjustmentType.LOST.name().equals(type)) {
-            adjustmentUnitService.applyLost(adj.getProductUnitId(), SourceType.STOCK_ADJUSTMENT.name(), adj.getId(), userId);
-        } else if (AdjustmentType.FOUND.name().equals(type)) {
-            if (adj.getProductUnitId() != null) {
-                adjustmentUnitService.applyFoundRestore(adj.getProductUnitId(), SourceType.STOCK_ADJUSTMENT.name(), adj.getId(), userId);
-            } else {
-                adjustmentUnitService.applyFoundNew(adj, userId);
+        AdjustmentType type = AdjustmentType.valueOf(adj.getType());
+        switch (type) {
+            case DAMAGED -> adjustmentUnitService.applyDamaged(adj.getProductUnitId(), SourceType.STOCK_ADJUSTMENT, adj.getId(), userId);
+            case LOST -> adjustmentUnitService.applyLost(adj.getProductUnitId(), SourceType.STOCK_ADJUSTMENT, adj.getId(), userId);
+            case FOUND -> {
+                if (adj.getProductUnitId() != null) {
+                    adjustmentUnitService.applyFoundRestore(adj.getProductUnitId(), SourceType.STOCK_ADJUSTMENT, adj.getId(), userId);
+                } else {
+                    adjustmentUnitService.applyFoundNew(adj, userId);
+                }
             }
         }
 

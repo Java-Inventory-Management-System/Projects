@@ -32,6 +32,8 @@ public record ReturnReceiptResponse(
             BigDecimal quantity,
             String condition,
             String resultingAction,
+            String description,
+            String evidenceImage,
             String productName,
             String productSku,
             String serialNumber

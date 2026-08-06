@@ -114,7 +114,7 @@ export const StockAdjustmentDetailPage = () => {
       <Breadcrumb>
         <BreadcrumbList>
           <BreadcrumbItem>
-            <BreadcrumbLink onClick={() => navigate("/stock/adjustments")}>{t("stockAdjDetail.breadcrumb")}</BreadcrumbLink>
+            <BreadcrumbLink onClick={() => navigate("/stock/ops/adjustments")}>{t("stockAdjDetail.breadcrumb")}</BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator />
           <BreadcrumbItem>

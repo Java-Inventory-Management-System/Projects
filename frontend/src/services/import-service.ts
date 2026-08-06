@@ -31,14 +31,18 @@ export async function getImportPrintHtml(id: number, lang: string): Promise<stri
 
 export async function createImportReceipt(data: {
   receiptCode?: string
-  supplierId: number
+  supplierId?: number | null
   note?: string
   purchaseOrderId?: number
+  originalWarrantyExportId?: number
   items: Array<{
     productId: number
     quantity: number
     unitPrice: number
     warrantyMonths?: number
+    warrantyResultType?: string
+    serialNumbers?: string[]
+    replacementSourceSerials?: string[]
   }>
 }): Promise<ImportReceipt> {
   const res = await http.post("/import-receipt", data)

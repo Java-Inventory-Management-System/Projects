@@ -43,7 +43,7 @@ services:
       JWT_COOKIE_REFRESH_NAME: ${JWT_COOKIE_REFRESH_NAME:-dawn-jwt-refresh}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost}
       APP_SECURITY_ENABLED: ${AUTH_ENABLED:-false}
-      MAIL_ENABLED: ${MAIL_ENABLED:-false}  
+      MAIL_ENABLED: ${MAIL_ENABLED:-false}
       MAIL_HOST: ${MAIL_HOST:-localhost}
       MAIL_PORT: ${MAIL_PORT:-1025}
       MAIL_USERNAME: ${MAIL_USERNAME:-dummy}
@@ -71,7 +71,7 @@ services:
     build:
       context: ./frontend
       args:
-        VITE_BASE_API_URL: http://localhost:8888/api/v1
+        VITE_BASE_API_URL: ${BASE_API_URL:-http://backend:8888}
         VITE_ENABLED_AUTH: ${AUTH_ENABLED:-false}
     ports:
       - '5173:80'

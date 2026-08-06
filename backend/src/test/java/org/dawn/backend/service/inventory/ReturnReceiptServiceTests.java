@@ -4,12 +4,12 @@ import org.dawn.backend.constant.enums.inventory.adjustments.*;
 import org.dawn.backend.constant.enums.inventory.exports.*;
 import org.dawn.backend.constant.enums.inventory.imports.*;
 import org.dawn.backend.constant.enums.inventory.returns.*;
-import org.dawn.backend.constant.enums.inventory.stockcheck.*;
 import org.dawn.backend.constant.enums.inventory.*;
 import org.dawn.backend.controller.inventory.request.ReturnReceiptRequest;
 import org.dawn.backend.controller.inventory.request.ReturnReceiptRequest.ReturnItemRequest;
 import org.dawn.backend.entity.inventory.ExportReceipt;
 import org.dawn.backend.entity.inventory.ProductUnit;
+import org.dawn.backend.entity.inventory.ProductUnitStatusLog;
 import org.dawn.backend.entity.inventory.ReturnReceipt;
 import org.dawn.backend.entity.inventory.ReturnReceiptItem;
 import org.dawn.backend.exception.type.InvalidRequestException;
@@ -57,6 +57,7 @@ class ReturnReceiptServiceTests {
     @Mock UserRepository userRepository;
     @Mock ProductRepository productRepository;
     @Mock ExportReceiptItemUnitRepository exportReceiptItemUnitRepository;
+    @Mock org.dawn.backend.repository.inventory.LocationRepository locationRepository;
     @Mock StateMachine<ReturnReceiptStatus> returnReceiptStateMachine;
     @Mock SecurityPolicy securityPolicy;
 
@@ -97,7 +98,7 @@ class ReturnReceiptServiceTests {
     void create_fail_reasonBlank() {
         ReturnReceiptRequest request = new ReturnReceiptRequest(
                 customerId, exportReceiptId, "", null,
-                List.of(new ReturnItemRequest(null, 20L, BigDecimal.ONE, ReturnCondition.GOOD.name(), ResultingAction.RESTOCK.name()))
+                List.of(new ReturnItemRequest(null, 20L, BigDecimal.ONE, ReturnCondition.GOOD.name(), ResultingAction.RESTOCK.name(), null, null))
         );
         {
             when(securityPolicy.requireAuthenticated()).thenReturn(userId);
@@ -109,7 +110,7 @@ class ReturnReceiptServiceTests {
     void create_fail_exportRequired() {
         ReturnReceiptRequest request = new ReturnReceiptRequest(
                 customerId, null, ReturnReason.DEFECTIVE.name(), null,
-                List.of(new ReturnItemRequest(null, 20L, BigDecimal.ONE, ReturnCondition.GOOD.name(), ResultingAction.RESTOCK.name()))
+                List.of(new ReturnItemRequest(null, 20L, BigDecimal.ONE, ReturnCondition.GOOD.name(), ResultingAction.RESTOCK.name(), null, null))
         );
         {
             when(securityPolicy.requireAuthenticated()).thenReturn(userId);
@@ -121,7 +122,7 @@ class ReturnReceiptServiceTests {
     void create_fail_customerRequired() {
         ReturnReceiptRequest request = new ReturnReceiptRequest(
                 null, exportReceiptId, ReturnReason.DEFECTIVE.name(), null,
-                List.of(new ReturnItemRequest(null, 20L, BigDecimal.ONE, ReturnCondition.GOOD.name(), ResultingAction.RESTOCK.name()))
+                List.of(new ReturnItemRequest(null, 20L, BigDecimal.ONE, ReturnCondition.GOOD.name(), ResultingAction.RESTOCK.name(), null, null))
         );
         {
             when(securityPolicy.requireAuthenticated()).thenReturn(userId);
@@ -133,7 +134,7 @@ class ReturnReceiptServiceTests {
     void create_fail_exportNotFound() {
         ReturnReceiptRequest request = new ReturnReceiptRequest(
                 customerId, exportReceiptId, ReturnReason.DEFECTIVE.name(), null,
-                List.of(new ReturnItemRequest(null, 20L, BigDecimal.ONE, ReturnCondition.GOOD.name(), ResultingAction.RESTOCK.name()))
+                List.of(new ReturnItemRequest(null, 20L, BigDecimal.ONE, ReturnCondition.GOOD.name(), ResultingAction.RESTOCK.name(), null, null))
         );
         when(exportReceiptRepository.findById(exportReceiptId)).thenReturn(Optional.empty());
         {
@@ -146,7 +147,7 @@ class ReturnReceiptServiceTests {
     void create_fail_unitNotSold() {
         ReturnReceiptRequest request = new ReturnReceiptRequest(
                 customerId, exportReceiptId, ReturnReason.DEFECTIVE.name(), null,
-                List.of(new ReturnItemRequest(productUnitId, 20L, BigDecimal.ONE, ReturnCondition.GOOD.name(), ResultingAction.RESTOCK.name()))
+                List.of(new ReturnItemRequest(productUnitId, 20L, BigDecimal.ONE, ReturnCondition.GOOD.name(), ResultingAction.RESTOCK.name(), null, null))
         );
         var exportReceipt = mock(ExportReceipt.class);
         var pu = mock(ProductUnit.class);
@@ -168,7 +169,7 @@ class ReturnReceiptServiceTests {
     void create_success() {
         ReturnReceiptRequest request = new ReturnReceiptRequest(
                 customerId, exportReceiptId, ReturnReason.DEFECTIVE.name(), "note",
-                List.of(new ReturnItemRequest(productUnitId, 20L, BigDecimal.ONE, ReturnCondition.GOOD.name(), ResultingAction.RESTOCK.name()))
+                List.of(new ReturnItemRequest(productUnitId, 20L, BigDecimal.ONE, ReturnCondition.GOOD.name(), ResultingAction.RESTOCK.name(), null, null))
         );
 
         var exportReceipt = mock(ExportReceipt.class);
@@ -206,6 +207,90 @@ class ReturnReceiptServiceTests {
         }
     }
 
+    @Test
+    void create_fail_evidenceMissingForDefective() {
+        ReturnReceiptRequest request = new ReturnReceiptRequest(
+                customerId, exportReceiptId, ReturnReason.DEFECTIVE.name(), null,
+                List.of(new ReturnItemRequest(productUnitId, 20L, BigDecimal.ONE,
+                        ReturnCondition.DEFECTIVE.name(), ResultingAction.WARRANTY_TRANSFER.name(), null, "img-1.jpg"))
+        );
+        var exportReceipt = mock(ExportReceipt.class);
+        when(exportReceiptRepository.findById(exportReceiptId)).thenReturn(Optional.of(exportReceipt));
+        when(exportReceipt.getCustomerId()).thenReturn(customerId);
+        stubSave();
+
+        try (MockedStatic<ReceiptCodeGenerator> gen = mockStatic(ReceiptCodeGenerator.class)) {
+            when(securityPolicy.requireAuthenticated()).thenReturn(userId);
+            gen.when(() -> ReceiptCodeGenerator.generate(eq("RET-"), any())).thenReturn("RET-001");
+
+            assertThrows(InvalidRequestException.class, () -> returnReceiptService.create(request));
+        }
+    }
+
+    @Test
+    void create_fail_evidenceImageMissingForDefective() {
+        ReturnReceiptRequest request = new ReturnReceiptRequest(
+                customerId, exportReceiptId, ReturnReason.DEFECTIVE.name(), null,
+                List.of(new ReturnItemRequest(productUnitId, 20L, BigDecimal.ONE,
+                        ReturnCondition.DEFECTIVE.name(), ResultingAction.WARRANTY_TRANSFER.name(), "hỏng màn hình", null))
+        );
+        var exportReceipt = mock(ExportReceipt.class);
+        when(exportReceiptRepository.findById(exportReceiptId)).thenReturn(Optional.of(exportReceipt));
+        when(exportReceipt.getCustomerId()).thenReturn(customerId);
+        stubSave();
+
+        try (MockedStatic<ReceiptCodeGenerator> gen = mockStatic(ReceiptCodeGenerator.class)) {
+            when(securityPolicy.requireAuthenticated()).thenReturn(userId);
+            gen.when(() -> ReceiptCodeGenerator.generate(eq("RET-"), any())).thenReturn("RET-001");
+
+            assertThrows(InvalidRequestException.class, () -> returnReceiptService.create(request));
+        }
+    }
+
+    @Test
+    void create_success_defectiveWithEvidence() {
+        ReturnReceiptRequest request = new ReturnReceiptRequest(
+                customerId, exportReceiptId, ReturnReason.DEFECTIVE.name(), "note",
+                List.of(new ReturnItemRequest(productUnitId, 20L, BigDecimal.ONE,
+                        ReturnCondition.DEFECTIVE.name(), ResultingAction.WARRANTY_TRANSFER.name(),
+                        "hỏng màn hình", "img-1.jpg"))
+        );
+
+        var exportReceipt = mock(ExportReceipt.class);
+        var pu = mock(ProductUnit.class);
+        when(exportReceiptRepository.findById(exportReceiptId)).thenReturn(Optional.of(exportReceipt));
+        when(exportReceipt.getCustomerId()).thenReturn(customerId);
+        when(productUnitRepository.findById(productUnitId)).thenReturn(Optional.of(pu));
+        when(pu.getStatus()).thenReturn(ProductUnitStatus.EXPORTED);
+        when(returnReceiptRepository.save(any())).thenAnswer(invocation -> {
+            ReturnReceipt r = invocation.getArgument(0);
+            return ReturnReceipt.builder()
+                    .id(receiptId)
+                    .receiptCode(r.getReceiptCode())
+                    .customerId(r.getCustomerId())
+                    .originalExportReceiptId(r.getOriginalExportReceiptId())
+                    .reason(r.getReason())
+                    .status(r.getStatus())
+                    .note(r.getNote())
+                    .createdBy(r.getCreatedBy())
+                    .build();
+        });
+        when(returnReceiptItemRepository.findByReturnReceiptId(anyLong())).thenReturn(List.of());
+        when(customerRepository.findById(anyLong())).thenReturn(Optional.empty());
+        when(userRepository.findById(anyLong())).thenReturn(Optional.empty());
+
+        try (MockedStatic<ReceiptCodeGenerator> gen = mockStatic(ReceiptCodeGenerator.class)) {
+            when(securityPolicy.requireAuthenticated()).thenReturn(userId);
+            gen.when(() -> ReceiptCodeGenerator.generate(eq("RET-"), any())).thenReturn("RET-001");
+
+            returnReceiptService.create(request);
+
+            verify(returnReceiptRepository).save(any());
+            verify(returnReceiptItemRepository).save(argThat(item ->
+                    "hỏng màn hình".equals(item.getDescription()) && "img-1.jpg".equals(item.getEvidenceImage())));
+        }
+    }
+
     // ─── Approve: action → status mapping ────────────────────
 
     @Test
@@ -219,13 +304,14 @@ class ReturnReceiptServiceTests {
         stubEnrich();
         when(returnReceiptItemRepository.findByReturnReceiptId(receiptId)).thenReturn(List.of(item), List.of());
         when(productUnitRepository.findByIdForUpdate(productUnitId)).thenReturn(Optional.of(pu));
+        when(locationRepository.findByFullCode(anyString())).thenReturn(Optional.empty());
 
         {
             when(securityPolicy.requireAuthenticated()).thenReturn(userId);
 
             returnReceiptService.approve(receiptId);
 
-            assertEquals(ProductUnitStatus.RETURNED, pu.getStatus());
+            assertEquals(ProductUnitStatus.RETURN_QC_HOLD, pu.getStatus());
             assertEquals(ReturnReceiptStatus.COMPLETED, receipt.getStatus());
             assertEquals(userId, receipt.getApprovedBy());
         }
@@ -248,7 +334,33 @@ class ReturnReceiptServiceTests {
 
             returnReceiptService.approve(receiptId);
 
-            assertEquals(ProductUnitStatus.DISPOSED, pu.getStatus());
+            assertEquals(ProductUnitStatus.PENDING_DISPOSAL, pu.getStatus());
+        }
+    }
+
+    @Test
+    void approve_success_reject() {
+        ReturnReceipt receipt = pendingReceipt(ReturnReason.DEFECTIVE.name());
+        ReturnReceiptItem item = returnItem(receiptId, productUnitId, ResultingAction.REJECT.name());
+        ProductUnit pu = serializedUnit(productUnitId, ProductUnitStatus.SOLD, BigDecimal.TEN);
+
+        when(returnReceiptRepository.findById(receiptId)).thenReturn(Optional.of(receipt));
+        stubSave();
+        stubEnrich();
+        when(returnReceiptItemRepository.findByReturnReceiptId(receiptId)).thenReturn(List.of(item), List.of());
+        when(productUnitRepository.findByIdForUpdate(productUnitId)).thenReturn(Optional.of(pu));
+        when(locationRepository.findByFullCode(anyString())).thenReturn(Optional.empty());
+
+        {
+            when(securityPolicy.requireAuthenticated()).thenReturn(userId);
+
+            returnReceiptService.approve(receiptId);
+
+            assertEquals(ProductUnitStatus.PENDING_DISPOSAL, pu.getStatus());
+            verify(statusLogRepository).save(argThat(log ->
+                    "RETURN_RECEIPT".equals(log.getSourceType())
+                            && "PENDING_DISPOSAL".equals(log.getToStatus())
+                            && receiptId.equals(log.getSourceId())));
         }
     }
 
@@ -263,13 +375,14 @@ class ReturnReceiptServiceTests {
         stubEnrich();
         when(returnReceiptItemRepository.findByReturnReceiptId(receiptId)).thenReturn(List.of(item), List.of());
         when(productUnitRepository.findByIdForUpdate(productUnitId)).thenReturn(Optional.of(pu));
+        when(locationRepository.findByFullCode(anyString())).thenReturn(Optional.empty());
 
         {
             when(securityPolicy.requireAuthenticated()).thenReturn(userId);
 
             returnReceiptService.approve(receiptId);
 
-            assertEquals(ProductUnitStatus.DEFECTIVE, pu.getStatus());
+            assertEquals(ProductUnitStatus.WAITING_RMA_EXPORT, pu.getStatus());
         }
     }
 

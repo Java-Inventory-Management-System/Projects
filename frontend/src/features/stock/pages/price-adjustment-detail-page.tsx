@@ -133,7 +133,7 @@ export function PriceAdjustmentDetailPage() {
         <EmptyDescription>
           {t("priceAdjDetail.notFoundDesc")}
         </EmptyDescription>
-        <Button variant="outline" className="mt-4" onClick={() => navigate("/stock/price-adjustments")}>
+        <Button variant="outline" className="mt-4" onClick={() => navigate("/stock/ops/price-adjustments")}>
           {t("priceAdjDetail.backToList")}
         </Button>
       </Empty>
@@ -154,7 +154,7 @@ export function PriceAdjustmentDetailPage() {
       <Breadcrumb>
         <BreadcrumbList>
           <BreadcrumbItem>
-            <BreadcrumbLink onClick={() => navigate("/stock/price-adjustments")}>{t("priceAdjDetail.breadcrumb")}</BreadcrumbLink>
+            <BreadcrumbLink onClick={() => navigate("/stock/ops/price-adjustments")}>{t("priceAdjDetail.breadcrumb")}</BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator />
           <BreadcrumbItem>

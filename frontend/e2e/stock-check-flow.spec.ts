@@ -49,7 +49,7 @@ test.describe("Stock Check Flow (Kiểm kê) — SOP §4", () => {
     })
 
     // MANAGER approves via UI detail page
-    await navigateTo(mgr, `/stock/checks/${checkId}`)
+    await navigateTo(mgr, `/stock/ops/checks/${checkId}`)
     await approveDialog(mgr, checkId, "Approve", "Confirm Approve")
 
     // Verify APPROVED

@@ -102,7 +102,7 @@ export const StockCheckListPage = () => {
       render: (r) => (
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" onClick={() => navigate(`/stock/checks/${r.id}`)}>
+            <Button variant="ghost" size="icon" onClick={() => navigate(`/stock/ops/checks/${r.id}`)}>
               <Eye className="size-4" />
             </Button>
           </TooltipTrigger>
@@ -127,7 +127,7 @@ export const StockCheckListPage = () => {
               ))}
             </SelectContent>
           </Select>
-          <Button onClick={() => navigate("/stock/checks/new")}>
+          <Button onClick={() => navigate("/stock/ops/checks/new")}>
             <Plus className="size-4 mr-1" /> {t("stockCheckList.create")}
           </Button>
         </div>

@@ -1,5 +1,5 @@
 import http from "@/utils/http-client"
-import { PRODUCT_UNIT_STATUS, type ProductUnit, type ResponsePage } from "@/utils/types"
+import { PRODUCT_UNIT_STATUS, type ProductUnit, type ProductUnitStatus, type ResponsePage } from "@/utils/types"
 import { mapResponsePage, mapProductUnit } from "@/utils/mappers"
 
 export async function getProductUnits(
@@ -29,12 +29,16 @@ export async function getSerialsForExport(productId: number, quantity: number): 
   }
 }
 
-export async function getAllSerialsForProduct(productId: number): Promise<ProductUnit[]> {
+export async function getAllSerialsForProduct(
+  productId: number,
+  status?: ProductUnitStatus,
+): Promise<ProductUnit[]> {
   try {
     const res = await http.get(`/product-unit/product/${productId}`, {
       params: { page: 0, size: 999, sort: "importedAt,asc" },
     })
-    return mapResponsePage(res, mapProductUnit).content.filter((u) => u.status === PRODUCT_UNIT_STATUS.IN_STOCK)
+    const expected = status ?? PRODUCT_UNIT_STATUS.IN_STOCK
+    return mapResponsePage(res, mapProductUnit).content.filter((u) => u.status === expected)
   } catch {
     return []
   }

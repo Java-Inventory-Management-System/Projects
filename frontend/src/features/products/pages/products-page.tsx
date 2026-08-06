@@ -75,8 +75,16 @@ export const ProductsPage = () => {
       className: "w-[120px]",
       render: (p) => <span className="text-muted-foreground">{p.categoryName}</span>,
     },
-    { header: t("productForm.unit"), className: "w-[70px]", render: (p) => <span>{t(UNIT_LABELS[p.unit] ?? p.unit)}</span> },
-    { header: t("productForm.trackingType"), className: "w-[110px]", render: (p) => <TrackingTypeBadge type={p.trackingType} /> },
+    {
+      header: t("productForm.unit"),
+      className: "w-[70px]",
+      render: (p) => <span>{t(UNIT_LABELS[p.unit] ?? p.unit)}</span>,
+    },
+    {
+      header: t("productForm.trackingType"),
+      className: "w-[110px]",
+      render: (p) => <TrackingTypeBadge type={p.trackingType} />,
+    },
     {
       header: t("productForm.sellPrice"),
       sortKey: "sellPrice",
@@ -86,7 +94,11 @@ export const ProductsPage = () => {
     {
       header: t("common.status"),
       className: "w-[70px] text-center",
-      render: (p) => <Badge variant={p.isActive ? "default" : "secondary"}>{p.isActive ? t("common.active") : t("common.inactive")}</Badge>,
+      render: (p) => (
+        <Badge variant={p.isActive ? "default" : "secondary"}>
+          {p.isActive ? t("common.active") : t("common.inactive")}
+        </Badge>
+      ),
     },
     {
       header: t("common.actions"),
@@ -120,9 +132,11 @@ export const ProductsPage = () => {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-semibold tracking-tight">{t("nav.products")}</h1>
-        <Button onClick={() => navigate("/products/new")}>
-          <Plus className="size-4 mr-1" /> {t("productsPage.addProduct")}
-        </Button>
+        {perm.hasRole(...ROLES.MANAGER) && (
+          <Button onClick={() => navigate("/products/new")}>
+            <Plus className="size-4 mr-1" /> {t("productsPage.addProduct")}
+          </Button>
+        )}
       </div>
 
       <div className="flex flex-wrap items-center gap-2">

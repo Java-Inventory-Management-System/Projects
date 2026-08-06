@@ -10,10 +10,11 @@ import org.dawn.backend.constant.enums.inventory.adjustments.*;
 import org.dawn.backend.constant.enums.inventory.exports.*;
 import org.dawn.backend.constant.enums.inventory.imports.*;
 import org.dawn.backend.constant.enums.inventory.returns.*;
-import org.dawn.backend.constant.enums.inventory.stockcheck.*;
+
 
 import org.dawn.backend.constant.enums.inventory.*;
 import org.dawn.backend.constant.shared.LogConstant;
+import org.dawn.backend.constant.shared.QcProcessingLocations;
 import org.dawn.backend.controller.inventory.request.ReturnReceiptRequest;
 import org.dawn.backend.controller.inventory.response.ReturnReceiptResponse;
 import org.dawn.backend.entity.auth.User;
@@ -56,8 +57,12 @@ public class ReturnReceiptService {
     private final UserRepository userRepository;
     private final ProductRepository productRepository;
     private final ExportReceiptItemUnitRepository exportReceiptItemUnitRepository;
+    private final org.dawn.backend.repository.inventory.LocationRepository locationRepository;
     private final StateMachine<ReturnReceiptStatus> returnReceiptStateMachine;
     private final SecurityPolicy securityPolicy;
+
+    private static final String RETURN_STAGING_LOCATION_FULL_CODE = QcProcessingLocations.QC_SHELF_1_NEW_RETURNS;
+    private static final String WARRANTY_HOLD_LOCATION_FULL_CODE = QcProcessingLocations.QC_SHELF_2_WAIT_RMA;
 
     @Transactional(readOnly = true)
     public ResponsePage<ReturnReceiptResponse> findAll(Pageable pageable,
@@ -115,9 +120,9 @@ public class ReturnReceiptService {
             throw new InvalidRequestException(ErrorCode.RETURN_CUSTOMER_REQUIRED);
         }
 
-        String reason = request.reason().toUpperCase();
+        ReturnReason reason;
         try {
-            ReturnReason.valueOf(reason);
+            reason = ReturnReason.valueOf(request.reason().toUpperCase());
         } catch (IllegalArgumentException e) {
             throw new InvalidRequestException(ErrorCode.RETURN_INVALID_REASON.format( request.reason()));
         }
@@ -127,18 +132,26 @@ public class ReturnReceiptService {
         if (!exportReceipt.getCustomerId().equals(request.customerId())) {
             throw new InvalidRequestException(ErrorCode.RETURN_EXPORT_NOT_BELONG_TO_CUSTOMER);
         }
-        if ("CHANGE_MIND".equals(reason) && exportReceipt.getCreatedAt() != null
+        if (reason == ReturnReason.CHANGE_MIND && exportReceipt.getCreatedAt() != null
                 && exportReceipt.getCreatedAt().plus(7, ChronoUnit.DAYS).isBefore(Instant.now())) {
             throw new InvalidRequestException(ErrorCode.RETURN_7_DAY_LIMIT);
         }
 
         String receiptCode = ReceiptCodeGenerator.generate("RET-", returnReceiptRepository::existsByReceiptCode);
 
+        var unitIds = request.items().stream()
+                .map(ReturnReceiptRequest.ReturnItemRequest::productUnitId)
+                .filter(Objects::nonNull).filter(id -> id > 0).toList();
+        if (!unitIds.isEmpty()
+                && returnReceiptItemRepository.existsByProductUnitIdsInNonCancelledReceipts(unitIds, ReturnReceiptStatus.CANCELLED)) {
+            throw new InvalidRequestException(ErrorCode.RETURN_UNIT_ALREADY_RETURNED);
+        }
+
         ReturnReceipt receipt = ReturnReceipt.builder()
                 .receiptCode(receiptCode)
                 .customerId(request.customerId())
                 .originalExportReceiptId(request.originalExportReceiptId())
-                .reason(reason)
+                .reason(reason.name())
                 .status(ReturnReceiptStatus.PENDING_APPROVAL)
                 .note(request.note())
                 .createdBy(userId)
@@ -147,25 +160,35 @@ public class ReturnReceiptService {
         Long receiptId = receipt.getId();
 
         for (var itemReq : request.items()) {
-            String condition = itemReq.condition().toUpperCase();
+            ReturnCondition condition;
             try {
-                ReturnCondition.valueOf(condition);
+                condition = ReturnCondition.valueOf(itemReq.condition().toUpperCase());
             } catch (IllegalArgumentException e) {
                 throw new InvalidRequestException(ErrorCode.RETURN_INVALID_CONDITION.format( itemReq.condition()));
             }
 
-            String action = itemReq.resultingAction().toUpperCase();
+            ResultingAction action;
             try {
-                ResultingAction.valueOf(action);
+                action = ResultingAction.valueOf(itemReq.resultingAction().toUpperCase());
             } catch (IllegalArgumentException e) {
                 throw new InvalidRequestException(ErrorCode.RETURN_INVALID_ACTION.format( itemReq.resultingAction()));
             }
 
-            boolean good = "GOOD".equals(condition);
-            if (good && !"RESTOCK".equals(action)
-                    || !good && "RESTOCK".equals(action)) {
+            if (condition == ReturnCondition.DEFECTIVE
+                    && (itemReq.description() == null || itemReq.description().isBlank()
+                        || itemReq.evidenceImage() == null || itemReq.evidenceImage().isBlank())) {
+                throw new InvalidRequestException(ErrorCode.RETURN_EVIDENCE_REQUIRED);
+            }
+
+            boolean good = condition == ReturnCondition.GOOD;
+            if (good && action != ResultingAction.RESTOCK
+                    || !good && action == ResultingAction.RESTOCK) {
                 throw new InvalidRequestException(
                     ErrorCode.RETURN_CONDITION_ACTION_MISMATCH.format( condition, action));
+            }
+
+            if (itemReq.productUnitId() == null && action == ResultingAction.WARRANTY_TRANSFER) {
+                throw new InvalidRequestException(ErrorCode.WARRANTY_BULK_NOT_ALLOWED);
             }
 
             if (itemReq.productUnitId() != null && itemReq.productUnitId() > 0) {
@@ -181,8 +204,10 @@ public class ReturnReceiptService {
                     .productUnitId(itemReq.productUnitId())
                     .productId(itemReq.productId())
                     .quantity(itemReq.quantity())
-                    .condition(condition)
-                    .resultingAction(action)
+                    .condition(condition.name())
+                    .resultingAction(action.name())
+                    .description(itemReq.description())
+                    .evidenceImage(itemReq.evidenceImage())
                     .build());
         }
 
@@ -227,22 +252,30 @@ public class ReturnReceiptService {
 
         var items = returnReceiptItemRepository.findByReturnReceiptId(receipt.getId());
         for (var item : items) {
-            if (item.getProductUnitId() == null) continue;
+            if (item.getProductUnitId() == null) {
+                processBulkUnit(receipt.getId(), userId, item);
+                continue;
+            }
             var pu = productUnitRepository.findByIdForUpdate(item.getProductUnitId())
                     .orElse(null);
             if (pu == null) continue;
 
             ProductUnitStatus oldStatus = pu.getStatus();
-            String action = item.getResultingAction();
+            ResultingAction action = ResultingAction.valueOf(item.getResultingAction());
 
-            if (ResultingAction.REJECT.name().equals(action)) {
-                continue;
-            } else if (ResultingAction.RESTOCK.name().equals(action)) {
-                pu.setStatus(ProductUnitStatus.RETURNED);
-            } else if (ResultingAction.SCRAP.name().equals(action)) {
-                pu.setStatus(ProductUnitStatus.DISPOSED);
-            } else if (ResultingAction.WARRANTY_TRANSFER.name().equals(action)) {
-                pu.setStatus(ProductUnitStatus.DEFECTIVE);
+            switch (action) {
+                case REJECT, SCRAP -> {
+                    pu.setStatus(ProductUnitStatus.PENDING_DISPOSAL);
+                    assignLocationIfExists(pu, QcProcessingLocations.QC_SHELF_4_DEAD);
+                }
+                case RESTOCK -> {
+                    pu.setStatus(ProductUnitStatus.RETURN_QC_HOLD);
+                    assignLocationIfExists(pu, QcProcessingLocations.QC_SHELF_1_NEW_RETURNS);
+                }
+                case WARRANTY_TRANSFER -> {
+                    pu.setStatus(ProductUnitStatus.WAITING_RMA_EXPORT);
+                    assignLocationIfExists(pu, QcProcessingLocations.QC_SHELF_2_WAIT_RMA);
+                }
             }
 
             productUnitRepository.save(pu);
@@ -264,10 +297,73 @@ public class ReturnReceiptService {
         return enrich(receipt);
     }
 
+    private void processBulkUnit(Long receiptId, Long userId, ReturnReceiptItem item) {
+        if (item.getProductId() == null
+                || item.getQuantity() == null
+                || item.getQuantity().compareTo(java.math.BigDecimal.ZERO) <= 0) {
+            log.warn("Return bulk item skipped: receipt {} item {} (missing product or non-positive quantity)",
+                    receiptId, item.getId());
+            return;
+        }
+        var product = productRepository.findById(item.getProductId()).orElse(null);
+        if (product == null) {
+            log.warn("Return bulk item skipped: product {} not found", item.getProductId());
+            return;
+        }
+
+        ProductUnitStatus targetStatus;
+        String targetLocation;
+        ResultingAction action = ResultingAction.valueOf(item.getResultingAction());
+        switch (action) {
+            case RESTOCK -> {
+                targetStatus = ProductUnitStatus.RETURN_QC_HOLD;
+                targetLocation = QcProcessingLocations.QC_SHELF_1_NEW_RETURNS;
+            }
+            case WARRANTY_TRANSFER -> {
+                targetStatus = ProductUnitStatus.WAITING_RMA_EXPORT;
+                targetLocation = QcProcessingLocations.QC_SHELF_2_WAIT_RMA;
+            }
+            default -> {
+                targetStatus = ProductUnitStatus.PENDING_DISPOSAL;
+                targetLocation = QcProcessingLocations.QC_SHELF_4_DEAD;
+            }
+        }
+
+        ProductUnit unit = ProductUnit.builder()
+                .productId(item.getProductId())
+                .trackingType(product.getTrackingType())
+                .initialQuantity(item.getQuantity())
+                .remainingQuantity(item.getQuantity())
+                .locationId(resolveLocationId(targetLocation))
+                .status(targetStatus)
+                .importedAt(Instant.now())
+                .build();
+        unit = productUnitRepository.save(unit);
+
+        statusLogRepository.save(ProductUnitStatusLog.builder()
+                .productUnitId(unit.getId())
+                .fromStatus(null)
+                .toStatus(targetStatus.name())
+                .sourceType(SourceType.RETURN_RECEIPT.name())
+                .sourceId(receiptId)
+                .changedBy(userId)
+                .build());
+    }
+
+    private void assignLocationIfExists(ProductUnit pu, String fullCode) {
+        Long locationId = resolveLocationId(fullCode);
+        if (locationId != null) {
+            pu.setLocationId(locationId);
+        }
+    }
+
+    private Long resolveLocationId(String fullCode) {
+        return locationRepository.findByFullCode(fullCode).map(Location::getId).orElse(null);
+    }
+
     @Transactional
     @AuditLog(action = LogConstant.Action.CANCEL_RETURN, entity = LogConstant.Entity.RETURN_RECEIPT)
-    public ReturnReceiptResponse cancel(Long id) {
-        var receipt = returnReceiptRepository.findById(id)
+    public ReturnReceiptResponse cancel(Long id) {        var receipt = returnReceiptRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.RETURN_RECEIPT_NOT_FOUND));
 
         returnReceiptStateMachine.validate(receipt.getStatus(), ReturnReceiptStatus.CANCELLED);

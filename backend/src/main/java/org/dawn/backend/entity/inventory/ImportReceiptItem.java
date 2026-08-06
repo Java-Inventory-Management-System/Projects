@@ -34,4 +34,7 @@ public class ImportReceiptItem extends BaseEntity {
 
     @Column(name = "supplier_batch_no", length = 100)
     private String supplierBatchNo;
+
+    @Column(name = "warranty_result_type", length = 20)
+    private String warrantyResultType;
 }

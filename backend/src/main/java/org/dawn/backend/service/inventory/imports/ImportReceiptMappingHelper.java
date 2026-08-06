@@ -26,6 +26,7 @@ public interface ImportReceiptMappingHelper {
                 .supplierId(receipt.getSupplierId())
                 .supplierName(supplierName)
                 .purchaseOrderId(receipt.getPurchaseOrderId())
+                .originalWarrantyExportId(receipt.getOriginalWarrantyExportId())
                 .poCode(poCode)
                 .totalAmount(receipt.getTotalAmount())
                 .status(receipt.getStatus().name())
@@ -44,6 +45,7 @@ public interface ImportReceiptMappingHelper {
                             .quantity(item.getQuantity())
                             .unitPrice(item.getUnitPrice())
                             .warrantyMonths(item.getWarrantyMonths())
+                            .warrantyResultType(item.getWarrantyResultType())
                             .createdUnits(unitCounts.getOrDefault(item.getId(), 0))
                             .productUnitIds(unitIds.getOrDefault(item.getId(), List.of()))
                             .build();

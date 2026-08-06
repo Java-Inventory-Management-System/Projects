@@ -235,7 +235,7 @@ CREATE TABLE return_receipt_items (
     product_unit_id   BIGINT,                             -- NULL for BULK
     product_id        BIGINT,                             -- used for BULK
     quantity          DECIMAL(15,2),
-    `condition`       VARCHAR(20)   NOT NULL,             -- GOOD / DAMAGED / DEFECTIVE
+    `condition`       VARCHAR(20)   NOT NULL,             -- GOOD / DEFECTIVE
     resulting_action  VARCHAR(20)   NOT NULL,             -- RESTOCK / SCRAP / WARRANTY
     INDEX idx_rri_return (return_receipt_id),
     CONSTRAINT fk_return_item_receipt FOREIGN KEY (return_receipt_id) REFERENCES return_receipts(id)

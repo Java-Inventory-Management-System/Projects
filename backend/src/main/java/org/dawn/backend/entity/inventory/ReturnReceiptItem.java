@@ -36,4 +36,10 @@ public class ReturnReceiptItem extends BaseEntity {
 
     @Column(name = "resulting_action", nullable = false, length = 20)
     private String resultingAction;
+
+    @Column(name = "description", columnDefinition = "TEXT")
+    private String description;
+
+    @Column(name = "evidence_image", length = 255)
+    private String evidenceImage;
 }

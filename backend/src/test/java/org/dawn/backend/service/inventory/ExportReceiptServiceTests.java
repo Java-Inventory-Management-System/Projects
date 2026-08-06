@@ -4,6 +4,9 @@ import org.dawn.backend.shared.statemachine.StateMachine;
 import org.dawn.backend.constant.enums.inventory.exports.ExportReason;
 import org.dawn.backend.constant.enums.inventory.exports.ExportReceiptStatus;
 import org.dawn.backend.constant.enums.inventory.ProductUnitStatus;
+import org.dawn.backend.controller.inventory.request.ExportReceiptRequest;
+import org.dawn.backend.controller.inventory.request.ExportReceiptRequest.ExportItemRequest;
+import org.dawn.backend.entity.catalog.Product;
 import org.dawn.backend.entity.inventory.ExportReceipt;
 import org.dawn.backend.entity.inventory.ExportReceiptItem;
 import org.dawn.backend.entity.inventory.ExportReceiptItemUnit;
@@ -20,6 +23,7 @@ import org.dawn.backend.repository.inventory.ProductUnitRepository;
 import org.dawn.backend.repository.inventory.ProductUnitStatusLogRepository;
 import org.dawn.backend.service.inventory.exports.ExportReceiptService;
 import org.dawn.backend.service.inventory.exports.ExportWorkflowService;
+import org.dawn.backend.shared.util.ReceiptCodeGenerator;
 import org.dawn.backend.shared.util.SecurityUtils;
 import org.dawn.backend.config.security.SecurityPolicy;
 import org.junit.jupiter.api.Test;
@@ -55,9 +59,12 @@ class ExportReceiptServiceTests {
     @Mock UserRepository userRepository;
     @Mock StateMachine<ExportReceiptStatus> exportReceiptStateMachine;
     @Mock SecurityPolicy securityPolicy;
-    @Mock ExportReceiptService exportReceiptService;
+    @Mock org.dawn.backend.repository.catalog.SupplierRepository supplierRepository;
+    @Mock org.dawn.backend.repository.inventory.LocationRepository locationRepository;
+    @Mock ExportReceiptService exportReceiptServiceMock;
 
     @InjectMocks ExportWorkflowService exportWorkflowService;
+    @InjectMocks ExportReceiptService exportReceiptService;
 
     @Captor ArgumentCaptor<ExportReceipt> receiptCaptor;
 
@@ -110,6 +117,61 @@ class ExportReceiptServiceTests {
                 .when(exportReceiptStateMachine).validate(any(), eq(ExportReceiptStatus.CANCELLED));
 
         assertThrows(InvalidRequestException.class, () -> exportWorkflowService.cancel(receiptId));
+    }
+
+    @Test
+    void create_warrantyReplacement_countsWaitingRmaUnits_notInStock() {
+        Product prod = mock(Product.class);
+        when(prod.getId()).thenReturn(10L);
+        when(prod.getUnit()).thenReturn("PIECE");
+        when(productRepository.findById(10L)).thenReturn(Optional.of(prod));
+        when(exportReceiptRepository.existsByReceiptCode(anyString())).thenReturn(false);
+        when(exportReceiptRepository.sumCommittedQuantityByProductIdAndStatusIn(eq(10L), any())).thenReturn(BigDecimal.ZERO);
+        when(productUnitRepository.countByProductIdAndStatusAndBoxIdIsNull(10L, ProductUnitStatus.WAITING_RMA_EXPORT))
+                .thenReturn(2L);
+        when(supplierRepository.existsById(1L)).thenReturn(true);
+        when(exportReceiptRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(exportReceiptItemRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(securityPolicy.requireAuthenticated()).thenReturn(userId);
+
+        try (MockedStatic<ReceiptCodeGenerator> gen = mockStatic(ReceiptCodeGenerator.class)) {
+            gen.when(() -> ReceiptCodeGenerator.generate(eq("EXP-"), any())).thenReturn("EXP-001");
+
+            exportReceiptService.create(new ExportReceiptRequest(
+                    ExportReason.WARRANTY_REPLACEMENT.name(), null, 1L, "note", null,
+                    List.of(new ExportItemRequest(10L, BigDecimal.ONE, BigDecimal.ZERO))));
+        }
+
+        verify(productUnitRepository)
+                .countByProductIdAndStatusAndBoxIdIsNull(10L, ProductUnitStatus.WAITING_RMA_EXPORT);
+        verify(productUnitRepository, never())
+                .countByProductIdAndStatusAndBoxIdIsNull(10L, ProductUnitStatus.IN_STOCK);
+    }
+
+    @Test
+    void create_saleReason_countsInStockUnits() {
+        Product prod = mock(Product.class);
+        when(prod.getId()).thenReturn(10L);
+        when(prod.getUnit()).thenReturn("PIECE");
+        when(productRepository.findById(10L)).thenReturn(Optional.of(prod));
+        when(exportReceiptRepository.existsByReceiptCode(anyString())).thenReturn(false);
+        when(exportReceiptRepository.sumCommittedQuantityByProductIdAndStatusIn(eq(10L), any())).thenReturn(BigDecimal.ZERO);
+        when(productUnitRepository.countByProductIdAndStatusAndBoxIdIsNull(10L, ProductUnitStatus.IN_STOCK))
+                .thenReturn(1L);
+        when(exportReceiptRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(exportReceiptItemRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(securityPolicy.requireAuthenticated()).thenReturn(userId);
+
+        try (MockedStatic<ReceiptCodeGenerator> gen = mockStatic(ReceiptCodeGenerator.class)) {
+            gen.when(() -> ReceiptCodeGenerator.generate(eq("EXP-"), any())).thenReturn("EXP-001");
+
+            exportReceiptService.create(new ExportReceiptRequest(
+                    ExportReason.SALE.name(), 99L, null, "note", null,
+                    List.of(new ExportItemRequest(10L, BigDecimal.ONE, BigDecimal.ZERO))));
+        }
+
+        verify(productUnitRepository)
+                .countByProductIdAndStatusAndBoxIdIsNull(10L, ProductUnitStatus.IN_STOCK);
     }
 
     private ExportReceipt pendingReceipt(String reason, Long createdBy) {

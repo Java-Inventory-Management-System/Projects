@@ -61,6 +61,9 @@ public class ImportReceiptController {
     @PostMapping("/import-receipt")
     @PreAuthorize(AuthorizationExpressions.CAN_OPERATE_STOCK)
     public ResponseObject<ImportReceiptResponse> create(@RequestBody ImportReceiptRequest request) {
+        if (request.originalWarrantyExportId() != null) {
+            return ResponseObject.created(importConfirmationService.createAndConfirm(request));
+        }
         return ResponseObject.created(importReceiptService.create(request));
     }
 

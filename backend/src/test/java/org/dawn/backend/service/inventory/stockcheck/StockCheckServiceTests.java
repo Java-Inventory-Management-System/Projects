@@ -16,6 +16,7 @@ import org.dawn.backend.repository.inventory.stockcheck.StockCheckItemRepository
 import org.dawn.backend.repository.inventory.stockcheck.StockCheckRepository;
 import org.dawn.backend.service.inventory.adjustments.AdjustmentUnitService;
 import org.dawn.backend.shared.statemachine.StateMachine;
+import org.dawn.backend.constant.enums.inventory.stockcheck.StockCheckScopeType;
 import org.dawn.backend.constant.enums.inventory.stockcheck.StockCheckStatus;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -75,7 +76,7 @@ class StockCheckServiceTests {
         var boxed = unit(7L, 2L, 1L, 3L, "SERIALIZED");
         when(productUnitRepository.findByBoxIdAndStatus(3L, ProductUnitStatus.IN_STOCK)).thenReturn(List.of(boxed));
 
-        var ids = stockCheckService.resolveUnitIdsByScope("BOX", 3L);
+        var ids = stockCheckService.resolveUnitIdsByScope(StockCheckScopeType.BOX, 3L);
 
         assertEquals(List.of(7L), ids);
     }
@@ -104,7 +105,7 @@ class StockCheckServiceTests {
         when(productUnitRepository.findByBoxIdInAndStatus(List.of(9L), ProductUnitStatus.IN_STOCK))
                 .thenReturn(List.of(staleLocationUnit));
 
-        var ids = stockCheckService.resolveUnitIdsByScope("ZONE", 1L);
+        var ids = stockCheckService.resolveUnitIdsByScope(StockCheckScopeType.ZONE, 1L);
 
         assertEquals(2, ids.size());
         assertTrue(ids.contains(4L));
@@ -117,7 +118,7 @@ class StockCheckServiceTests {
         when(productUnitRepository.findByProductIdInAndStatus(List.of(2L), ProductUnitStatus.IN_STOCK))
                 .thenReturn(List.of(u1));
 
-        var ids = stockCheckService.resolveUnitIdsByScope("PRODUCT", 2L);
+        var ids = stockCheckService.resolveUnitIdsByScope(StockCheckScopeType.CATEGORY, 2L);
 
         assertEquals(List.of(11L), ids);
     }

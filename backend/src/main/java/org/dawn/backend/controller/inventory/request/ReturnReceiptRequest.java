@@ -15,6 +15,8 @@ public record ReturnReceiptRequest(
             Long productId,
             BigDecimal quantity,
             String condition,
-            String resultingAction
+            String resultingAction,
+            String description,
+            String evidenceImage
     ) {}
 }

@@ -84,7 +84,7 @@ export const StockCheckCreatePage = () => {
     onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: ["stock-checks"] })
       toast.success(t("stockCheckCreate.createSuccess"))
-      navigate(`/stock/checks/${res.id}`)
+      navigate(`/stock/ops/checks/${res.id}`)
     },
     onError: (err: Error) => toast.error(err.message || t("stockCheckCreate.error")),
   })
@@ -92,7 +92,7 @@ export const StockCheckCreatePage = () => {
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="sm" onClick={() => navigate("/stock/checks")}>
+        <Button variant="ghost" size="sm" onClick={() => navigate("/stock/ops/checks")}>
           <ArrowLeft className="size-4" />
         </Button>
         <h1 className="text-xl font-semibold tracking-tight">{t("stockCheckCreate.title")}</h1>
@@ -200,7 +200,7 @@ export const StockCheckCreatePage = () => {
       </div>
 
       <div className="flex justify-end gap-3">
-        <Button variant="outline" onClick={() => navigate("/stock/checks")}>
+        <Button variant="outline" onClick={() => navigate("/stock/ops/checks")}>
           {t("common.cancel")}
         </Button>
         <Button onClick={handleSubmit} disabled={createMut.isPending || !scopeType || !scopeId}>

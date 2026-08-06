@@ -1,7 +1,7 @@
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { useTranslation } from "react-i18next"
-import { useMutation, useQuery } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useForm } from "react-hook-form"
 import { createReturnReceipt, lookupReturnUnit } from "@/services/return-service"
 import { getCustomers } from "@/services/customer-service"
@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { TrackingTypeBadge } from "@/components/tracking-type-badge"
+import { ImageUpload } from "@/components/ui/image-upload"
 import {
   Dialog,
   DialogContent,
@@ -41,10 +42,27 @@ interface ReturnFormItem {
   quantity: number
   condition: string
   resultingAction: string
+  description: string
+  evidenceImage: string
+}
+
+interface ReturnItemConfig {
+  condition: string
+  resultingAction: string
+  description: string
+  evidenceImage: string
+}
+
+const DEFAULT_ITEM_CONFIG: ReturnItemConfig = {
+  condition: RETURN_ITEM_CONDITION.GOOD,
+  resultingAction: RETURN_RESULTING_ACTION.RESTOCK,
+  description: "",
+  evidenceImage: "",
 }
 
 export const ReturnCreatePage = () => {
   const navigate = useNavigate()
+  const qc = useQueryClient()
   const { t } = useTranslation()
 
   const [customerQuery, setCustomerQuery] = useState("")
@@ -57,7 +75,7 @@ export const ReturnCreatePage = () => {
 
   const [itemQtyMap, setItemQtyMap] = useState<Record<number, number>>({})
   const [itemSerialMap, setItemSerialMap] = useState<Record<number, ExportUnit[]>>({})
-  const [itemConfigMap, setItemConfigMap] = useState<Record<string, { condition: string; resultingAction: string }>>({})
+  const [itemConfigMap, setItemConfigMap] = useState<Record<string, ReturnItemConfig>>({})
 
   const [productSearchQuery, setProductSearchQuery] = useState("")
 
@@ -78,6 +96,26 @@ export const ReturnCreatePage = () => {
 
   const form = useForm({ defaultValues: { reason: RETURN_REASON.DEFECTIVE, note: "" } })
   const watchedReason = form.watch("reason")
+
+  const isWarrantyClaim = watchedReason === RETURN_REASON.WARRANTY_CLAIM
+
+  useEffect(() => {
+    if (!isWarrantyClaim) return
+    setItemConfigMap((prev) => {
+      let changed = false
+      const next = { ...prev }
+      for (const [key, cfg] of Object.entries(prev)) {
+        if (
+          cfg.condition === RETURN_ITEM_CONDITION.DEFECTIVE &&
+          cfg.resultingAction !== RETURN_RESULTING_ACTION.WARRANTY_TRANSFER
+        ) {
+          next[key] = { ...cfg, resultingAction: RETURN_RESULTING_ACTION.WARRANTY_TRANSFER }
+          changed = true
+        }
+      }
+      return changed ? next : prev
+    })
+  }, [isWarrantyClaim])
 
   const { data: customersData } = useQuery({
     queryKey: ["customers", customerQuery],
@@ -101,7 +139,8 @@ export const ReturnCreatePage = () => {
     mutationFn: createReturnReceipt,
     onSuccess: () => {
       toast.success(t("returnCreate.createSuccess"))
-      navigate("/returns")
+      qc.invalidateQueries({ queryKey: ["return-receipts"] })
+      navigate("/returns-qc/returns")
     },
     onError: (err: Error) => toast.error(err.message || t("returnCreate.createError")),
   })
@@ -137,10 +176,7 @@ export const ReturnCreatePage = () => {
       const exportItem = exportDetail?.items.find((i) => i.id === Number(exportItemIdStr))
       if (!exportItem) continue
       const key = `bulk:${exportItem.id}`
-      const config = itemConfigMap[key] ?? {
-        condition: RETURN_ITEM_CONDITION.GOOD,
-        resultingAction: RETURN_RESULTING_ACTION.RESTOCK,
-      }
+      const config = itemConfigMap[key] ?? DEFAULT_ITEM_CONFIG
       items.push({
         key,
         productUnitId: null,
@@ -157,10 +193,7 @@ export const ReturnCreatePage = () => {
     for (const [exportItemIdStr, units] of Object.entries(itemSerialMap)) {
       for (const unit of units) {
         const key = `ser:${unit.id}`
-        const config = itemConfigMap[key] ?? {
-          condition: RETURN_ITEM_CONDITION.GOOD,
-          resultingAction: RETURN_RESULTING_ACTION.RESTOCK,
-        }
+        const config = itemConfigMap[key] ?? DEFAULT_ITEM_CONFIG
         items.push({
           key,
           productUnitId: unit.id,
@@ -257,14 +290,15 @@ export const ReturnCreatePage = () => {
     })
   }
 
-  const updateItemConfig = (key: string, field: "condition" | "resultingAction", value: string) => {
+  const updateItemConfig = (
+    key: string,
+    field: keyof ReturnItemConfig,
+    value: string,
+  ) => {
     setItemConfigMap((prev) => ({
       ...prev,
       [key]: {
-        ...(prev[key] ?? {
-          condition: RETURN_ITEM_CONDITION.GOOD,
-          resultingAction: RETURN_RESULTING_ACTION.RESTOCK,
-        }),
+        ...(prev[key] ?? DEFAULT_ITEM_CONFIG),
         [field]: value,
       },
     }))
@@ -350,6 +384,15 @@ export const ReturnCreatePage = () => {
       toast.error(t("returnCreate.missingSerial", { name: missingSerial.productName }))
       return
     }
+    const missingEvidence = returnItems.find(
+      (i) =>
+        i.condition === RETURN_ITEM_CONDITION.DEFECTIVE &&
+        (!i.description.trim() || !i.evidenceImage.trim()),
+    )
+    if (missingEvidence) {
+      toast.error(t("returnCreate.missingEvidence", { name: missingEvidence.productName }))
+      return
+    }
     createMut.mutate({
       customerId: selectedCustomerId,
       originalExportReceiptId: selectedExportId,
@@ -361,6 +404,8 @@ export const ReturnCreatePage = () => {
         quantity: i.quantity,
         condition: i.condition,
         resultingAction: i.resultingAction,
+        description: i.description.trim() || undefined,
+        evidenceImage: i.evidenceImage.trim() || undefined,
       })),
     })
   })
@@ -377,7 +422,7 @@ export const ReturnCreatePage = () => {
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="sm" onClick={() => navigate("/returns")}>
+        <Button variant="ghost" size="sm" onClick={() => navigate("/returns-qc/returns")}>
           <ArrowLeft className="size-4" />
         </Button>
         <h1 className="text-xl font-semibold tracking-tight">{t("returnCreate.title")}</h1>
@@ -705,11 +750,17 @@ export const ReturnCreatePage = () => {
               const validActions =
                 item.condition === RETURN_ITEM_CONDITION.GOOD
                   ? [RETURN_RESULTING_ACTION.RESTOCK]
-                  : [
-                      RETURN_RESULTING_ACTION.SCRAP,
-                      RETURN_RESULTING_ACTION.REJECT,
-                      RETURN_RESULTING_ACTION.WARRANTY_TRANSFER,
-                    ]
+                  : isWarrantyClaim
+                    ? [
+                        RETURN_RESULTING_ACTION.WARRANTY_TRANSFER,
+                        RETURN_RESULTING_ACTION.SCRAP,
+                        RETURN_RESULTING_ACTION.REJECT,
+                      ]
+                    : [
+                        RETURN_RESULTING_ACTION.SCRAP,
+                        RETURN_RESULTING_ACTION.REJECT,
+                        RETURN_RESULTING_ACTION.WARRANTY_TRANSFER,
+                      ]
 
               return (
                 <div key={item.key} className="flex flex-wrap items-center gap-2 px-3 py-2">
@@ -733,11 +784,17 @@ export const ReturnCreatePage = () => {
                         const newValidActions =
                           newCond === RETURN_ITEM_CONDITION.GOOD
                             ? [RETURN_RESULTING_ACTION.RESTOCK]
-                            : [
-                                RETURN_RESULTING_ACTION.SCRAP,
-                                RETURN_RESULTING_ACTION.REJECT,
-                                RETURN_RESULTING_ACTION.WARRANTY_TRANSFER,
-                              ]
+                            : isWarrantyClaim
+                              ? [
+                                  RETURN_RESULTING_ACTION.WARRANTY_TRANSFER,
+                                  RETURN_RESULTING_ACTION.SCRAP,
+                                  RETURN_RESULTING_ACTION.REJECT,
+                                ]
+                              : [
+                                  RETURN_RESULTING_ACTION.SCRAP,
+                                  RETURN_RESULTING_ACTION.REJECT,
+                                  RETURN_RESULTING_ACTION.WARRANTY_TRANSFER,
+                                ]
                         if (!newValidActions.includes(item.resultingAction)) {
                           updateItemConfig(item.key, "resultingAction", newValidActions[0])
                         }
@@ -770,6 +827,20 @@ export const ReturnCreatePage = () => {
                       <X className="size-3" />
                     </Button>
                   </div>
+                  {item.condition === RETURN_ITEM_CONDITION.DEFECTIVE && (
+                    <div className="w-full space-y-2 pl-8 pt-1">
+                      <Textarea
+                        placeholder={t("returnCreate.descriptionPlaceholder")}
+                        value={item.description}
+                        onChange={(e) => updateItemConfig(item.key, "description", e.target.value)}
+                        className="min-h-16 text-xs"
+                      />
+                      <ImageUpload
+                        value={item.evidenceImage}
+                        onChange={(v) => updateItemConfig(item.key, "evidenceImage", v)}
+                      />
+                    </div>
+                  )}
                 </div>
               )
             })}
@@ -792,7 +863,7 @@ export const ReturnCreatePage = () => {
       </div>
 
       <div className="flex justify-end gap-3">
-        <Button variant="outline" onClick={() => navigate("/returns")}>
+        <Button variant="outline" onClick={() => navigate("/returns-qc/returns")}>
           {t("common.cancel")}
         </Button>
         <Button

@@ -169,7 +169,7 @@ export const StockCheckDetailPage = () => {
       } else {
         toast.success(t("stockCheckDetail.completeSuccess"))
       }
-      navigate("/stock/checks")
+      navigate("/stock/ops/checks")
     },
     onError: (err: Error) => toast.error(err.message || t("stockCheckDetail.completeError")),
   })
@@ -319,7 +319,7 @@ export const StockCheckDetailPage = () => {
       <Breadcrumb>
         <BreadcrumbList>
           <BreadcrumbItem>
-            <BreadcrumbLink onClick={() => navigate("/stock/checks")}>{t("nav.stockChecks")}</BreadcrumbLink>
+            <BreadcrumbLink onClick={() => navigate("/stock/ops/checks")}>{t("nav.stockChecks")}</BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator />
           <BreadcrumbItem>

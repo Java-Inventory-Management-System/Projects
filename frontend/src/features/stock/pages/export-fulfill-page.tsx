@@ -23,7 +23,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog"
 import { toast } from "@/utils/toast"
-import { EXPORT_RECEIPT_STATUS, type ProductUnit } from "@/utils/types"
+import { EXPORT_RECEIPT_STATUS, EXPORT_REASON, PRODUCT_UNIT_STATUS, type ProductUnit } from "@/utils/types"
 import { formatDateVN, formatDateTime } from "@/utils/format"
 import { useBarcodeScanner } from "@/hooks/use-barcode-scanner"
 import { ScanLine } from "lucide-react"
@@ -91,7 +91,11 @@ export function ExportFulfillPage() {
   const openSerialPicker = async (item: typeof itemsWithTracking[0]) => {
     setSerialPicker({ exportItemId: item.id, productId: item.productId, productName: item.productName })
     setSerialsLoading(true)
-    const all = await getAllSerialsForProduct(item.productId)
+    const sourceStatus =
+      receipt?.reason === EXPORT_REASON.WARRANTY_REPLACEMENT
+        ? PRODUCT_UNIT_STATUS.WAITING_RMA_EXPORT
+        : PRODUCT_UNIT_STATUS.IN_STOCK
+    const all = await getAllSerialsForProduct(item.productId, sourceStatus)
     setAllSerials(all)
     const saved = serialsPerItem[item.id]
     if (saved?.length) {

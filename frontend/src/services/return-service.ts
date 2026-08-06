@@ -36,6 +36,8 @@ export async function createReturnReceipt(data: {
     quantity: number
     condition: string
     resultingAction: string
+    description?: string
+    evidenceImage?: string
   }>
 }): Promise<ReturnReceipt> {
   const res = await http.post("/return-receipts", data)

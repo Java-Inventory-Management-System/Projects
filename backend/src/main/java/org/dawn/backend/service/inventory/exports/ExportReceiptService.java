@@ -58,8 +58,9 @@ public class ExportReceiptService {
     private final ExportReceiptStatusHistoryRepository statusHistoryRepository;
     private final ProductUnitRepository productUnitRepository;
     private final ProductRepository productRepository;
-    private final CustomerRepository customerRepository;
-    private final LocationRepository locationRepository;
+private final CustomerRepository customerRepository;
+private final org.dawn.backend.repository.catalog.SupplierRepository supplierRepository;
+private final LocationRepository locationRepository;
     private final UserRepository userRepository;
     private final SecurityPolicy securityPolicy;
 
@@ -117,15 +118,22 @@ public class ExportReceiptService {
         if (request.reason() == null || request.reason().isBlank()) {
             throw new InvalidRequestException(ErrorCode.EXPORT_REASON_REQUIRED);
         }
-        if (ExportReason.SALE.name().equalsIgnoreCase(request.reason()) && request.customerId() == null) {
-            throw new InvalidRequestException(ErrorCode.CUSTOMER_REQUIRED_FOR_SALE);
-        }
-
-        String reason = request.reason().toUpperCase();
+        ExportReason reason;
         try {
-            ExportReason.valueOf(reason);
+            reason = ExportReason.valueOf(request.reason().toUpperCase());
         } catch (IllegalArgumentException e) {
             throw new InvalidRequestException(ErrorCode.INVALID_EXPORT_REASON.format( request.reason()));
+        }
+        if (reason == ExportReason.SALE && request.customerId() == null) {
+            throw new InvalidRequestException(ErrorCode.CUSTOMER_REQUIRED_FOR_SALE);
+        }
+        if ((reason == ExportReason.RETURN_SUPPLIER
+                || reason == ExportReason.WARRANTY_REPLACEMENT)
+                && request.supplierId() == null) {
+            throw new InvalidRequestException(ErrorCode.EXPORT_SUPPLIER_REQUIRED);
+        }
+        if (request.supplierId() != null && !supplierRepository.existsById(request.supplierId())) {
+            throw new ResourceNotFoundException(ErrorCode.SUPPLIER_NOT_FOUND);
         }
 
         String receiptCode = generateReceiptCode();
@@ -135,8 +143,9 @@ public class ExportReceiptService {
 
         ExportReceipt receipt = ExportReceipt.builder()
                 .receiptCode(receiptCode)
-                .reason(reason)
+                .reason(reason.name())
                 .customerId(request.customerId())
+                .supplierId(request.supplierId())
                 .status(ExportReceiptStatus.PENDING)
                 .note(request.note())
                 .externalReference(request.externalReference())
@@ -151,7 +160,7 @@ public class ExportReceiptService {
             Product product = productRepository.findById(itemReq.productId())
                     .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.PRODUCT_NOT_FOUND));
 
-            BigDecimal inStock = getInStockQuantity(product);
+            BigDecimal inStock = getInStockQuantity(product, reason);
             BigDecimal committed = exportReceiptRepository.sumCommittedQuantityByProductIdAndStatusIn(
                     itemReq.productId(), List.of(ExportReceiptStatus.PENDING, ExportReceiptStatus.APPROVED));
             BigDecimal available = inStock.subtract(committed);
@@ -190,24 +199,28 @@ public class ExportReceiptService {
         return toResponse(receipt);
     }
 
-    private BigDecimal getInStockQuantity(Product product) {
+    private BigDecimal getInStockQuantity(Product product, ExportReason reason) {
+        ProductUnitStatus status = reason == ExportReason.WARRANTY_REPLACEMENT
+                ? ProductUnitStatus.WAITING_RMA_EXPORT
+                : ProductUnitStatus.IN_STOCK;
         String unit = product.getUnit();
         boolean isBulk = BULK_UNITS.contains(unit);
         if (isBulk) {
-            var units = productUnitRepository.findByProductIdAndStatusAndBoxIdIsNull(product.getId(), ProductUnitStatus.IN_STOCK);
+            var units = productUnitRepository.findByProductIdAndStatusAndBoxIdIsNull(product.getId(), status);
             return units.stream().map(ProductUnit::getRemainingQuantity)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
         }
         return BigDecimal.valueOf(productUnitRepository.countByProductIdAndStatusAndBoxIdIsNull(
-                product.getId(), ProductUnitStatus.IN_STOCK));
+                product.getId(), status));
     }
 
     @Transactional(readOnly = true)
     public List<ProductUnitResponse> getUnitsByReceipt(Long receiptId, Long productId) {
         var unitIds = exportReceiptItemUnitRepository.findProductUnitIdsByReceiptId(receiptId);
         if (unitIds.isEmpty()) return List.of();
+        ProductUnitStatus expectedStatus = expectedUnitStatus(receiptId);
         var allUnits = productUnitRepository.findAllById(unitIds).stream()
-                .filter(u -> ProductUnitStatus.EXPORTED == u.getStatus())
+                .filter(u -> expectedStatus == u.getStatus())
                 .toList();
         if (productId != null) {
             allUnits = allUnits.stream().filter(u -> productId.equals(u.getProductId())).toList();
@@ -228,6 +241,17 @@ public class ExportReceiptService {
                     loc != null ? loc.getFullCode() : null));
         }
         return result;
+    }
+
+    private ProductUnitStatus expectedUnitStatus(Long receiptId) {
+        String reason = exportReceiptRepository.findById(receiptId)
+                .map(ExportReceipt::getReason)
+                .orElse("");
+        return switch (reason) {
+            case "WARRANTY_REPLACEMENT" -> ProductUnitStatus.SENT_TO_MANUFACTURER;
+            case "RETURN_SUPPLIER" -> ProductUnitStatus.RETURNED_TO_SUPPLIER;
+            default -> ProductUnitStatus.EXPORTED;
+        };
     }
 
     public ExportReceiptResponse toResponse(ExportReceipt receipt) {
