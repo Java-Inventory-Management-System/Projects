@@ -24,14 +24,31 @@ function randomSerial(prefix = "SN") {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`
 }
 
+export async function createPurchaseOrder(page: Page): Promise<number> {
+  if (!stockToken || !managerToken) await initTokens(page)
+  const res = await page.request.post(`${API}/purchase-order`, {
+    data: {
+      supplierId: 1,
+      expectedDate: "2026-12-31",
+      note: "E2E setup PO",
+      items: [{ productId: 1, quantity: 10, unitPrice: 10000000 }],
+    },
+    headers: { Authorization: `Bearer ${managerToken}` },
+  })
+  if (!res.ok()) throw new Error(`PO create failed: ${await res.text()}`)
+  return (await res.json()).data.id
+}
+
 export async function ensureImport(page: Page): Promise<{ importReceiptId: number; productUnitIds: number[] }> {
   if (!stockToken || !managerToken) await initTokens(page)
 
   const serials = Array.from({ length: 2 }, () => randomSerial("SN"))
+  const purchaseOrderId = await createPurchaseOrder(page)
 
   const createRes = await page.request.post(`${API}/import-receipt`, {
     data: {
       supplierId: 1,
+      purchaseOrderId,
       note: "E2E setup import",
       items: [
         {

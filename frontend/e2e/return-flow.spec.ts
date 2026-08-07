@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test"
 import { loginAsStock, loginAsManager } from "./helpers/auth"
 import { navigateTo } from "./helpers/nav"
-import { initTokens, getToken, API_URL } from "./helpers/api"
+import { initTokens, getToken, API_URL, createPurchaseOrder } from "./helpers/api"
 import { approveDialog } from "./helpers/approve"
 import { cleanupProduct1 } from "./helpers/cleanup"
 
@@ -24,9 +24,11 @@ test.describe("Return Flow (Trả hàng) — SOP §7", () => {
 
     // Setup: create import → create export (sell to customer)
     const serial = `E2E-RET-${Date.now()}`
+    const purchaseOrderId = await createPurchaseOrder(stock)
     const impRes = await stock.request.post(`${API_URL}/import-receipt`, {
       data: {
         supplierId: 1,
+        purchaseOrderId,
         note: "E2E return setup",
         items: [{ productId: 1, quantity: 1, unitPrice: 10000000, warrantyMonths: 12, serialNumbers: [serial], locationId: 1 }],
       },
@@ -69,13 +71,7 @@ test.describe("Return Flow (Trả hàng) — SOP §7", () => {
     const expId: number = expData.id
     const expItemId: number = expData.items[0].id
 
-    // Approve export
-    const expApproveRes = await stock.request.put(`${API_URL}/export-receipt/${expId}/approve`, {
-      headers: { Authorization: `Bearer ${managerToken}` },
-    })
-    expect(expApproveRes.ok()).toBeTruthy()
-
-    // Fulfill export to change unit status to EXPORTED (required for return)
+    // Fulfill export to change unit status to SOLD (required for return)
     const fulfillRes = await stock.request.put(`${API_URL}/export-receipt/${expId}/fulfill`, {
       data: { items: [{ itemId: expItemId, serialNumbers: [serial], actualQuantity: 1 }] },
       headers: { Authorization: `Bearer ${managerToken}` },
@@ -99,7 +95,7 @@ test.describe("Return Flow (Trả hàng) — SOP §7", () => {
 
     // ── Step 2: MANAGER approves via UI ──
     await navigateTo(mgr, `/returns-qc/returns/${retId}`)
-    await approveDialog(mgr, retId)
+    await approveDialog(mgr, retId, "Tiếp nhận", "Xác nhận duyệt")
 
     // ── Step 3: Verify COMPLETED (approve sets status to COMPLETED for return receipts) ──
     const retDetail = await mgr.request.get(`${API_URL}/return-receipts/${retId}`, {

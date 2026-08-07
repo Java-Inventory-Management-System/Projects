@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test"
 import { loginAsStock, loginAsManager } from "./helpers/auth"
 import { navigateTo } from "./helpers/nav"
-import { initTokens, getToken, API_URL } from "./helpers/api"
+import { initTokens, getToken, API_URL, createPurchaseOrder } from "./helpers/api"
 import { approveDialog } from "./helpers/approve"
 
 test.describe("Price Adjustment Flow (Điều chỉnh giá) — SOP §8", () => {
@@ -20,9 +20,10 @@ test.describe("Price Adjustment Flow (Điều chỉnh giá) — SOP §8", () => 
     const managerToken = await getToken("manager", mgr)
 
     const serial = `E2E-PADJ-${Date.now()}`
+    const purchaseOrderId = await createPurchaseOrder(stock)
     const impRes = await stock.request.post(`${API_URL}/import-receipt`, {
       data: {
-        supplierId: 1, note: "E2E price adj",
+        supplierId: 1, purchaseOrderId, note: "E2E price adj",
         items: [{ productId: 1, quantity: 1, unitPrice: 10000000, warrantyMonths: 12, serialNumbers: [serial], locationId: 1 }],
       },
       headers: { Authorization: `Bearer ${stockToken}` },

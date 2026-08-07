@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test"
 import { loginAsStock, loginAsManager } from "./helpers/auth"
 import { navigateTo } from "./helpers/nav"
-import { initTokens, getToken, API_URL } from "./helpers/api"
+import { initTokens, getToken, API_URL, createPurchaseOrder } from "./helpers/api"
 import { cleanupProduct1 } from "./helpers/cleanup"
 import { approveDialog } from "./helpers/approve"
 
@@ -23,12 +23,14 @@ test.describe("Multi-Role Cross-Flow (Liên kết nghiệp vụ)", () => {
     const managerToken = await getToken("manager", mgr)
 
     const serial = `E2E-MRF-${Date.now()}`
+    const purchaseOrderId = await createPurchaseOrder(stock)
 
     // ── Flow 1: Import ──
     // STOCK creates
     const impRes = await stock.request.post(`${API_URL}/import-receipt`, {
       data: {
         supplierId: 1,
+        purchaseOrderId,
         note: "Multi-role import",
         items: [{ productId: 1, quantity: 2, unitPrice: 10000000, warrantyMonths: 12, serialNumbers: [`${serial}-1`, `${serial}-2`], locationId: 1 }],
       },
@@ -75,28 +77,31 @@ test.describe("Multi-Role Cross-Flow (Liên kết nghiệp vụ)", () => {
       headers: { Authorization: `Bearer ${stockToken}` },
     })
     expect(expRes.ok()).toBeTruthy()
-    const expId: number = (await expRes.json()).data.id
+    const expData = (await expRes.json()).data
+    const expId: number = expData.id
 
-    // MANAGER approves export via detail page
-    await navigateTo(mgr, `/stock/exports/${expId}`)
-    await approveDialog(mgr, expId)
+    // MANAGER fulfills export via API
+    const expFulfillRes = await stock.request.put(`${API_URL}/export-receipt/${expId}/fulfill`, {
+      data: { items: [{ itemId: expData.items[0].id, serialNumbers: [`${serial}-1`], actualQuantity: 1 }] },
+      headers: { Authorization: `Bearer ${managerToken}` },
+    })
+    expect(expFulfillRes.ok()).toBeTruthy()
 
     // Verify export COMPLETED
     const expVerify = await mgr.request.get(`${API_URL}/export-receipt/${expId}`, {
       headers: { Authorization: `Bearer ${managerToken}` },
     })
-    expect(((await expVerify.json()) as { data: { status: string } }).data.status).toBe("APPROVED")
+    expect(((await expVerify.json()) as { data: { status: string } }).data.status).toBe("COMPLETED")
 
     // ── Flow 3: Verify inventory ──
-    // First unit exported → SOLD, second unit remains IN_STOCK
+    // First unit fulfilled → EXPORTED, second unit remains IN_STOCK
     const s0 = ((await (await stock.request.get(`${API_URL}/product-unit/${unitIds[0]}`, {
       headers: { Authorization: `Bearer ${stockToken}` },
     })).json()) as { data: { status: string } }).data.status
     const s1 = ((await (await stock.request.get(`${API_URL}/product-unit/${unitIds[1]}`, {
       headers: { Authorization: `Bearer ${stockToken}` },
     })).json()) as { data: { status: string } }).data.status
-    // ponytail: approve alone doesn't change unit status — both stay IN_STOCK
-    expect(s0).toBe("IN_STOCK")
+    expect(s0).toBe("EXPORTED")
     expect(s1).toBe("IN_STOCK")
 
     await stockCtx.close()
