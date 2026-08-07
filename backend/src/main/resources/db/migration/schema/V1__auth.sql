@@ -58,19 +58,22 @@ CREATE TABLE password_reset_tokens (
 
 -- Audit trail: logs every action (create/update/delete/approve/login/...)
 CREATE TABLE audit_logs (
-    id          BIGINT AUTO_INCREMENT,
-    user_id     BIGINT,
-    username    VARCHAR(100),
-    ip_address  VARCHAR(45),
-    request_id  VARCHAR(36),
-    action      VARCHAR(100)  NOT NULL,                      -- CREATE/UPDATE/APPROVE/LOGIN/...
-    entity_name VARCHAR(100)  NOT NULL,                      -- PRODUCT/IMPORT_RECEIPT/...
-    entity_id   VARCHAR(100),                                -- target entity's ID
-    old_value   JSON,                                        -- before snapshot
-    new_value   JSON,                                        -- after snapshot
-    status      VARCHAR(20)   NOT NULL DEFAULT 'SUCCESS',    -- SUCCESS / FAILED
-    error_msg   TEXT,
-    created_at  TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    id              BIGINT AUTO_INCREMENT,
+    user_id         BIGINT,
+    username        VARCHAR(100),
+    role_snapshot   VARCHAR(50),
+    ip_address      VARCHAR(45),
+    request_id      VARCHAR(36),
+    action          VARCHAR(100)  NOT NULL,                      -- CREATE/UPDATE/APPROVE/LOGIN/...
+    entity_name     VARCHAR(100)  NOT NULL,                      -- PRODUCT/IMPORT_RECEIPT/...
+    entity_id       VARCHAR(100),                                -- target entity's ID
+    old_value       JSON,                                        -- before snapshot
+    new_value       JSON,                                        -- after snapshot
+    status          VARCHAR(20)   NOT NULL DEFAULT 'SUCCESS',    -- SUCCESS / FAILED
+    error_msg       TEXT,
+    message         TEXT,
+    message_fields  JSON,
+    created_at      TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT pk_audit_logs PRIMARY KEY (id),
     CONSTRAINT fk_audit_user FOREIGN KEY (user_id) REFERENCES users (id),
     INDEX idx_audit_created_at (created_at),

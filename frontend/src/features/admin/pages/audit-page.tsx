@@ -1,21 +1,23 @@
-import { useState, useCallback } from "react"
+import { Fragment, useState, useCallback, useMemo } from "react"
 import { useTranslation } from "react-i18next"
 import { useSearchParams } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 import { searchAuditLogs } from "@/services/audit-service"
 import type { AuditLog } from "@/utils/types"
 import { AUDIT_STATUS, AUDIT_ACTION } from "@/utils/types"
+import { computeDiffRows } from "@/utils/audit-diff"
 import { useUsers } from "@/hooks/use-users"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
-import { Eye, X, Search, ChevronsUpDown, Check } from "lucide-react"
+import { Eye, X, Search, ChevronsUpDown, Check, ChevronDown, ChevronRight } from "lucide-react"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 import { DataTable, type Column } from "@/components/ui/data-table"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover"
 import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { cn } from "@/utils/cn"
 import { DatePicker } from "@/components/ui/date-picker"
 
@@ -28,25 +30,88 @@ function fmt(d: string) {
   return new Date(d).toLocaleString("vi-VN")
 }
 
-const actionOptions = [
-  AUDIT_ACTION.LOGIN,
-  AUDIT_ACTION.LOGOUT,
-  AUDIT_ACTION.CREATE,
-  AUDIT_ACTION.UPDATE,
-  AUDIT_ACTION.DELETE,
-  AUDIT_ACTION.APPROVE,
-  AUDIT_ACTION.REJECT,
-  AUDIT_ACTION.CANCEL,
-  AUDIT_ACTION.RESET_PASSWORD,
-  AUDIT_ACTION.IMPORT,
-  AUDIT_ACTION.EXPORT,
-]
+function LogSummary({ log }: { log: AuditLog }) {
+  const { t } = useTranslation()
+  const st = statusBadgeConfig[log.status] ?? { labelKey: undefined, variant: "secondary" as const }
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center gap-2 rounded-md bg-muted p-3">
+        <Badge variant={st.variant} className="text-[10px] shrink-0">
+          {st.labelKey ? t(st.labelKey) : log.status}
+        </Badge>
+        <span className="text-sm font-semibold">{log.message || "—"}</span>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        {log.username || "SYSTEM"}
+        {log.roleSnapshot ? ` (${log.roleSnapshot})` : ""} · {fmt(log.createdAt)} · IP {log.ipAddress || "—"}
+      </p>
+    </div>
+  )
+}
+
+function AuditDiffSection({ log }: { log: AuditLog }) {
+  const { t } = useTranslation()
+  const result = useMemo(
+    () => computeDiffRows(log.oldValue, log.newValue, log.messageFields),
+    [log.oldValue, log.newValue, log.messageFields],
+  )
+  const [open, setOpen] = useState(false)
+  if (result.rows.length === 0) return null
+  return (
+    <Collapsible open={open} onOpenChange={setOpen}>
+      <CollapsibleTrigger className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground">
+        {open ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
+        {t('auditPage.viewDetail')} ({result.rows.length})
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        <div className="mt-1 grid grid-cols-[140px_1fr] gap-y-1 rounded-md bg-muted p-3 text-xs overflow-x-auto">
+          {result.rows.map((r) => (
+            <Fragment key={r.key}>
+              <span className="text-muted-foreground min-w-0">{r.label}</span>
+              <span className="min-w-0 truncate">
+                {r.kind === "changed" && (
+                  <>
+                    <span className="text-red-500">−</span>{" "}
+                    <span className="line-through text-muted-foreground">{r.oldDisplay}</span>
+                    <span className="mx-1 text-muted-foreground">→</span>
+                    <span className="text-green-600">+</span>{" "}
+                    <span className="font-medium">{r.newDisplay}</span>
+                  </>
+                )}
+                {r.kind === "added" && (
+                  <>
+                    <span className="text-green-600">+</span> {r.newDisplay}
+                  </>
+                )}
+                {r.kind === "removed" && (
+                  <>
+                    <span className="text-red-500">−</span> {r.oldDisplay}
+                  </>
+                )}
+              </span>
+            </Fragment>
+          ))}
+          {result.truncated > 0 && (
+            <Fragment>
+              <span className="min-w-0" />
+              <span className="min-w-0 text-muted-foreground">
+                {t('auditPage.moreFields', { count: result.truncated })}
+              </span>
+            </Fragment>
+          )}
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
+  )
+}
+
+const actionOptions = Object.values(AUDIT_ACTION)
 
 const entityOptions = [
-  "USER", "IMPORT_RECEIPT", "EXPORT_RECEIPT", "PRODUCT_UNIT",
-  "WARRANTY_REQUEST", "RETURN_RECEIPT", "STOCK_CHECK", "STOCK_ADJUSTMENT",
-  "PRICE_ADJUSTMENT", "PURCHASE_ORDER", "BRAND", "CATEGORY", "PRODUCT",
-  "SUPPLIER", "LOCATION", "CUSTOMER", "SYSTEM_SETTINGS",
+  "USER", "BRAND", "CATEGORY", "SUPPLIER", "PRODUCT", "PRODUCT_IMAGE",
+  "PRODUCT_UNIT", "IMPORT_RECEIPT", "EXPORT_RECEIPT", "RETURN_RECEIPT",
+  "STOCK_CHECK", "STOCK_ADJUSTMENT", "PRICE_ADJUSTMENT", "PURCHASE_ORDER",
+  "LOCATION", "CUSTOMER", "BOX",
 ]
 
 export const AuditPage = () => {
@@ -72,6 +137,7 @@ export const AuditPage = () => {
   const toDate = searchParams.get("to") ?? ""
   const userIdFilter = searchParams.get("userId") ?? ""
   const [viewLog, setViewLog] = useState<AuditLog | null>(null)
+  const [actionOpen, setActionOpen] = useState(false)
 
   const updateParams = useCallback(
     (updates: Record<string, string | undefined>) => {
@@ -142,6 +208,11 @@ export const AuditPage = () => {
     },
     { header: t('auditPage.colUser'), render: (log) => <span className="text-xs">{log.username || "—"}</span> },
     { header: t('auditPage.colAction'), render: (log) => <span className="text-xs font-medium">{log.action}</span> },
+    {
+      header: t('auditPage.colMessage'),
+      className: "min-w-[240px]",
+      render: (log) => <span className="text-xs line-clamp-1">{log.message || "—"}</span>,
+    },
     { header: t('auditPage.colEntity'), render: (log) => <span className="text-xs">{log.entityName}</span> },
     { header: t('auditPage.colEntityId'), render: (log) => <span className="text-xs font-mono">{log.entityId || "—"}</span> },
     { header: "IP", render: (log) => <span className="text-xs text-muted-foreground">{log.ipAddress || "—"}</span> },
@@ -180,19 +251,64 @@ export const AuditPage = () => {
         <div className="flex flex-wrap gap-2 items-end">
           <div className="space-y-1">
             <Label className="text-xs">{t('auditPage.filterActionLabel')}</Label>
-            <Select value={actionFilter} onValueChange={(v) => updateParams({ action: v === "all" ? undefined : v, page: undefined })}>
-              <SelectTrigger className="w-40 h-8 text-xs">
-                <SelectValue placeholder={t('auditPage.all')} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">{t('auditPage.all')}</SelectItem>
-                {actionOptions.map((a) => (
-                  <SelectItem key={a} value={a}>
-                    {a}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Popover open={actionOpen} onOpenChange={setActionOpen}>
+              <PopoverTrigger asChild>
+                <button
+                  role="combobox"
+                  className="flex h-8 w-48 items-center justify-between rounded-md border border-input bg-transparent px-3 py-2 text-xs shadow-sm ring-offset-background focus:outline-none focus:ring-1 focus:ring-ring hover:bg-accent hover:text-accent-foreground"
+                >
+                  <span className="truncate">
+                    {actionFilter === "all" ? t('auditPage.all') : actionFilter}
+                  </span>
+                  <ChevronsUpDown className="ml-2 size-3.5 shrink-0 opacity-50" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-64 p-0">
+                <Command>
+                  <CommandInput placeholder={t('auditPage.searchAction')} className="h-8 text-xs" />
+                  <CommandList>
+                    <CommandEmpty className="text-xs py-4">{t('auditPage.actionNotFound')}</CommandEmpty>
+                    <CommandGroup>
+                      <CommandItem
+                        value="all"
+                        onSelect={() => {
+                          updateParams({ action: undefined, page: undefined })
+                          setActionOpen(false)
+                        }}
+                        className="text-xs h-8"
+                      >
+                        <Check
+                          className={cn(
+                            "mr-2 size-3 shrink-0",
+                            actionFilter === "all" ? "opacity-100" : "opacity-0",
+                          )}
+                        />
+                        {t('auditPage.all')}
+                      </CommandItem>
+                      {actionOptions.map((a) => (
+                        <CommandItem
+                          key={a}
+                          value={a}
+                          onSelect={() => {
+                            updateParams({ action: a, page: undefined })
+                            setActionOpen(false)
+                          }}
+                          className="text-xs h-8"
+                        >
+                          <Check
+                            className={cn(
+                              "mr-2 size-3 shrink-0",
+                              actionFilter === a ? "opacity-100" : "opacity-0",
+                            )}
+                          />
+                          {a}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
           </div>
           <div className="space-y-1">
             <Label className="text-xs">{t('auditPage.filterEntityLabel')}</Label>
@@ -354,55 +470,20 @@ export const AuditPage = () => {
           </DialogHeader>
           {viewLog && (
             <div className="space-y-3 text-sm">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <span className="text-muted-foreground">{t('auditPage.dialogTime')}</span>
-                  <p className="font-medium">{fmt(viewLog.createdAt)}</p>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">{t('auditPage.dialogUser')}</span>
-                  <p className="font-medium">{viewLog.username || "—"}</p>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">{t('auditPage.dialogAction')}</span>
-                  <p className="font-medium">{viewLog.action}</p>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">{t('auditPage.dialogEntity')}</span>
-                  <p className="font-medium">
-                    {viewLog.entityName} #{viewLog.entityId || "?"}
-                  </p>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">{t('audit.ip')}</span>
-                  <p className="font-medium">{viewLog.ipAddress || "—"}</p>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">{t('audit.requestId')}</span>
-                  <p className="font-mono text-xs">{viewLog.requestId || "—"}</p>
-                </div>
-              </div>
-              {viewLog.oldValue && (
-                <div>
-                  <span className="text-xs font-medium text-muted-foreground">{t('auditPage.oldValue')}</span>
-                  <pre className="mt-1 rounded-md bg-muted p-3 text-xs overflow-x-auto">
-                    {JSON.stringify(JSON.parse(viewLog.oldValue), null, 2)}
-                  </pre>
-                </div>
-              )}
-              {viewLog.newValue && (
-                <div>
-                  <span className="text-xs font-medium text-muted-foreground">{t('auditPage.newValue')}</span>
-                  <pre className="mt-1 rounded-md bg-muted p-3 text-xs overflow-x-auto">
-                    {JSON.stringify(JSON.parse(viewLog.newValue), null, 2)}
-                  </pre>
-                </div>
-              )}
+              <LogSummary log={viewLog} />
               {viewLog.errorMsg && (
                 <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3">
                   <span className="text-xs font-medium text-destructive">{t('auditPage.error')}</span>
                   <p className="mt-1 text-sm">{viewLog.errorMsg}</p>
                 </div>
+              )}
+              <AuditDiffSection log={viewLog} />
+              {(viewLog.entityId || viewLog.requestId) && (
+                <p className="text-right text-[10px] text-muted-foreground/60">
+                  {["log", viewLog.entityId ? `#${viewLog.entityId}` : "", viewLog.requestId ?? ""]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </p>
               )}
             </div>
           )}

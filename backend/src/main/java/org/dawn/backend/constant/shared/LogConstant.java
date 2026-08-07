@@ -2,6 +2,9 @@ package org.dawn.backend.constant.shared;
 
 public class LogConstant {
     public static class Action {
+        public static final String LOGIN_SUCCESS = "LOGIN_SUCCESS";
+        public static final String LOGIN_FAILED = "LOGIN_FAILED";
+        public static final String LOGOUT = "LOGOUT";
         public static final String CREATE_PRICE_ADJUSTMENT = "CREATE_PRICE_ADJUSTMENT";
         public static final String APPROVE_PRICE_ADJUSTMENT = "APPROVE_PRICE_ADJUSTMENT";
         public static final String REJECT_PRICE_ADJUSTMENT = "REJECT_PRICE_ADJUSTMENT";

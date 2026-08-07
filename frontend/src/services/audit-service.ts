@@ -7,6 +7,7 @@ function mapAuditLog(raw: unknown): AuditLog {
     id: number
     userId?: number | null
     username?: string | null
+    roleSnapshot?: string | null
     ipAddress?: string | null
     requestId?: string | null
     action: string
@@ -16,11 +17,14 @@ function mapAuditLog(raw: unknown): AuditLog {
     newValue?: string | null
     status: string
     errorMsg?: string | null
+    message?: string | null
+    messageFields?: string | null
     createdAt: string
   }
   return {
     userId: r.userId ?? null,
     username: r.username ?? null,
+    roleSnapshot: r.roleSnapshot ?? null,
     ipAddress: r.ipAddress ?? null,
     requestId: r.requestId ?? null,
     action: r.action,
@@ -30,7 +34,19 @@ function mapAuditLog(raw: unknown): AuditLog {
     newValue: r.newValue ?? null,
     status: r.status,
     errorMsg: r.errorMsg ?? null,
+    message: r.message ?? null,
+    messageFields: parseMessageFields(r.messageFields),
     createdAt: r.createdAt,
+  }
+}
+
+function parseMessageFields(raw: string | null | undefined): string[] {
+  if (!raw) return []
+  try {
+    const parsed: unknown = JSON.parse(raw)
+    return Array.isArray(parsed) ? parsed.filter((f): f is string => typeof f === "string") : []
+  } catch {
+    return []
   }
 }
 

@@ -1,9 +1,12 @@
 package org.dawn.backend.service.auth;
 import org.dawn.backend.constant.shared.ErrorCode;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dawn.backend.aspect.AuditLog;
+import org.dawn.backend.aspect.AuditMessageBuilder;
 import org.dawn.backend.constant.shared.LogConstant;
 import org.dawn.backend.controller.auth.request.ChangePasswordRequest;
 import org.dawn.backend.controller.auth.request.ForgotPasswordRequest;
@@ -14,14 +17,17 @@ import org.dawn.backend.controller.auth.response.TokenRefreshResponse;
 import org.dawn.backend.entity.auth.PasswordResetToken;
 import org.dawn.backend.entity.auth.RefreshToken;
 import org.dawn.backend.entity.auth.User;
+import org.dawn.backend.entity.auth.UserDetailsImpl;
 import org.dawn.backend.constant.enums.shared.ActiveStatus;
 import org.dawn.backend.exception.type.InvalidRequestException;
 import org.dawn.backend.exception.type.PermissionDeniedException;
 import org.dawn.backend.exception.type.ResourceNotFoundException;
 import org.dawn.backend.repository.auth.PasswordResetTokenRepository;
 import org.dawn.backend.repository.auth.UserRepository;
+import org.dawn.backend.service.audit.AuditLogService;
 import org.dawn.backend.service.system.MailService;
 import org.dawn.backend.shared.util.JWTUtils;
+import org.dawn.backend.shared.util.SecurityUtils;
 import org.dawn.backend.shared.util.UserUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -30,6 +36,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -44,43 +51,80 @@ public class AuthService {
     private final RefreshTokenService refreshTokenService;
     private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final MailService mailService;
+    private final AuditLogService auditLogService;
+    private final AuditMessageBuilder messageBuilder;
+    private final ObjectMapper objectMapper;
 
     public record LoginResult(JwtResponse response, String refreshToken) {}
 
     public LoginResult login(LoginRequest req) {
+        String ip = AuditLogService.clientIp();
+        String requestId = UUID.randomUUID().toString().replace("-", "");
 
-        String identifier = req.username();
+        try {
+            String identifier = req.username();
 
-        User user = userRepository
-                .findByUsername(req.username())
-                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.USER_NOT_FOUND));
-        log.info("Get username :{}", identifier);
+            User user = userRepository
+                    .findByUsername(req.username())
+                    .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.USER_NOT_FOUND));
+            log.info("Get username :{}", identifier);
 
-        if (!passwordEncoder.matches(req.password(), user.getPassword())) {
-            throw new PermissionDeniedException(ErrorCode.INVALID_PASSWORD);
+            if (!passwordEncoder.matches(req.password(), user.getPassword())) {
+                throw new PermissionDeniedException(ErrorCode.INVALID_PASSWORD);
+            }
+
+            if (Boolean.TRUE.equals(user.getIsDeleted()) || ActiveStatus.ACTIVE != user.getStatus()) {
+                throw new PermissionDeniedException(ErrorCode.USER_INACTIVE);
+            }
+
+            String jwt = jwtUtils.generateToken(
+                    user.getId(),
+                    user.getUsername(),
+                    user.getEmail(),
+                    user.getRole().getName().name(),
+                    user.getFullName());
+
+            RefreshToken refreshToken = refreshTokenService.createRefreshToken(user.getId());
+            JwtResponse response = JwtResponse
+                    .builder()
+                    .userId(user.getId())
+                    .username(user.getUsername())
+                    .fullName(user.getFullName())
+                    .accessToken(jwt)
+                    .isPasswordReset(Boolean.TRUE.equals(user.getIsPasswordReset()))
+                    .build();
+
+            AuditMessageBuilder.MessageResult mr = messageBuilder.build(
+                    user.getUsername(), LogConstant.Action.LOGIN_SUCCESS,
+                    LogConstant.Entity.USER, user.getId().toString(),
+                    null, null, LogConstant.Status.SUCCESS, null);
+            auditLogService.save(LogConstant.Action.LOGIN_SUCCESS, LogConstant.Entity.USER,
+                    user.getId().toString(), UserDetailsImpl.build(user), ip, requestId,
+                    LogConstant.Status.SUCCESS, null, null, null,
+                    mr.message(), toJson(mr.messageFields()));
+            return new LoginResult(response, refreshToken.getToken());
+        } catch (Exception e) {
+            AuditMessageBuilder.MessageResult mr = messageBuilder.build(null, LogConstant.Action.LOGIN_FAILED,
+                    LogConstant.Entity.USER, null, null, null, LogConstant.Status.FAILED, e.getMessage());
+            auditLogService.save(LogConstant.Action.LOGIN_FAILED, LogConstant.Entity.USER,
+                    null, failedUser(req.username()), ip, requestId,
+                    LogConstant.Status.FAILED, e.getMessage(), null, null,
+                    mr.message(), toJson(mr.messageFields()));
+            throw e;
         }
+    }
 
-        if (Boolean.TRUE.equals(user.getIsDeleted()) || ActiveStatus.ACTIVE != user.getStatus()) {
-            throw new PermissionDeniedException(ErrorCode.USER_INACTIVE);
+    private String toJson(Object value) {
+        if (value == null) return null;
+        try {
+            return objectMapper.writeValueAsString(value);
+        } catch (JsonProcessingException e) {
+            return null;
         }
+    }
 
-        String jwt = jwtUtils.generateToken(
-                user.getId(),
-                user.getUsername(),
-                user.getEmail(),
-                user.getRole().getName().name(),
-                user.getFullName());
-
-        RefreshToken refreshToken = refreshTokenService.createRefreshToken(user.getId());
-        JwtResponse response = JwtResponse
-                .builder()
-                .userId(user.getId())
-                .username(user.getUsername())
-                .fullName(user.getFullName())
-                .accessToken(jwt)
-                .isPasswordReset(Boolean.TRUE.equals(user.getIsPasswordReset()))
-                .build();
-        return new LoginResult(response, refreshToken.getToken());
+    private UserDetailsImpl failedUser(String username) {
+        return UserDetailsImpl.builder().username(username).authorities(List.of()).build();
     }
 
     @Transactional
@@ -221,5 +265,17 @@ public class AuthService {
 
     public void logout(String refreshTokenValue) {
         refreshTokenService.deleteByToken(refreshTokenValue);
+
+        UserDetailsImpl user = SecurityUtils.getCurrentUser();
+        String ip = AuditLogService.clientIp();
+        String requestId = UUID.randomUUID().toString().replace("-", "");
+        AuditMessageBuilder.MessageResult mr = messageBuilder.build(user != null ? user.getUsername() : null,
+                LogConstant.Action.LOGOUT, LogConstant.Entity.USER,
+                user != null ? user.getId().toString() : null,
+                null, null, LogConstant.Status.SUCCESS, null);
+        auditLogService.save(LogConstant.Action.LOGOUT, LogConstant.Entity.USER,
+                user != null ? user.getId().toString() : null, user, ip, requestId,
+                LogConstant.Status.SUCCESS, null, null, null,
+                mr.message(), toJson(mr.messageFields()));
     }
 }

@@ -29,6 +29,9 @@ public class AuditLog extends AbstractMappedEntity {
     @Column(name = "username", length = 100)
     private String username;
 
+    @Column(name = "role_snapshot", length = 50)
+    private String roleSnapshot;
+
     @Column(name = "ip_address", length = 45)
     private String ipAddress;
 
@@ -55,4 +58,10 @@ public class AuditLog extends AbstractMappedEntity {
 
     @Column(name = "error_msg", columnDefinition = "TEXT")
     private String errorMsg;
+
+    @Column(name = "message", columnDefinition = "TEXT")
+    private String message;
+
+    @Column(name = "message_fields", columnDefinition = "JSON")
+    private String messageFields;
 }

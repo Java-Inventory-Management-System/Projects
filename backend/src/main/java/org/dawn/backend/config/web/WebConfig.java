@@ -1,11 +1,13 @@
 package org.dawn.backend.config.web;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.MessageSource;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.support.ResourceBundleMessageSource;
+import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.method.HandlerTypePredicate;
 import org.springframework.web.servlet.config.annotation.PathMatchConfigurer;
@@ -26,7 +28,10 @@ public class WebConfig implements WebMvcConfigurer {
 
     @Bean
     public ObjectMapper objectMapper() {
-        return new ObjectMapper();
+        return Jackson2ObjectMapperBuilder.json()
+                .featuresToDisable(SerializationFeature.FAIL_ON_EMPTY_BEANS,
+                        SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
+                .build();
     }
 
     @Bean
