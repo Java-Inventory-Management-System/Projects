@@ -126,7 +126,7 @@ export function SuppliersPage() {
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button variant="ghost" size="icon" onClick={() => toggle.mutate(s.id)}>
-                  <Power className="size-3.5" />
+                  <Power className={s.isActive ? "size-3.5 text-destructive" : "size-3.5 text-emerald-600"} />
                 </Button>
               </TooltipTrigger>
               <TooltipContent>{s.isActive ? t("common.deactivate") : t("common.activate")}</TooltipContent>

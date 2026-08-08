@@ -122,7 +122,7 @@ export function CatalogPage({
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button variant="ghost" size="icon" onClick={() => toggle.mutate(b.id)}>
-                        <Power className="size-3.5" />
+                        <Power className={b.isActive ? "size-3.5 text-destructive" : "size-3.5 text-emerald-600"} />
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent>{b.isActive ? t("common.deactivate") : t("common.activate")}</TooltipContent>
