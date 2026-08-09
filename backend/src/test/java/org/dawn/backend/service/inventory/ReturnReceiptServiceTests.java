@@ -7,6 +7,7 @@ import org.dawn.backend.constant.enums.inventory.returns.*;
 import org.dawn.backend.constant.enums.inventory.*;
 import org.dawn.backend.controller.inventory.request.ReturnReceiptRequest;
 import org.dawn.backend.controller.inventory.request.ReturnReceiptRequest.ReturnItemRequest;
+import org.dawn.backend.entity.catalog.Product;
 import org.dawn.backend.entity.inventory.ExportReceipt;
 import org.dawn.backend.entity.inventory.ProductUnit;
 import org.dawn.backend.entity.inventory.ProductUnitStatusLog;
@@ -411,6 +412,58 @@ class ReturnReceiptServiceTests {
         {
             when(securityPolicy.requireAuthenticated()).thenReturn(userId);
             assertThrows(InvalidRequestException.class, () -> returnReceiptService.approve(receiptId));
+        }
+    }
+
+    // ─── Approve: bulk unit (không có productUnitId) ─────────
+
+    @Test
+    void approve_fail_bulkQuantityNonPositive() {
+        ReturnReceipt receipt = pendingReceipt(ReturnReason.DEFECTIVE.name());
+        ReturnReceiptItem item = returnItem(receiptId, null, ResultingAction.RESTOCK.name());
+        item.setQuantity(BigDecimal.ZERO);
+
+        when(returnReceiptRepository.findByIdForUpdate(receiptId)).thenReturn(Optional.of(receipt));
+        when(returnReceiptItemRepository.findByReturnReceiptId(receiptId)).thenReturn(List.of(item));
+
+        {
+            when(securityPolicy.requireAuthenticated()).thenReturn(userId);
+            assertThrows(InvalidRequestException.class, () -> returnReceiptService.approve(receiptId));
+            verify(returnReceiptRepository, never()).save(any());
+        }
+    }
+
+    @Test
+    void approve_success_bulkUnitCreated() {
+        ReturnReceipt receipt = pendingReceipt(ReturnReason.DEFECTIVE.name());
+        ReturnReceiptItem item = returnItem(receiptId, null, ResultingAction.RESTOCK.name());
+        item.setQuantity(new BigDecimal("5"));
+
+        Product product = mock(Product.class);
+        when(product.getTrackingType()).thenReturn("BULK");
+
+        when(returnReceiptRepository.findByIdForUpdate(receiptId)).thenReturn(Optional.of(receipt));
+        stubSave();
+        stubEnrich();
+        when(returnReceiptItemRepository.findByReturnReceiptId(receiptId)).thenReturn(List.of(item), List.of());
+        when(productRepository.findById(20L)).thenReturn(Optional.of(product));
+        when(productUnitRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        {
+            when(securityPolicy.requireAuthenticated()).thenReturn(userId);
+
+            returnReceiptService.approve(receiptId);
+
+            assertEquals(ReturnReceiptStatus.COMPLETED, receipt.getStatus());
+            verify(productUnitRepository).save(puCaptor.capture());
+            ProductUnit bulk = puCaptor.getValue();
+            assertEquals("BULK", bulk.getTrackingType());
+            assertEquals(0, new BigDecimal("5").compareTo(bulk.getRemainingQuantity()));
+            assertEquals(ProductUnitStatus.RETURN_QC_HOLD, bulk.getStatus());
+            verify(statusLogRepository).save(argThat(log ->
+                    "RETURN_RECEIPT".equals(log.getSourceType())
+                            && "RETURN_QC_HOLD".equals(log.getToStatus())
+                            && receiptId.equals(log.getSourceId())));
         }
     }
 

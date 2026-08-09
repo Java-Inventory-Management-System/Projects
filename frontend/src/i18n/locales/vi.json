@@ -704,6 +704,7 @@
     "createSuccess": "Tạo đơn hàng thành công",
     "createError": "Không thể tạo đơn hàng",
     "creating": "Đang tạo...",
+    "invalidItem": "Số lượng phải lớn hơn 0 và giá không được âm",
     "submit": "Tạo đơn hàng"
   },
   "poDetail": {

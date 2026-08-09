@@ -32,6 +32,8 @@ public interface ImportReceiptRepository extends JpaRepository<ImportReceipt, Lo
     long countByCreatedAtBetween(Instant from, Instant to);
     List<ImportReceipt> findByPurchaseOrderId(Long purchaseOrderId);
     boolean existsByPurchaseOrderIdAndStatus(Long purchaseOrderId, ImportReceiptStatus status);
+    boolean existsByPurchaseOrderIdAndStatusNot(Long purchaseOrderId, ImportReceiptStatus status);
+    boolean existsByOriginalWarrantyExportId(Long originalWarrantyExportId);
 
     @Query("SELECT COALESCE(SUM(r.totalAmount), 0) FROM ImportReceipt r WHERE r.status = 'COMPLETED' AND r.createdAt BETWEEN :from AND :to")
     BigDecimal sumTotalAmountByStatusAndCreatedAtBetween(@Param("from") Instant from, @Param("to") Instant to);

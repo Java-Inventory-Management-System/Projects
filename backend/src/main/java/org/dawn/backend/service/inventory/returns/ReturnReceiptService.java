@@ -301,15 +301,10 @@ public class ReturnReceiptService {
         if (item.getProductId() == null
                 || item.getQuantity() == null
                 || item.getQuantity().compareTo(java.math.BigDecimal.ZERO) <= 0) {
-            log.warn("Return bulk item skipped: receipt {} item {} (missing product or non-positive quantity)",
-                    receiptId, item.getId());
-            return;
+            throw new InvalidRequestException(ErrorCode.INVALID_QUANTITY.format( item.getQuantity()));
         }
-        var product = productRepository.findById(item.getProductId()).orElse(null);
-        if (product == null) {
-            log.warn("Return bulk item skipped: product {} not found", item.getProductId());
-            return;
-        }
+        var product = productRepository.findById(item.getProductId())
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.PRODUCT_NOT_FOUND));
 
         ProductUnitStatus targetStatus;
         String targetLocation;

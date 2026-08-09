@@ -273,6 +273,7 @@ export interface ImportReceipt {
   totalAmount: number
   purchaseOrderId: number | null
   poCode: string | null
+  originalWarrantyExportId: number | null
   createdBy: number | null
   createdByName: string | null
   approvedBy: number | null

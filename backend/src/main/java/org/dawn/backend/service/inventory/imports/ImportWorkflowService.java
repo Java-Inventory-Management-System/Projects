@@ -9,8 +9,10 @@ import org.dawn.backend.constant.enums.inventory.ProductUnitStatus;
 import org.dawn.backend.constant.enums.inventory.PurchaseOrderStatus;
 import org.dawn.backend.constant.enums.inventory.SourceType;
 import org.dawn.backend.constant.enums.inventory.imports.ImportReceiptStatus;
+import org.dawn.backend.constant.enums.inventory.box.BoxStatus;
 import org.dawn.backend.constant.shared.LogConstant;
 import org.dawn.backend.controller.inventory.response.ImportReceiptResponse;
+import org.dawn.backend.entity.inventory.Box;
 import org.dawn.backend.entity.inventory.ImportReceipt;
 import org.dawn.backend.entity.inventory.ImportReceiptItem;
 import org.dawn.backend.entity.inventory.ProductUnit;
@@ -21,6 +23,8 @@ import org.dawn.backend.repository.inventory.ProductUnitRepository;
 import org.dawn.backend.repository.inventory.ProductUnitStatusLogRepository;
 import org.dawn.backend.repository.inventory.imports.ImportReceiptItemRepository;
 import org.dawn.backend.repository.inventory.imports.ImportReceiptRepository;
+import org.dawn.backend.repository.inventory.box.BoxRepository;
+import org.dawn.backend.repository.inventory.stockcheck.StockCheckItemRepository;
 import org.dawn.backend.repository.inventory.PurchaseOrderItemRepository;
 import org.dawn.backend.repository.inventory.PurchaseOrderRepository;
 import org.dawn.backend.config.security.SecurityPolicy;
@@ -40,6 +44,8 @@ public class ImportWorkflowService {
     private final ProductUnitStatusLogRepository statusLogRepository;
     private final PurchaseOrderRepository purchaseOrderRepository;
     private final PurchaseOrderItemRepository purchaseOrderItemRepository;
+    private final BoxRepository boxRepository;
+    private final StockCheckItemRepository stockCheckItemRepository;
     private final StateMachine<ImportReceiptStatus> importReceiptStateMachine;
     private final SecurityPolicy securityPolicy;
     private final ImportReceiptService importReceiptService;
@@ -53,6 +59,13 @@ public class ImportWorkflowService {
 
         securityPolicy.requireNotCreator(receipt.getCreatedBy());
         importReceiptStateMachine.validate(receipt.getStatus(), ImportReceiptStatus.COMPLETED);
+
+        if (receipt.getPurchaseOrderId() != null) {
+            var po = purchaseOrderRepository.findByIdForUpdate(receipt.getPurchaseOrderId()).orElse(null);
+            if (po != null && PurchaseOrderStatus.CANCELLED == po.getStatus()) {
+                throw new InvalidRequestException(ErrorCode.PO_ALREADY_CANCELLED);
+            }
+        }
 
         receipt.setStatus(ImportReceiptStatus.COMPLETED);
         receipt.setApprovedBy(userId);
@@ -83,6 +96,15 @@ public class ImportWorkflowService {
                 boolean isBulk = unit.getInitialQuantity() != null;
                 if (isBulk && unit.getRemainingQuantity().compareTo(unit.getInitialQuantity()) != 0) {
                     throw new InvalidRequestException(ErrorCode.IMPORT_CANNOT_CANCEL_UNITS_EXPORTED);
+                }
+                if (unit.getBoxId() != null && boxRepository.findById(unit.getBoxId())
+                        .map(b -> BoxStatus.SEALED == b.getStatus()).orElse(false)) {
+                    throw new InvalidRequestException(
+                            ErrorCode.IMPORT_CANNOT_CANCEL_UNITS_IN_SEALED_BOX.format( unit.getSerialNumber()));
+                }
+                if (stockCheckItemRepository.existsByProductUnitIdInActiveCheck(unit.getId())) {
+                    throw new InvalidRequestException(
+                            ErrorCode.IMPORT_CANNOT_CANCEL_UNITS_IN_STOCK_CHECK.format( unit.getSerialNumber()));
                 }
             }
         }
@@ -133,7 +155,9 @@ public class ImportWorkflowService {
         for (var poItem : items) {
             BigDecimal received = receiptItemIds.stream()
                     .filter(ri -> ri.getProductId().equals(poItem.getProductId()))
-                    .map(ImportReceiptItem::getQuantity)
+                    .flatMap(ri -> productUnitRepository.findByImportReceiptItemId(ri.getId()).stream())
+                    .filter(u -> ProductUnitStatus.REMOVED != u.getStatus())
+                    .map(u -> u.getInitialQuantity() != null ? u.getInitialQuantity() : BigDecimal.ONE)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
             poItem.setReceivedQuantity(received);
         }

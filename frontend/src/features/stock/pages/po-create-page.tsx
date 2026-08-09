@@ -97,6 +97,11 @@ export function POCreatePage() {
   const totalAmount = useMemo(() => fields.reduce((sum, i) => sum + i.quantity * i.unitPrice, 0), [fields])
 
   const onSubmit = form.handleSubmit((values) => {
+    const invalidItem = values.items.find((i) => !i.quantity || i.quantity <= 0 || i.unitPrice == null || i.unitPrice < 0)
+    if (invalidItem) {
+      toast.error(t("poCreate.invalidItem"))
+      return
+    }
     createMut.mutate(
       {
         supplierId: Number(values.supplierId),

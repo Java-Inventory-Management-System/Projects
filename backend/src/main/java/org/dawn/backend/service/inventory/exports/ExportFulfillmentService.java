@@ -66,7 +66,8 @@ public class ExportFulfillmentService {
 
     private static final List<String> BULK_UNITS = List.of(
             org.dawn.backend.constant.enums.catalog.UnitOfMeasure.METER.name(),
-            org.dawn.backend.constant.enums.catalog.UnitOfMeasure.KG.name());
+            org.dawn.backend.constant.enums.catalog.UnitOfMeasure.KG.name(),
+            org.dawn.backend.constant.enums.catalog.UnitOfMeasure.TUBE.name());
 
     @Transactional
     @AuditLog(action = LogConstant.Action.FULFILL_EXPORT, entity = LogConstant.Entity.EXPORT_RECEIPT)
@@ -105,6 +106,10 @@ public class ExportFulfillmentService {
                 BigDecimal actualQty = fulfillItem.actualQuantity();
                 if (actualQty == null || actualQty.compareTo(BigDecimal.ZERO) <= 0) {
                     throw new InvalidRequestException(ErrorCode.EXPORT_ACTUAL_QTY_REQUIRED_BULK);
+                }
+                if (actualQty.compareTo(item.getQuantity()) != 0) {
+                    throw new InvalidRequestException(
+                            ErrorCode.EXPORT_QUANTITY_MISMATCH.format( actualQty, item.getQuantity(), product.getName()));
                 }
 
                 var bulkUnits = productUnitRepository.findByProductIdAndStatusWithLock(item.getProductId());
@@ -145,6 +150,8 @@ public class ExportFulfillmentService {
                             throw new InvalidRequestException(ErrorCode.EXPORT_NOT_ENOUGH_LOOSE.format( totalInBoxes, summary));
                         }
                     }
+                    throw new InvalidRequestException(ErrorCode.INSUFFICIENT_STOCK.format(
+                            product.getName(), actualQty.subtract(remaining), actualQty));
                 }
             } else {
                 TrackingType trackingType = TrackingType.valueOf(product.getTrackingType());
@@ -152,6 +159,10 @@ public class ExportFulfillmentService {
                     List<String> serials = fulfillItem.serialNumbers();
                     if (serials == null || serials.isEmpty()) {
                         throw new InvalidRequestException(ErrorCode.EXPORT_SERIALS_REQUIRED);
+                    }
+                    if (BigDecimal.valueOf(serials.size()).compareTo(item.getQuantity()) != 0) {
+                        throw new InvalidRequestException(
+                                ErrorCode.EXPORT_QUANTITY_MISMATCH.format( serials.size(), item.getQuantity(), product.getName()));
                     }
 
                     for (String sn : serials) {

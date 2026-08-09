@@ -84,6 +84,12 @@ class ExportFulfillmentServiceTests {
                 .build();
     }
 
+    private ExportReceiptItem itemWithQty(long qty) {
+        ExportReceiptItem it = item();
+        it.setQuantity(BigDecimal.valueOf(qty));
+        return it;
+    }
+
     private Product product(String unit) {
         Product p = mock(Product.class);
         when(p.getId()).thenReturn(productId);
@@ -213,5 +219,80 @@ class ExportFulfillmentServiceTests {
         assertThrows(InvalidRequestException.class, () -> service.fulfill(receiptId, request));
         verify(productUnitRepository, never()).findBySerialNumber(anyString());
         verify(exportReceiptItemUnitRepository, never()).save(any());
+    }
+
+    // ─── Số lượng khớp đủ: serialized + bulk ────────────────
+
+    private Product bulkProduct() {
+        Product p = product("METER");
+        return p;
+    }
+
+    private Product serializedProduct() {
+        Product p = product("PIECE");
+        when(p.getTrackingType()).thenReturn("SERIALIZED");
+        return p;
+    }
+    @Test
+    void fulfill_serializedCountLessThanQuantity_throws() {
+        stubFulfillContext(ExportReason.SALE.name(), serializedProduct());
+        when(exportReceiptItemRepository.findByReceiptId(receiptId)).thenReturn(List.of(itemWithQty(2)));
+        when(securityPolicy.requireAuthenticated()).thenReturn(userId);
+
+        FulfillExportRequest request = new FulfillExportRequest(
+                List.of(new FulfillItemRequest(itemId, List.of("SN-1"), null)));
+
+        assertThrows(InvalidRequestException.class, () -> service.fulfill(receiptId, request));
+        verify(exportReceiptItemUnitRepository, never()).save(any());
+    }
+
+    @Test
+    void fulfill_serializedCountMoreThanQuantity_throws() {
+        stubFulfillContext(ExportReason.SALE.name(), serializedProduct());
+        when(securityPolicy.requireAuthenticated()).thenReturn(userId);
+
+        FulfillExportRequest request = new FulfillExportRequest(
+                List.of(new FulfillItemRequest(itemId, List.of("SN-1", "SN-2"), null)));
+
+        assertThrows(InvalidRequestException.class, () -> service.fulfill(receiptId, request));
+        verify(productUnitRepository, never()).findBySerialNumber(anyString());
+        verify(exportReceiptItemUnitRepository, never()).save(any());
+    }
+
+    @Test
+    void fulfill_bulkQuantityMismatch_throws() {
+        stubFulfillContext(ExportReason.SALE.name(), bulkProduct());
+        when(exportReceiptItemRepository.findByReceiptId(receiptId)).thenReturn(List.of(itemWithQty(100)));
+        when(securityPolicy.requireAuthenticated()).thenReturn(userId);
+
+        FulfillExportRequest request = new FulfillExportRequest(
+                List.of(new FulfillItemRequest(itemId, null, new BigDecimal("60"))));
+
+        assertThrows(InvalidRequestException.class, () -> service.fulfill(receiptId, request));
+        verify(productUnitRepository, never()).findByProductIdAndStatusWithLock(any());
+        verify(exportReceiptRepository, never()).save(any());
+    }
+
+    @Test
+    void fulfill_bulkInsufficientStock_throws() {
+        stubFulfillContext(ExportReason.SALE.name(), bulkProduct());
+        when(exportReceiptItemRepository.findByReceiptId(receiptId)).thenReturn(List.of(itemWithQty(100)));
+        when(productUnitRepository.findByProductIdAndStatusWithLock(productId)).thenReturn(List.of(
+                ProductUnit.builder()
+                        .id(3L)
+                        .productId(productId)
+                        .trackingType("BULK")
+                        .status(ProductUnitStatus.IN_STOCK)
+                        .remainingQuantity(new BigDecimal("60"))
+                        .build()));
+        when(productUnitRepository.findByProductIdAndStatusAndBoxIdIsNotNull(productId, ProductUnitStatus.IN_STOCK))
+                .thenReturn(List.of());
+        when(securityPolicy.requireAuthenticated()).thenReturn(userId);
+
+        FulfillExportRequest request = new FulfillExportRequest(
+                List.of(new FulfillItemRequest(itemId, null, new BigDecimal("100"))));
+
+        assertThrows(InvalidRequestException.class, () -> service.fulfill(receiptId, request));
+        verify(exportReceiptRepository, never()).save(any());
     }
 }

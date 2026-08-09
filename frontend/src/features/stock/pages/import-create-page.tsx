@@ -1,7 +1,7 @@
 import { useState, useMemo, useReducer, useEffect, useRef } from "react"
 import { useNavigate, useBlocker, useSearchParams } from "react-router-dom"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { createImportReceipt, confirmImportReceipt, getImportReceiptById } from "@/services/import-service"
+import { createImportReceipt, confirmImportReceipt, getImportReceiptById, getImportReceipts } from "@/services/import-service"
 import { getExportReceipts, getExportUnits, type ExportUnit } from "@/services/export-service"
 import { usePurchaseOrders, usePurchaseOrderById } from "@/hooks/use-purchase-orders"
 import { useLocationMap } from "@/hooks/use-location-map"
@@ -103,6 +103,19 @@ export const ImportCreatePage = () => {
     queryKey: ["export-receipts"],
     queryFn: () => getExportReceipts(0, 999),
   })
+  const { data: importListRes } = useQuery({
+    queryKey: ["import-receipts"],
+    queryFn: () => getImportReceipts(0, 999),
+  })
+  const importedExportIds = useMemo(
+    () =>
+      new Set(
+        (importListRes?.content ?? [])
+          .filter((r) => r.originalWarrantyExportId != null && r.status !== "CANCELLED")
+          .map((r) => r.originalWarrantyExportId!),
+      ),
+    [importListRes],
+  )
   const { data: warrantyUnits } = useQuery({
     queryKey: ["export-units", selectedWarrantyExportId],
     queryFn: () => getExportUnits(Number(selectedWarrantyExportId)),
@@ -114,9 +127,10 @@ export const ImportCreatePage = () => {
       (exportListRes?.content ?? []).filter(
         (e) =>
           (e.reason === EXPORT_REASON.WARRANTY_REPLACEMENT || e.reason === EXPORT_REASON.RETURN_SUPPLIER) &&
-          e.status === EXPORT_RECEIPT_STATUS.COMPLETED,
+          e.status === EXPORT_RECEIPT_STATUS.COMPLETED &&
+          !importedExportIds.has(e.id),
       ),
-    [exportListRes],
+    [exportListRes, importedExportIds],
   )
   const selectedWarrantyExport = useMemo(
     () => specialExports.find((e) => e.id === selectedWarrantyExportId) ?? null,

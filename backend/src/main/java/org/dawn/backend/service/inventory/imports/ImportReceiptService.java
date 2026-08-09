@@ -120,8 +120,14 @@ public class ImportReceiptService {
         Long userId = securityPolicy.requireAuthenticated();
         if (request.supplierId() == null) throw new InvalidRequestException(ErrorCode.SUPPLIER_REQUIRED);
         if (request.purchaseOrderId() == null) throw new InvalidRequestException(ErrorCode.PO_REQUIRED);
-        purchaseOrderRepository.findById(request.purchaseOrderId())
+        var po = purchaseOrderRepository.findById(request.purchaseOrderId())
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.PO_NOT_FOUND));
+        if (po.getSupplierId() != null && !po.getSupplierId().equals(request.supplierId())) {
+            throw new InvalidRequestException(ErrorCode.PO_SUPPLIER_MISMATCH);
+        }
+        if (importReceiptRepository.existsByPurchaseOrderIdAndStatusNot(request.purchaseOrderId(), ImportReceiptStatus.CANCELLED)) {
+            throw new InvalidRequestException(ErrorCode.PO_ALREADY_IMPORTED);
+        }
 
         String receiptCode = request.receiptCode() != null ? request.receiptCode() : generateReceiptCode();
         if (importReceiptRepository.existsByReceiptCode(receiptCode)) {
@@ -145,6 +151,9 @@ public class ImportReceiptService {
             for (ImportReceiptRequest.ImportItemRequest itemReq : request.items()) {
                 productRepository.findById(itemReq.productId())
                         .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.PRODUCT_NOT_FOUND));
+                if (itemReq.quantity() == null || itemReq.quantity().compareTo(BigDecimal.ZERO) <= 0) {
+                    throw new InvalidRequestException(ErrorCode.INVALID_QUANTITY.format( itemReq.quantity()));
+                }
 
                 ImportReceiptItem item = ImportReceiptItem.builder()
                         .receiptId(receiptId)

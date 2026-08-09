@@ -70,7 +70,8 @@ public class ImportConfirmationService {
 
     private static final List<String> BULK_UNITS = List.of(
             UnitOfMeasure.METER.name(),
-            UnitOfMeasure.KG.name());
+            UnitOfMeasure.KG.name(),
+            UnitOfMeasure.TUBE.name());
     private static final List<String> SERIALIZED_UNITS = List.of(
             UnitOfMeasure.PIECE.name(),
             UnitOfMeasure.BOX.name(),
@@ -124,8 +125,12 @@ public class ImportConfirmationService {
 
             String unit = product.getUnit();
             TrackingType trackingType = TrackingType.valueOf(product.getTrackingType());
-            boolean isBulk = BULK_UNITS.contains(unit);
+            boolean isBulk = unit != null && BULK_UNITS.contains(unit);
             BigDecimal qty = itemReq.quantity();
+
+            if (itemReq.locationId() == null) {
+                throw new InvalidRequestException(ErrorCode.IMPORT_LOCATION_REQUIRED.format( product.getId()));
+            }
 
             ImportReceiptItem item = ImportReceiptItem.builder()
                     .receiptId(receiptId)
@@ -138,6 +143,9 @@ public class ImportConfirmationService {
             savedItems.add(item);
 
             if (isBulk) {
+                if (qty == null || qty.compareTo(BigDecimal.ZERO) <= 0) {
+                    throw new InvalidRequestException(ErrorCode.INVALID_QUANTITY.format( qty));
+                }
                 capacityValidator.assertCapacity(itemReq.locationId(), qty);
                 ProductUnit pu = ProductUnit.builder()
                         .serialNumber(null)
@@ -157,7 +165,7 @@ public class ImportConfirmationService {
                 if (serials == null || serials.isEmpty()) {
                     throw new InvalidRequestException(ErrorCode.SERIAL_REQUIRED_FOR_SERIALIZED);
                 }
-                if (serials.size() != qty.intValue()) {
+                if (BigDecimal.valueOf(serials.size()).compareTo(qty) != 0) {
                     throw new InvalidRequestException(ErrorCode.SERIAL_COUNT_MUST_MATCH);
                 }
 
@@ -196,7 +204,11 @@ public class ImportConfirmationService {
                                 .warrantyMonths(wm)
                                 .build())
                         .toList();
-                productUnitRepository.saveAll(batch);
+                try {
+                    productUnitRepository.saveAll(batch);
+                } catch (org.springframework.dao.DataIntegrityViolationException e) {
+                    throw new ResourceAlreadyExistedException(ErrorCode.SERIAL_ALREADY_EXISTS);
+                }
             }
 
             BigDecimal lineTotal = itemReq.unitPrice() != null
@@ -221,45 +233,115 @@ public class ImportConfirmationService {
         importReceiptStateMachine.validate(receipt.getStatus(), ImportReceiptStatus.PENDING_APPROVAL);
 
         var items = importReceiptItemRepository.findByReceiptId(id);
+        var itemsById = items.stream().collect(Collectors.toMap(
+                ImportReceiptItem::getId, it -> it));
         var productMap = items.stream().collect(Collectors.toMap(
-                ImportReceiptItem::getProductId, item -> productRepository.findById(item.getProductId()).orElse(null)));
+                ImportReceiptItem::getProductId,
+                item -> productRepository.findById(item.getProductId()).orElse(null)));
 
-        BigDecimal totalAmount = receipt.getTotalAmount() != null ? receipt.getTotalAmount() : BigDecimal.ZERO;
+        var assignments = request.serials() != null
+                ? request.serials()
+                : List.<ConfirmImportRequest.SerialAssignment>of();
+        var assignedItemIds = assignments.stream()
+                .map(ConfirmImportRequest.SerialAssignment::itemId)
+                .collect(Collectors.toSet());
 
-        for (var serial : request.serials()) {
-            ImportReceiptItem item = importReceiptItemRepository.findById(serial.itemId())
-                    .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.IMPORT_ITEM_NOT_FOUND));
+        for (Long itemId : assignedItemIds) {
+            if (!itemsById.containsKey(itemId)) {
+                throw new InvalidRequestException(ErrorCode.IMPORT_ITEM_NOT_IN_RECEIPT.format( itemId));
+            }
+        }
+
+        List<Long> missingItems = items.stream()
+                .map(ImportReceiptItem::getId)
+                .filter(itemId -> !assignedItemIds.contains(itemId))
+                .toList();
+        if (!missingItems.isEmpty()) {
+            throw new InvalidRequestException(ErrorCode.IMPORT_CONFIRM_ITEMS_INCOMPLETE.format( missingItems));
+        }
+
+        var now = Instant.now();
+        List<ProductUnit> unitsToSave = new ArrayList<>();
+
+        for (var assignment : assignments) {
+            ImportReceiptItem item = itemsById.get(assignment.itemId());
             Product product = productMap.get(item.getProductId());
-            TrackingType trackingType = product != null
-                    ? TrackingType.valueOf(product.getTrackingType())
-                    : TrackingType.SERIALIZED;
+            boolean isBulk = product != null && product.getUnit() != null && BULK_UNITS.contains(product.getUnit());
 
-            var serials = serial.serialNumbers().stream().map(String::trim).peek(s -> {
-                if (s.isBlank()) throw new InvalidRequestException(ErrorCode.SERIAL_BLANK);
-            }).toList();
-
-            var existing = productUnitRepository.findExistingSerialNumbers(serials);
-            if (!existing.isEmpty()) {
-                throw new ResourceAlreadyExistedException(
-                        ErrorCode.SERIAL_ALREADY_EXISTS_LIST.format( String.join(", ", existing)));
+            if (assignment.locationId() == null) {
+                throw new InvalidRequestException(ErrorCode.IMPORT_LOCATION_REQUIRED.format( item.getId()));
             }
 
-            capacityValidator.assertCapacity(serial.locationId(), BigDecimal.valueOf(serials.size()));
+            if (isBulk) {
+                if (item.getQuantity() == null || item.getQuantity().compareTo(BigDecimal.ZERO) <= 0) {
+                    throw new InvalidRequestException(ErrorCode.INVALID_QUANTITY.format( item.getQuantity()));
+                }
+                if (assignment.serialNumbers() != null && !assignment.serialNumbers().isEmpty()) {
+                    throw new InvalidRequestException(ErrorCode.SERIAL_NOT_ALLOWED_FOR_BULK);
+                }
+                capacityValidator.assertCapacity(assignment.locationId(), item.getQuantity());
+                unitsToSave.add(ProductUnit.builder()
+                        .serialNumber(null)
+                        .productId(item.getProductId())
+                        .trackingType(TrackingType.BULK.name())
+                        .initialQuantity(item.getQuantity())
+                        .remainingQuantity(item.getQuantity())
+                        .importReceiptItemId(item.getId())
+                        .locationId(assignment.locationId())
+                        .status(ProductUnitStatus.IN_STOCK)
+                        .importedAt(now)
+                        .warrantyMonths(item.getWarrantyMonths())
+                        .build());
+            } else {
+                var serials = assignment.serialNumbers() == null
+                        ? List.<String>of()
+                        : assignment.serialNumbers().stream()
+                                .map(String::trim)
+                                .peek(s -> {
+                                    if (s.isBlank()) throw new InvalidRequestException(ErrorCode.SERIAL_BLANK);
+                                })
+                                .toList();
+                if (serials.isEmpty()) {
+                    throw new InvalidRequestException(ErrorCode.SERIAL_REQUIRED_FOR_SERIALIZED);
+                }
+                if (BigDecimal.valueOf(serials.size()).compareTo(item.getQuantity()) != 0) {
+                    throw new InvalidRequestException(ErrorCode.SERIAL_COUNT_MUST_MATCH);
+                }
 
-            var now = Instant.now();
-            var batch = serials.stream().map(s -> ProductUnit.builder()
-                    .serialNumber(s)
-                    .productId(item.getProductId())
-                    .trackingType(trackingType.name())
-                    .initialQuantity(null)
-                    .remainingQuantity(null)
-                    .importReceiptItemId(item.getId())
-                    .locationId(serial.locationId())
-                    .status(ProductUnitStatus.IN_STOCK)
-                    .importedAt(now)
-                    .warrantyMonths(item.getWarrantyMonths())
-                    .build()).toList();
-            productUnitRepository.saveAll(batch);
+                var existing = productUnitRepository.findExistingSerialNumbers(serials);
+                if (!existing.isEmpty()) {
+                    throw new ResourceAlreadyExistedException(
+                            ErrorCode.SERIAL_ALREADY_EXISTS_LIST.format( String.join(", ", existing)));
+                }
+
+                capacityValidator.assertCapacity(assignment.locationId(), BigDecimal.valueOf(serials.size()));
+
+                String trackingType = product != null
+                        ? TrackingType.valueOf(product.getTrackingType()).name()
+                        : TrackingType.SERIALIZED.name();
+                for (String serial : serials) {
+                    unitsToSave.add(ProductUnit.builder()
+                            .serialNumber(serial)
+                            .productId(item.getProductId())
+                            .trackingType(trackingType)
+                            .initialQuantity(null)
+                            .remainingQuantity(null)
+                            .importReceiptItemId(item.getId())
+                            .locationId(assignment.locationId())
+                            .status(ProductUnitStatus.IN_STOCK)
+                            .importedAt(now)
+                            .warrantyMonths(item.getWarrantyMonths())
+                            .build());
+                }
+            }
+        }
+
+        if (!unitsToSave.isEmpty()) {
+            try {
+                productUnitRepository.saveAll(unitsToSave);
+            } catch (org.springframework.dao.DataIntegrityViolationException e) {
+                throw new ResourceAlreadyExistedException(ErrorCode.SERIAL_ALREADY_EXISTS);
+            }
         }
 
         receipt.setStatus(ImportReceiptStatus.PENDING_APPROVAL);
@@ -284,6 +366,9 @@ public class ImportConfirmationService {
 
         Long receiptId = receipt.getId();
         BigDecimal totalAmount = BigDecimal.ZERO;
+        if (importReceiptRepository.existsByOriginalWarrantyExportId(export.getId())) {
+            throw new InvalidRequestException(ErrorCode.WARRANTY_IMPORT_ALREADY_RECEIVED);
+        }
         Long returnStagingLocationId = locationRepository.findByFullCode(RETURN_STAGING_LOCATION_FULL_CODE)
                 .map(loc -> loc.getId()).orElse(null);
         Long wasteSortingLocationId = locationRepository.findByFullCode(WASTE_SORTING_LOCATION_FULL_CODE)
@@ -303,7 +388,7 @@ public class ImportConfirmationService {
             var product = productRepository.findById(itemReq.productId())
                     .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.PRODUCT_NOT_FOUND));
             List<String> serials = trimSerials(itemReq.serialNumbers());
-            if (serials.size() != itemReq.quantity().intValue()) {
+            if (BigDecimal.valueOf(serials.size()).compareTo(itemReq.quantity()) != 0) {
                 throw new InvalidRequestException(ErrorCode.SERIAL_COUNT_MUST_MATCH);
             }
 
@@ -326,9 +411,11 @@ public class ImportConfirmationService {
                         boolean repaired = resultType == WarrantyResultType.REPAIRED;
                         unit.setStatus(repaired ? ProductUnitStatus.RMA_REPAIRED_RETURNED : ProductUnitStatus.RMA_UNREPAIRABLE);
                         Long targetLocationId = repaired ? returnStagingLocationId : wasteSortingLocationId;
-                        if (targetLocationId != null) {
-                            unit.setLocationId(targetLocationId);
+                        if (targetLocationId == null) {
+                            throw new InvalidRequestException(ErrorCode.QC_STAGING_LOCATION_MISSING.format(
+                                    repaired ? RETURN_STAGING_LOCATION_FULL_CODE : WASTE_SORTING_LOCATION_FULL_CODE));
                         }
+                        unit.setLocationId(targetLocationId);
                         productUnitRepository.save(unit);
                         saveStatusLog(unit.getId(), oldStatus, unit.getStatus(), receiptId, userId);
                     }
@@ -344,6 +431,9 @@ public class ImportConfirmationService {
                                 ErrorCode.SERIAL_ALREADY_EXISTS_LIST.format( String.join(", ", existingNew)));
                     }
                     for (int i = 0; i < serials.size(); i++) {
+                        if (returnStagingLocationId == null) {
+                            throw new InvalidRequestException(ErrorCode.QC_STAGING_LOCATION_MISSING.format(RETURN_STAGING_LOCATION_FULL_CODE));
+                        }
                         ProductUnit oldUnit = findWarrantyUnit(sourceSerials.get(i), exportSerials, false);
                         ProductUnitStatus oldStatus = oldUnit.getStatus();
                         oldUnit.setStatus(ProductUnitStatus.RETURNED_TO_SUPPLIER);

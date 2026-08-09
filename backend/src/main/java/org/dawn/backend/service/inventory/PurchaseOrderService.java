@@ -78,6 +78,8 @@ public class PurchaseOrderService {
         if (request.supplierId() == null) {
             throw new InvalidRequestException(ErrorCode.SUPPLIER_REQUIRED);
         }
+        supplierRepository.findById(request.supplierId())
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.SUPPLIER_NOT_FOUND));
 
         String poCode = generatePoCode();
         PurchaseOrder po = PurchaseOrder.builder()
@@ -92,6 +94,12 @@ public class PurchaseOrderService {
 
         BigDecimal totalAmount = BigDecimal.ZERO;
         for (POItemRequest itemReq : request.items()) {
+            if (itemReq.quantity() == null || itemReq.quantity().compareTo(BigDecimal.ZERO) <= 0) {
+                throw new InvalidRequestException(ErrorCode.INVALID_QUANTITY.format(itemReq.quantity()));
+            }
+            if (itemReq.unitPrice() == null || itemReq.unitPrice().compareTo(BigDecimal.ZERO) < 0) {
+                throw new InvalidRequestException(ErrorCode.NEGATIVE_PRICE);
+            }
             Product product = productRepository.findById(itemReq.productId())
                     .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.PRODUCT_NOT_FOUND));
             List<Long> supplierIds = product.getSuppliers().stream().map(Supplier::getId).toList();
@@ -125,9 +133,9 @@ public class PurchaseOrderService {
             throw new InvalidRequestException(ErrorCode.PO_ALREADY_CANCELLED);
         }
 
-        boolean hasCompletedReceipts = importReceiptRepository.existsByPurchaseOrderIdAndStatus(id, ImportReceiptStatus.COMPLETED);
+        boolean hasOpenReceipts = importReceiptRepository.existsByPurchaseOrderIdAndStatusNot(id, ImportReceiptStatus.CANCELLED);
 
-        if (hasCompletedReceipts) {
+        if (hasOpenReceipts) {
             throw new InvalidRequestException(ErrorCode.PO_HAS_COMPLETED_RECEIPTS);
         }
 

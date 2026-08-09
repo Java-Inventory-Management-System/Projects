@@ -2,6 +2,9 @@ package org.dawn.backend.service.inventory.imports;
 
 import org.dawn.backend.constant.enums.inventory.ProductUnitStatus;
 import org.dawn.backend.constant.enums.inventory.exports.ExportReason;
+import org.dawn.backend.constant.enums.inventory.imports.ImportReceiptStatus;
+import org.dawn.backend.controller.inventory.request.ConfirmImportRequest;
+import org.dawn.backend.controller.inventory.request.ConfirmImportRequest.SerialAssignment;
 import org.dawn.backend.controller.inventory.request.ImportReceiptRequest;
 import org.dawn.backend.controller.inventory.request.ImportReceiptRequest.ImportItemRequest;
 import org.dawn.backend.entity.inventory.ExportReceipt;
@@ -16,10 +19,14 @@ import org.dawn.backend.repository.catalog.ProductRepository;
 import org.dawn.backend.repository.inventory.LocationRepository;
 import org.dawn.backend.repository.inventory.ProductUnitRepository;
 import org.dawn.backend.repository.inventory.ProductUnitStatusLogRepository;
+import org.dawn.backend.repository.inventory.PurchaseOrderItemRepository;
+import org.dawn.backend.repository.inventory.PurchaseOrderRepository;
 import org.dawn.backend.repository.inventory.exports.ExportReceiptItemUnitRepository;
 import org.dawn.backend.repository.inventory.exports.ExportReceiptRepository;
 import org.dawn.backend.repository.inventory.imports.ImportReceiptItemRepository;
 import org.dawn.backend.repository.inventory.imports.ImportReceiptRepository;
+import org.dawn.backend.service.inventory.LocationCapacityValidator;
+import org.dawn.backend.shared.statemachine.StateMachine;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -50,6 +57,10 @@ class ImportConfirmationServiceTests {
     @Mock ExportReceiptItemUnitRepository exportReceiptItemUnitRepository;
     @Mock SecurityPolicy securityPolicy;
     @Mock ImportReceiptService importReceiptService;
+    @Mock LocationCapacityValidator capacityValidator;
+    @Mock StateMachine<ImportReceiptStatus> importReceiptStateMachine;
+    @Mock PurchaseOrderRepository purchaseOrderRepository;
+    @Mock PurchaseOrderItemRepository purchaseOrderItemRepository;
 
     @InjectMocks ImportConfirmationService service;
 
@@ -295,5 +306,172 @@ class ImportConfirmationServiceTests {
                 20L, BigDecimal.ONE, BigDecimal.ZERO, 0, "FOO", List.of("SN-1"), null, null));
 
         assertThrows(InvalidRequestException.class, () -> service.createAndConfirm(request));
+    }
+
+    // ─── Confirm 2 bước: số lượng khớp đủ ───────────────────
+
+    private ImportReceipt draftReceipt() {
+        return ImportReceipt.builder()
+                .id(importReceiptId)
+                .receiptCode("IMP-001")
+                .supplierId(1L)
+                .status(ImportReceiptStatus.DRAFT)
+                .createdBy(userId)
+                .build();
+    }
+
+    private ImportReceiptItem receiptItem(Long id, Long productId, BigDecimal qty) {
+        return ImportReceiptItem.builder()
+                .id(id)
+                .receiptId(importReceiptId)
+                .productId(productId)
+                .quantity(qty)
+                .warrantyMonths(12)
+                .build();
+    }
+
+    private Product bulkProduct(String unit) {
+        Product p = mock(Product.class);
+        lenient().when(p.getId()).thenReturn(20L);
+        lenient().when(p.getUnit()).thenReturn(unit);
+        lenient().when(p.getTrackingType()).thenReturn("BULK");
+        return p;
+    }
+
+    private Product serializedProduct(Long id) {
+        Product p = mock(Product.class);
+        lenient().when(p.getId()).thenReturn(id);
+        lenient().when(p.getTrackingType()).thenReturn("SERIALIZED");
+        return p;
+    }
+
+    private void stubConfirmContext(ImportReceipt receipt, List<ImportReceiptItem> items, Product... products) {
+        lenient().when(importReceiptRepository.findByIdForUpdate(importReceiptId)).thenReturn(Optional.of(receipt));
+        lenient().when(importReceiptItemRepository.findByReceiptId(importReceiptId)).thenReturn(items);
+        for (Product p : products) {
+            lenient().when(productRepository.findById(p.getId())).thenReturn(Optional.of(p));
+        }
+        lenient().when(importReceiptRepository.save(any())).thenReturn(receipt);
+        lenient().when(importReceiptService.toResponse(any())).thenReturn(null);
+        lenient().when(productUnitRepository.findExistingSerialNumbers(anyList())).thenReturn(Set.of());
+        lenient().when(securityPolicy.requireAuthenticated()).thenReturn(userId);
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<ProductUnit> capturedSavedUnits() {
+        ArgumentCaptor<List<ProductUnit>> captor = ArgumentCaptor.forClass(List.class);
+        verify(productUnitRepository).saveAll(captor.capture());
+        return captor.getValue();
+    }
+
+    @Test
+    void confirm_twoStep_bulkAndSerialized_bothEnterStock() {
+        ImportReceiptItem bulkItem = receiptItem(200L, 20L, new BigDecimal("5.5"));
+        ImportReceiptItem serialItem = receiptItem(201L, 21L, BigDecimal.valueOf(2));
+        stubConfirmContext(draftReceipt(), List.of(bulkItem, serialItem),
+                bulkProduct("METER"), serializedProduct(21L));
+
+        service.confirm(importReceiptId, new ConfirmImportRequest(importReceiptId, List.of(
+                new SerialAssignment(200L, null, 10L),
+                new SerialAssignment(201L, List.of("SN-1", "SN-2"), 11L))));
+
+        List<ProductUnit> saved = capturedSavedUnits();
+        assertEquals(3, saved.size());
+        ProductUnit bulk = saved.stream()
+                .filter(u -> u.getImportReceiptItemId().equals(200L))
+                .findFirst().orElseThrow();
+        assertEquals("BULK", bulk.getTrackingType());
+        assertEquals(0, new BigDecimal("5.5").compareTo(bulk.getRemainingQuantity()));
+        assertEquals(10L, bulk.getLocationId());
+        assertTrue(saved.stream().anyMatch(u -> "SN-1".equals(u.getSerialNumber()) && 11L == u.getLocationId()));
+        assertTrue(saved.stream().anyMatch(u -> "SN-2".equals(u.getSerialNumber())));
+        verify(importReceiptRepository).save(argThat(r ->
+                ImportReceiptStatus.PENDING_APPROVAL.equals(r.getStatus())));
+    }
+
+    @Test
+    void confirm_tubeUnit_treatedAsBulk() {
+        ImportReceiptItem item = receiptItem(200L, 20L, new BigDecimal("3"));
+        stubConfirmContext(draftReceipt(), List.of(item), bulkProduct("TUBE"));
+
+        service.confirm(importReceiptId, new ConfirmImportRequest(importReceiptId,
+                List.of(new SerialAssignment(200L, null, 10L))));
+
+        ProductUnit unit = capturedSavedUnits().get(0);
+        assertEquals("BULK", unit.getTrackingType());
+        assertEquals(0, new BigDecimal("3").compareTo(unit.getRemainingQuantity()));
+    }
+
+    @Test
+    void confirm_serialCountLessThanQuantity_throws() {
+        ImportReceiptItem item = receiptItem(200L, 21L, BigDecimal.valueOf(3));
+        stubConfirmContext(draftReceipt(), List.of(item), serializedProduct(21L));
+
+        ConfirmImportRequest request = new ConfirmImportRequest(importReceiptId,
+                List.of(new SerialAssignment(200L, List.of("SN-1", "SN-2"), 10L)));
+
+        assertThrows(InvalidRequestException.class, () -> service.confirm(importReceiptId, request));
+        verify(productUnitRepository, never()).saveAll(anyList());
+    }
+
+    @Test
+    void confirm_serialCountMoreThanQuantity_throws() {
+        ImportReceiptItem item = receiptItem(200L, 21L, BigDecimal.valueOf(2));
+        stubConfirmContext(draftReceipt(), List.of(item), serializedProduct(21L));
+
+        ConfirmImportRequest request = new ConfirmImportRequest(importReceiptId,
+                List.of(new SerialAssignment(200L, List.of("SN-1", "SN-2", "SN-3"), 10L)));
+
+        assertThrows(InvalidRequestException.class, () -> service.confirm(importReceiptId, request));
+        verify(productUnitRepository, never()).saveAll(anyList());
+    }
+
+    @Test
+    void confirm_itemNotInReceipt_throws() {
+        stubConfirmContext(draftReceipt(), List.of(), bulkProduct("METER"));
+
+        ConfirmImportRequest request = new ConfirmImportRequest(importReceiptId,
+                List.of(new SerialAssignment(999L, null, 10L)));
+
+        assertThrows(InvalidRequestException.class, () -> service.confirm(importReceiptId, request));
+        verify(productUnitRepository, never()).saveAll(anyList());
+    }
+
+    @Test
+    void confirm_missingReceiptItem_throws() {
+        ImportReceiptItem bulkItem = receiptItem(200L, 20L, BigDecimal.ONE);
+        ImportReceiptItem serialItem = receiptItem(201L, 21L, BigDecimal.ONE);
+        stubConfirmContext(draftReceipt(), List.of(bulkItem, serialItem),
+                bulkProduct("METER"), serializedProduct(21L));
+
+        ConfirmImportRequest request = new ConfirmImportRequest(importReceiptId,
+                List.of(new SerialAssignment(200L, null, 10L)));
+
+        assertThrows(InvalidRequestException.class, () -> service.confirm(importReceiptId, request));
+        verify(productUnitRepository, never()).saveAll(anyList());
+    }
+
+    @Test
+    void confirm_locationRequired_throws() {
+        ImportReceiptItem item = receiptItem(200L, 21L, BigDecimal.ONE);
+        stubConfirmContext(draftReceipt(), List.of(item), serializedProduct(21L));
+
+        ConfirmImportRequest request = new ConfirmImportRequest(importReceiptId,
+                List.of(new SerialAssignment(200L, List.of("SN-1"), null)));
+
+        assertThrows(InvalidRequestException.class, () -> service.confirm(importReceiptId, request));
+        verify(productUnitRepository, never()).saveAll(anyList());
+    }
+
+    @Test
+    void confirm_bulkZeroQuantity_throws() {
+        ImportReceiptItem item = receiptItem(200L, 20L, BigDecimal.ZERO);
+        stubConfirmContext(draftReceipt(), List.of(item), bulkProduct("METER"));
+
+        ConfirmImportRequest request = new ConfirmImportRequest(importReceiptId,
+                List.of(new SerialAssignment(200L, null, 10L)));
+
+        assertThrows(InvalidRequestException.class, () -> service.confirm(importReceiptId, request));
+        verify(productUnitRepository, never()).saveAll(anyList());
     }
 }

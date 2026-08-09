@@ -581,6 +581,7 @@
     "createSuccess": "Purchase order created successfully",
     "createError": "Could not create purchase order",
     "creating": "Creating...",
+    "invalidItem": "Quantity must be greater than 0 and price cannot be negative",
     "submit": "Create Order"
   },
   "poDetail": {
