@@ -298,7 +298,7 @@ class ReturnReceiptServiceTests {
     void approve_success_restock() {
         ReturnReceipt receipt = pendingReceipt(ReturnReason.DEFECTIVE.name());
         ReturnReceiptItem item = returnItem(receiptId, productUnitId, ResultingAction.RESTOCK.name());
-        ProductUnit pu = serializedUnit(productUnitId, ProductUnitStatus.SOLD, BigDecimal.TEN);
+        ProductUnit pu = serializedUnit(productUnitId, ProductUnitStatus.EXPORTED, BigDecimal.TEN);
 
         when(returnReceiptRepository.findByIdForUpdate(receiptId)).thenReturn(Optional.of(receipt));
         stubSave();
@@ -322,7 +322,7 @@ class ReturnReceiptServiceTests {
     void approve_success_scrap() {
         ReturnReceipt receipt = pendingReceipt(ReturnReason.DEFECTIVE.name());
         ReturnReceiptItem item = returnItem(receiptId, productUnitId, ResultingAction.SCRAP.name());
-        ProductUnit pu = serializedUnit(productUnitId, ProductUnitStatus.SOLD, BigDecimal.TEN);
+        ProductUnit pu = serializedUnit(productUnitId, ProductUnitStatus.EXPORTED, BigDecimal.TEN);
 
         when(returnReceiptRepository.findByIdForUpdate(receiptId)).thenReturn(Optional.of(receipt));
         stubSave();
@@ -343,7 +343,7 @@ class ReturnReceiptServiceTests {
     void approve_success_reject() {
         ReturnReceipt receipt = pendingReceipt(ReturnReason.DEFECTIVE.name());
         ReturnReceiptItem item = returnItem(receiptId, productUnitId, ResultingAction.REJECT.name());
-        ProductUnit pu = serializedUnit(productUnitId, ProductUnitStatus.SOLD, BigDecimal.TEN);
+        ProductUnit pu = serializedUnit(productUnitId, ProductUnitStatus.EXPORTED, BigDecimal.TEN);
 
         when(returnReceiptRepository.findByIdForUpdate(receiptId)).thenReturn(Optional.of(receipt));
         stubSave();
@@ -369,7 +369,7 @@ class ReturnReceiptServiceTests {
     void approve_success_warrantyTransfer() {
         ReturnReceipt receipt = pendingReceipt(ReturnReason.DEFECTIVE.name());
         ReturnReceiptItem item = returnItem(receiptId, productUnitId, ResultingAction.WARRANTY_TRANSFER.name());
-        ProductUnit pu = serializedUnit(productUnitId, ProductUnitStatus.SOLD, BigDecimal.TEN);
+        ProductUnit pu = serializedUnit(productUnitId, ProductUnitStatus.EXPORTED, BigDecimal.TEN);
 
         when(returnReceiptRepository.findByIdForUpdate(receiptId)).thenReturn(Optional.of(receipt));
         stubSave();

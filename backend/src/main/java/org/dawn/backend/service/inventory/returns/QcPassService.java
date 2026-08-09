@@ -32,6 +32,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 
 import java.util.List;
 import java.util.Objects;
@@ -71,6 +72,7 @@ public class QcPassService {
         }
 
         var units = productUnitRepository.findByIdsForUpdate(unitIds);
+        var usage = productUnitRepository.usageByLocation();
         for (var unit : units) {
             if (!PASSABLE_STATUSES.contains(unit.getStatus())) {
                 throw new InvalidRequestException(
@@ -78,6 +80,7 @@ public class QcPassService {
             }
             ProductUnitStatus oldStatus = unit.getStatus();
             unit.setStatus(ProductUnitStatus.IN_STOCK);
+            relocateOutOfQcZone(unit, usage);
             productUnitRepository.save(unit);
             statusLogRepository.save(ProductUnitStatusLog.builder()
                     .productUnitId(unit.getId())
@@ -147,5 +150,27 @@ public class QcPassService {
                         QcUnitResponse::processedAt,
                         Comparator.nullsLast(Comparator.reverseOrder())))
                 .toList();
+    }
+
+    /**
+     * A unit passing QC must leave the QC processing zone; otherwise it stays
+     * "IN_STOCK" on the QC shelf and blocks the zone forever.
+     */
+    private void relocateOutOfQcZone(ProductUnit unit, Map<Long, java.math.BigDecimal> usage) {
+        if (unit.getLocationId() == null) return;
+        Location current = locationRepository.findById(unit.getLocationId()).orElse(null);
+        if (current == null || !"QC".equals(current.getZoneCode())) return;
+
+        var candidates = locationRepository.findAllByOrderByZoneCodeAscShelfCodeAscBinCodeAsc().stream()
+                .filter(l -> !"QC".equals(l.getZoneCode()))
+                .filter(l -> Boolean.TRUE.equals(l.getIsActive()))
+                .filter(l -> l.getMaxCapacity() == null
+                        || usage.getOrDefault(l.getId(), java.math.BigDecimal.ZERO)
+                                .compareTo(l.getMaxCapacity()) < 0)
+                .toList();
+        if (candidates.isEmpty()) {
+            throw new InvalidRequestException(ErrorCode.QC_PASS_NO_SELLABLE_LOCATION);
+        }
+        unit.setLocationId(candidates.get(0).getId());
     }
 }

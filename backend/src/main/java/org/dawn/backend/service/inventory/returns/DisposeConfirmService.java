@@ -10,12 +10,14 @@ import org.dawn.backend.constant.enums.inventory.exports.ExportReceiptStatus;
 import org.dawn.backend.constant.enums.inventory.exports.ExportReason;
 import org.dawn.backend.constant.shared.ErrorCode;
 import org.dawn.backend.constant.shared.LogConstant;
+import org.dawn.backend.controller.inventory.response.DisposeConfirmResponse;
 import org.dawn.backend.entity.catalog.Product;
 import org.dawn.backend.entity.catalog.Supplier;
 import org.dawn.backend.entity.inventory.ExportReceipt;
 import org.dawn.backend.entity.inventory.ExportReceiptItem;
 import org.dawn.backend.entity.inventory.ExportReceiptItemUnit;
 import org.dawn.backend.entity.inventory.ExportReceiptStatusHistory;
+import org.dawn.backend.entity.inventory.Location;
 import org.dawn.backend.entity.inventory.ProductUnit;
 import org.dawn.backend.entity.inventory.ProductUnitStatusLog;
 import org.dawn.backend.exception.type.InvalidRequestException;
@@ -60,6 +62,8 @@ public class DisposeConfirmService {
     static {
         ALLOWED_ACTIONS.put(ProductUnitStatus.PENDING_DISPOSAL, Set.of(
                 ProductUnitStatus.DISPOSED, ProductUnitStatus.REJECTED_RETURN));
+        ALLOWED_ACTIONS.put(ProductUnitStatus.REJECTED_RETURN, Set.of(
+                ProductUnitStatus.RETURN_QC_HOLD, ProductUnitStatus.PENDING_DISPOSAL));
         ALLOWED_ACTIONS.put(ProductUnitStatus.RMA_UNREPAIRABLE, Set.of(
                 ProductUnitStatus.DISPOSED, ProductUnitStatus.RETURNED_TO_SUPPLIER));
         ALLOWED_ACTIONS.put(ProductUnitStatus.WAITING_RMA_EXPORT, Set.of(
@@ -69,6 +73,7 @@ public class DisposeConfirmService {
     private final ProductUnitRepository productUnitRepository;
     private final ProductUnitStatusLogRepository statusLogRepository;
     private final ProductRepository productRepository;
+    private final org.dawn.backend.repository.inventory.LocationRepository locationRepository;
     private final ExportReceiptRepository exportReceiptRepository;
     private final ExportReceiptItemRepository exportReceiptItemRepository;
     private final ExportReceiptItemUnitRepository exportReceiptItemUnitRepository;
@@ -78,7 +83,7 @@ public class DisposeConfirmService {
 
     @Transactional
     @AuditLog(action = LogConstant.Action.DISPOSE_CONFIRM, entity = LogConstant.Entity.PRODUCT_UNIT)
-    public void confirm(List<Long> unitIds, String action, Long supplierId) {
+    public DisposeConfirmResponse confirm(List<Long> unitIds, String action, Long supplierId) {
         Long userId = securityPolicy.requireAuthenticated();
         if (unitIds == null || unitIds.isEmpty()) {
             throw new InvalidRequestException(ErrorCode.DISPOSE_CONFIRM_UNITS_REQUIRED);
@@ -103,7 +108,7 @@ public class DisposeConfirmService {
             }
             ProductUnitStatus oldStatus = unit.getStatus();
             unit.setStatus(targetStatus);
-            unit.setLocationId(null);
+            unit.setLocationId(targetShelfLocation(targetStatus));
             productUnitRepository.save(unit);
             statusLogRepository.save(ProductUnitStatusLog.builder()
                     .productUnitId(unit.getId())
@@ -116,13 +121,31 @@ public class DisposeConfirmService {
         }
 
         if (targetStatus == ProductUnitStatus.RETURNED_TO_SUPPLIER) {
-            createAutoExport(units, userId, ExportReason.RETURN_SUPPLIER, supplierId);
+            ExportReceipt receipt = createAutoExport(units, userId, ExportReason.RETURN_SUPPLIER, supplierId);
+            return new DisposeConfirmResponse(receipt.getReceiptCode(), receipt.getId());
         } else if (targetStatus == ProductUnitStatus.SENT_TO_MANUFACTURER) {
-            createAutoExport(units, userId, ExportReason.WARRANTY_REPLACEMENT, supplierId);
+            ExportReceipt receipt = createAutoExport(units, userId, ExportReason.WARRANTY_REPLACEMENT, supplierId);
+            return new DisposeConfirmResponse(receipt.getReceiptCode(), receipt.getId());
         }
+        return new DisposeConfirmResponse(null, null);
     }
 
-    private void createAutoExport(List<ProductUnit> units, Long userId, ExportReason reason, Long supplierId) {
+    /** QC-processing zone shelf for a unit that stays in the zone; null when it leaves the warehouse. */
+    private Long targetShelfLocation(ProductUnitStatus status) {
+        if (status == ProductUnitStatus.RETURN_QC_HOLD) {
+            return locationRepository.findByFullCode(
+                    org.dawn.backend.constant.shared.QcProcessingLocations.QC_SHELF_1_NEW_RETURNS)
+                    .map(Location::getId).orElse(null);
+        }
+        if (status == ProductUnitStatus.PENDING_DISPOSAL) {
+            return locationRepository.findByFullCode(
+                    org.dawn.backend.constant.shared.QcProcessingLocations.QC_SHELF_4_DEAD)
+                    .map(Location::getId).orElse(null);
+        }
+        return null;
+    }
+
+    private ExportReceipt createAutoExport(List<ProductUnit> units, Long userId, ExportReason reason, Long supplierId) {
         var unitsByProduct = units.stream().collect(Collectors.groupingBy(ProductUnit::getProductId));
         var products = productRepository.findAllById(unitsByProduct.keySet()).stream()
                 .collect(Collectors.toMap(Product::getId, p -> p));
@@ -180,5 +203,7 @@ public class DisposeConfirmService {
                 .toStatus(ExportReceiptStatus.COMPLETED.name())
                 .changedBy(userId)
                 .build());
+
+        return receipt;
     }
 }

@@ -20,4 +20,11 @@ public interface ReturnReceiptItemRepository extends JpaRepository<ReturnReceipt
            "WHERE i.returnReceiptId = r.id AND i.productUnitId IN :unitIds AND r.status <> :cancelled")
     boolean existsByProductUnitIdsInNonCancelledReceipts(@Param("unitIds") Collection<Long> unitIds,
                                                           @Param("cancelled") ReturnReceiptStatus cancelled);
+
+    @Query("SELECT COUNT(i) > 0 FROM ReturnReceiptItem i, ReturnReceipt r " +
+           "WHERE i.returnReceiptId = r.id AND r.originalExportReceiptId = :exportReceiptId " +
+           "AND i.productUnitId IS NULL AND i.productId = :productId AND r.status <> :cancelled")
+    boolean existsBulkByExportAndProductInNonCancelled(@Param("exportReceiptId") Long exportReceiptId,
+                                                       @Param("productId") Long productId,
+                                                       @Param("cancelled") ReturnReceiptStatus cancelled);
 }

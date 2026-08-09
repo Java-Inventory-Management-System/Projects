@@ -7,6 +7,7 @@ import org.dawn.backend.controller.inventory.response.PurchaseOrderResponse;
 import org.dawn.backend.controller.inventory.response.ReturnReceiptResponse;
 import org.dawn.backend.controller.inventory.response.StockCheckResponse;
 import org.dawn.backend.controller.inventory.response.BoxResponse;
+import org.dawn.backend.entity.inventory.ExportReceipt;
 import org.dawn.backend.service.inventory.box.BoxService;
 import org.dawn.backend.service.inventory.exports.ExportReceiptService;
 import org.dawn.backend.service.inventory.imports.ImportReceiptService;
@@ -28,6 +29,7 @@ public class ReceiptPrintService {
 
     private final ImportReceiptService importReceiptService;
     private final ExportReceiptService exportReceiptService;
+    private final org.dawn.backend.repository.inventory.exports.ExportReceiptRepository exportReceiptRepository;
     private final ReturnReceiptService returnReceiptService;
     private final PurchaseOrderService purchaseOrderService;
     private final StockCheckService stockCheckService;
@@ -51,8 +53,17 @@ public class ReceiptPrintService {
             Map.entry("EXPIRED", "HẾT HẠN"),
             Map.entry("REJECTED", "TỪ CHỐI"),
             Map.entry("SEALED", "ĐÃ ĐÓNG"),
-            Map.entry("UNSEALED", "ĐÃ MỞ"));
-
+            Map.entry("UNSEALED", "ĐÃ MỞ"),
+            Map.entry("IN_STOCK", "Có hàng"),
+            Map.entry("MISSING", "Thiếu"),
+            Map.entry("UNEXPECTED", "Dư"),
+            Map.entry("GOOD", "Tốt"),
+            Map.entry("DEFECTIVE", "Lỗi"),
+            Map.entry("LOST", "Mất"),
+            Map.entry("DAMAGED_IN_STORAGE", "Hư trong kho"),
+            Map.entry("PENDING_QC", "Chờ kiểm"),
+            Map.entry("DISPOSED", "Đã hủy"),
+            Map.entry("RETURNED_TO_SUPPLIER", "Đã trả NCC"));
     private static final Map<String, String> STATUS_EN = Map.ofEntries(
             Map.entry("DRAFT", "Draft"),
             Map.entry("PENDING", "Pending"),
@@ -202,7 +213,10 @@ public class ReceiptPrintService {
                 + metaRow(l.creator, esc(r.createdByName()))
                 + metaRow(l.approver, esc(r.approvedByName()))
                 + metaRow(l.customer, esc(r.customerName()))
-                + metaRow(l.originExport, esc(r.originalExportReceiptId() == null ? "-" : String.valueOf(r.originalExportReceiptId())))
+                + metaRow(l.originExport, esc(r.originalExportReceiptId() == null ? "-"
+                        : exportReceiptRepository.findById(r.originalExportReceiptId())
+                                .map(ExportReceipt::getReceiptCode)
+                                .orElse(String.valueOf(r.originalExportReceiptId()))))
                 + metaRow(l.reason, esc(r.reason()));
         return page(l, l.returnTitle, r.receiptCode(), status(lang, r.status()), meta,
                 th(l.product, l.serial, l.qty, l.condition, l.resultingAction), rows.toString(),
@@ -243,8 +257,8 @@ public class ReceiptPrintService {
                     num(i++),
                     esc(it.productName()) + sku(it.productSku()),
                     it.serialNumber() == null ? "-" : "<span class=\"mono\">" + esc(it.serialNumber()) + "</span>",
-                    it.expectedStatus() == null ? "-" : esc(it.expectedStatus()),
-                    it.actualStatus() == null ? "-" : esc(it.actualStatus()),
+                    it.expectedStatus() == null ? "-" : val(en ? STATUS_EN : STATUS_VI, it.expectedStatus()),
+                    it.actualStatus() == null ? "-" : val(en ? STATUS_EN : STATUS_VI, it.actualStatus()),
                     val(en ? DIFF_EN : DIFF_VI, it.difference())));
         }
         String summary = "<div class=\"summary\">" + esc(fmtLabel(l.stockCheckSummary, r.totalItems(), r.matchCount(), r.missingCount(), r.unexpectedCount(), r.autoFilledCount())) + "</div>";

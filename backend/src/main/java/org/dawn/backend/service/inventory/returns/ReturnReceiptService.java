@@ -142,9 +142,21 @@ public class ReturnReceiptService {
         var unitIds = request.items().stream()
                 .map(ReturnReceiptRequest.ReturnItemRequest::productUnitId)
                 .filter(Objects::nonNull).filter(id -> id > 0).toList();
+        // Lock the involved units first so two concurrent return requests for the
+        // same unit cannot both pass the duplicate check below (see gap 6.4).
+        if (!unitIds.isEmpty()) {
+            productUnitRepository.findByIdsForUpdate(unitIds);
+        }
         if (!unitIds.isEmpty()
                 && returnReceiptItemRepository.existsByProductUnitIdsInNonCancelledReceipts(unitIds, ReturnReceiptStatus.CANCELLED)) {
             throw new InvalidRequestException(ErrorCode.RETURN_UNIT_ALREADY_RETURNED);
+        }
+        for (var itemReq : request.items()) {
+            if (itemReq.productUnitId() == null && itemReq.productId() != null
+                    && returnReceiptItemRepository.existsBulkByExportAndProductInNonCancelled(
+                            request.originalExportReceiptId(), itemReq.productId(), ReturnReceiptStatus.CANCELLED)) {
+                throw new InvalidRequestException(ErrorCode.RETURN_UNIT_ALREADY_RETURNED);
+            }
         }
 
         ReturnReceipt receipt = ReturnReceipt.builder()
@@ -257,8 +269,12 @@ public class ReturnReceiptService {
                 continue;
             }
             var pu = productUnitRepository.findByIdForUpdate(item.getProductUnitId())
-                    .orElse(null);
-            if (pu == null) continue;
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            ErrorCode.PRODUCT_UNIT_NOT_FOUND, item.getProductUnitId()));
+            if (ProductUnitStatus.EXPORTED != pu.getStatus()) {
+                throw new InvalidRequestException(
+                        ErrorCode.RETURN_UNIT_NOT_SOLD.format(pu.getStatus()));
+            }
 
             ProductUnitStatus oldStatus = pu.getStatus();
             ResultingAction action = ResultingAction.valueOf(item.getResultingAction());

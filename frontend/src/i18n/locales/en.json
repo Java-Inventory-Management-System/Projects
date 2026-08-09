@@ -660,6 +660,8 @@
     "sendWarranty": "Send to Manufacturer ({{count}})",
     "sendWarrantyConfirmTitle": "Confirm send to manufacturer",
     "sendWarrantyConfirmDesc": "Selected units will be sent to the manufacturer. A warranty export receipt is created automatically. This cannot be undone.",
+  "passConfirmTitle": "Confirm QC pass",
+  "passConfirmDesc": "Units will move to a regular shelf and this cannot be undone. Continue?",
     "disposeConfirmTitle": "Confirm disposal",
     "disposeConfirmDesc": "Selected units will be disposed and leave the warehouse. This cannot be undone.",
     "returnSupplier": "Return to Supplier ({{count}})",

@@ -76,8 +76,9 @@ type ReturnItemsAction =
   | { type: "setSerials"; exportItemId: number; units: ExportUnit[] }
   | { type: "removeItem"; key: string }
   | { type: "updateConfig"; key: string; field: keyof ReturnItemConfig; value: string }
-  | { type: "applyConfig"; condition: string; resultingAction: string }
-  | { type: "applyWarranty" }
+| { type: "applyConfig"; condition: string; resultingAction: string }
+| { type: "applyWarranty" }
+| { type: "clearWarranty" }
   | { type: "clear" }
 
 const initialState: ReturnItemsState = { qty: {}, serials: {}, configs: {} }
@@ -143,6 +144,17 @@ function itemsReducer(state: ReturnItemsState, action: ReturnItemsAction): Retur
       }
       return changed ? { ...state, configs } : state
     }
+    case "clearWarranty": {
+      let changed = false
+      const configs = { ...state.configs }
+      for (const [key, cfg] of Object.entries(configs)) {
+        if (cfg.resultingAction === RETURN_RESULTING_ACTION.WARRANTY_TRANSFER) {
+          configs[key] = { ...cfg, resultingAction: RETURN_RESULTING_ACTION.SCRAP }
+          changed = true
+        }
+      }
+      return changed ? { ...state, configs } : state
+    }
     case "clear":
       return initialState
   }
@@ -191,6 +203,7 @@ export const ReturnCreatePage = () => {
 
   useEffect(() => {
     if (isWarrantyClaim) dispatch({ type: "applyWarranty" })
+    else dispatch({ type: "clearWarranty" })
   }, [isWarrantyClaim])
 
   const { data: customersData } = useQuery({

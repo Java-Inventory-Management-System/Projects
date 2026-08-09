@@ -13,6 +13,13 @@ export async function qcPassUnits(unitIds: number[]): Promise<void> {
   await http.post("/qc-processing/qc-pass", { unitIds })
 }
 
-export async function disposeConfirmUnits(unitIds: number[], action: string, supplierId?: number | null): Promise<void> {
-  await http.post("/qc-processing/dispose-confirm", { unitIds, action, supplierId })
+export async function disposeConfirmUnits(
+  unitIds: number[],
+  action: string,
+  supplierId?: number | null,
+): Promise<{ receiptCode: string | null; exportReceiptId: number | null }> {
+  return (await http.post("/qc-processing/dispose-confirm", { unitIds, action, supplierId })) as unknown as {
+    receiptCode: string | null
+    exportReceiptId: number | null
+  }
 }
