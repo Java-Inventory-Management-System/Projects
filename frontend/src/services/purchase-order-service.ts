@@ -21,7 +21,7 @@ export async function getPurchaseOrderById(id: number): Promise<PurchaseOrder> {
 
 export async function getPurchaseOrderPrintHtml(id: number, lang: string): Promise<string> {
   const res = await http.get(`/purchase-order/${id}/print`, { params: { lang }, responseType: "text" })
-  return res as string
+  return res as unknown as string
 }
 
 export async function createPurchaseOrder(data: CreatePurchaseOrderRequest): Promise<PurchaseOrder> {

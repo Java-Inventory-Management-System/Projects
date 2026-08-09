@@ -33,6 +33,7 @@ function mapUser(raw: unknown): UserResponse {
     phoneNumber?: string | null
     isPasswordReset?: boolean
     isDeleted?: boolean
+    lastLogin?: string | null
     createdAt: string
     updatedAt: string
   }
@@ -48,6 +49,7 @@ function mapUser(raw: unknown): UserResponse {
     phoneNumber: r.phoneNumber ?? null,
     isPasswordReset: r.isPasswordReset ?? false,
     isDeleted: r.isDeleted ?? false,
+    lastLogin: r.lastLogin ?? null,
     createdAt: r.createdAt,
     updatedAt: r.updatedAt,
   }

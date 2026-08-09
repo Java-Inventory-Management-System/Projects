@@ -49,6 +49,10 @@
     "saving": "Saving...",
     "activate": "Activate",
     "deactivate": "Deactivate",
+    "activateTitle": "Activate",
+    "deactivateTitle": "Deactivate",
+    "activateConfirm": "Activate \"{{name}}\"?",
+    "deactivateConfirm": "Deactivate \"{{name}}\"? This may immediately affect users and related data.",
     "name": "Name",
     "description": "Description",
     "phone": "Phone",
@@ -158,7 +162,8 @@
     "inProgress": "In Progress",
     "completed": "Completed",
     "approved": "Approved",
-    "cancelled": "Cancelled"
+    "cancelled": "Cancelled",
+    "expired": "Expired"
   },
   "stockUnits": {
     "map": "Warehouse Map"
@@ -240,6 +245,7 @@
     "searchPlaceholder": "Search name or SKU...",
     "brandFilter": "Brand",
     "categoryFilter": "Category",
+    "uncategorized": "Uncategorized",
     "addProduct": "Add Product",
     "emptySearch": "No products found",
     "empty": "No products"
@@ -251,7 +257,9 @@
     "editTitle": "Edit Customer",
     "addTitle": "Add Customer",
     "contactPerson": "Contact Person",
-    "note": "Note"
+    "note": "Note",
+    "deactivateHistoryTitle": "Deactivate customer with transaction history?",
+    "deactivateHistoryConfirm": "Customer \"{{name}}\" has {{count}} export receipts. Past receipts stay intact, but the customer will not be able to create new ones. Continue?"
   },
   "customerSelect": {
     "title": "Select Customer",
@@ -306,7 +314,8 @@
     "cancelled": "Cancelled",
     "rejected": "Rejected",
     "partial": "Partial",
-    "inProgress": "In Progress"
+    "inProgress": "In Progress",
+    "expired": "Expired"
   },
   "exportReason": {
     "sale": "Sale",
@@ -591,6 +600,8 @@
     "expectedDate": "Expected Delivery Date:",
     "cancelSuccess": "Purchase order cancelled",
     "cancel": "Cancel",
+    "cancelTitle": "Cancel Purchase Order",
+    "cancelConfirm": "The order will move to cancelled and can no longer create import receipts. Continue?",
     "createImport": "Create Import Receipt",
     "products": "Products",
     "total": "Total"
@@ -671,7 +682,14 @@
     "supplierPlaceholder": "Auto if empty",
     "returnCustomer": "Return to Customer ({{count}})",
     "returnCustomerConfirmTitle": "Confirm return to customer",
-    "returnCustomerConfirmDesc": "Selected units will be rejected and returned to the customer. This cannot be undone."
+    "returnCustomerConfirmDesc": "Selected units will be rejected and returned to the customer. This cannot be undone.",
+    "toQcHold": "Back to QC hold ({{count}})",
+    "toPendingDisposal": "Move to disposal queue ({{count}})",
+    "qcHoldConfirmTitle": "Confirm back to QC hold",
+    "qcHoldConfirmDesc": "Selected units will move back to the QC area to be re-checked like new returns. This cannot be undone.",
+    "pendingDisposalConfirmTitle": "Confirm move to disposal queue",
+    "pendingDisposalConfirmDesc": "Selected units will join the disposal queue and be processed here (dispose or return to customer). This cannot be undone.",
+    "hintRejected": "Rejected → choose Back to QC hold (re-check) or Move to disposal queue"
   },
   "returnCondition": {
     "good": "Good",
@@ -746,7 +764,9 @@
     "stay": "Stay",
     "leave": "Leave",
     "discard": "Discard",
-    "restore": "Restore"
+    "restore": "Restore",
+    "unsavedTitle": "Unsaved data",
+    "unsavedDesc": "Leaving this page will discard all entered data. Continue?"
   },
   "print": {
     "print": "Print",
@@ -791,6 +811,9 @@
     "reject": "Reject",
     "approveAll": "Approve All",
     "diffSummary": "Differences Found",
+    "zone": "Zone",
+    "box": "Box",
+    "category": "Category",
     "diffMissing": "Missing",
     "diffUnexpected": "Unexpected",
     "diffPartial": "Partial",
@@ -812,9 +835,8 @@
     "rejectConfirm": "Confirm Rejection",
     "completeDialogTitle": "Complete Stock Check",
     "completeDialogAutoFill": "Auto-fill {{count}} unchecked serials?",
-    "completeDialogSimple": "Complete stock check?",
+    "completeDialogAdjustment": "The system will auto-create and auto-approve a stock adjustment for the detected differences, changing quantities immediately.",
     "completeDialogAutoFillBtn": "Auto-fill & Complete",
-    "completeDialogSimpleBtn": "Complete",
     "cancel": "Cancel",
     "cancelConfirmTitle": "Cancel stock check?",
     "cancelConfirmDesc": "The stock check will be cancelled and no adjustments will be created. This cannot be undone.",
@@ -999,6 +1021,9 @@
     "inThisExport": "(belongs to this export)",
     "serialFound": "Found \"{{serial}}\", click \"Select Serial\" to view",
     "findProduct": "Find Product",
+    "addSerial": "Add unit",
+    "serialAdded": "Unit {{serial}} added to receipt",
+    "serialAddError": "Could not add this unit",
     "serialNotInExport": "Serial {{serial}} is not in this export",
     "serialNotFound": "Serial {{serial}} not found",
     "reason": "Return Reason",
@@ -1015,15 +1040,22 @@
     "createError": "An error occurred",
     "serialLoadError": "Failed to load serial list",
     "applyAllSuccess": "Applied to all",
+    "applyAllSkipped": "Applied to {{count}} units; incompatible units skipped (non-defective units cannot be sent for warranty)",
     "serialLookupError": "Serial lookup error",
     "missingSerial": "Please select a serial for \"{{name}}\"",
     "missingEvidence": "Please enter description and evidence image for \"{{name}}\"",
+    "warrantyNotApplied": "Warranty receipt: \"{{name}}\" is not set to send for warranty — only defective units can be sent",
     "descriptionPlaceholder": "Describe the defect / condition…",
     "selectSerialTitle": "Select Serial",
     "noSerialsAvailable": "No serials available",
     "searchSerialPlaceholder": "Search serial...",
     "noSerialMatch": "No matching serials found",
-    "selected": "Selected: {{count}} / {{total}}"
+    "selected": "Selected: {{count}} / {{total}}",
+    "warrantyConfirmTitle": "Switch to warranty send?",
+    "warrantyConfirmDesc": "{{count}} items with a different action will switch to \"send to manufacturer\".",
+    "warrantyEvidenceRequired": "Description and defect photo required",
+    "restoreTitle": "Restore data",
+    "restoreDescription": "You have an unsaved return receipt from a previous session. Restore?"
   },
   "returnDetail": {
     "notFound": "Return receipt not found.",
@@ -1110,6 +1142,7 @@
     "avgPerCategory": "Avg {{count}} items/category",
     "stockValue": "Stock Value",
     "vsLastMonth": "vs last month",
+    "trendNote": "Estimate: current value minus 30-day purchases plus 30-day sales; may drift if stock turns fast",
     "lowStock": "Low Stock",
     "healthy": "Healthy",
     "viewDetails": "View Details",
@@ -1161,6 +1194,9 @@
     "roleDialogTitle": "Change Role",
     "roleDialogDesc": "Select a new role for this user.",
     "roleSave": "Save",
+    "roleConfirmTitle": "Confirm role change",
+    "roleConfirmDesc": "Change {{name}}'s role from {{from}} to {{to}}? Access permissions change immediately.",
+    "roleConfirmAction": "Change role",
     "validateNameEmail": "Please enter full name and email",
     "createSuccessToast": "User created successfully",
     "errorOccurred": "An error occurred",
@@ -1169,6 +1205,11 @@
     "activateSuccess": "User activated",
     "deactivateSuccess": "User deactivated",
     "resetPwdSuccess": "New password: {{password}}",
+    "resetDialogTitle": "New password for {{username}}",
+    "passwordCopied": "Password copied",
+    "copyPassword": "Copy",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password",
     "colFullName": "Full Name",
     "colEmail": "Email",
     "colRole": "Role",
@@ -1246,7 +1287,8 @@
       "minStock": "Min Stock",
       "deficit": "Deficit",
       "empty": "No products are low on stock",
-      "import": "Import"
+      "import": "Import",
+      "exportError": "Failed to export"
     },
     "stockValue": {
       "abcAnalysis": "ABC Analysis — Stock Value",
@@ -1563,6 +1605,7 @@
     "selectScopeType": "Select Scope Type",
     "selectZone": "Select Zone",
     "zone": "Zone",
+    "zonePrefix": "Zone",
     "box": "Box",
     "selectBox": "Select Box"
   },
@@ -1624,6 +1667,9 @@
     "sealed": "Sealed",
     "unsealed": "Unsealed",
     "unseal": "Unseal",
+    "unsealTitle": "Unseal Box",
+    "unsealConfirm": "Unsealing returns the units to stock. If the actual count differs from the sealed count, you will need a stock check.",
+    "unsealing": "Unsealing...",
     "move": "Move",
     "moveTitle": "Move box",
     "moving": "Moving...",

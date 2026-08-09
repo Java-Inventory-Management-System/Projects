@@ -27,7 +27,7 @@ export function clearDraft(path: string) {
   localStorage.removeItem(getDraftKey(path))
 }
 
-export function useFormDraft<T extends Record<string, unknown>>(
+export function useFormDraft<T extends object>(
   path: string,
   state: T,
   isDirty: boolean,

@@ -68,6 +68,7 @@ export const StockCheckDetailPage = () => {
     COMPLETED: { label: t("status.completed"), variant: "default" },
     APPROVED: { label: t("status.approved"), variant: "default" },
     CANCELLED: { label: t("status.cancelled"), variant: "destructive" },
+EXPIRED: { label: t("status.expired"), variant: "outline" },
   }
   const navigate = useNavigate()
   const qc = useQueryClient()
@@ -645,7 +646,7 @@ if (i.trackingType === TRACKING_TYPE.BULK) return { ...i, actualStatus: i.expect
 interface SealUnitDialogProps {
   unitId: number
   unitCode: string
-  onSeal: (data: { unitIds: number[]; locationId: number | null; note?: string }) => void
+  onSeal: (data: { unitIds: number[]; locationId: number; note?: string }) => void
   pending: boolean
 }
 
@@ -672,8 +673,8 @@ function SealUnitDialog({ unitId, unitCode, onSeal, pending }: SealUnitDialogPro
       </div>
       <DialogFooter>
         <Button
-          onClick={() => onSeal({ unitIds: [unitId], locationId: locationId ? Number(locationId) : null, note: note || undefined })}
-          disabled={pending}
+          onClick={() => onSeal({ unitIds: [unitId], locationId: Number(locationId), note: note || undefined })}
+          disabled={pending || !locationId}
         >
           {t("box.seal")}
         </Button>

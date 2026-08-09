@@ -6,7 +6,7 @@ export async function getQcUnits(statuses: ProductUnitStatus[]): Promise<QcUnit[
   const res = await http.get("/qc-processing", {
     params: statuses.length ? { statuses: statuses.join(",") } : {},
   })
-  return (res as unknown[]).map(mapQcUnit)
+  return (res as unknown as unknown[]).map(mapQcUnit)
 }
 
 export async function qcPassUnits(unitIds: number[]): Promise<void> {

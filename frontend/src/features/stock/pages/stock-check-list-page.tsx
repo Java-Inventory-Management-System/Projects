@@ -30,6 +30,7 @@ export const StockCheckListPage = () => {
     COMPLETED: { label: t("stockCheckList.completed"), variant: "default" },
     APPROVED: { label: t("stockCheckList.approved"), variant: "default" },
     CANCELLED: { label: t("stockCheckList.cancelled"), variant: "destructive" },
+    EXPIRED: { label: t("stockCheckList.expired"), variant: "outline" },
   }
 
   const statusOptions = [
@@ -39,6 +40,7 @@ export const StockCheckListPage = () => {
     { value: STOCK_CHECK_STATUS.COMPLETED, label: t("stockCheckList.completed") },
     { value: STOCK_CHECK_STATUS.APPROVED, label: t("stockCheckList.approved") },
     { value: STOCK_CHECK_STATUS.CANCELLED, label: t("stockCheckList.cancelled") },
+    { value: STOCK_CHECK_STATUS.EXPIRED, label: t("stockCheckList.expired") },
   ]
 
   const handleSort = useCallback((key: string) => {

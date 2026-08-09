@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next"
+import type { TFunction } from "i18next"
 import { useNavigate } from "react-router-dom"
 import { EXPORT_RECEIPT_STATUS, type ExportReceipt } from "@/utils/types"
 import { usePermission } from "@/hooks/use-permission"
@@ -9,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Eye, ArrowRightFromLine } from "lucide-react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
-const getStatusLabel = (status: string, t: (k: string) => string): { label: string; variant: "default" | "secondary" | "outline" | "destructive" } => {
+const getStatusLabel = (status: string, t: TFunction): { label: string; variant: "default" | "secondary" | "outline" | "destructive" } => {
   const map: Record<string, "outline" | "secondary" | "default" | "destructive"> = {
     PENDING: "outline", APPROVED: "secondary", COMPLETED: "default", CANCELLED: "destructive",
   }
@@ -33,7 +34,7 @@ export const ViewExportModal = ({
   const s = getStatusLabel(receipt.status, t)
   const canFulfill =
     (receipt.status === EXPORT_RECEIPT_STATUS.PENDING || receipt.status === EXPORT_RECEIPT_STATUS.APPROVED) &&
-    perm.hasRole("STOCK", "MANAGER", "ADMIN")
+    perm.hasRole("STOCK", "MANAGER")
   const reasonLabel: Record<string, string> = {
     SALE: t("exportReason.sale"),
     INTERNAL: t("exportReason.internal"),

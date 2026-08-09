@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next"
+import type { TFunction } from "i18next"
 import type { ImportReceipt } from "@/utils/types"
 import { IMPORT_RECEIPT_STATUS } from "@/utils/types"
 import { useNavigate } from "react-router-dom"
@@ -8,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { ScanLine, Eye } from "lucide-react"
 
-const getStatusLabel = (status: string, t: (k: string) => string): { label: string; variant: "default" | "secondary" | "outline" | "destructive" } => {
+const getStatusLabel = (status: string, t: TFunction): { label: string; variant: "default" | "secondary" | "outline" | "destructive" } => {
   const keyMap: Record<string, string> = {
     [IMPORT_RECEIPT_STATUS.DRAFT]: "draft", [IMPORT_RECEIPT_STATUS.PENDING_APPROVAL]: "pendingApproval", [IMPORT_RECEIPT_STATUS.COMPLETED]: "completed", [IMPORT_RECEIPT_STATUS.CANCELLED]: "cancelled",
   }
@@ -110,7 +111,7 @@ export const ViewImportModal = ({
           </div>
           <div className="flex justify-between items-center text-sm">
             <span className="text-muted-foreground">
-              {t("viewImportModal.totalUnits", { count: receipt.items.reduce((sum, i) => sum + i.createdUnits, 0) })}
+              {t("viewImportModal.totalUnits", { count: receipt.items.reduce((sum: number, i) => sum + i.createdUnits, 0) })}
             </span>
             <span className="text-lg font-semibold">{t("viewImportModal.total")}: {(receipt.totalAmount ?? 0).toLocaleString("vi-VN")}₫</span>
           </div>

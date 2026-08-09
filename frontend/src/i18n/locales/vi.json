@@ -50,6 +50,10 @@
     "saving": "Đang lưu...",
     "activate": "Kích hoạt",
     "deactivate": "Vô hiệu hoá",
+    "activateTitle": "Kích hoạt",
+    "deactivateTitle": "Vô hiệu hoá",
+    "activateConfirm": "Kích hoạt \"{{name}}\"?",
+    "deactivateConfirm": "Vô hiệu hoá \"{{name}}\"? Thao tác này có thể ảnh hưởng ngay đến người dùng và dữ liệu liên quan.",
     "name": "Tên",
     "description": "Mô tả",
     "phone": "SĐT",
@@ -165,7 +169,8 @@
       "minStock": "Tồn tối thiểu",
       "deficit": "Thiếu",
       "empty": "Không có sản phẩm nào sắp hết hàng",
-      "import": "Nhập"
+      "import": "Nhập",
+      "exportError": "Không thể xuất file"
     },
     "stockValue": {
       "abcAnalysis": "Phân tích ABC — Giá trị tồn",
@@ -281,7 +286,8 @@
     "inProgress": "Đang kiểm",
     "completed": "Đã hoàn tất",
     "approved": "Đã duyệt",
-    "cancelled": "Đã hủy"
+    "cancelled": "Đã hủy",
+    "expired": "Quá hạn"
   },
   "stockUnits": {
     "map": "Bản đồ kho"
@@ -363,6 +369,7 @@
     "searchPlaceholder": "Tìm tên hoặc SKU...",
     "brandFilter": "Thương hiệu",
     "categoryFilter": "Danh mục",
+    "uncategorized": "Chưa phân loại",
     "addProduct": "Thêm sản phẩm",
     "emptySearch": "Không tìm thấy sản phẩm nào",
     "empty": "Không có sản phẩm nào"
@@ -374,7 +381,9 @@
     "editTitle": "Sửa khách hàng",
     "addTitle": "Thêm khách hàng",
     "contactPerson": "Người liên hệ",
-    "note": "Ghi chú"
+    "note": "Ghi chú",
+    "deactivateHistoryTitle": "Vô hiệu hóa khách hàng có lịch sử giao dịch?",
+    "deactivateHistoryConfirm": "Khách hàng \"{{name}}\" đã có {{count}} phiếu xuất. Phiếu cũ vẫn giữ nguyên, nhưng khách sẽ không thể lập phiếu mới. Tiếp tục?"
   },
   "customerSelect": {
     "title": "Chọn khách hàng",
@@ -429,7 +438,8 @@
     "cancelled": "Đã hủy",
     "rejected": "Từ chối",
     "partial": "Giao một phần",
-    "inProgress": "Đang kiểm"
+    "inProgress": "Đang kiểm",
+    "expired": "Quá hạn"
   },
   "exportReason": {
     "sale": "Bán hàng",
@@ -714,6 +724,8 @@
     "expectedDate": "Ngày giao dự kiến:",
     "cancelSuccess": "Đã hủy đơn hàng",
     "cancel": "Hủy",
+    "cancelTitle": "Hủy đơn hàng",
+    "cancelConfirm": "Đơn hàng sẽ chuyển sang trạng thái đã hủy và không thể tạo phiếu nhập từ nó. Tiếp tục?",
     "createImport": "Tạo phiếu nhập",
     "products": "Sản phẩm",
     "total": "Tổng"
@@ -795,7 +807,14 @@
     "disposeExportCreated": "Đã xử lý xong — tạo phiếu xuất {{code}}",
     "returnCustomer": "Trả lại khách ({{count}})",
     "returnCustomerConfirmTitle": "Xác nhận trả lại khách",
-    "returnCustomerConfirmDesc": "Các đơn vị được chọn sẽ bị từ chối nhận trả và trả lại cho khách hàng. Hành động này không thể hoàn tác."
+    "returnCustomerConfirmDesc": "Các đơn vị được chọn sẽ bị từ chối nhận trả và trả lại cho khách hàng. Hành động này không thể hoàn tác.",
+    "toQcHold": "Đưa về khu QC ({{count}})",
+    "toPendingDisposal": "Chuyển chờ hủy ({{count}})",
+    "qcHoldConfirmTitle": "Xác nhận đưa về khu QC",
+    "qcHoldConfirmDesc": "Các đơn vị được chọn sẽ chuyển về khu QC để kiểm lại như hàng trả mới. Hành động này không thể hoàn tác.",
+    "pendingDisposalConfirmTitle": "Xác nhận chuyển chờ hủy",
+    "pendingDisposalConfirmDesc": "Các đơn vị được chọn sẽ vào hàng đợi chờ hủy và tiếp tục xử lý ở tab này (hủy hoặc trả lại khách). Hành động này không thể hoàn tác.",
+    "hintRejected": "Bị trả lại → chọn Đưa về khu QC (kiểm lại) hoặc Chuyển chờ hủy"
   },
   "returnCondition": {
     "good": "Còn nguyên",
@@ -864,13 +883,16 @@
     "reject": "Từ chối",
     "rejectTitle": "Từ chối phiếu",
     "no": "Không",
+    "restore": "Khôi phục",
     "processing": "Đang xử lý...",
     "confirm": "Xác nhận",
     "back": "Quay lại",
     "stay": "Ở lại",
     "leave": "Rời khỏi",
     "discard": "Bỏ qua",
-    "restore": "Khôi phục"
+    "restore": "Khôi phục",
+    "unsavedTitle": "Dữ liệu chưa được lưu",
+    "unsavedDesc": "Rời trang sẽ mất toàn bộ dữ liệu đã nhập. Tiếp tục?"
   },
   "print": {
     "print": "In phiếu",
@@ -915,6 +937,9 @@
     "reject": "Từ chối",
     "approveAll": "Duyệt toàn bộ",
     "diffSummary": "Chênh lệch phát hiện",
+    "zone": "Khu",
+    "box": "Hộp",
+    "category": "Danh mục",
     "diffMissing": "Thiếu",
     "diffUnexpected": "Bất thường",
     "diffPartial": "Thiếu một phần",
@@ -936,9 +961,8 @@
     "rejectConfirm": "Xác nhận từ chối",
     "completeDialogTitle": "Hoàn tất kiểm kê",
     "completeDialogAutoFill": "Tự động điền {{count}} serial chưa kiểm?",
-    "completeDialogSimple": "Hoàn tất kiểm kê?",
+    "completeDialogAdjustment": "Hệ thống sẽ tự động tạo phiếu điều chỉnh tồn kho theo chênh lệch phát hiện và tự duyệt, thay đổi số lượng hàng ngay lập tức.",
     "completeDialogAutoFillBtn": "Tự động điền & Hoàn tất",
-    "completeDialogSimpleBtn": "Hoàn tất",
     "cancel": "Hủy phiếu",
     "cancelConfirmTitle": "Hủy phiếu kiểm kho?",
     "cancelConfirmDesc": "Phiếu kiểm kho sẽ bị hủy và không tạo điều chỉnh nào. Hành động này không thể hoàn tác.",
@@ -1123,6 +1147,9 @@
     "inThisExport": "(thuộc đơn xuất này)",
     "serialFound": "Đã tìm thấy \"{{serial}}\", bấm \"Chọn serial\" để xem",
     "findProduct": "Tìm SP",
+    "addSerial": "Thêm máy",
+    "serialAdded": "Đã thêm máy {{serial}} vào phiếu",
+    "serialAddError": "Không thêm được máy này",
     "serialNotInExport": "Serial {{serial}} không thuộc đơn xuất này",
     "serialNotFound": "Không tìm thấy serial {{serial}}",
     "reason": "Lý do trả",
@@ -1139,15 +1166,22 @@
     "createError": "Có lỗi xảy ra",
     "serialLoadError": "Lỗi tải danh sách serial",
     "applyAllSuccess": "Đã áp dụng cho tất cả",
+    "applyAllSkipped": "Đã áp cho {{count}} máy; bỏ qua các máy không phù hợp (máy không hư hỏng không thể gửi bảo hành)",
     "serialLookupError": "Lỗi tra cứu serial",
     "missingSerial": "Vui lòng chọn serial cho \"{{name}}\"",
     "missingEvidence": "Vui lòng nhập mô tả và ảnh minh chứng cho \"{{name}}\"",
+    "warrantyNotApplied": "Phiếu bảo hành: \"{{name}}\" chưa được gửi bảo hành — chỉ máy hư hỏng mới gửi bảo hành được",
     "descriptionPlaceholder": "Mô tả lỗi / tình trạng sản phẩm…",
     "selectSerialTitle": "Chọn serial",
     "noSerialsAvailable": "Không có serial khả dụng",
     "searchSerialPlaceholder": "Tìm serial...",
     "noSerialMatch": "Không tìm thấy serial phù hợp",
-    "selected": "Đã chọn: {{count}} / {{total}}"
+    "selected": "Đã chọn: {{count}} / {{total}}",
+    "warrantyConfirmTitle": "Chuyển sang gửi bảo hành?",
+    "warrantyConfirmDesc": "{{count}} máy đang chọn hướng xử lý khác sẽ chuyển sang \"gửi bảo hành\".",
+    "warrantyEvidenceRequired": "Bắt buộc kèm mô tả + ảnh chụp lỗi",
+    "restoreTitle": "Khôi phục dữ liệu",
+    "restoreDescription": "Bạn có phiếu trả hàng chưa lưu từ lần trước. Muốn khôi phục?"
   },
   "returnDetail": {
     "notFound": "Không tìm thấy phiếu trả hàng.",
@@ -1234,6 +1268,7 @@
     "avgPerCategory": "TB {{count}} SP/danh mục",
     "stockValue": "Giá trị tồn",
     "vsLastMonth": "so với tháng trước",
+    "trendNote": "Ước tính: giá trị hiện tại trừ chi phí mua vào + doanh thu bán ra 30 ngày gần nhất; có thể sai lệch nếu kho xoay vòng nhanh",
     "lowStock": "Sắp hết",
     "healthy": "Tốt",
     "viewDetails": "Xem chi tiết",
@@ -1285,6 +1320,9 @@
     "roleDialogTitle": "Đổi vai trò",
     "roleDialogDesc": "Chọn vai trò mới cho người dùng.",
     "roleSave": "Lưu",
+    "roleConfirmTitle": "Xác nhận đổi vai trò",
+    "roleConfirmDesc": "Đổi vai trò của {{name}} từ {{from}} thành {{to}}? Quyền truy cập thay đổi ngay lập tức.",
+    "roleConfirmAction": "Đổi vai trò",
     "validateNameEmail": "Vui lòng nhập họ tên và email",
     "createSuccessToast": "Tạo người dùng thành công",
     "errorOccurred": "Có lỗi xảy ra",
@@ -1293,6 +1331,11 @@
     "activateSuccess": "Đã kích hoạt người dùng",
     "deactivateSuccess": "Đã vô hiệu hóa người dùng",
     "resetPwdSuccess": "Mật khẩu mới: {{password}}",
+    "resetDialogTitle": "Mật khẩu mới cho {{username}}",
+    "passwordCopied": "Đã sao chép mật khẩu",
+    "copyPassword": "Sao chép",
+    "showPassword": "Hiện mật khẩu",
+    "hidePassword": "Ẩn mật khẩu",
     "colFullName": "Họ tên",
     "colEmail": "Email",
     "colRole": "Vai trò",
@@ -1565,6 +1608,7 @@
     "selectScopeType": "Chọn loại phạm vi",
     "selectZone": "Chọn khu vực",
     "zone": "Khu vực",
+    "zonePrefix": "Khu",
     "box": "Hộp",
     "selectBox": "Chọn hộp"
   },
@@ -1594,6 +1638,9 @@
     "sealed": "Đã đóng",
     "unsealed": "Đã mở",
     "unseal": "Mở hộp",
+    "unsealTitle": "Mở hộp",
+    "unsealConfirm": "Mở hộp sẽ trả các đơn vị hàng về vị trí kho. Nếu số lượng thực tế khác số lượng đóng hộp, bạn cần tạo phiếu kiểm kho.",
+    "unsealing": "Đang mở hộp...",
     "move": "Di chuyển",
     "moveTitle": "Di chuyển hộp",
     "moving": "Đang di chuyển...",

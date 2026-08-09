@@ -225,15 +225,13 @@ export interface ProductUnit {
 }
 
 export type ProductUnitStatus =
+  | "PENDING_QC"
   | "IN_STOCK"
   | "SOLD"
   | "RESERVED"
-  | "QUARANTINED"
+  | "EXPORTED"
   | "RETURNED"
   | "DISPOSED"
-  | "WARRANTY"
-  | "WARRANTY_DONE"
-  | "WARRANTY_REPLACED"
   | "DEFECTIVE"
   | "DAMAGED_IN_STORAGE"
   | "LOST"
@@ -295,7 +293,7 @@ export interface DiscrepancyNote {
   reportedAt: string
 }
 
-export type ImportReceiptStatus = "DRAFT" | "PENDING" | "PENDING_APPROVAL" | "COMPLETED" | "CANCELLED"
+export type ImportReceiptStatus = "DRAFT" | "PENDING_APPROVAL" | "COMPLETED" | "CANCELLED"
 
 export interface ImportReceiptItem {
   id: number
@@ -316,7 +314,7 @@ export interface ImportReceiptItem {
 
 // ============ Purchase Order ============
 
-export type PurchaseOrderStatus = "DRAFT" | "PARTIAL" | "COMPLETED" | "CANCELLED"
+export type PurchaseOrderStatus = "OPEN" | "PARTIAL" | "COMPLETED" | "CANCELLED"
 
 export interface PurchaseOrderItem {
   id: number
@@ -402,7 +400,7 @@ export interface ExportReceiptItem {
 
 // ============ Stock Check ============
 
-export type StockCheckStatus = "PENDING" | "IN_PROGRESS" | "COMPLETED" | "APPROVED" | "CANCELLED"
+export type StockCheckStatus = "PENDING" | "IN_PROGRESS" | "COMPLETED" | "APPROVED" | "CANCELLED" | "EXPIRED"
 export type StockCheckScopeType = "ZONE" | "CATEGORY" | "BOX"
 export type DifferenceType = "MATCH" | "MISSING" | "UNEXPECTED" | "PARTIAL_SHORTAGE"
 
@@ -801,6 +799,7 @@ export const STOCK_CHECK_STATUS = {
   COMPLETED: "COMPLETED",
   APPROVED: "APPROVED",
   CANCELLED: "CANCELLED",
+  EXPIRED: "EXPIRED",
 } as const
 
 export const ADJUSTMENT_STATUS = {
@@ -815,9 +814,9 @@ export const PRODUCT_UNIT_STATUS = {
   PENDING_QC: "PENDING_QC",
   SOLD: "SOLD",
   RESERVED: "RESERVED",
-  QUARANTINED: "QUARANTINED",
   RETURNED: "RETURNED",
   DISPOSED: "DISPOSED",
+  EXPORTED: "EXPORTED",
   DEFECTIVE: "DEFECTIVE",
   DAMAGED_IN_STORAGE: "DAMAGED_IN_STORAGE",
   LOST: "LOST",
@@ -940,6 +939,8 @@ export const RETURN_REASON = {
   WRONG_ITEM: "WRONG_ITEM",
   WARRANTY_CLAIM: "WARRANTY_CLAIM",
 } as const
+
+export type ReturnReason = (typeof RETURN_REASON)[keyof typeof RETURN_REASON]
 
 export const RETURN_ITEM_CONDITION = {
   GOOD: "GOOD",

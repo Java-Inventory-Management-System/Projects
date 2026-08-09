@@ -75,6 +75,7 @@ export function LocationsMapPage() {
     zoomedZone,
     zoomedShelfData,
     dragSource,
+    setDragSource,
     handleDragStart,
     handleDrop,
     relocateTarget,
@@ -222,7 +223,7 @@ export function LocationsMapPage() {
         ))}
       </div>
 
-      {zoomStage !== "idle" && zoomedShelfData ? (
+      {zoomStage !== "idle" && zoomedShelfData && zoomedShelf ? (
         <div className="space-y-3">
           <Button variant="ghost" size="sm" onClick={() => openZoom(null)}>
             <ArrowLeft className="size-3.5 mr-1" /> {t("locMap.backToOverview")}
@@ -428,7 +429,7 @@ export function LocationsMapPage() {
                 <h2 className="text-base font-semibold">{t("locMap.zoneLabel", { code: zoomedZone.zoneCode })}</h2>
               </div>
               <span className="text-xs text-muted-foreground tabular-nums">
-                {t("locMap.binCount", { count: zoomedZone.shelves.reduce((s, sh) => s + sh.bins.length, 0) })}
+                {t("locMap.binCount", { count: zoomedZone.shelves.reduce((s: number, sh) => s + sh.bins.length, 0) })}
               </span>
             </div>
             <div className="grid gap-4 grid-cols-2 lg:grid-cols-3">

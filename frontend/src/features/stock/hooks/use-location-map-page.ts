@@ -232,6 +232,10 @@ export function useLocationMapPage() {
       productCount: 0,
       maxCapacity: null,
       productSkuList: [],
+      boxCount: 0,
+      boxCodes: [],
+      products: [],
+      isActive: true,
     }
     patchZones((prev) => ({ ...prev, zones: [...prev.zones, { zoneCode, shelves: [{ shelfCode, bins: [newBin] }] }] }))
     createLocation({ zoneCode, shelfCode, binCode })
@@ -307,6 +311,10 @@ export function useLocationMapPage() {
       productCount: 0,
       maxCapacity: null,
       productSkuList: [],
+      boxCount: 0,
+      boxCodes: [],
+      products: [],
+      isActive: true,
     }
     patchZones((prev) => ({
       ...prev,
@@ -366,6 +374,10 @@ export function useLocationMapPage() {
       productCount: 0,
       maxCapacity: null,
       productSkuList: [],
+      boxCount: 0,
+      boxCodes: [],
+      products: [],
+      isActive: true,
     }
     patchZones((prev) => ({
       ...prev,
@@ -529,6 +541,7 @@ export function useLocationMapPage() {
     zoomedZone,
     zoomedShelfData,
     dragSource,
+    setDragSource,
     handleDragStart,
     handleDrop,
     relocateTarget,

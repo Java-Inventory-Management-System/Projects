@@ -79,7 +79,7 @@ export const ProductsPage = () => {
     {
       header: t("productForm.unit"),
       className: "w-[70px]",
-      render: (p) => <span>{t(UNIT_LABELS[p.unit] ?? p.unit)}</span>,
+      render: (p) => <span>{p.unit ? t(UNIT_LABELS[p.unit] ?? p.unit) : "—"}</span>,
     },
     {
       header: t("productForm.trackingType"),

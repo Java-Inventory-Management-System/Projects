@@ -30,6 +30,7 @@ import {
   EXPORT_RECEIPT_STATUS,
   RETURN_REASON,
   RETURN_ITEM_CONDITION,
+  type ReturnReason,
   RETURN_RESULTING_ACTION,
   TRACKING_TYPE,
 } from "@/utils/types"
@@ -196,7 +197,7 @@ export const ReturnCreatePage = () => {
   } | null>(null)
   const [searchSerialLoading, setSearchSerialLoading] = useState(false)
 
-  const form = useForm({ defaultValues: { reason: RETURN_REASON.DEFECTIVE, note: "" } })
+  const form = useForm<{ reason: ReturnReason; note: string }>({ defaultValues: { reason: RETURN_REASON.DEFECTIVE, note: "" } })
   const watchedReason = form.watch("reason")
 
   const isWarrantyClaim = watchedReason === RETURN_REASON.WARRANTY_CLAIM
@@ -946,7 +947,7 @@ export const ReturnCreatePage = () => {
                                   RETURN_RESULTING_ACTION.REJECT,
                                   RETURN_RESULTING_ACTION.WARRANTY_TRANSFER,
                                 ]
-                        if (!newValidActions.includes(item.resultingAction)) {
+                        if (!(newValidActions as string[]).includes(item.resultingAction)) {
                           updateItemConfig(item.key, "resultingAction", newValidActions[0])
                         }
                       }}

@@ -33,7 +33,6 @@ test.describe("Export Flow (Xuất kho) — SOP §3", () => {
     expect(createRes.ok()).toBeTruthy()
     const exportData = (await createRes.json()).data
     const exportId: number = exportData.id
-    const exportItemId: number = exportData.items[0].id
 
     // Get serial for the unit to fulfill
     const units = (await stock.request.get(`${API_URL}/import-receipt/${importReceiptId}/units`, {

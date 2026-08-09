@@ -42,7 +42,7 @@ export const ViewProductModal = ({
             </div>
             <div>
               <span className="text-muted-foreground">{t("productView.unit")}</span>
-              <p>{t(UNIT_LABELS[product.unit] ?? product.unit)}</p>
+              <p>{product.unit ? t(UNIT_LABELS[product.unit] ?? product.unit) : "—"}</p>
             </div>
             <div>
               <span className="text-muted-foreground">{t("productView.tracking")}</span>

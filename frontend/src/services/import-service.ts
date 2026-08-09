@@ -4,7 +4,7 @@ import { mapResponsePage, mapImportReceipt, mapProductUnit } from "@/utils/mappe
 
 export async function getImportReceiptUnits(receiptId: number): Promise<ProductUnit[]> {
   const res = await http.get(`/import-receipt/${receiptId}/units`)
-  return (res as unknown[]).map(mapProductUnit)
+  return (res as unknown as unknown[]).map(mapProductUnit)
 }
 
 export async function getImportReceipts(
@@ -26,7 +26,7 @@ export async function getImportReceiptById(id: number): Promise<ImportReceipt> {
 
 export async function getImportPrintHtml(id: number, lang: string): Promise<string> {
   const res = await http.get(`/import-receipt/${id}/print`, { params: { lang }, responseType: "text" })
-  return res as string
+  return res as unknown as string
 }
 
 export async function createImportReceipt(data: {

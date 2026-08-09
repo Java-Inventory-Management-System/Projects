@@ -17,7 +17,7 @@ export async function getReturnReceipts(
 
 export async function getReturnPrintHtml(id: number, lang: string): Promise<string> {
   const res = await http.get(`/return-receipts/${id}/print`, { params: { lang }, responseType: "text" })
-  return res as string
+  return res as unknown as string
 }
 
 export async function getReturnReceiptById(id: number): Promise<ReturnReceipt> {
@@ -31,7 +31,7 @@ export async function createReturnReceipt(data: {
   reason: string
   note?: string
   items: Array<{
-    productUnitId: number
+    productUnitId: number | null
     productId: number
     quantity: number
     condition: string

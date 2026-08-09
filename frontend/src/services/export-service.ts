@@ -22,13 +22,15 @@ export async function getExportReceiptById(id: number): Promise<ExportReceipt> {
 
 export async function getExportPrintHtml(id: number, lang: string): Promise<string> {
   const res = await http.get(`/export-receipt/${id}/print`, { params: { lang }, responseType: "text" })
-  return res as string
+  return res as unknown as string
 }
 
 export async function createExportReceipt(data: {
   reason: string
   customerId?: number | null
+  supplierId?: number | null
   note?: string | null
+  externalReference?: string | null
   items: Array<{
     productId: number
     quantity: number
@@ -70,5 +72,5 @@ export interface ExportUnit {
 
 export async function getExportUnits(id: number, productId?: number): Promise<ExportUnit[]> {
   const res = await http.get(`/export-receipt/${id}/units`, { params: { productId } })
-  return res as ExportUnit[]
+  return res as unknown as ExportUnit[]
 }

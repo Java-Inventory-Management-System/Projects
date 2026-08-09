@@ -109,7 +109,7 @@ export function StockOverviewTab() {
                   <p className="truncate text-muted-foreground">{receipt.supplierName}</p>
                   <p className="text-[10px] text-muted-foreground">
                     {t("overview.items", { count: receipt.items.length })} &middot;{" "}
-                    {t("overview.qty", { count: receipt.items.reduce((s, i) => s + i.quantity, 0) })}
+                    {t("overview.qty", { count: receipt.items.reduce((s: number, i) => s + i.quantity, 0) })}
                   </p>
                 </div>
               ))}
@@ -139,7 +139,7 @@ export function StockOverviewTab() {
                   </p>
                   <p className="text-[10px] text-muted-foreground">
                     {t("overview.items", { count: receipt.items.length })} &middot;{" "}
-                    {t("overview.qty", { count: receipt.items.reduce((s, i) => s + i.quantity, 0) })}
+                    {t("overview.qty", { count: receipt.items.reduce((s: number, i) => s + i.quantity, 0) })}
                   </p>
                 </div>
               ))}

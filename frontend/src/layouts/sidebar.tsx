@@ -43,7 +43,7 @@ export function Sidebar({ collapsed, onNavigate }: SidebarProps) {
     ? []
     : !AUTH_ENABLED
       ? navSections
-      : navSections.map((s) => ({ ...s, items: filterNavItems(s.items, user.role) })).filter((s) => s.items.length > 0)
+      : navSections.map((s) => ({ ...s, items: filterNavItems(s.items, user!.role) })).filter((s) => s.items.length > 0)
 
   const badgeCount: Record<string, number> = {}
   if (importPending && importPending > 0) badgeCount["/stock/imports"] = importPending

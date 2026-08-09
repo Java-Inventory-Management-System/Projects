@@ -118,19 +118,19 @@ interface TreemapContentProps {
 }
 
 const CustomTreemapContent = (props: TreemapContentProps) => {
-  const { x, y, width, height, name, value, colors, index } = props
+  const { x = 0, y = 0, width = 0, height = 0, name, value, colors = [], index = 0 } = props
   if (width < 20 || height < 20) return null
   const fontSize = width < 80 ? 9 : width < 140 ? 10 : 11
   return (
     <g>
-      <rect x={x} y={y} width={width} height={height} fill={colors[index % colors.length]} stroke="var(--background)" strokeWidth={1} />
+      <rect x={x} y={y} width={width} height={height} fill={colors.length ? colors[index % colors.length] : undefined} stroke="var(--background)" strokeWidth={1} />
       {width > 40 && height > 30 && (
         <>
           <text x={x + 4} y={y + 14} className="fill-white dark:fill-[oklch(0.15_0.01_210)]" fontSize={fontSize} fontWeight={600}>
             {name}
           </text>
           <text x={x + 4} y={y + 28} className="fill-white/80 dark:fill-[oklch(0.15_0.01_210)]" fontSize={fontSize - 1}>
-            {formatCompactVND(value)}
+            {formatCompactVND(value ?? 0)}
           </text>
         </>
       )}
@@ -151,7 +151,7 @@ export function SummaryTab({ onNavigate }: SummaryTabProps) {
 
   const handleTreemapClick = useCallback(
     (node: TreemapContentProps) => {
-      if (node?.depth >= 0) onNavigate?.("category")
+      if ((node.depth ?? -1) >= 0) onNavigate?.("category")
     },
     [onNavigate],
   )

@@ -40,7 +40,7 @@ const ALL_TABS = [
 
 type TabKey = (typeof ALL_TABS)[number]["key"]
 
-type TabProps = { onNavigate?: (tab: TabKey) => void }
+type TabProps = { onNavigate?: (tab: string) => void }
 
 const TAB_COMPONENTS: Record<TabKey, React.LazyExoticComponent<(p: TabProps) => React.JSX.Element>> = {
   summary: SummaryTab,
@@ -60,7 +60,7 @@ export const DashboardPage = () => {
   const tab = (searchParams.get("tab") as TabKey | null) ?? "summary"
   const safeTab = visibleTabs.some((t) => t.key === tab) ? tab : (visibleTabs[0]?.key ?? "summary")
   const TabComponent = TAB_COMPONENTS[safeTab]
-  const selectTab = (key: TabKey) => setSearchParams((prev) => {
+  const selectTab = (key: string) => setSearchParams((prev) => {
     const next = new URLSearchParams(prev)
     next.set("tab", key)
     return next

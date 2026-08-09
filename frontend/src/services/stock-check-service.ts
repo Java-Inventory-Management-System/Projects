@@ -27,7 +27,7 @@ export async function getStockCheckById(id: number): Promise<StockCheck> {
 
 export async function getStockCheckPrintHtml(id: number, lang: string): Promise<string> {
   const res = await http.get(`/stock-check/${id}/print`, { params: { lang }, responseType: "text" })
-  return res as string
+  return res as unknown as string
 }
 
 export async function createStockCheck(data: { scopeType: StockCheckScopeType; scopeId: number; note?: string }): Promise<StockCheck> {

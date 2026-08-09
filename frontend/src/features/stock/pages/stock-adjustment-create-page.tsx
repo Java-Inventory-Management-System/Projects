@@ -84,7 +84,7 @@ export const StockAdjustmentCreatePage = () => {
 
   const batch = useSyncExternalStore(backgroundBatch.subscribe, backgroundBatch.getSnapshot)
 
-  const foundMode = watchedType === ADJUSTMENT_TYPE.FOUND ? (rawFoundMode ?? "existing") : null
+
 
   const form = useForm<AdjustmentForm>({
     defaultValues: { type: "", selectedUnitId: null, selectedProductId: null, quantity: 1, foundSerialNumber: "", foundLocationId: "", reason: initialReason, imageUrl: "" },
@@ -92,7 +92,9 @@ export const StockAdjustmentCreatePage = () => {
   const { formState } = form
   const formValues = form.getValues()
   const watchedType = form.watch("type")
+
   const watchedReason = form.watch("reason")
+  const foundMode = watchedType === ADJUSTMENT_TYPE.FOUND ? (rawFoundMode ?? "existing") : null
 
   const draftState = useMemo(() => ({ type: watchedType, reason: watchedReason }), [watchedType, watchedReason])
   const isDirty = !!watchedType || !!watchedReason.trim()

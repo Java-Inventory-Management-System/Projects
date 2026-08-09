@@ -30,7 +30,6 @@ const getStatusOptions = (t: (key: string) => string) => [
   { value: PRODUCT_UNIT_STATUS.RETURNED, label: t("unitStatus.returned") },
   { value: PRODUCT_UNIT_STATUS.RETURNED_TO_SUPPLIER, label: t("unitStatus.returnedToSupplier") },
   { value: PRODUCT_UNIT_STATUS.DISPOSED, label: t("unitStatus.disposed") },
-  { value: PRODUCT_UNIT_STATUS.QUARANTINED, label: t("unitStatus.quarantined") },
 ]
 
 const statusBadge: Record<string, { labelKey: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
@@ -44,7 +43,6 @@ const statusBadge: Record<string, { labelKey: string; variant: "default" | "seco
   [PRODUCT_UNIT_STATUS.RETURNED]: { labelKey: "unitStatus.returned", variant: "secondary" },
   [PRODUCT_UNIT_STATUS.RETURNED_TO_SUPPLIER]: { labelKey: "unitStatus.returnedToSupplier", variant: "secondary" },
   [PRODUCT_UNIT_STATUS.DISPOSED]: { labelKey: "unitStatus.disposed", variant: "destructive" },
-  [PRODUCT_UNIT_STATUS.QUARANTINED]: { labelKey: "unitStatus.quarantined", variant: "outline" },
 }
 
 function fmt(d: string | null) {

@@ -1,4 +1,3 @@
-import * as React from "react"
 import { format, parse, isValid } from "date-fns"
 import { CalendarIcon } from "lucide-react"
 import { cn } from "@/utils/cn"
