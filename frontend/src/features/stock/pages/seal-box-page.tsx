@@ -218,7 +218,7 @@ export function SealBoxPage() {
     let qty = value
     const overflow = selectedTotal - oldQty + qty - maxUnits
     if (overflow > 0) qty = qty - overflow
-    setBulkQty((prev) => ({ ...prev, [unit.id]: Math.max(0, qty) }))
+    setBulkQty((prev) => ({ ...prev, [unit.id]: Math.max(1, qty) }))
   }
 
   const handleScan = (serial: string) => {
@@ -448,7 +448,7 @@ export function SealBoxPage() {
                         {u.trackingType === TRACKING_TYPE.BULK && selected.has(u.id) && (
                           <Input
                             type="number"
-                            min={0}
+                            min={1}
                             max={u.remainingQuantity ?? undefined}
                             className="ml-auto h-7 w-24 text-right"
                             value={bulkQty[u.id] ?? u.remainingQuantity ?? ""}

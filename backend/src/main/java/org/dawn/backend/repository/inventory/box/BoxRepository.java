@@ -21,6 +21,10 @@ public interface BoxRepository extends JpaRepository<Box, Long> {
     @Query("SELECT b FROM Box b WHERE b.id = :id")
     Optional<Box> findByIdForUpdate(@Param("id") Long id);
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT b FROM Box b WHERE b.id IN :ids")
+    List<Box> findByIdsForUpdate(@Param("ids") List<Long> ids);
+
     Optional<Box> findByBoxCode(String boxCode);
 
     List<Box> findByLocationId(Long locationId, Sort sort);

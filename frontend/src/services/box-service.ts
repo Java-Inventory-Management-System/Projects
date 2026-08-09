@@ -27,6 +27,10 @@ export async function unsealBox(id: number): Promise<Box> {
   return (await http.post(`/box/${id}/unseal`)) as unknown as Box
 }
 
+export async function deleteBox(id: number): Promise<void> {
+  await http.delete(`/box/${id}`)
+}
+
 export async function moveBox(id: number, locationId: number): Promise<Box> {
   return (await http.post(`/box/${id}/move`, { locationId })) as unknown as Box
 }

@@ -2,7 +2,7 @@ import { useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router-dom"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { getBoxes, getBoxById, unsealBox, moveBox } from "@/services/box-service"
+import { getBoxes, getBoxById, unsealBox, moveBox, deleteBox } from "@/services/box-service"
 import { useLocationMap } from "@/hooks/use-location-map"
 import { PrintReceiptButton } from "../components/print-receipt"
 import { LocationPicker } from "../components/location-picker"
@@ -70,6 +70,18 @@ export const BoxTab = () => {
     onError: (err: Error) => toast.error(err.message || t("box.error")),
   })
 
+  const deleteMut = useMutation({
+    mutationFn: deleteBox,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["boxes"] })
+      qc.invalidateQueries({ queryKey: ["product-units"] })
+      qc.invalidateQueries({ queryKey: ["location-map"] })
+      qc.invalidateQueries({ queryKey: ["inventory"] })
+      toast.success(t("box.deleteSuccess"))
+    },
+    onError: (err: Error) => toast.error(err.message || t("box.error")),
+  })
+
   const columns: Column<Box>[] = [
     { header: <BoxHeader i18nKey="box.code" />, render: (b) => <span className="font-mono text-xs">{b.boxCode}</span> },
     { header: <BoxHeader i18nKey="box.importReceipt" />, render: (b) => <span className="font-mono text-xs text-muted-foreground">{b.importReceiptCode ?? "—"}</span> },
@@ -96,6 +108,8 @@ export const BoxTab = () => {
           unsealPending={unsealMut.isPending}
           onMove={(loc) => moveMut.mutate({ id: b.id, locationId: loc })}
           movePending={moveMut.isPending}
+          onDelete={() => deleteMut.mutate(b.id)}
+          deletePending={deleteMut.isPending}
         />
       ),
     },
@@ -161,12 +175,14 @@ function BoxHeader({ i18nKey, right }: { i18nKey: string; right?: boolean }) {
   return <span className={right ? "w-full inline-flex justify-end" : undefined}>{t(i18nKey)}</span>
 }
 
-function BoxActions({ box, onUnseal, unsealPending, onMove, movePending }: {
+function BoxActions({ box, onUnseal, unsealPending, onMove, movePending, onDelete, deletePending }: {
   box: Box
   onUnseal: () => void
   unsealPending: boolean
   onMove: (locationId: number) => void
   movePending: boolean
+  onDelete: () => void
+  deletePending: boolean
 }) {
   const { t } = useTranslation()
   return (
@@ -184,6 +200,26 @@ function BoxActions({ box, onUnseal, unsealPending, onMove, movePending }: {
             {t("box.unseal")}
           </Button>
         </>
+      )}
+      {box.status === BOX_STATUS.UNSEALED && (
+        <Dialog>
+          <DialogTrigger asChild>
+            <Button variant="outline" size="sm" className="text-destructive">
+              {t("common.delete")}
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{t("box.deleteTitle")} {box.boxCode}</DialogTitle>
+            </DialogHeader>
+            <p className="text-sm text-muted-foreground">{t("box.deleteConfirm")}</p>
+            <DialogFooter>
+              <Button variant="destructive" onClick={onDelete} disabled={deletePending}>
+                {deletePending ? t("box.deleting") : t("common.delete")}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   )

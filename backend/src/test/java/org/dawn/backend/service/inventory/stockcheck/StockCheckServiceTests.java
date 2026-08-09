@@ -11,6 +11,12 @@ import org.dawn.backend.repository.inventory.LocationRepository;
 import org.dawn.backend.repository.inventory.ProductUnitRepository;
 import org.dawn.backend.repository.inventory.adjustments.StockAdjustmentRepository;
 import org.dawn.backend.repository.inventory.box.BoxRepository;
+import org.dawn.backend.controller.inventory.request.ConfirmStockCheckBoxesRequest;
+import org.dawn.backend.entity.inventory.StockCheck;
+import org.dawn.backend.entity.inventory.StockCheckBoxConfirm;
+import org.dawn.backend.entity.inventory.StockCheckItem;
+import org.dawn.backend.exception.type.InvalidRequestException;
+import org.dawn.backend.repository.inventory.stockcheck.StockCheckBoxConfirmRepository;
 import org.dawn.backend.repository.inventory.stockcheck.StockCheckItemHistoryRepository;
 import org.dawn.backend.repository.inventory.stockcheck.StockCheckItemRepository;
 import org.dawn.backend.repository.inventory.stockcheck.StockCheckRepository;
@@ -20,6 +26,7 @@ import org.dawn.backend.constant.enums.inventory.stockcheck.StockCheckScopeType;
 import org.dawn.backend.constant.enums.inventory.stockcheck.StockCheckStatus;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -30,7 +37,13 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -39,6 +52,7 @@ class StockCheckServiceTests {
     @Mock StockCheckRepository stockCheckRepository;
     @Mock StockCheckItemRepository stockCheckItemRepository;
     @Mock StockCheckItemHistoryRepository itemHistoryRepository;
+    @Mock StockCheckBoxConfirmRepository boxConfirmRepository;
     @Mock ProductUnitRepository productUnitRepository;
     @Mock LocationRepository locationRepository;
     @Mock ProductRepository productRepository;
@@ -121,5 +135,116 @@ class StockCheckServiceTests {
         var ids = stockCheckService.resolveUnitIdsByScope(StockCheckScopeType.CATEGORY, 2L);
 
         assertEquals(List.of(11L), ids);
+    }
+
+    private StockCheck inProgressCheck() {
+        StockCheck sc = new StockCheck();
+        sc.setId(1L);
+        sc.setCheckCode("SC-1");
+        sc.setStatus(StockCheckStatus.IN_PROGRESS);
+        sc.setCreatedBy(100L);
+        return sc;
+    }
+
+    private StockCheckItem countedItem(Long productUnitId) {
+        StockCheckItem item = new StockCheckItem();
+        item.setStockCheckId(1L);
+        item.setProductUnitId(productUnitId);
+        item.setTrackingType("SERIALIZED");
+        item.setExpectedStatus("IN_STOCK");
+        item.setActualStatus("IN_STOCK");
+        item.setCountedQuantity(BigDecimal.ONE);
+        item.setDifference("MATCH");
+        return item;
+    }
+
+    private Box sealedBox(Long id, String code) {
+        Box box = new Box();
+        box.setId(id);
+        box.setBoxCode(code);
+        box.setStatus(BoxStatus.SEALED);
+        return box;
+    }
+
+    private void stubSealedBoxInCheck(StockCheck sc, List<StockCheckItem> items, ProductUnit unit, Box box) {
+        when(stockCheckRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(sc));
+        when(stockCheckItemRepository.findByStockCheckId(1L)).thenReturn(items);
+        when(productUnitRepository.findAllById(any())).thenReturn(List.of(unit));
+        when(boxRepository.findAllById(any())).thenReturn(List.of(box));
+    }
+
+    private void stubResponseDeps() {
+        when(productRepository.findAllById(anyList())).thenReturn(List.of());
+        when(userRepository.findById(100L)).thenReturn(Optional.of(new org.dawn.backend.entity.auth.User()));
+    }
+
+    @Test
+    void confirmBoxes_persistsConfirmationForSealedBoxInScope() {
+        var sc = inProgressCheck();
+        var item = countedItem(1L);
+        var unit = unit(1L, 2L, 1L, 9L, "SERIALIZED");
+        var box = sealedBox(9L, "BOX-9");
+        stubSealedBoxInCheck(sc, List.of(item), unit, box);
+        stubResponseDeps();
+        when(securityPolicy.requireAuthenticated()).thenReturn(10L);
+        when(boxConfirmRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        stockCheckService.confirmBoxes(1L, new ConfirmStockCheckBoxesRequest(List.of(9L)));
+
+        ArgumentCaptor<StockCheckBoxConfirm> captor = ArgumentCaptor.forClass(StockCheckBoxConfirm.class);
+        verify(boxConfirmRepository).save(captor.capture());
+        assertEquals(1L, captor.getValue().getStockCheckId());
+        assertEquals(9L, captor.getValue().getBoxId());
+        assertEquals(10L, captor.getValue().getConfirmedBy());
+    }
+
+    @Test
+    void confirmBoxes_rejectsBoxOutsideScope() {
+        var sc = inProgressCheck();
+        var item = countedItem(1L);
+        var unit = unit(1L, 2L, 1L, 9L, "SERIALIZED");
+        var box = sealedBox(9L, "BOX-9");
+        stubSealedBoxInCheck(sc, List.of(item), unit, box);
+        when(securityPolicy.requireAuthenticated()).thenReturn(10L);
+
+        assertThrows(InvalidRequestException.class,
+                () -> stockCheckService.confirmBoxes(1L, new ConfirmStockCheckBoxesRequest(List.of(99L))));
+        verify(boxConfirmRepository, never()).save(any());
+    }
+
+    @Test
+    void complete_failsWhenSealedBoxNotConfirmed() {
+        var sc = inProgressCheck();
+        var item = countedItem(1L);
+        var unit = unit(1L, 2L, 1L, 9L, "SERIALIZED");
+        var box = sealedBox(9L, "BOX-9");
+        stubSealedBoxInCheck(sc, List.of(item), unit, box);
+        when(boxConfirmRepository.findByStockCheckId(1L)).thenReturn(List.of());
+
+        InvalidRequestException ex = assertThrows(InvalidRequestException.class,
+                () -> stockCheckService.complete(1L));
+
+        assertTrue(ex.getMessage().contains("BOX-9"));
+    }
+
+    @Test
+    void complete_succeedsWhenAllSealedBoxesConfirmed() {
+        var sc = inProgressCheck();
+        var item = countedItem(1L);
+        var unit = unit(1L, 2L, 1L, 9L, "SERIALIZED");
+        var box = sealedBox(9L, "BOX-9");
+        stubSealedBoxInCheck(sc, List.of(item), unit, box);
+        stubResponseDeps();
+        StockCheckBoxConfirm confirm = new StockCheckBoxConfirm();
+        confirm.setStockCheckId(1L);
+        confirm.setBoxId(9L);
+        when(boxConfirmRepository.findByStockCheckId(1L)).thenReturn(List.of(confirm));
+        when(adjustmentRepository.existsBySourceTypeAndSourceId(any(), any())).thenReturn(false);
+        when(stockCheckRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        var response = stockCheckService.complete(1L);
+
+        assertEquals("COMPLETED", response.status());
+        assertEquals(StockCheckStatus.COMPLETED, sc.getStatus());
     }
 }

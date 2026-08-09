@@ -74,6 +74,10 @@ public interface ProductUnitRepository extends JpaRepository<ProductUnit, Long> 
 
     List<ProductUnit> findByLocationIdInAndStatus(List<Long> locationIds, ProductUnitStatus status);
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT p FROM ProductUnit p WHERE p.locationId IN :locationIds AND p.status = :status")
+    List<ProductUnit> findByLocationIdInAndStatusWithLock(@Param("locationIds") List<Long> locationIds, @Param("status") ProductUnitStatus status);
+
     List<ProductUnit> findByBoxIdAndStatus(Long boxId, ProductUnitStatus status);
     List<ProductUnit> findByBoxId(Long boxId);
     List<ProductUnit> findByBoxIdInAndStatus(List<Long> boxIds, ProductUnitStatus status);

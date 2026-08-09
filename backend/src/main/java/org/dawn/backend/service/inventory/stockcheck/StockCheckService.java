@@ -17,6 +17,7 @@ import org.dawn.backend.constant.enums.inventory.stockcheck.StockCheckScopeType;
 import org.dawn.backend.constant.enums.inventory.stockcheck.StockCheckStatus;
 import org.dawn.backend.constant.shared.LogConstant;
 import org.dawn.backend.controller.inventory.request.CreateStockCheckRequest;
+import org.dawn.backend.controller.inventory.request.ConfirmStockCheckBoxesRequest;
 import org.dawn.backend.controller.inventory.request.StockCheckItemRequest;
 import org.dawn.backend.controller.inventory.response.StockCheckResponse;
 import org.dawn.backend.entity.auth.User;
@@ -33,6 +34,7 @@ import org.dawn.backend.repository.inventory.box.BoxRepository;
 import org.dawn.backend.repository.inventory.stockcheck.StockCheckItemHistoryRepository;
 import org.dawn.backend.repository.inventory.stockcheck.StockCheckItemRepository;
 import org.dawn.backend.repository.inventory.stockcheck.StockCheckRepository;
+import org.dawn.backend.repository.inventory.stockcheck.StockCheckBoxConfirmRepository;
 import org.dawn.backend.service.inventory.adjustments.AdjustmentUnitService;
 import org.dawn.backend.shared.util.ReceiptCodeGenerator;
 import org.dawn.backend.config.security.SecurityPolicy;
@@ -53,6 +55,7 @@ public class StockCheckService {
     private final StockCheckRepository stockCheckRepository;
     private final StockCheckItemRepository stockCheckItemRepository;
     private final StockCheckItemHistoryRepository itemHistoryRepository;
+    private final StockCheckBoxConfirmRepository boxConfirmRepository;
     private final ProductUnitRepository productUnitRepository;
     private final LocationRepository locationRepository;
     private final ProductRepository productRepository;
@@ -250,6 +253,43 @@ public class StockCheckService {
     }
 
     @Transactional
+    @AuditLog(action = LogConstant.Action.CONFIRM_STOCK_CHECK_BOX, entity = LogConstant.Entity.STOCK_CHECK)
+    public StockCheckResponse confirmBoxes(Long stockCheckId, ConfirmStockCheckBoxesRequest request) {
+        Long userId = securityPolicy.requireAuthenticated();
+        var sc = stockCheckRepository.findByIdForUpdate(stockCheckId)
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.STOCK_CHECK_NOT_FOUND));
+
+        if (StockCheckStatus.IN_PROGRESS != sc.getStatus()) {
+            throw new InvalidRequestException(ErrorCode.STOCK_CHECK_MUST_BE_IN_PROGRESS);
+        }
+
+        Set<Long> sealedBoxIds = sealedBoxIdsInCheck(stockCheckId);
+        for (Long boxId : request.boxIds().stream().distinct().toList()) {
+            if (!sealedBoxIds.contains(boxId)) {
+                throw new InvalidRequestException(ErrorCode.STOCK_CHECK_BOX_NOT_IN_SCOPE.format(boxId));
+            }
+            boxConfirmRepository.save(StockCheckBoxConfirm.builder()
+                    .stockCheckId(stockCheckId)
+                    .boxId(boxId)
+                    .confirmedBy(userId)
+                    .build());
+        }
+        return toResponse(sc);
+    }
+
+    private Set<Long> sealedBoxIdsInCheck(Long stockCheckId) {
+        var unitIds = stockCheckItemRepository.findByStockCheckId(stockCheckId).stream()
+                .map(StockCheckItem::getProductUnitId).toList();
+        var boxIds = productUnitRepository.findAllById(unitIds).stream()
+                .map(ProductUnit::getBoxId).filter(Objects::nonNull).distinct().toList();
+        if (boxIds.isEmpty()) return Set.of();
+        return boxRepository.findAllById(boxIds).stream()
+                .filter(b -> BoxStatus.SEALED == b.getStatus())
+                .map(Box::getId)
+                .collect(Collectors.toSet());
+    }
+
+    @Transactional
     @AuditLog(action = LogConstant.Action.COMPLETE_STOCK_CHECK, entity = LogConstant.Entity.STOCK_CHECK)
     public StockCheckResponse complete(Long id) {
         Long userId = securityPolicy.requireAuthenticated();
@@ -285,15 +325,16 @@ public class StockCheckService {
                     ErrorCode.STOCK_CHECK_BULK_MISSING_QTY.format( bulkMissing.size(), String.join(", ", bulkMissing)));
         }
 
-        var unitIds = items.stream().map(StockCheckItem::getProductUnitId).toList();
-        var boxIds = productUnitRepository.findAllById(unitIds).stream()
-                .map(ProductUnit::getBoxId).filter(Objects::nonNull).distinct().toList();
-        if (!boxIds.isEmpty()) {
-            var sealedBoxes = boxRepository.findAllById(boxIds).stream()
-                    .filter(b -> BoxStatus.SEALED == b.getStatus()).toList();
-            if (!sealedBoxes.isEmpty()) {
+        Set<Long> sealedBoxIds = sealedBoxIdsInCheck(id);
+        if (!sealedBoxIds.isEmpty()) {
+            var confirmedBoxIds = boxConfirmRepository.findByStockCheckId(id).stream()
+                    .map(StockCheckBoxConfirm::getBoxId).collect(Collectors.toSet());
+            var unconfirmedBoxes = boxRepository.findAllById(sealedBoxIds).stream()
+                    .filter(b -> !confirmedBoxIds.contains(b.getId()))
+                    .toList();
+            if (!unconfirmedBoxes.isEmpty()) {
                 throw new InvalidRequestException(ErrorCode.STOCK_CHECK_BOX_NOT_CONFIRMED.format(
-                        sealedBoxes.stream().map(Box::getBoxCode).collect(Collectors.joining(", "))));
+                        unconfirmedBoxes.stream().map(Box::getBoxCode).collect(Collectors.joining(", "))));
             }
         }
 

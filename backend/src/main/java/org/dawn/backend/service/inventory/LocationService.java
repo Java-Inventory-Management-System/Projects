@@ -42,6 +42,8 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -218,7 +220,7 @@ public class LocationService {
                 .findById(destId)
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.LOCATION_NOT_FOUND));
 
-        List<ProductUnit> units = productUnitRepository.findByLocationIdInAndStatus(
+        List<ProductUnit> units = productUnitRepository.findByLocationIdInAndStatusWithLock(
                 List.of(sourceId), ProductUnitStatus.IN_STOCK);
 
         if (units.isEmpty()) {
@@ -230,9 +232,23 @@ public class LocationService {
             throw new InvalidRequestException(ErrorCode.INVALID_QUANTITY.format( quantity));
         }
 
-        List<ProductUnit> toMove = quantity < units.size()
-                ? new ArrayList<>(units.subList(0, quantity))
-                : units;
+        List<ProductUnit> toMove = new ArrayList<>(quantity < units.size()
+                ? units.subList(0, quantity)
+                : units);
+
+        Set<Long> boxIds = toMove.stream().map(ProductUnit::getBoxId)
+                .filter(Objects::nonNull).collect(Collectors.toSet());
+        if (!boxIds.isEmpty()) {
+            Set<Long> selectedIds = toMove.stream().map(ProductUnit::getId).collect(Collectors.toSet());
+            for (var boxed : productUnitRepository.findByBoxIdInAndStatus(List.copyOf(boxIds), ProductUnitStatus.IN_STOCK)) {
+                if (!selectedIds.contains(boxed.getId())) {
+                    toMove.add(boxed);
+                }
+            }
+            for (var box : boxRepository.findByIdsForUpdate(List.copyOf(boxIds))) {
+                box.setLocationId(destId);
+            }
+        }
 
         BigDecimal incoming = toMove.stream()
                 .map(unit -> ProductUnitStatus.IN_STOCK.name().equals(unit.getStatus())

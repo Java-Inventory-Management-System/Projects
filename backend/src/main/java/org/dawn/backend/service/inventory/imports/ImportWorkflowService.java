@@ -93,6 +93,12 @@ public class ImportWorkflowService {
             for (var unit : units) {
                 ProductUnitStatus oldStatus = unit.getStatus();
                 unit.setStatus(ProductUnitStatus.REMOVED);
+                if (unit.getBoxId() != null) {
+                    var boxLocation = boxRepository.findById(unit.getBoxId())
+                            .map(Box::getLocationId).orElse(null);
+                    unit.setBoxId(null);
+                    if (boxLocation != null) unit.setLocationId(boxLocation);
+                }
                 productUnitRepository.save(unit);
                 statusLogRepository.save(ProductUnitStatusLog.builder()
                         .productUnitId(unit.getId())

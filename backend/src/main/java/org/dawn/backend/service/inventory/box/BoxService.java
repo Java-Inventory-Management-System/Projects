@@ -28,6 +28,7 @@ import org.dawn.backend.repository.inventory.ProductUnitRepository;
 import org.dawn.backend.repository.inventory.box.BoxRepository;
 import org.dawn.backend.repository.inventory.imports.ImportReceiptItemRepository;
 import org.dawn.backend.repository.inventory.imports.ImportReceiptRepository;
+import org.dawn.backend.repository.inventory.stockcheck.StockCheckItemRepository;
 import org.dawn.backend.service.inventory.LocationCapacityValidator;
 import org.dawn.backend.shared.util.ReceiptCodeGenerator;
 import org.springframework.beans.factory.annotation.Value;
@@ -55,6 +56,7 @@ public class BoxService {
     private final UserRepository userRepository;
     private final ImportReceiptRepository importReceiptRepository;
     private final ImportReceiptItemRepository importReceiptItemRepository;
+    private final StockCheckItemRepository stockCheckItemRepository;
     private final SecurityPolicy securityPolicy;
     private final LocationCapacityValidator capacityValidator;
 
@@ -141,6 +143,8 @@ public class BoxService {
             if (wanted != null) {
                 if (!isBulk) {
                     wanted = BigDecimal.ONE;
+                } else if (wanted.compareTo(BigDecimal.ZERO) <= 0) {
+                    throw new InvalidRequestException(ErrorCode.BOX_UNIT_QTY_ZERO.format(unit.getId()));
                 } else if (wanted.compareTo(unitQty) > 0) {
                     throw new InvalidRequestException(ErrorCode.BOX_UNIT_QTY_EXCEEDS.format(
                             wanted, unit.getId(), unitQty));
@@ -194,6 +198,11 @@ public class BoxService {
                         .status(ProductUnitStatus.IN_STOCK)
                         .importedAt(unit.getImportedAt())
                         .costPrice(unit.getCostPrice())
+                        .warrantyMonths(unit.getWarrantyMonths())
+                        .warrantyStartDate(unit.getWarrantyStartDate())
+                        .warrantyExpiresAt(unit.getWarrantyExpiresAt())
+                        .isWarrantyActive(unit.getIsWarrantyActive())
+                        .warrantySealCode(unit.getWarrantySealCode())
                         .boxId(box.getId())
                         .build();
                 boxed = productUnitRepository.save(boxed);
@@ -255,6 +264,22 @@ public class BoxService {
             productUnitRepository.save(unit);
         }
         return toResponse(box, fetchLocations(List.of(box)), fetchUserNames(List.of(box)), fetchReceiptCodes(List.of(box)), List.of(), 0);
+    }
+
+    @Transactional
+    @AuditLog(action = LogConstant.Action.DELETE_BOX, entity = LogConstant.Entity.BOX)
+    public void delete(Long id) {
+        var box = boxRepository.findByIdForUpdate(id)
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.BOX_NOT_FOUND));
+        if (box.getStatus() != BoxStatus.UNSEALED) {
+            throw new InvalidRequestException(ErrorCode.BOX_DELETE_SEALED);
+        }
+        for (var unit : productUnitRepository.findByBoxId(id)) {
+            unit.setBoxId(null);
+            unit.setLocationId(box.getLocationId());
+            productUnitRepository.save(unit);
+        }
+        boxRepository.delete(box);
     }
 
     private Set<Long> resolveReceiptIds(List<ProductUnit> units) {

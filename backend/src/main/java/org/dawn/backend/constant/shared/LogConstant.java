@@ -52,6 +52,7 @@ public class LogConstant {
         public static final String SEAL_BOX = "SEAL_BOX";
         public static final String UNSEAL_BOX = "UNSEAL_BOX";
         public static final String MOVE_BOX = "MOVE_BOX";
+        public static final String DELETE_BOX = "DELETE_BOX";
         public static final String CREATE_ADJUSTMENT = "CREATE_ADJUSTMENT";
         public static final String APPROVE_ADJUSTMENT = "APPROVE_ADJUSTMENT";
         public static final String REJECT_ADJUSTMENT = "REJECT_ADJUSTMENT";
@@ -59,6 +60,7 @@ public class LogConstant {
         public static final String CREATE_PURCHASE_ORDER = "CREATE_PURCHASE_ORDER";
         public static final String CANCEL_PURCHASE_ORDER = "CANCEL_PURCHASE_ORDER";
         public static final String RECORD_STOCK_CHECK = "RECORD_STOCK_CHECK";
+        public static final String CONFIRM_STOCK_CHECK_BOX = "CONFIRM_STOCK_CHECK_BOX";
         public static final String CREATE_PRODUCT_IMAGE = "CREATE_PRODUCT_IMAGE";
         public static final String DELETE_PRODUCT_IMAGE = "DELETE_PRODUCT_IMAGE";
         public static final String CREATE_RETURN = "CREATE_RETURN";

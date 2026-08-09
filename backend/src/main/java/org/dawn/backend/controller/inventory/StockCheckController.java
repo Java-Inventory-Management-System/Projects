@@ -5,6 +5,7 @@ import org.dawn.backend.config.web.response.ResponseObject;
 import org.dawn.backend.config.web.response.ResponsePage;
 import org.dawn.backend.constant.security.AuthorizationExpressions;
 import org.dawn.backend.controller.inventory.request.CreateStockCheckRequest;
+import org.dawn.backend.controller.inventory.request.ConfirmStockCheckBoxesRequest;
 import org.dawn.backend.controller.inventory.request.StockCheckItemRequest;
 import org.dawn.backend.controller.inventory.response.StockCheckResponse;
 import org.dawn.backend.service.inventory.stockcheck.StockCheckService;
@@ -74,6 +75,14 @@ public class StockCheckController {
     @PreAuthorize(AuthorizationExpressions.CAN_OPERATE_STOCK)
     public ResponseObject<StockCheckResponse> complete(@PathVariable Long id) {
         return ResponseObject.success(stockCheckService.complete(id));
+    }
+
+    @PutMapping("/stock-check/{id}/confirm-boxes")
+    @PreAuthorize(AuthorizationExpressions.CAN_OPERATE_STOCK)
+    public ResponseObject<StockCheckResponse> confirmBoxes(
+            @PathVariable Long id,
+            @RequestBody ConfirmStockCheckBoxesRequest request) {
+        return ResponseObject.success(stockCheckService.confirmBoxes(id, request));
     }
 
     @PutMapping("/stock-check/{id}/cancel")

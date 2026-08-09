@@ -37,21 +37,28 @@ public class BoxController {
     }
 
     @PostMapping("/box/seal")
-    @PreAuthorize(AuthorizationExpressions.CAN_VIEW_INVENTORY)
+    @PreAuthorize(AuthorizationExpressions.CAN_OPERATE_STOCK)
     public ResponseObject<BoxResponse> seal(@RequestBody SealBoxRequest request) {
         return ResponseObject.success(boxService.seal(request));
     }
 
     @PostMapping("/box/{id}/unseal")
-    @PreAuthorize(AuthorizationExpressions.CAN_VIEW_INVENTORY)
+    @PreAuthorize(AuthorizationExpressions.CAN_OPERATE_STOCK)
     public ResponseObject<BoxResponse> unseal(@PathVariable Long id) {
         return ResponseObject.success(boxService.unseal(id));
     }
 
     @PostMapping("/box/{id}/move")
-    @PreAuthorize(AuthorizationExpressions.CAN_VIEW_INVENTORY)
+    @PreAuthorize(AuthorizationExpressions.CAN_OPERATE_STOCK)
     public ResponseObject<BoxResponse> move(@PathVariable Long id, @RequestBody MoveBoxRequest request) {
         return ResponseObject.success(boxService.move(id, request));
+    }
+
+    @DeleteMapping("/box/{id}")
+    @PreAuthorize(AuthorizationExpressions.CAN_OPERATE_STOCK)
+    public ResponseObject<Void> delete(@PathVariable Long id) {
+        boxService.delete(id);
+        return ResponseObject.deleted();
     }
 
     @GetMapping(value = "/box/{id}/print", produces = MediaType.TEXT_HTML_VALUE)
