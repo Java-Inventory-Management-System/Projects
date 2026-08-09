@@ -178,7 +178,10 @@ public class ExportFulfillmentService {
                         }
                         boolean qcHoldAllowed = reason == ExportReason.WARRANTY_REPLACEMENT
                                 && ProductUnitStatus.WAITING_RMA_EXPORT == pu.getStatus();
-                        if (ProductUnitStatus.IN_STOCK != pu.getStatus() && !qcHoldAllowed) {
+                        boolean qcZoneDisposeAllowed = reason == ExportReason.DISPOSE
+                                && (ProductUnitStatus.PENDING_QC == pu.getStatus()
+                                        || ProductUnitStatus.RETURN_QC_HOLD == pu.getStatus());
+                        if (ProductUnitStatus.IN_STOCK != pu.getStatus() && !qcHoldAllowed && !qcZoneDisposeAllowed) {
                             throw new InvalidRequestException(ErrorCode.EXPORT_SERIAL_NOT_AVAILABLE.format( sn, pu.getStatus()));
                         }
                         if (stockCheckItemRepository.existsByProductUnitIdInActiveCheck(pu.getId())) {

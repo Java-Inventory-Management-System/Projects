@@ -45,13 +45,13 @@ public class QcProcessingController {
     @PostMapping("/dispose-confirm")
     @PreAuthorize(AuthorizationExpressions.CAN_OPERATE)
     public ResponseObject<Void> disposeConfirm(@RequestBody DisposeConfirmRequest request) {
-        disposeConfirmService.confirm(request.unitIds(), request.action());
+        disposeConfirmService.confirm(request.unitIds(), request.action(), request.supplierId());
         return ResponseObject.success(null);
     }
 
     public record QcPassRequest(List<Long> unitIds) {
     }
 
-    public record DisposeConfirmRequest(List<Long> unitIds, String action) {
+    public record DisposeConfirmRequest(List<Long> unitIds, String action, Long supplierId) {
     }
 }

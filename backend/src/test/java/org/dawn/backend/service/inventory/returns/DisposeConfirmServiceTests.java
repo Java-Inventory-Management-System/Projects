@@ -3,8 +3,10 @@ package org.dawn.backend.service.inventory.returns;
 import org.dawn.backend.constant.enums.inventory.ProductUnitStatus;
 import org.dawn.backend.entity.inventory.ProductUnit;
 import org.dawn.backend.exception.type.InvalidRequestException;
+import org.dawn.backend.exception.type.ResourceNotFoundException;
 import org.dawn.backend.config.security.SecurityPolicy;
 import org.dawn.backend.repository.catalog.ProductRepository;
+import org.dawn.backend.repository.catalog.SupplierRepository;
 import org.dawn.backend.repository.inventory.ProductUnitRepository;
 import org.dawn.backend.repository.inventory.ProductUnitStatusLogRepository;
 import org.dawn.backend.repository.inventory.exports.ExportReceiptItemRepository;
@@ -33,6 +35,7 @@ class DisposeConfirmServiceTests {
     @Mock ExportReceiptItemRepository exportReceiptItemRepository;
     @Mock ExportReceiptItemUnitRepository exportReceiptItemUnitRepository;
     @Mock ExportReceiptStatusHistoryRepository exportReceiptStatusHistoryRepository;
+    @Mock SupplierRepository supplierRepository;
     @Mock SecurityPolicy securityPolicy;
 
     @InjectMocks DisposeConfirmService service;
@@ -56,7 +59,7 @@ class DisposeConfirmServiceTests {
         when(productUnitRepository.findByIdsForUpdate(List.of(1L))).thenReturn(List.of(pu));
         when(securityPolicy.requireAuthenticated()).thenReturn(userId);
 
-        service.confirm(List.of(1L), "DISPOSED");
+        service.confirm(List.of(1L), "DISPOSED", null);
 
         assertEquals(ProductUnitStatus.DISPOSED, pu.getStatus());
         assertNull(pu.getLocationId());
@@ -70,7 +73,7 @@ class DisposeConfirmServiceTests {
         when(productUnitRepository.findByIdsForUpdate(List.of(2L))).thenReturn(List.of(pu));
         when(securityPolicy.requireAuthenticated()).thenReturn(userId);
 
-        service.confirm(List.of(2L), "REJECTED_RETURN");
+        service.confirm(List.of(2L), "REJECTED_RETURN", null);
 
         assertEquals(ProductUnitStatus.REJECTED_RETURN, pu.getStatus());
         assertNull(pu.getLocationId());
@@ -88,7 +91,7 @@ class DisposeConfirmServiceTests {
         when(exportReceiptItemUnitRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
         when(exportReceiptStatusHistoryRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-        service.confirm(List.of(3L), "RETURNED_TO_SUPPLIER");
+        service.confirm(List.of(3L), "RETURNED_TO_SUPPLIER", null);
 
         assertEquals(ProductUnitStatus.RETURNED_TO_SUPPLIER, pu.getStatus());
         assertNull(pu.getLocationId());
@@ -102,7 +105,7 @@ class DisposeConfirmServiceTests {
         when(productUnitRepository.findByIdsForUpdate(List.of(4L))).thenReturn(List.of(pu));
         when(securityPolicy.requireAuthenticated()).thenReturn(userId);
 
-        service.confirm(List.of(4L), "DISPOSED");
+        service.confirm(List.of(4L), "DISPOSED", null);
 
         assertEquals(ProductUnitStatus.DISPOSED, pu.getStatus());
         assertNull(pu.getLocationId());
@@ -114,7 +117,7 @@ class DisposeConfirmServiceTests {
         when(productUnitRepository.findByIdsForUpdate(List.of(5L))).thenReturn(List.of(pu));
         when(securityPolicy.requireAuthenticated()).thenReturn(userId);
 
-        assertThrows(InvalidRequestException.class, () -> service.confirm(List.of(5L), "REJECTED_RETURN"));
+        assertThrows(InvalidRequestException.class, () -> service.confirm(List.of(5L), "REJECTED_RETURN", null));
         assertEquals(ProductUnitStatus.RMA_UNREPAIRABLE, pu.getStatus());
         verify(statusLogRepository, never()).save(any());
     }
@@ -125,7 +128,7 @@ class DisposeConfirmServiceTests {
         when(productUnitRepository.findByIdsForUpdate(List.of(6L))).thenReturn(List.of(pu));
         when(securityPolicy.requireAuthenticated()).thenReturn(userId);
 
-        assertThrows(InvalidRequestException.class, () -> service.confirm(List.of(6L), "DISPOSED"));
+        assertThrows(InvalidRequestException.class, () -> service.confirm(List.of(6L), "DISPOSED", null));
         verify(statusLogRepository, never()).save(any());
     }
 
@@ -135,7 +138,7 @@ class DisposeConfirmServiceTests {
         when(productUnitRepository.findByIdsForUpdate(List.of(7L))).thenReturn(List.of(pu));
         when(securityPolicy.requireAuthenticated()).thenReturn(userId);
 
-        assertThrows(InvalidRequestException.class, () -> service.confirm(List.of(7L), "IN_STOCK"));
+        assertThrows(InvalidRequestException.class, () -> service.confirm(List.of(7L), "IN_STOCK", null));
         verify(statusLogRepository, never()).save(any());
     }
 
@@ -143,7 +146,38 @@ class DisposeConfirmServiceTests {
     void confirm_emptyIds_rejected() {
         when(securityPolicy.requireAuthenticated()).thenReturn(userId);
 
-        assertThrows(InvalidRequestException.class, () -> service.confirm(List.of(), "DISPOSED"));
+        assertThrows(InvalidRequestException.class, () -> service.confirm(List.of(), "DISPOSED", null));
+        verify(productUnitRepository, never()).findByIdsForUpdate(any());
+    }
+
+    @Test
+    void confirm_withSupplierId_usesProvidedSupplier() {
+        ProductUnit pu = unit(8L, ProductUnitStatus.RMA_UNREPAIRABLE, 8L);
+        when(productUnitRepository.findByIdsForUpdate(List.of(8L))).thenReturn(List.of(pu));
+        when(securityPolicy.requireAuthenticated()).thenReturn(userId);
+        when(supplierRepository.existsById(42L)).thenReturn(true);
+        when(productRepository.findAllById(anySet())).thenReturn(List.of());
+        when(exportReceiptRepository.existsByReceiptCode(anyString())).thenReturn(false);
+        when(exportReceiptRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(exportReceiptItemRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(exportReceiptItemUnitRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(exportReceiptStatusHistoryRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.confirm(List.of(8L), "RETURNED_TO_SUPPLIER", 42L);
+
+        assertEquals(ProductUnitStatus.RETURNED_TO_SUPPLIER, pu.getStatus());
+        assertNull(pu.getLocationId());
+        verify(exportReceiptRepository).save(argThat(receipt ->
+                42L == receipt.getSupplierId() && "RETURN_SUPPLIER".equals(receipt.getReason())));
+    }
+
+    @Test
+    void confirm_withUnknownSupplier_rejected() {
+        when(securityPolicy.requireAuthenticated()).thenReturn(userId);
+        when(supplierRepository.existsById(99L)).thenReturn(false);
+
+        assertThrows(ResourceNotFoundException.class,
+                () -> service.confirm(List.of(9L), "RETURNED_TO_SUPPLIER", 99L));
         verify(productUnitRepository, never()).findByIdsForUpdate(any());
     }
 }

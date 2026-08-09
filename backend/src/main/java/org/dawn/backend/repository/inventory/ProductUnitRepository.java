@@ -68,7 +68,16 @@ public interface ProductUnitRepository extends JpaRepository<ProductUnit, Long> 
     long countByProductIdAndStatusAndBoxIdIsNull(@Param("productId") Long productId, @Param("status") ProductUnitStatus status);
     long countByLocationId(Long locationId);
     Page<ProductUnit> findByStatus(ProductUnitStatus status, Pageable pageable);
-    List<ProductUnit> findByStatusInOrderById(Collection<ProductUnitStatus> statuses);    Page<ProductUnit> findByProductId(Long productId, Pageable pageable);
+    List<ProductUnit> findByStatusInOrderById(Collection<ProductUnitStatus> statuses);
+
+    @Query("""
+            SELECT u FROM ProductUnit u
+            WHERE u.productId = :productId
+              AND u.boxId IS NULL
+              AND u.id NOT IN (SELECT sci.productUnitId FROM StockCheckItem sci
+                               WHERE sci.stockCheckId IN (SELECT sc.id FROM StockCheck sc WHERE sc.status = 'IN_PROGRESS'))
+            """)
+    Page<ProductUnit> findByProductId(@Param("productId") Long productId, Pageable pageable);
 
     List<ProductUnit> findByProductIdInAndStatus(List<Long> productIds, ProductUnitStatus status);
 

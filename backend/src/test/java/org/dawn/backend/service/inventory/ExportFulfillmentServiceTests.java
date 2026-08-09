@@ -190,6 +190,57 @@ class ExportFulfillmentServiceTests {
     }
 
     @Test
+    void fulfill_dispose_qcZoneUnit_allowed() {
+        Product prod = product("PIECE");
+        when(prod.getTrackingType()).thenReturn("SERIALIZED");
+        stubFulfillContext(ExportReason.DISPOSE.name(), prod);
+        stubReceiptSave();
+        ProductUnit pu = ProductUnit.builder()
+                .id(3L)
+                .serialNumber("SN-3")
+                .productId(productId)
+                .trackingType("SERIALIZED")
+                .status(ProductUnitStatus.PENDING_QC)
+                .locationId(101L)
+                .build();
+        stubUnitLookup(pu);
+        stubUnitSave();
+        when(securityPolicy.requireAuthenticated()).thenReturn(userId);
+
+        FulfillExportRequest request = new FulfillExportRequest(
+                List.of(new FulfillItemRequest(itemId, List.of("SN-3"), null)));
+
+        service.fulfill(receiptId, request);
+
+        assertEquals(ProductUnitStatus.DISPOSED, pu.getStatus());
+        assertNull(pu.getLocationId());
+    }
+
+    @Test
+    void fulfill_warrantyReplacement_alreadySentUnit_rejected() {
+        Product prod = product("PIECE");
+        when(prod.getTrackingType()).thenReturn("SERIALIZED");
+        stubFulfillContext(ExportReason.WARRANTY_REPLACEMENT.name(), prod);
+        ProductUnit pu = ProductUnit.builder()
+                .id(4L)
+                .serialNumber("SN-4")
+                .productId(productId)
+                .trackingType("SERIALIZED")
+                .status(ProductUnitStatus.SENT_TO_MANUFACTURER)
+                .locationId(101L)
+                .build();
+        stubUnitLookup(pu);
+        when(securityPolicy.requireAuthenticated()).thenReturn(userId);
+
+        FulfillExportRequest request = new FulfillExportRequest(
+                List.of(new FulfillItemRequest(itemId, List.of("SN-4"), null)));
+
+        assertThrows(InvalidRequestException.class, () -> service.fulfill(receiptId, request));
+        assertEquals(ProductUnitStatus.SENT_TO_MANUFACTURER, pu.getStatus());
+        verify(productUnitRepository, never()).save(any());
+    }
+
+    @Test
     void fulfill_returnSupplier_setsReturnedToSupplier() {
         Product prod = product("PIECE");
         when(prod.getTrackingType()).thenReturn("SERIALIZED");

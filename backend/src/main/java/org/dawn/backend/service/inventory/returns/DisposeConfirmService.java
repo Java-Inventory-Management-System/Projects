@@ -19,7 +19,9 @@ import org.dawn.backend.entity.inventory.ExportReceiptStatusHistory;
 import org.dawn.backend.entity.inventory.ProductUnit;
 import org.dawn.backend.entity.inventory.ProductUnitStatusLog;
 import org.dawn.backend.exception.type.InvalidRequestException;
+import org.dawn.backend.exception.type.ResourceNotFoundException;
 import org.dawn.backend.repository.catalog.ProductRepository;
+import org.dawn.backend.repository.catalog.SupplierRepository;
 import org.dawn.backend.repository.inventory.ProductUnitRepository;
 import org.dawn.backend.repository.inventory.ProductUnitStatusLogRepository;
 import org.dawn.backend.repository.inventory.exports.ExportReceiptItemRepository;
@@ -71,14 +73,18 @@ public class DisposeConfirmService {
     private final ExportReceiptItemRepository exportReceiptItemRepository;
     private final ExportReceiptItemUnitRepository exportReceiptItemUnitRepository;
     private final ExportReceiptStatusHistoryRepository exportReceiptStatusHistoryRepository;
+    private final SupplierRepository supplierRepository;
     private final SecurityPolicy securityPolicy;
 
     @Transactional
     @AuditLog(action = LogConstant.Action.DISPOSE_CONFIRM, entity = LogConstant.Entity.PRODUCT_UNIT)
-    public void confirm(List<Long> unitIds, String action) {
+    public void confirm(List<Long> unitIds, String action, Long supplierId) {
         Long userId = securityPolicy.requireAuthenticated();
         if (unitIds == null || unitIds.isEmpty()) {
             throw new InvalidRequestException(ErrorCode.DISPOSE_CONFIRM_UNITS_REQUIRED);
+        }
+        if (supplierId != null && !supplierRepository.existsById(supplierId)) {
+            throw new ResourceNotFoundException(ErrorCode.SUPPLIER_NOT_FOUND);
         }
         ProductUnitStatus targetStatus;
         try {
@@ -110,30 +116,32 @@ public class DisposeConfirmService {
         }
 
         if (targetStatus == ProductUnitStatus.RETURNED_TO_SUPPLIER) {
-            createAutoExport(units, userId, ExportReason.RETURN_SUPPLIER);
+            createAutoExport(units, userId, ExportReason.RETURN_SUPPLIER, supplierId);
         } else if (targetStatus == ProductUnitStatus.SENT_TO_MANUFACTURER) {
-            createAutoExport(units, userId, ExportReason.WARRANTY_REPLACEMENT);
+            createAutoExport(units, userId, ExportReason.WARRANTY_REPLACEMENT, supplierId);
         }
     }
 
-    private void createAutoExport(List<ProductUnit> units, Long userId, ExportReason reason) {
+    private void createAutoExport(List<ProductUnit> units, Long userId, ExportReason reason, Long supplierId) {
         var unitsByProduct = units.stream().collect(Collectors.groupingBy(ProductUnit::getProductId));
         var products = productRepository.findAllById(unitsByProduct.keySet()).stream()
                 .collect(Collectors.toMap(Product::getId, p -> p));
 
-        Long supplierId = products.values().stream()
-                .filter(p -> p.getSuppliers() != null && !p.getSuppliers().isEmpty())
-                .flatMap(p -> p.getSuppliers().stream())
-                .map(Supplier::getId)
-                .min(Comparator.naturalOrder())
-                .orElse(null);
+        Long effectiveSupplierId = supplierId != null
+                ? supplierId
+                : products.values().stream()
+                        .filter(p -> p.getSuppliers() != null && !p.getSuppliers().isEmpty())
+                        .flatMap(p -> p.getSuppliers().stream())
+                        .map(Supplier::getId)
+                        .min(Comparator.naturalOrder())
+                        .orElse(null);
 
         String receiptCode = ReceiptCodeGenerator.generate("EXP-", exportReceiptRepository::existsByReceiptCode);
 
         ExportReceipt receipt = ExportReceipt.builder()
                 .receiptCode(receiptCode)
                 .reason(reason.name())
-                .supplierId(supplierId)
+                .supplierId(effectiveSupplierId)
                 .totalAmount(BigDecimal.ZERO)
                 .status(ExportReceiptStatus.COMPLETED)
                 .createdBy(userId)

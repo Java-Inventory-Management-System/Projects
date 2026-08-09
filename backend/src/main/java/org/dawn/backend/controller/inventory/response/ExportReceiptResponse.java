@@ -30,8 +30,17 @@ public record ExportReceiptResponse(
         String rejectReason,
         List<ExportItemResponse> items,
         Instant createdAt,
-        Instant updatedAt
+        Instant updatedAt,
+        List<StatusHistoryResponse> statusHistory
 ) {
+    @Builder
+    public record StatusHistoryResponse(
+            String fromStatus,
+            String toStatus,
+            Instant createdAt,
+            Long changedBy
+    ) {}
+
     @Builder
     public record ExportItemResponse(
             Long id,

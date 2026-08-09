@@ -97,7 +97,11 @@ private final LocationRepository locationRepository;
         }).distinct().toList();
         var userNameMap = userRepository.findAllById(userIds).stream()
                 .collect(Collectors.toMap(User::getId, User::getFullName));
-        return ResponsePage.of(page.map(r -> toResponse(r, customers, userNameMap)));
+        var receiptIds = page.getContent().stream().map(ExportReceipt::getId).toList();
+        var historyByReceipt = statusHistoryRepository.findByReceiptIdInOrderByCreatedAtAsc(receiptIds).stream()
+                .collect(Collectors.groupingBy(ExportReceiptStatusHistory::getReceiptId));
+        return ResponsePage.of(page.map(r -> toResponse(r, customers, userNameMap,
+                historyByReceipt.getOrDefault(r.getId(), List.of()))));
     }
 
     @Transactional(readOnly = true)
@@ -126,6 +130,13 @@ private final LocationRepository locationRepository;
         }
         if (reason == ExportReason.SALE && request.customerId() == null) {
             throw new InvalidRequestException(ErrorCode.CUSTOMER_REQUIRED_FOR_SALE);
+        }
+        if (reason == ExportReason.SALE && request.customerId() != null) {
+            Customer customer = customerRepository.findById(request.customerId())
+                    .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.CUSTOMER_NOT_FOUND));
+            if (!Boolean.TRUE.equals(customer.getIsActive())) {
+                throw new InvalidRequestException(ErrorCode.CUSTOMER_INACTIVE);
+            }
         }
         if ((reason == ExportReason.RETURN_SUPPLIER
                 || reason == ExportReason.WARRANTY_REPLACEMENT)
@@ -157,6 +168,9 @@ private final LocationRepository locationRepository;
         BigDecimal totalAmount = BigDecimal.ZERO;
 
         for (var itemReq : request.items()) {
+            if (itemReq.quantity() == null || itemReq.quantity().compareTo(java.math.BigDecimal.ZERO) <= 0) {
+                throw new InvalidRequestException(ErrorCode.INVALID_QUANTITY.format(itemReq.quantity()));
+            }
             Product product = productRepository.findById(itemReq.productId())
                     .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.PRODUCT_NOT_FOUND));
 
@@ -206,9 +220,7 @@ private final LocationRepository locationRepository;
         String unit = product.getUnit();
         boolean isBulk = BULK_UNITS.contains(unit);
         if (isBulk) {
-            var units = productUnitRepository.findByProductIdAndStatusAndBoxIdIsNull(product.getId(), status);
-            return units.stream().map(ProductUnit::getRemainingQuantity)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            return productUnitRepository.sumQuantityByProductIdAndStatusAndBoxIdIsNull(product.getId(), status);
         }
         return BigDecimal.valueOf(productUnitRepository.countByProductIdAndStatusAndBoxIdIsNull(
                 product.getId(), status));
@@ -279,11 +291,13 @@ private final LocationRepository locationRepository;
         var rejectedByName = receipt.getRejectedBy() != null
                 ? userRepository.findById(receipt.getRejectedBy()).map(User::getFullName).orElse(null)
                 : null;
+        var history = statusHistoryRepository.findByReceiptIdOrderByCreatedAtAsc(receipt.getId());
         return ExportReceiptMappingHelper.map(receipt, customerName, createdByName, approvedByName,
-                fulfilledByName, rejectedByName, items, products, trackingTypeMap);
+                fulfilledByName, rejectedByName, items, products, trackingTypeMap, history);
     }
 
-    private ExportReceiptResponse toResponse(ExportReceipt receipt, Map<Long, String> customers, Map<Long, String> users) {
+    private ExportReceiptResponse toResponse(ExportReceipt receipt, Map<Long, String> customers, Map<Long, String> users,
+                                             List<ExportReceiptStatusHistory> history) {
         var items = exportReceiptItemRepository.findByReceiptId(receipt.getId());
         var productIds = items.stream().map(ExportReceiptItem::getProductId).toList();
         var products = productRepository.findAllById(productIds).stream()
@@ -296,7 +310,7 @@ private final LocationRepository locationRepository;
                 receipt.getApprovedBy() != null ? users.get(receipt.getApprovedBy()) : null,
                 receipt.getFulfilledBy() != null ? users.get(receipt.getFulfilledBy()) : null,
                 receipt.getRejectedBy() != null ? users.get(receipt.getRejectedBy()) : null,
-                items, products, trackingTypeMap);
+                items, products, trackingTypeMap, history);
     }
 
     private String generateReceiptCode() {

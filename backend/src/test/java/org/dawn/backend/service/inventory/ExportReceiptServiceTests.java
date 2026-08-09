@@ -7,11 +7,13 @@ import org.dawn.backend.constant.enums.inventory.ProductUnitStatus;
 import org.dawn.backend.controller.inventory.request.ExportReceiptRequest;
 import org.dawn.backend.controller.inventory.request.ExportReceiptRequest.ExportItemRequest;
 import org.dawn.backend.entity.catalog.Product;
+import org.dawn.backend.entity.inventory.Customer;
 import org.dawn.backend.entity.inventory.ExportReceipt;
 import org.dawn.backend.entity.inventory.ExportReceiptItem;
 import org.dawn.backend.entity.inventory.ExportReceiptItemUnit;
 import org.dawn.backend.entity.inventory.ProductUnit;
 import org.dawn.backend.exception.type.InvalidRequestException;
+import org.dawn.backend.exception.type.ResourceNotFoundException;
 import org.dawn.backend.repository.auth.UserRepository;
 import org.dawn.backend.repository.catalog.ProductRepository;
 import org.dawn.backend.repository.inventory.CustomerRepository;
@@ -161,6 +163,9 @@ class ExportReceiptServiceTests {
         when(exportReceiptRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
         when(exportReceiptItemRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
         when(securityPolicy.requireAuthenticated()).thenReturn(userId);
+        Customer customer = mock(Customer.class);
+        when(customer.getIsActive()).thenReturn(true);
+        when(customerRepository.findById(99L)).thenReturn(Optional.of(customer));
 
         try (MockedStatic<ReceiptCodeGenerator> gen = mockStatic(ReceiptCodeGenerator.class)) {
             gen.when(() -> ReceiptCodeGenerator.generate(eq("EXP-"), any())).thenReturn("EXP-001");
@@ -172,6 +177,18 @@ class ExportReceiptServiceTests {
 
         verify(productUnitRepository)
                 .countByProductIdAndStatusAndBoxIdIsNull(10L, ProductUnitStatus.IN_STOCK);
+    }
+
+    @Test
+    void create_saleReason_customerNotFound_rejected() {
+        when(securityPolicy.requireAuthenticated()).thenReturn(userId);
+
+        ExportReceiptRequest request = new ExportReceiptRequest(
+                ExportReason.SALE.name(), 999L, null, "note", null,
+                List.of(new ExportItemRequest(10L, BigDecimal.ONE, BigDecimal.ZERO)));
+
+        assertThrows(ResourceNotFoundException.class, () -> exportReceiptService.create(request));
+        verify(exportReceiptRepository, never()).save(any());
     }
 
     private ExportReceipt pendingReceipt(String reason, Long createdBy) {

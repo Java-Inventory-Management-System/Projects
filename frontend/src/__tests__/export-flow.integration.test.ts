@@ -4,7 +4,7 @@ import { api, loginAsManager, ensureImport } from "./api-client"
 describe("Export Flow", () => {
   it("should create and fulfill export receipt", async () => {
     await loginAsManager()
-    const { serialNumbers } = await ensureImport()
+    const { serialNumbers } = await ensureImport(1, 1)
 
     const createRes = await api.post("/export-receipt", {
       reason: "SALE", customerId: 1, note: "E2E export",
