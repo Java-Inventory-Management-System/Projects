@@ -11,6 +11,7 @@ import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip
 import { DataTable, type Column } from "@/components/ui/data-table"
 import type { StockCheck } from "@/utils/types"
 import { STOCK_CHECK_STATUS } from "@/utils/types"
+import { ROLES } from "@/utils/permissions"
 
 export const StockCheckListPage = () => {
   const { t } = useTranslation()
@@ -95,7 +96,14 @@ export const StockCheckListPage = () => {
     {
       header: t("stockCheckList.errorCount"),
       className: "text-right",
-      render: (r) => <span className="tabular-nums text-destructive">{r.missingCount + r.unexpectedCount || "—"}</span>,
+      render: (r) => {
+        const total = r.missingCount + r.unexpectedCount
+        return (
+          <span className={`tabular-nums ${total > 0 ? "text-destructive" : "text-muted-foreground"}`}>
+            {total}
+          </span>
+        )
+      },
     },
     {
       header: t("common.actions"),
@@ -128,9 +136,11 @@ export const StockCheckListPage = () => {
               ))}
             </SelectContent>
           </Select>
-          <Button onClick={() => navigate("/stock/ops/checks/new")}>
-            <Plus className="size-4 mr-1" /> {t("stockCheckList.create")}
-          </Button>
+          {perm.hasRole(...ROLES.CAN_OPERATE_STOCK) && (
+            <Button onClick={() => navigate("/stock/ops/checks/new")}>
+              <Plus className="size-4 mr-1" /> {t("stockCheckList.create")}
+            </Button>
+          )}
         </div>
       </div>
 

@@ -2,6 +2,9 @@ import { useState, useEffect } from "react"
 import { useTranslation } from "react-i18next"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { disposeConfirmUnits, getQcUnits, qcPassUnits } from "@/services/qc-processing-service"
+import { getSuppliers } from "@/services/supplier-service"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
@@ -38,6 +41,16 @@ export const QcProcessingPage = () => {
   const [passSelected, setPassSelected] = useState<number[]>([])
   const [disposeSelected, setDisposeSelected] = useState<number[]>([])
   const [confirmAction, setConfirmAction] = useState<"DISPOSED" | "RETURN" | "SEND_WARRANTY" | null>(null)
+  const [supplierId, setSupplierId] = useState("")
+
+  useEffect(() => {
+    setSupplierId("")
+  }, [confirmAction])
+
+  const suppliers = useQuery({
+    queryKey: ["suppliers"],
+    queryFn: getSuppliers,
+  })
 
   const passUnits = useQuery({
     queryKey: ["qc-processing", QC_PASS_STATUSES.join(",")],
@@ -69,11 +82,13 @@ export const QcProcessingPage = () => {
   })
 
   const disposeMut = useMutation({
-    mutationFn: (action: string) => disposeConfirmUnits(disposeSelected, action),
+    mutationFn: (action: string) =>
+      disposeConfirmUnits(disposeSelected, action, supplierId ? Number(supplierId) : null),
     onSuccess: () => {
       toast.success(t("qcPage.disposeSuccess"))
       setDisposeSelected([])
       setConfirmAction(null)
+      setSupplierId("")
       invalidate()
     },
     onError: (e: Error) => toast.error(e.message),
@@ -306,6 +321,23 @@ export const QcProcessingPage = () => {
                   ? t("qcPage.sendWarrantyConfirmDesc")
                   : t(`qcPage.${returnTargetKey(disposeUnits.data, disposeSelected)}ConfirmDesc`)}
             </p>
+            {confirmAction === "RETURN" &&
+              disposeUnits.data?.find((u) => disposeSelected.includes(u.id))?.status ===
+                PRODUCT_UNIT_STATUS.RMA_UNREPAIRABLE && (
+                <div className="mb-4 space-y-2">
+                  <Label htmlFor="return-supplier">{t("qcPage.supplier")}</Label>
+                  <Select value={supplierId} onValueChange={setSupplierId}>
+                    <SelectTrigger id="return-supplier">
+                      <SelectValue placeholder={t("qcPage.supplierPlaceholder")} />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-[50vh]">
+                      {(suppliers.data ?? []).map((s) => (
+                        <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setConfirmAction(null)}>
                 {t("dialog.cancel")}

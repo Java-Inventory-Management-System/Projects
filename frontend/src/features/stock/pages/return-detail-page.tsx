@@ -68,6 +68,7 @@ export const ReturnDetailPage = () => {
     CHANGE_MIND: t("returnReason.changeMind"),
     DEFECTIVE: t("returnReason.defective"),
     WRONG_ITEM: t("returnReason.wrongItem"),
+    WARRANTY_CLAIM: t("returnReason.warrantyClaim"),
   }
 
   const statusLabel: Record<string, { label: string; variant: "default" | "secondary" | "destructive" }> = {
@@ -84,6 +85,7 @@ export const ReturnDetailPage = () => {
   const actionLabel: Record<string, string> = {
     RESTOCK: t("returnAction.restock"),
     SCRAP: t("returnAction.scrap"),
+    REJECT: t("returnAction.reject"),
     WARRANTY_TRANSFER: t("returnAction.warrantyTransfer"),
   }
 
@@ -105,8 +107,15 @@ export const ReturnDetailPage = () => {
     )
 
   const st = statusLabel[receipt.status] ?? { label: receipt.status, variant: "secondary" as const }
-  const canApprove = receipt.status === RETURN_RECEIPT_STATUS.PENDING_APPROVAL && perm.hasRole(...ROLES.CAN_APPROVE)
-  const canCancel = receipt.status === RETURN_RECEIPT_STATUS.PENDING_APPROVAL
+  const isCreator = receipt.createdBy === perm.user?.id
+  const canApprove =
+    receipt.status === RETURN_RECEIPT_STATUS.PENDING_APPROVAL &&
+    !isCreator &&
+    perm.hasRole(...ROLES.CAN_APPROVE)
+  const canCancel =
+    receipt.status === RETURN_RECEIPT_STATUS.PENDING_APPROVAL &&
+    !isCreator &&
+    perm.hasRole(...ROLES.CAN_APPROVE)
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">

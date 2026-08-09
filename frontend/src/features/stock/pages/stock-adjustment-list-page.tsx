@@ -164,7 +164,7 @@ export const StockAdjustmentListPage = () => {
       className: "w-[160px]",
       render: (r) => (
         <div className="flex items-center gap-1">
-          {canApprove && r.status === ADJUSTMENT_STATUS.PENDING && (
+          {canApprove && r.status === ADJUSTMENT_STATUS.PENDING && r.createdBy !== perm.user?.id && (
             <>
               <Tooltip>
                 <TooltipTrigger asChild>

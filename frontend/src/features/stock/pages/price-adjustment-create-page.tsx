@@ -252,16 +252,16 @@ const [displayPrice, setDisplayPrice] = useState("")
                 className="h-9 w-full"
                 value={displayPrice}
                 onChange={(e) => {
-                  const raw = e.target.value.replace(/[^0-9]/g, "")
-                  const num = raw ? parseInt(raw, 10) : 0
+                  const raw = e.target.value.replace(/[^0-9.,]/g, "").replace(",", ".")
+                  const num = raw ? Number(raw) : 0
                   form.setValue("newPrice", num, { shouldValidate: true })
-                  setDisplayPrice(num ? num.toLocaleString("vi-VN") + "₫" : "")
+                  setDisplayPrice(num ? num.toLocaleString("vi-VN", { maximumFractionDigits: 2 }) + "₫" : "")
                 }}
                 onFocus={() => {
                   if (newPrice > 0) setDisplayPrice(String(newPrice))
                 }}
                 onBlur={() => {
-                  if (newPrice > 0) setDisplayPrice(newPrice.toLocaleString("vi-VN") + "₫")
+                  if (newPrice > 0) setDisplayPrice(newPrice.toLocaleString("vi-VN", { maximumFractionDigits: 2 }) + "₫")
                 }}
               />
             </div>

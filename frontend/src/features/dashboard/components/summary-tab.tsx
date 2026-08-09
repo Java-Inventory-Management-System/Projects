@@ -202,7 +202,7 @@ export function SummaryTab({ onNavigate }: SummaryTabProps) {
   const top10 = useMemo(() => {
     if (!stockValue) return []
     const sorted = [...stockValue].sort((a, b) => b.totalValue - a.totalValue).slice(0, 10)
-    const total = sorted.reduce((s, i) => s + i.totalValue, 0)
+    const total = stockValue.reduce((s, i) => s + i.totalValue, 0)
     let acc = 0
     return sorted.map((i) => {
       acc += i.totalValue
@@ -249,6 +249,7 @@ export function SummaryTab({ onNavigate }: SummaryTabProps) {
                 className={`inline-flex items-center gap-0.5 text-xs tabular-nums ${
                   summary.trendPercent > 0 ? "text-chart-2" : "text-destructive"
                 }`}
+                title={t('summaryTab.trendNote')}
               >
                 {summary.trendPercent > 0 ? "↑" : "↓"}{" "}
                 {Math.abs(summary.trendPercent).toFixed(1)}%

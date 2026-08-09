@@ -206,9 +206,11 @@ export function PriceAdjustmentListPage() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-semibold tracking-tight">{t("priceAdjList.title")}</h1>
-        <Button onClick={() => navigate("/stock/ops/price-adjustments/new")}>
-          <Plus className="size-4 mr-1" /> {t("priceAdjList.create")}
-        </Button>
+        {perm.hasRole(...ROLES.CAN_OPERATE_STOCK) && (
+          <Button onClick={() => navigate("/stock/ops/price-adjustments/new")}>
+            <Plus className="size-4 mr-1" /> {t("priceAdjList.create")}
+          </Button>
+        )}
       </div>
 
       <div className="flex flex-wrap gap-2">

@@ -10,6 +10,7 @@ import {
   cancelStockCheck,
 } from "@/services/stock-check-service"
 import { usePermission } from "@/hooks/use-permission"
+import { invalidateDashboard } from "@/hooks/use-reports"
 import { ROLES } from "@/utils/permissions"
 import { STOCK_CHECK_STATUS, STOCK_CHECK_DIFF, PRODUCT_UNIT_STATUS, TRACKING_TYPE, type StockCheckItem } from "@/utils/types"
 import { Button } from "@/components/ui/button"
@@ -148,7 +149,7 @@ export const StockCheckDetailPage = () => {
     qc.invalidateQueries({ queryKey: ["stock-check", id] })
     qc.invalidateQueries({ queryKey: ["stock-checks"] })
     qc.invalidateQueries({ queryKey: ["inventory"] })
-    qc.invalidateQueries({ queryKey: ["inventory-summary"] })
+    invalidateDashboard(qc)
   }
 
   const completeMut = useMutation({
@@ -383,8 +384,9 @@ if (i.trackingType === TRACKING_TYPE.BULK) return { ...i, actualStatus: i.expect
           </Button>
         </ButtonGroup>
       )}
-      {canOperateStock && check.status === STOCK_CHECK_STATUS.COMPLETED && (
-        <AlertDialog open={reopenDialog} onOpenChange={setReopenDialog}>
+      {canOperateStock &&
+        (check.status === STOCK_CHECK_STATUS.COMPLETED || check.status === STOCK_CHECK_STATUS.EXPIRED) && (
+          <AlertDialog open={reopenDialog} onOpenChange={setReopenDialog}>
           <AlertDialogTrigger asChild>
             <Button variant="outline" disabled={reopenMut.isPending}>
               <RotateCcw className="size-4 mr-1" />
@@ -499,7 +501,13 @@ if (i.trackingType === TRACKING_TYPE.BULK) return { ...i, actualStatus: i.expect
             {check.scopeType && (
               <div>
                 <span className="text-muted-foreground">{t("stockCheckDetail.scope")}</span>
-                <p className="font-medium">{check.scopeType === "ZONE" ? t("stockCheckDetail.zone") : t("stockCheckDetail.category")} #{check.scopeId}</p>
+                <p className="font-medium">
+                  {check.scopeType === "ZONE"
+                    ? `${t("stockCheckDetail.zone")} ${check.scopeName ?? check.scopeId}`
+                    : check.scopeType === "BOX"
+                      ? `${t("stockCheckDetail.box")} ${check.scopeName ?? check.scopeId}`
+                      : `${t("stockCheckDetail.category")} #${check.scopeId}`}
+                </p>
               </div>
             )}
             {check.approvedByName && (
@@ -617,17 +625,16 @@ if (i.trackingType === TRACKING_TYPE.BULK) return { ...i, actualStatus: i.expect
           <DialogHeader>
             <DialogTitle>{t("stockCheckDetail.completeDialogTitle")}</DialogTitle>
             <DialogDescription>
-              {autoFillCount > 0 ? (
-                <span>{t("stockCheckDetail.completeDialogAutoFill", { count: autoFillCount })}</span>
-              ) : (
-                <span>{t("stockCheckDetail.completeDialogSimple")}</span>
+              {autoFillCount > 0 && (
+                <span className="block">{t("stockCheckDetail.completeDialogAutoFill", { count: autoFillCount })}</span>
               )}
+              <span className="block">{t("stockCheckDetail.completeDialogAdjustment")}</span>
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setCompleteModal(false)}>{t("common.cancel")}</Button>
             <Button onClick={handleSaveAndComplete} disabled={completeMut.isPending}>
-              {autoFillCount > 0 ? t("stockCheckDetail.completeDialogAutoFillBtn") : t("stockCheckDetail.completeDialogSimpleBtn")}
+              {autoFillCount > 0 ? t("stockCheckDetail.completeDialogAutoFillBtn") : t("stockCheckDetail.complete")}
             </Button>
           </DialogFooter>
         </DialogContent>

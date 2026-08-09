@@ -8,6 +8,7 @@ import type {
   ImportReceiptItem,
   ExportReceipt,
   ExportReceiptItem,
+  ExportReceiptStatusHistory,
   StockCheckStatus,
   StockCheckScopeType,
   StockCheck,
@@ -218,6 +219,12 @@ export function mapExportReceipt(raw: unknown): ExportReceipt {
     rejectReason: r.rejectReason ?? null,
     updatedAt: r.updatedAt ?? r.createdAt,
     items: (r.items ?? []).map(mapExportItem),
+    statusHistory: (r.statusHistory ?? []).map((h: ExportReceiptStatusHistory) => ({
+      fromStatus: h.fromStatus,
+      toStatus: h.toStatus,
+      createdAt: h.createdAt,
+      changedBy: h.changedBy,
+    })),
   }
 }
 

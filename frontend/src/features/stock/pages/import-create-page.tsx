@@ -18,13 +18,12 @@ import { useTranslation } from "react-i18next"
 import { Check, ChevronLeft, ChevronRight } from "lucide-react"
 import { ImportStepSerials } from "../components/import-create-step-serials"
 import { ImportStepQc } from "../components/import-create-step-qc"
+import { UnsavedChangesDialog } from "@/components/unsaved-changes-dialog"
 import { SerialModal } from "../components/serial-modal"
 import { itemReducer } from "../reducers/import-create-reducer"
 import { Label } from "@/components/ui/label"
 
 const WARRANTY_RESULT_TYPES = ["REPAIRED", "REJECTED", "REPLACED"]
-const ZONE_ORDER = ["A", "B", "C", "D", "E"]
-
 const steps = (t: (k: string) => string) => [
   { num: 1, label: t("importCreate.stepSelectOrder") },
   { num: 2, label: t("importCreate.stepSerials") },
@@ -190,9 +189,10 @@ export const ImportCreatePage = () => {
     const binOccupancy = new Map(
       locationMap.zones.flatMap((z) => z.shelves).flatMap((s) => s.bins).map((b) => [b.id, b.productCount]),
     )
+    const zoneCodes = locationMap.zones.map((z) => z.zoneCode).sort()
     for (const item of items) {
       if (item.locationId) continue
-      for (const zoneCode of ZONE_ORDER) {
+      for (const zoneCode of zoneCodes) {
         const zone = locationMap.zones.find((z) => z.zoneCode === zoneCode)
         if (!zone) continue
         const bin = zone.shelves
@@ -318,7 +318,7 @@ export const ImportCreatePage = () => {
 
   const hasUnsaved = step > 1 && items.some((i) => i.serials.length > 0) && !submitMut.isSuccess
 
-  useBlocker(
+  const blocker = useBlocker(
     ({ currentLocation, nextLocation }) =>
       !navigatingAfterMut.current && hasUnsaved && currentLocation.pathname !== nextLocation.pathname,
   )
@@ -809,6 +809,12 @@ export const ImportCreatePage = () => {
           )}
         </div>
       </div>
+
+      <UnsavedChangesDialog
+        open={blocker.state === "blocked"}
+        onStay={() => blocker.state === "blocked" && blocker.reset()}
+        onLeave={() => blocker.state === "blocked" && blocker.proceed()}
+      />
     </div>
   )
 }

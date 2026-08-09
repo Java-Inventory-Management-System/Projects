@@ -584,6 +584,7 @@
     "done": "Xong"
   },
   "exportStatus": {
+    "new": "Khởi tạo",
     "pending": "Chờ xuất kho",
     "approved": "Đã duyệt",
     "completed": "Hoàn tất",
@@ -618,7 +619,8 @@
     "fulfill": "Xuất kho",
     "total": "Tổng",
     "cancelConfirmTitle": "Hủy phiếu xuất",
-    "cancelConfirmDescription": "Xác nhận hủy phiếu xuất này? Hàng sẽ được trả lại kho."
+    "cancelConfirmDescription": "Xác nhận hủy phiếu xuất này? Hàng sẽ được trả lại kho.",
+    "timeline": "Lịch sử trạng thái"
   },
   "exportFulfill": {
     "scanned": "Đã quét: {{serial}}",
@@ -785,6 +787,8 @@
     "returnSupplier": "Trả NCC ({{count}})",
     "returnSupplierConfirmTitle": "Xác nhận trả NCC",
     "returnSupplierConfirmDesc": "Các đơn vị được chọn sẽ được trả lại nhà cung cấp. Hành động này không thể hoàn tác.",
+    "supplier": "Nhà cung cấp",
+    "supplierPlaceholder": "Mặc định nếu để trống",
     "returnCustomer": "Trả lại khách ({{count}})",
     "returnCustomerConfirmTitle": "Xác nhận trả lại khách",
     "returnCustomerConfirmDesc": "Các đơn vị được chọn sẽ bị từ chối nhận trả và trả lại cho khách hàng. Hành động này không thể hoàn tác."

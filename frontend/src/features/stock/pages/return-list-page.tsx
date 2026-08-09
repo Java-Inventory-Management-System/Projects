@@ -110,7 +110,7 @@ export const ReturnListPage = () => {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-semibold tracking-tight">{t("returnList.title")}</h1>
-        {perm.hasRole(...ROLES.CAN_VIEW_INVENTORY) && (
+        {perm.hasRole(...ROLES.CAN_CREATE_TRANSACTION) && (
           <Button onClick={() => navigate("/returns-qc/returns/new")}>
             <Plus className="size-4 mr-1" /> {t("returnList.create")}
           </Button>

@@ -4,6 +4,8 @@ import { useTranslation } from "react-i18next"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { getExportReceiptById, cancelExportReceipt } from "@/services/export-service"
 import { usePermission } from "@/hooks/use-permission"
+import { invalidateDashboard } from "@/hooks/use-reports"
+import { ROLES } from "@/utils/permissions"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -42,6 +44,13 @@ export function ExportDetailPage() {
     DISPOSE: t("exportReason.dispose"),
     WARRANTY_REPLACEMENT: t("exportReason.warrantyReplacement"),
   }
+  const historyStatusLabel: Record<string, string> = {
+    NEW: t("exportStatus.new"),
+    PENDING: t("exportStatus.pending"),
+    APPROVED: t("exportStatus.approved"),
+    COMPLETED: t("exportStatus.completed"),
+    CANCELLED: t("exportStatus.cancelled"),
+  }
   const qc = useQueryClient()
   const perm = usePermission()
   const [confirmCancel, setConfirmCancel] = useState(false)
@@ -58,8 +67,7 @@ export function ExportDetailPage() {
       qc.invalidateQueries({ queryKey: ["export-receipt", id] })
       qc.invalidateQueries({ queryKey: ["export-receipts"] })
       qc.invalidateQueries({ queryKey: ["inventory"] })
-      qc.invalidateQueries({ queryKey: ["inventory-summary"] })
-      qc.invalidateQueries({ queryKey: ["low-stock"] })
+      invalidateDashboard(qc)
       qc.invalidateQueries({ queryKey: ["export-pending-count"] })
       toast.success(t("exportDetail.actionSuccess"))
       setConfirmCancel(false)
@@ -107,10 +115,12 @@ export function ExportDetailPage() {
         <div className="flex items-center gap-2">
           {(receipt.status === EXPORT_RECEIPT_STATUS.PENDING || receipt.status === EXPORT_RECEIPT_STATUS.APPROVED) && (
             <>
-              <Button variant="outline" className="text-destructive" onClick={() => setConfirmCancel(true)}>
-                <X className="size-4 mr-1" /> {t("exportDetail.cancelReceipt")}
-              </Button>
-              {perm.hasRole("STOCK", "MANAGER", "ADMIN") && (
+              {perm.hasRole(...ROLES.CAN_APPROVE) && receipt.createdBy !== perm.user?.id && (
+                <Button variant="outline" className="text-destructive" onClick={() => setConfirmCancel(true)}>
+                  <X className="size-4 mr-1" /> {t("exportDetail.cancelReceipt")}
+                </Button>
+              )}
+              {perm.hasRole("STOCK", "MANAGER") && receipt.createdBy !== perm.user?.id && (
                 <Button onClick={() => navigate(`/stock/exports/${receipt.id}/fulfill`)}>
                   {t("exportDetail.fulfill")}
                 </Button>
@@ -175,6 +185,33 @@ export function ExportDetailPage() {
       </Card>
 
       <div className="flex justify-end"><span className="text-lg font-semibold">{t("exportDetail.total")}: {formatMoney(receipt.totalAmount ?? 0)}</span></div>
+
+      {receipt.statusHistory?.length > 0 && (
+        <Card>
+          <CardContent className="pt-6">
+            <h2 className="text-sm font-semibold mb-4">{t("exportDetail.timeline")}</h2>
+            <ol className="space-y-3">
+              {receipt.statusHistory.map((h, idx) => (
+                <li key={idx} className="flex items-start gap-3 text-sm">
+                  <span className="mt-1.5 size-2 shrink-0 rounded-full bg-primary" />
+                  <div>
+                    <p className="font-medium">
+                      <Badge variant="outline" className="mr-1.5">
+                        {historyStatusLabel[h.fromStatus] ?? h.fromStatus}
+                      </Badge>
+                      &rarr;
+                      <Badge variant="outline" className="ml-1.5">
+                        {historyStatusLabel[h.toStatus] ?? h.toStatus}
+                      </Badge>
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{formatDateTime(h.createdAt)}</p>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </CardContent>
+        </Card>
+      )}
 
       <AlertDialog open={confirmCancel} onOpenChange={(v) => { if (!v) setConfirmCancel(false) }}>
         <AlertDialogContent>

@@ -129,7 +129,7 @@ export const StockCheckCreatePage = () => {
                 <SelectContent className="max-h-[50vh]">
                   {zones.map((z) => (
                     <SelectItem key={z.zoneCode} value={String(z.locationId)}>
-                      {z.zoneCode} ({z.exampleFullCode})
+                      {t("stockCheckCreate.zonePrefix")} {z.zoneCode}
                     </SelectItem>
                   ))}
                 </SelectContent>

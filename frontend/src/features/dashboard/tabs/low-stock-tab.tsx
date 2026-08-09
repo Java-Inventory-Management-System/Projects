@@ -1,16 +1,19 @@
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useLowStock } from "@/hooks/use-reports"
+import { getLowStock } from "@/services/report-service"
 import { Button } from "@/components/ui/button"
 import { DataTable } from "@/components/ui/data-table"
 import { Skeleton } from "@/components/ui/skeleton"
 import { downloadCsv } from "@/utils/download-csv"
 import type { LowStockItem } from "@/utils/types"
 import { FileDown } from "lucide-react"
+import { toast } from "@/utils/toast"
 
 export function LowStockTab() {
   const { t } = useTranslation()
   const [lowPage, setLowPage] = useState(0)
+  const [exporting, setExporting] = useState(false)
   const lowPageSize = 20
   const { data, isLoading } = useLowStock(lowPage, lowPageSize)
   if (isLoading) return <Skeleton className="h-48 w-full" />
@@ -21,20 +24,28 @@ export function LowStockTab() {
           variant="outline"
           size="sm"
           className="gap-1.5"
-          onClick={() => {
-            if (!data) return
-            downloadCsv(
-              "sap-het-hang.csv",
-              [t('table.sku'), t('table.product'), t('dashboard.lowStock.stock'), t('dashboard.lowStock.minStock')],
-              data.content.map((i) => [
-                i.productSku ?? "",
-                i.productName,
-                String(i.quantity),
-                String(i.minStock ?? ""),
-              ]),
-            )
+          disabled={exporting || !data}
+          onClick={async () => {
+            if (!data?.pagination) return
+            setExporting(true)
+            try {
+              const all = await getLowStock(0, data.pagination.totalElements)
+              downloadCsv(
+                "sap-het-hang.csv",
+                [t('table.sku'), t('table.product'), t('dashboard.lowStock.stock'), t('dashboard.lowStock.minStock')],
+                all.content.map((i) => [
+                  i.productSku ?? "",
+                  i.productName,
+                  String(i.quantity),
+                  String(i.minStock ?? ""),
+                ]),
+              )
+            } catch {
+              toast.error(t("dashboard.lowStock.exportError"))
+            } finally {
+              setExporting(false)
+            }
           }}
-          disabled={!data}
         >
           <FileDown className="size-3" /> CSV
         </Button>

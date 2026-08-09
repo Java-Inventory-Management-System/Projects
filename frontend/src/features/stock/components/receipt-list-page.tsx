@@ -45,6 +45,7 @@ interface Props<R extends Receipt> {
   completedStatus?: string
   scanStatuses?: string[]
   cancelPerm?: () => boolean
+  createPerm?: () => boolean
 }
 
 export function ReceiptListPage<R extends Receipt>({
@@ -62,6 +63,7 @@ export function ReceiptListPage<R extends Receipt>({
   completedStatus = IMPORT_RECEIPT_STATUS.COMPLETED,
   scanStatuses = [IMPORT_RECEIPT_STATUS.DRAFT, IMPORT_RECEIPT_STATUS.PENDING_APPROVAL],
   cancelPerm,
+  createPerm,
 }: Props<R>) {
   const { t } = useTranslation()
   const navigate = useNavigate()
@@ -198,10 +200,12 @@ export function ReceiptListPage<R extends Receipt>({
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
-        <Button onClick={() => navigate(newRoute)}>
-          <Plus className="size-4 mr-1" />
-          {t("common.createNew")}
-        </Button>
+        {(!createPerm || createPerm()) && (
+          <Button onClick={() => navigate(newRoute)}>
+            <Plus className="size-4 mr-1" />
+            {t("common.createNew")}
+          </Button>
+        )}
       </div>
 
         <DataTable

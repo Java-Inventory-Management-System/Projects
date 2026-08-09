@@ -4,7 +4,8 @@ import { useParams, useNavigate } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { getExportReceiptById, fulfillExportReceipt } from "@/services/export-service"
-import { getAllSerialsForProduct } from "@/services/product-unit-service"
+import { getAllSerialsForProduct, exportSerialsStatuses } from "@/services/product-unit-service"
+import { invalidateDashboard } from "@/hooks/use-reports"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -23,7 +24,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog"
 import { toast } from "@/utils/toast"
-import { EXPORT_RECEIPT_STATUS, EXPORT_REASON, PRODUCT_UNIT_STATUS, TRACKING_TYPE, type ProductUnit } from "@/utils/types"
+import { EXPORT_RECEIPT_STATUS, TRACKING_TYPE, type ProductUnit } from "@/utils/types"
 import { formatDateVN, formatDateTime } from "@/utils/format"
 import { useBarcodeScanner } from "@/hooks/use-barcode-scanner"
 import { ScanLine } from "lucide-react"
@@ -91,11 +92,7 @@ export function ExportFulfillPage() {
   const openSerialPicker = async (item: typeof itemsWithTracking[0]) => {
     setSerialPicker({ exportItemId: item.id, productId: item.productId, productName: item.productName })
     setSerialsLoading(true)
-    const sourceStatus =
-      receipt?.reason === EXPORT_REASON.WARRANTY_REPLACEMENT
-        ? PRODUCT_UNIT_STATUS.WAITING_RMA_EXPORT
-        : PRODUCT_UNIT_STATUS.IN_STOCK
-    const all = await getAllSerialsForProduct(item.productId, sourceStatus)
+    const all = await getAllSerialsForProduct(item.productId, exportSerialsStatuses(receipt?.reason))
     setAllSerials(all)
     const saved = serialsPerItem[item.id]
     if (saved?.length) {
@@ -123,7 +120,7 @@ export function ExportFulfillPage() {
       qc.invalidateQueries({ queryKey: ["export-receipt", id] })
       qc.invalidateQueries({ queryKey: ["export-receipts"] })
       qc.invalidateQueries({ queryKey: ["inventory"] })
-      qc.invalidateQueries({ queryKey: ["inventory-summary"] })
+      invalidateDashboard(qc)
       qc.invalidateQueries({ queryKey: ["export-pending-count"] })
       toast.success(t("exportFulfill.success"))
       navigate(`/stock/exports/${receipt!.id}`)
@@ -199,7 +196,7 @@ export function ExportFulfillPage() {
                     ) : (
                       <Input
                         type="number"
-                        min={0}
+                        min={1}
                         max={item.quantity}
                         className="h-8 w-20 text-right ml-auto"
                         value={fulfilledQtys[item.id] ?? item.quantity}

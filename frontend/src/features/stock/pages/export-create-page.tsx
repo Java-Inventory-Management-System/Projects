@@ -6,7 +6,7 @@ import { useNavigate } from "react-router-dom"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { createExportReceipt } from "@/services/export-service"
 import { useProducts } from "@/hooks/use-products"
-import { getSerialsForExport, getAllSerialsForProduct } from "@/services/product-unit-service"
+import { getSerialsForExport, getAllSerialsForProduct, exportSerialsStatuses } from "@/services/product-unit-service"
 import { CustomerSelectModal } from "@/features/stock/components/customer-select-modal"
 import { exportFormSchema } from "@/features/stock/schemas/export-schema"
 import type { ExportFormData } from "@/features/stock/schemas/export-schema"
@@ -104,9 +104,10 @@ export const ExportCreatePage = () => {
       setSerials({})
       return
     }
+    const statuses = exportSerialsStatuses(formValues.reason)
     let cancelled = false
     const tempIds = fields.map((f) => f.tempId)
-    Promise.all(fields.map((f) => getSerialsForExport(f.productId, f.quantity))).then((results) => {
+    Promise.all(fields.map((f) => getSerialsForExport(f.productId, f.quantity, statuses))).then((results) => {
       if (cancelled) return
       const map: Record<number, ProductUnit[]> = {}
       results.forEach((serials, idx) => {
@@ -115,7 +116,7 @@ export const ExportCreatePage = () => {
       setSerials(map)
     })
     return () => { cancelled = true }
-  }, [fields])
+  }, [fields, formValues.reason])
 
   const createMut = useMutation({
     mutationFn: createExportReceipt,
@@ -131,12 +132,12 @@ export const ExportCreatePage = () => {
   const openOverrideDialog = useCallback(async (tempId: number, productId: number) => {
     setOverrideDialog({ tempId, productId })
     setOverrideLoading(true)
-    const all = await getAllSerialsForProduct(productId)
+    const all = await getAllSerialsForProduct(productId, exportSerialsStatuses(formValues.reason))
     setAllProductSerials(all)
     const current = overrideSerials[tempId] ?? serials[tempId] ?? []
     setOverrideSelectedIds(current.map((s) => s.id))
     setOverrideLoading(false)
-  }, [overrideSerials, serials])
+  }, [overrideSerials, serials, formValues.reason])
 
   const confirmOverride = useCallback(() => {
     if (!overrideDialog) return
@@ -170,6 +171,10 @@ export const ExportCreatePage = () => {
     }
     if (values.reason === EXPORT_REASON.SALE && !values.customerId) {
       toast.error(t("exportCreate.selectCustomerRequired"))
+      return
+    }
+    if (values.items.some((i) => !i.quantity || i.quantity < 1)) {
+      toast.error(t("exportCreate.invalidQuantity"))
       return
     }
     createMut.mutate({

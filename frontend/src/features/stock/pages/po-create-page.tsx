@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next"
 import { useCreatePurchaseOrder } from "@/hooks/use-purchase-orders"
 import { useProducts } from "@/hooks/use-products"
 import { useSuppliers } from "@/hooks/use-suppliers"
+import { toLocalDateStr } from "@/utils/format"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -13,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { UnsavedChangesDialog } from "@/components/unsaved-changes-dialog"
 import { ImportCreateSidebar } from "../components/import-create-sidebar"
 import { Trash2, Plus, ChevronsUpDown } from "lucide-react"
 import { toast } from "@/utils/toast"
@@ -46,7 +48,7 @@ export function POCreatePage() {
   const defaultDate = useMemo(() => {
     const d = new Date()
     d.setDate(d.getDate() + 14)
-    return d.toISOString().slice(0, 10)
+    return toLocalDateStr(d)
   }, [])
 
   const form = useForm<POFormFields>({
@@ -63,7 +65,7 @@ export function POCreatePage() {
   const createMut = useCreatePurchaseOrder()
 
   const hasUnsaved = fields.length > 0
-  useBlocker(
+  const blocker = useBlocker(
     ({ currentLocation, nextLocation }) =>
       !navigatingAfterMut.current && hasUnsaved && currentLocation.pathname !== nextLocation.pathname,
   )
@@ -298,6 +300,12 @@ export function POCreatePage() {
           </Button>
         </div>
       </div>
+
+      <UnsavedChangesDialog
+        open={blocker.state === "blocked"}
+        onStay={() => blocker.state === "blocked" && blocker.reset()}
+        onLeave={() => blocker.state === "blocked" && blocker.proceed()}
+      />
 
       <div className="lg:col-span-1">
         <ImportCreateSidebar />

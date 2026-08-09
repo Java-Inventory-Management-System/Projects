@@ -116,7 +116,7 @@ export function DeadStockTab() {
           { header: t('dashboard.deadStock.costPrice'), sortKey: "costPrice", className: "text-right", render: (i) => <span className="tabular-nums">{i.costPrice?.toLocaleString("vi-VN") ?? "0"}₫</span> },
           { header: "", render: (i) => (
             <Button variant="outline" size="sm" className="text-xs h-7 px-2" asChild>
-              <a href={`/products?highlight=${i.productId}`}>{t('dashboard.deadStock.handle')}</a>
+              <a href={`/products/${i.productId}`}>{t('dashboard.deadStock.handle')}</a>
             </Button>
           )},
         ]}

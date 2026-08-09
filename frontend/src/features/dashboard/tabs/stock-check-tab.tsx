@@ -2,7 +2,7 @@ import { useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts"
 import { useStockCheckOverview } from "@/hooks/use-reports"
-import { formatDateVN } from "@/utils/format"
+import { formatDateVN, toLocalDateStr, localDayStartUtc, localDayEndUtc } from "@/utils/format"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
@@ -23,9 +23,9 @@ export function StockCheckTab() {
   }
   const today = new Date()
   const firstDay = new Date(today.getFullYear(), today.getMonth(), 1)
-  const [from, setFrom] = useState(firstDay.toISOString().slice(0, 10))
-  const [to, setTo] = useState(today.toISOString().slice(0, 10))
-  const { data, isLoading } = useStockCheckOverview(from + "T00:00:00Z", to + "T23:59:59Z")
+  const [from, setFrom] = useState(toLocalDateStr(firstDay))
+  const [to, setTo] = useState(toLocalDateStr(today))
+  const { data, isLoading } = useStockCheckOverview(localDayStartUtc(from), localDayEndUtc(to))
   const adjData = useMemo(() => {
     const byMonth = new Map<string, { lost: number; found: number; damaged: number }>()
     for (const a of data?.adjustmentsPerMonth ?? []) {
@@ -46,11 +46,11 @@ export function StockCheckTab() {
       <div className="flex gap-3 items-end flex-wrap">
         <div className="space-y-1">
           <Label className="text-xs">{t('dashboard.activity.from')}</Label>
-          <DatePicker value={from} onChange={setFrom} className="w-40" />
+          <DatePicker value={from} onChange={setFrom} max={to} className="w-40" />
         </div>
         <div className="space-y-1">
           <Label className="text-xs">{t('dashboard.activity.to')}</Label>
-          <DatePicker value={to} onChange={setTo} className="w-40" />
+          <DatePicker value={to} onChange={setTo} min={from} className="w-40" />
         </div>
       </div>
       {(data?.checksPerMonth?.length ?? 0) > 0 && (

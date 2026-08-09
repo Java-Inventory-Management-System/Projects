@@ -4,6 +4,7 @@ import { useSearchParams } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { PageSkeleton } from "@/components/ui/page-skeleton"
 import { ROLES } from "@/utils/permissions"
+import { usePermission } from "@/hooks/use-permission"
 
 const SummaryTab = lazy(() =>
   import("@/features/dashboard/components/summary-tab").then((m) => ({ default: m.SummaryTab })),
@@ -54,8 +55,10 @@ const TAB_COMPONENTS: Record<TabKey, React.LazyExoticComponent<(p: TabProps) => 
 export const DashboardPage = () => {
   const { t } = useTranslation()
   const [searchParams, setSearchParams] = useSearchParams()
+  const perm = usePermission()
+  const visibleTabs = ALL_TABS.filter((tabDef) => perm.hasRole(...tabDef.roles))
   const tab = (searchParams.get("tab") as TabKey | null) ?? "summary"
-  const safeTab = ALL_TABS.some((t) => t.key === tab) ? tab : (ALL_TABS[0]?.key ?? "summary")
+  const safeTab = visibleTabs.some((t) => t.key === tab) ? tab : (visibleTabs[0]?.key ?? "summary")
   const TabComponent = TAB_COMPONENTS[safeTab]
   const selectTab = (key: TabKey) => setSearchParams((prev) => {
     const next = new URLSearchParams(prev)
@@ -67,7 +70,7 @@ export const DashboardPage = () => {
     <div className="space-y-4">
       <h1 className="text-xl font-semibold tracking-tight">{t('dashboard.title')}</h1>
       <div className="flex flex-wrap gap-1 border-b pb-px">
-        {ALL_TABS.map((tabDef) => (
+        {visibleTabs.map((tabDef) => (
           <Button
             key={tabDef.key}
             variant="ghost"

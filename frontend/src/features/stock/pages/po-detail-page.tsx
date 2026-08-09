@@ -15,6 +15,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { ButtonGroup } from "@/components/ui/button-group"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
 import { ArrowDownToLine, X } from "lucide-react"
 import { PrintReceiptButton } from "../components/print-receipt"
 import { toast } from "@/utils/toast"
@@ -66,24 +67,44 @@ export function PODetailPage() {
         </div>
         <ButtonGroup>
           {po.status === PURCHASE_ORDER_STATUS.OPEN && (
-            <Button
-              variant="outline"
-              className="text-destructive"
-              onClick={() => {
-                cancelMut.mutate(po.id, {
-                  onSuccess: () => toast.success(t("poDetail.cancelSuccess")),
-                  onError: (e) => toast.error(e.message),
-                })
-              }}
-              disabled={cancelMut.isPending}
-            >
-              <X className="size-4 mr-1" /> {t("poDetail.cancel")}
-            </Button>
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="text-destructive"
+                  disabled={cancelMut.isPending}
+                >
+                  <X className="size-4 mr-1" /> {t("poDetail.cancel")}
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>{t("poDetail.cancelTitle")} {po.poCode}</DialogTitle>
+                </DialogHeader>
+                <p className="text-sm text-muted-foreground">{t("poDetail.cancelConfirm")}</p>
+                <DialogFooter>
+                  <Button
+                    variant="destructive"
+                    onClick={() => {
+                      cancelMut.mutate(po.id, {
+                        onSuccess: () => toast.success(t("poDetail.cancelSuccess")),
+                        onError: (e) => toast.error(e.message),
+                      })
+                    }}
+                    disabled={cancelMut.isPending}
+                  >
+                    {t("poDetail.cancel")}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           )}
           <PrintReceiptButton id={po.id} type="po" />
-          <Button onClick={() => navigate(`/stock/imports/new?poId=${po.id}`)}>
-            <ArrowDownToLine className="size-4 mr-1" /> {t("poDetail.createImport")}
-          </Button>
+          {po.status !== PURCHASE_ORDER_STATUS.CANCELLED && (
+            <Button onClick={() => navigate(`/stock/imports/new?poId=${po.id}`)}>
+              <ArrowDownToLine className="size-4 mr-1" /> {t("poDetail.createImport")}
+            </Button>
+          )}
         </ButtonGroup>
       </div>
 

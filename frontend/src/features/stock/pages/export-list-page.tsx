@@ -60,7 +60,8 @@ export function ExportListPage() {
       columns={columns}
       cancelledStatus={EXPORT_RECEIPT_STATUS.CANCELLED}
       scanStatuses={[]}
-      cancelPerm={() => perm.hasRole(...ROLES.CAN_OPERATE)}
+      cancelPerm={() => perm.hasRole(...ROLES.CAN_APPROVE)}
+      createPerm={() => perm.hasRole(...ROLES.CAN_CREATE_TRANSACTION)}
     />
   )
 }

@@ -9,10 +9,13 @@ import { Badge } from "@/components/ui/badge"
 import type { Column } from "@/components/ui/data-table"
 import { IMPORT_RECEIPT_STATUS, type ImportReceipt } from "@/utils/types"
 import { useImportStatusLabel } from "@/utils/labels"
+import { usePermission } from "@/hooks/use-permission"
+import { ROLES } from "@/utils/permissions"
 
 export function ImportListPage() {
   const { t } = useTranslation()
   const navigate = useNavigate()
+  const perm = usePermission()
   const statusLabel = useImportStatusLabel()
   const columns = useMemo<Column<ImportReceipt>[]>(() => [
     {
@@ -60,6 +63,7 @@ export function ImportListPage() {
       ViewModal={ViewImportModal}
       columns={columns}
       scanStatuses={[IMPORT_RECEIPT_STATUS.DRAFT]}
+      createPerm={perm.hasRole.bind(null, ...ROLES.MANAGER)}
     />
   )
 }

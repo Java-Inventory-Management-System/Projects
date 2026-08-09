@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, type QueryClient } from "@tanstack/react-query"
 import {
   getInventorySummary,
   getInventoryByCategory,
@@ -14,7 +14,6 @@ export function useInventorySummary() {
     queryKey: ["inventory-summary"],
     queryFn: getInventorySummary,
     staleTime: 1000 * 60 * 5,
-    refetchOnMount: false,
   })
 }
 
@@ -23,7 +22,6 @@ export function useInventoryByCategory() {
     queryKey: ["inventory-by-category"],
     queryFn: getInventoryByCategory,
     staleTime: 1000 * 60 * 5,
-    refetchOnMount: false,
   })
 }
 
@@ -40,7 +38,6 @@ export function useStockValue() {
     queryKey: ["stock-value"],
     queryFn: getStockValue,
     staleTime: 1000 * 60 * 5,
-    refetchOnMount: false,
   })
 }
 
@@ -58,7 +55,6 @@ export function useDeadStock(daysThreshold = 90, keyword?: string, categoryId?: 
     queryKey: ["dead-stock", daysThreshold, keyword, categoryId],
     queryFn: () => getDeadStock(daysThreshold, keyword, categoryId),
     staleTime: 1000 * 60 * 5,
-    refetchOnMount: false,
   })
 }
 
@@ -69,4 +65,14 @@ export function useStockCheckOverview(from: string, to: string) {
     enabled: !!from && !!to,
     staleTime: 1000 * 60 * 2,
   })
+}
+
+export function invalidateDashboard(qc: QueryClient) {
+  qc.invalidateQueries({ queryKey: ["inventory-summary"] })
+  qc.invalidateQueries({ queryKey: ["inventory-by-category"] })
+  qc.invalidateQueries({ queryKey: ["stock-value"] })
+  qc.invalidateQueries({ queryKey: ["activity"] })
+  qc.invalidateQueries({ queryKey: ["dead-stock"] })
+  qc.invalidateQueries({ queryKey: ["stock-check-overview"] })
+  qc.invalidateQueries({ queryKey: ["low-stock"] })
 }

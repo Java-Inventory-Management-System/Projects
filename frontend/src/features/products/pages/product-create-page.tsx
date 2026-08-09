@@ -1,6 +1,7 @@
+import { useRef } from "react"
 import { useTranslation } from "react-i18next"
 import { useForm, Controller } from "react-hook-form"
-import { useNavigate } from "react-router-dom"
+import { useBlocker, useNavigate } from "react-router-dom"
 import { useCreateProduct } from "@/hooks/use-products"
 import { useBrands } from "@/hooks/use-brands"
 import { useCategories } from "@/hooks/use-categories"
@@ -12,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { FieldError } from "@/components/ui/field"
 import { Checkbox } from "@/components/ui/checkbox"
+import { UnsavedChangesDialog } from "@/components/unsaved-changes-dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "@/utils/toast"
 import { PRODUCT_UNIT_TYPE, TRACKING_TYPE } from "@/utils/types"
@@ -49,9 +51,15 @@ export function ProductCreatePage() {
   const { data: suppliers = [] } = useSuppliers()
   const createProduct = useCreateProduct()
 
-  const { register, handleSubmit, control, watch, formState: { errors } } = useForm<FormData>({
+  const { register, handleSubmit, control, watch, formState: { errors, isDirty } } = useForm<FormData>({
     defaultValues: { name: "", sku: "", barcode: "", brandId: "", categoryId: "", unit: "", trackingType: "", sellPrice: "", minStock: "0", description: "", supplierIds: [] },
   })
+
+  const navigatingAfterMut = useRef(false)
+  const blocker = useBlocker(
+    ({ currentLocation, nextLocation }) =>
+      !navigatingAfterMut.current && isDirty && currentLocation.pathname !== nextLocation.pathname,
+  )
 
   const onSubmit = handleSubmit(async (values) => {
     try {
@@ -70,6 +78,7 @@ export function ProductCreatePage() {
       }
       await createProduct.mutateAsync(payload)
       toast.success(t("productForm.createSuccess"))
+      navigatingAfterMut.current = true
       navigate("/products")
     } catch (err) {
       toast.error((err as Error).message || t("productForm.createError"))
@@ -227,6 +236,12 @@ export function ProductCreatePage() {
           </Button>
         </div>
       </form>
+
+      <UnsavedChangesDialog
+        open={blocker.state === "blocked"}
+        onStay={() => blocker.state === "blocked" && blocker.reset()}
+        onLeave={() => blocker.state === "blocked" && blocker.proceed()}
+      />
     </div>
   )
 }

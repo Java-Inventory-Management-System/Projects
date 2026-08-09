@@ -139,6 +139,7 @@ export interface CustomerResponse {
   address: string | null
   note: string | null
   isActive: boolean
+  exportCount?: number
   createdAt: string
   updatedAt: string
 }
@@ -374,6 +375,14 @@ export interface ExportReceipt {
   createdAt: string
   updatedAt: string
   items: ExportReceiptItem[]
+  statusHistory: ExportReceiptStatusHistory[]
+}
+
+export interface ExportReceiptStatusHistory {
+  fromStatus: string
+  toStatus: string
+  createdAt: string
+  changedBy: number
 }
 
 export type ExportReason = "SALE" | "INTERNAL" | "RETURN_SUPPLIER" | "DISPOSE" | "WARRANTY_REPLACEMENT"
@@ -420,6 +429,7 @@ export interface StockCheck {
   status: StockCheckStatus
   scopeType: StockCheckScopeType | null
   scopeId: number | null
+  scopeName: string | null
   note: string | null
   createdBy: number | null
   createdByName: string | null
@@ -800,6 +810,7 @@ export const ADJUSTMENT_STATUS = {
 
 export const PRODUCT_UNIT_STATUS = {
   IN_STOCK: "IN_STOCK",
+  PENDING_QC: "PENDING_QC",
   SOLD: "SOLD",
   RESERVED: "RESERVED",
   QUARANTINED: "QUARANTINED",

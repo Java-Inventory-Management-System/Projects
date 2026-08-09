@@ -2,7 +2,7 @@ import { useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts"
 import { useActivity } from "@/hooks/use-reports"
-import { formatCompactVND, formatDateVN } from "@/utils/format"
+import { formatCompactVND, formatDateVN, toLocalDateStr, localDayStartUtc, localDayEndUtc } from "@/utils/format"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -17,7 +17,7 @@ function aggregateActivitySeries(data: ActivityItem[] | undefined, byValue = tru
   if (!data) return []
   const map = new Map<string, { countImp: number; countExp: number; valImp: number; valExp: number }>()
   for (const a of data) {
-    const day = a.date.slice(0, 10)
+    const day = toLocalDateStr(new Date(a.date))
     const entry = map.get(day) ?? { countImp: 0, countExp: 0, valImp: 0, valExp: 0 }
     if (a.type === "IMPORT") {
       entry.countImp += a.lineItems
@@ -49,12 +49,12 @@ export function ActivityTab() {
   }
   const today = new Date()
   const firstDay = new Date(today.getFullYear(), today.getMonth(), 1)
-  const [from, setFrom] = useState(firstDay.toISOString().slice(0, 10))
-  const [to, setTo] = useState(today.toISOString().slice(0, 10))
+  const [from, setFrom] = useState(toLocalDateStr(firstDay))
+  const [to, setTo] = useState(toLocalDateStr(today))
   const [byValue, setByValue] = useState(true)
   const [actPage, setActPage] = useState(0)
   const actPageSize = 20
-  const { data, isLoading } = useActivity(from + "T00:00:00Z", to + "T23:59:59Z")
+  const { data, isLoading } = useActivity(localDayStartUtc(from), localDayEndUtc(to))
   const series = useMemo(() => aggregateActivitySeries(data, byValue), [data, byValue])
   const totalActElements = data?.length ?? 0
   const totalActPages = Math.max(1, Math.ceil(totalActElements / actPageSize))
@@ -67,13 +67,23 @@ export function ActivityTab() {
       <div className="flex gap-3 items-end flex-wrap">
         <div className="space-y-1">
           <Label className="text-xs">{t('dashboard.activity.from')}</Label>
-          <DatePicker value={from} onChange={setFrom} className="w-40" />
+          <DatePicker
+            value={from}
+            onChange={(v) => { setFrom(v); setActPage(0) }}
+            max={to}
+            className="w-40"
+          />
         </div>
         <div className="space-y-1">
           <Label className="text-xs">{t('dashboard.activity.to')}</Label>
-          <DatePicker value={to} onChange={setTo} className="w-40" />
+          <DatePicker
+            value={to}
+            onChange={(v) => { setTo(v); setActPage(0) }}
+            min={from}
+            className="w-40"
+          />
         </div>
-        <Button variant="outline" size="sm" onClick={() => setByValue((v) => !v)}>
+        <Button variant="outline" size="sm" onClick={() => { setByValue((v) => !v); setActPage(0) }}>
           {byValue ? t('dashboard.activity.byQuantity') : t('dashboard.activity.byValue')}
         </Button>
       </div>

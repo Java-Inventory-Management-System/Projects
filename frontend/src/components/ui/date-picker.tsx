@@ -10,10 +10,14 @@ interface DatePickerProps {
   onChange?: (value: string) => void
   className?: string
   placeholder?: string
+  min?: string
+  max?: string
 }
 
-function DatePicker({ value, onChange, className, placeholder }: DatePickerProps) {
+function DatePicker({ value, onChange, className, placeholder, min, max }: DatePickerProps) {
   const date = value ? parse(value, "yyyy-MM-dd", new Date()) : undefined
+  const minDate = min ? parse(min, "yyyy-MM-dd", new Date()) : undefined
+  const maxDate = max ? parse(max, "yyyy-MM-dd", new Date()) : undefined
 
   return (
     <Popover>
@@ -43,6 +47,8 @@ function DatePicker({ value, onChange, className, placeholder }: DatePickerProps
               onChange?.(format(d, "yyyy-MM-dd"))
             }
           }}
+          fromDate={minDate}
+          toDate={maxDate}
           initialFocus
         />
       </PopoverContent>

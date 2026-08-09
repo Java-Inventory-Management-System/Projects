@@ -17,13 +17,15 @@ import { ImageUpload } from "@/components/ui/image-upload"
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
-  DialogTitle,
+DialogHeader,
+        DialogDescription,
+        DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog"
 import { ArrowLeft, Search, X, Sparkles } from "lucide-react"
 import { cn } from "@/utils/cn"
 import { toast } from "@/utils/toast"
+import { useFormDraft, clearDraft } from "@/hooks/use-form-draft"
 import {
   EXPORT_RECEIPT_STATUS,
   RETURN_REASON,
@@ -60,6 +62,8 @@ const DEFAULT_ITEM_CONFIG: ReturnItemConfig = {
   description: "",
   evidenceImage: "",
 }
+
+const DRAFT_PATH = "/returns-qc/returns/new"
 
 interface ReturnItemsState {
   qty: Record<number, number>
@@ -118,7 +122,13 @@ function itemsReducer(state: ReturnItemsState, action: ReturnItemsAction): Retur
     case "applyConfig": {
       const configs: typeof state.configs = {}
       for (const key of Object.keys(state.configs)) {
-        configs[key] = { condition: action.condition, resultingAction: action.resultingAction }
+        const existing = state.configs[key]
+        const incompatible =
+          action.resultingAction === RETURN_RESULTING_ACTION.WARRANTY_TRANSFER &&
+          existing.condition !== RETURN_ITEM_CONDITION.DEFECTIVE
+        configs[key] = incompatible
+          ? existing
+          : { ...existing, condition: action.condition, resultingAction: action.resultingAction }
       }
       return { ...state, configs }
     }
@@ -154,6 +164,10 @@ export const ReturnCreatePage = () => {
   const [items, dispatch] = useReducer(itemsReducer, initialState)
 
   const [productSearchQuery, setProductSearchQuery] = useState("")
+
+  const [warrantyConfirmOpen, setWarrantyConfirmOpen] = useState(false)
+  const [pendingWarrantyReason, setPendingWarrantyReason] = useState<ReturnReason | null>(null)
+  const [showDraftDialog, setShowDraftDialog] = useState(false)
 
   const [serialPickerExportItemId, setSerialPickerExportItemId] = useState<number | null>(null)
   const [serialPickerSelection, setSerialPickerSelection] = useState<Set<number>>(new Set())
@@ -201,6 +215,7 @@ export const ReturnCreatePage = () => {
     mutationFn: createReturnReceipt,
     onSuccess: () => {
       toast.success(t("returnCreate.createSuccess"))
+      clearDraft(DRAFT_PATH)
       qc.invalidateQueries({ queryKey: ["return-receipts"] })
       navigate("/returns-qc/returns")
     },
@@ -277,7 +292,6 @@ export const ReturnCreatePage = () => {
     const clamped = Math.max(0, Math.min(qty, exportDetail?.items.find((i) => i.id === exportItemId)?.quantity ?? qty))
     dispatch({ type: "setQty", exportItemId, qty: clamped })
   }
-
   const openSerialPicker = async (exportItem: ExportReceiptItem) => {
     if (!selectedExportId) return
     setSerialPickerExportItemId(exportItem.id)
@@ -326,8 +340,16 @@ export const ReturnCreatePage = () => {
   const applyAllConfig = () => {
     if (returnItems.length === 0) return
     const first = returnItems[0]
+    const warrantyAll = first.resultingAction === RETURN_RESULTING_ACTION.WARRANTY_TRANSFER
+    const skipped = warrantyAll
+      ? returnItems.filter((i) => i.condition !== RETURN_ITEM_CONDITION.DEFECTIVE).length
+      : 0
     dispatch({ type: "applyConfig", condition: first.condition, resultingAction: first.resultingAction })
-    toast.success(t("returnCreate.applyAllSuccess"))
+    if (skipped > 0) {
+      toast.warning(t("returnCreate.applyAllSkipped", { count: skipped }))
+    } else {
+      toast.success(t("returnCreate.applyAllSuccess"))
+    }
   }
 
   const doSearchSerial = async () => {
@@ -386,6 +408,11 @@ export const ReturnCreatePage = () => {
 
   const onSubmit = form.handleSubmit((values) => {
     if (!selectedCustomerId || !selectedExportId || returnItems.length === 0) return
+    const zeroQty = returnItems.find((i) => !i.quantity || i.quantity <= 0)
+    if (zeroQty) {
+      toast.error(t("returnCreate.invalidQuantity", { name: zeroQty.productName }))
+      return
+    }
     const missingSerial = returnItems.find(
       (i) => i.trackingType === TRACKING_TYPE.SERIALIZED && (!i.productUnitId || i.productUnitId <= 0),
     )
@@ -401,6 +428,13 @@ export const ReturnCreatePage = () => {
     if (missingEvidence) {
       toast.error(t("returnCreate.missingEvidence", { name: missingEvidence.productName }))
       return
+    }
+    if (values.reason === RETURN_REASON.WARRANTY_CLAIM) {
+      const notWarranty = returnItems.find((i) => i.resultingAction !== RETURN_RESULTING_ACTION.WARRANTY_TRANSFER)
+      if (notWarranty) {
+        toast.error(t("returnCreate.warrantyNotApplied", { name: notWarranty.productName }))
+        return
+      }
     }
     createMut.mutate({
       customerId: selectedCustomerId,
@@ -427,6 +461,74 @@ export const ReturnCreatePage = () => {
   ]
 
   const changeMindExpired = exportCreatedDaysSince !== null && exportCreatedDaysSince >= 7
+
+  interface ReturnDraft {
+    customerId: number | null
+    customerName: string | null
+    exportId: number | null
+    exportCode: string | null
+    exportCreatedAt: string | null
+    reason: ReturnReason
+    note: string
+    items: ReturnItemsState
+  }
+  const draftState = useMemo<ReturnDraft>(
+    () => ({
+      customerId: selectedCustomerId,
+      customerName: selectedCustomerName,
+      exportId: selectedExportId,
+      exportCode: selectedExportCode,
+      exportCreatedAt: selectedExportCreatedAt,
+      reason: watchedReason,
+      note: form.watch("note") ?? "",
+      items,
+    }),
+    [selectedCustomerId, selectedCustomerName, selectedExportId, selectedExportCode, selectedExportCreatedAt, watchedReason, items, form],
+  )
+  const draftDirty = !!(selectedCustomerId || selectedExportId || returnItems.length > 0)
+  const { draftAvailable, restore, dismiss } = useFormDraft<ReturnDraft>(
+    DRAFT_PATH,
+    draftState as unknown as ReturnDraft,
+    draftDirty,
+    (data) => {
+      const d = data as ReturnDraft
+      setSelectedCustomerId(d.customerId)
+      setSelectedCustomerName(d.customerName)
+      setSelectedExportId(d.exportId)
+      setSelectedExportCode(d.exportCode)
+      setSelectedExportCreatedAt(d.exportCreatedAt)
+      if (d.reason) form.setValue("reason", d.reason)
+      if (d.note) form.setValue("note", d.note)
+      if (d.items) {
+        for (const [eId, qty] of Object.entries(d.items.qty)) dispatch({ type: "setQty", exportItemId: Number(eId), qty })
+        for (const [eId, units] of Object.entries(d.items.serials)) dispatch({ type: "setSerials", exportItemId: Number(eId), units })
+        for (const [key, cfg] of Object.entries(d.items.configs)) {
+          dispatch({ type: "updateConfig", key, field: "condition", value: cfg.condition })
+          dispatch({ type: "updateConfig", key, field: "resultingAction", value: cfg.resultingAction })
+          dispatch({ type: "updateConfig", key, field: "description", value: cfg.description })
+          dispatch({ type: "updateConfig", key, field: "evidenceImage", value: cfg.evidenceImage })
+        }
+      }
+    },
+  )
+  useEffect(() => {
+    if (draftAvailable) setShowDraftDialog(true)
+  }, [draftAvailable])
+
+  const selectedElsewhere = useMemo(() => {
+    const s = new Set<number>()
+    if (serialPickerExportItemId === null) return s
+    for (const [eId, units] of Object.entries(items.serials)) {
+      if (Number(eId) === serialPickerExportItemId) continue
+      units.forEach((u) => s.add(u.id))
+    }
+    return s
+  }, [items.serials, serialPickerExportItemId])
+
+  const pickerLimit =
+    serialPickerExportItemId !== null
+      ? (exportDetail?.items.find((i) => i.id === serialPickerExportItemId)?.quantity ?? Infinity)
+      : Infinity
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -665,17 +767,33 @@ export const ReturnCreatePage = () => {
                       variant="outline"
                       size="sm"
                       className="h-6 text-xs shrink-0"
-                      onClick={() => {
+                      onClick={async () => {
                         const searchResult = searchSerialResult
-                        setProductSearchQuery(searchResult.productName ?? "")
-                        setSearchSerialResult(null)
-                        setSearchSerialInput("")
-                        toast.success(
-                          t("returnCreate.serialFound", { serial: searchResult.serialNumber }),
-                        )
+                        if (!searchResult) return
+                        setSearchSerialLoading(true)
+                        try {
+                          const exportItem = exportDetail?.items.find((i) => i.productId === searchResult.productId)
+                          if (!exportItem) throw new Error("no export item")
+                          const units = await getExportUnits(selectedExportId!, exportItem.productId)
+                          const unit = units.find((u) => u.serialNumber === searchResult.serialNumber)
+                          if (!unit) throw new Error("unit not found")
+                          const existing = items.serials[exportItem.id] ?? []
+                          dispatch({
+                            type: "setSerials",
+                            exportItemId: exportItem.id,
+                            units: existing.some((u) => u.id === unit.id) ? existing : [...existing, unit],
+                          })
+                          setSearchSerialResult(null)
+                          setSearchSerialInput("")
+                          toast.success(t("returnCreate.serialAdded", { serial: unit.serialNumber }))
+                        } catch {
+                          toast.error(t("returnCreate.serialAddError"))
+                        } finally {
+                          setSearchSerialLoading(false)
+                        }
                       }}
                     >
-                      {t("returnCreate.findProduct")}
+                      {searchSerialLoading ? t("returnCreate.searching") : t("returnCreate.addSerial")}
                     </Button>
                   </div>
                 ) : searchSerialResult.found && !searchSerialResult.inExport ? (
@@ -717,7 +835,18 @@ export const ReturnCreatePage = () => {
                     checked={watchedReason === opt.value}
                     disabled={isChangeMindExpired}
                     onChange={(e) => {
-                      if (!isChangeMindExpired) form.setValue("reason", e.target.value)
+                      if (isChangeMindExpired) return
+                      const value = e.target.value as ReturnReason
+                      if (
+                        value === RETURN_REASON.WARRANTY_CLAIM &&
+                        watchedReason !== RETURN_REASON.WARRANTY_CLAIM &&
+                        returnItems.filter((i) => i.resultingAction !== RETURN_RESULTING_ACTION.WARRANTY_TRANSFER).length > 0
+                      ) {
+                        setPendingWarrantyReason(value)
+                        setWarrantyConfirmOpen(true)
+                        return
+                      }
+                      form.setValue("reason", value)
                     }}
                     className="size-3.5 text-primary"
                   />
@@ -850,6 +979,13 @@ export const ReturnCreatePage = () => {
                       />
                     </div>
                   )}
+                  {isWarrantyClaim &&
+                    item.condition === RETURN_ITEM_CONDITION.DEFECTIVE &&
+                    (!item.description.trim() || !item.evidenceImage.trim()) && (
+                      <p className="w-full pl-8 text-xs text-red-600">
+                        {t("returnCreate.warrantyEvidenceRequired")}
+                      </p>
+                    )}
                 </div>
               )
             })}
@@ -923,6 +1059,7 @@ export const ReturnCreatePage = () => {
               />
               <div className="max-h-48 overflow-y-auto space-y-1">
                 {serialPickerUnits
+                  .filter((u) => !selectedElsewhere.has(u.id))
                   .filter(
                     (u) =>
                       !serialSearchQuery ||
@@ -937,11 +1074,15 @@ export const ReturnCreatePage = () => {
                         type="checkbox"
                         className="size-3.5 shrink-0"
                         checked={serialPickerSelection.has(unit.id)}
+                        disabled={
+                          !serialPickerSelection.has(unit.id) &&
+                          serialPickerSelection.size >= pickerLimit
+                        }
                         onChange={() => {
                           setSerialPickerSelection((prev) => {
                             const next = new Set(prev)
                             if (next.has(unit.id)) next.delete(unit.id)
-                            else next.add(unit.id)
+                            else if (next.size < pickerLimit) next.add(unit.id)
                             return next
                           })
                         }}
@@ -965,7 +1106,10 @@ export const ReturnCreatePage = () => {
                 )}
               </div>
               <p className="text-xs text-muted-foreground">
-                {t("returnCreate.selected", { count: serialPickerSelection.size, total: serialPickerUnits.length })}
+                {t("returnCreate.selected", {
+                  count: serialPickerSelection.size,
+                  total: serialPickerUnits.filter((u) => !selectedElsewhere.has(u.id)).length,
+                })}
               </p>
             </div>
           )}
@@ -979,6 +1123,83 @@ export const ReturnCreatePage = () => {
               disabled={serialPickerSelection.size === 0}
             >
               {t("dialog.confirm")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={warrantyConfirmOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setWarrantyConfirmOpen(false)
+            setPendingWarrantyReason(null)
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{t("returnCreate.warrantyConfirmTitle")}</DialogTitle>
+            <DialogDescription>
+              {t("returnCreate.warrantyConfirmDesc", {
+                count: returnItems.filter((i) => i.resultingAction !== RETURN_RESULTING_ACTION.WARRANTY_TRANSFER).length,
+              })}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setWarrantyConfirmOpen(false)
+                setPendingWarrantyReason(null)
+              }}
+            >
+              {t("dialog.cancel")}
+            </Button>
+            <Button
+              onClick={() => {
+                if (pendingWarrantyReason) form.setValue("reason", pendingWarrantyReason)
+                setWarrantyConfirmOpen(false)
+                setPendingWarrantyReason(null)
+              }}
+            >
+              {t("dialog.confirm")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={showDraftDialog}
+        onOpenChange={(v) => {
+          if (!v) {
+            setShowDraftDialog(false)
+            dismiss()
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{t("returnCreate.restoreTitle")}</DialogTitle>
+            <DialogDescription>{t("returnCreate.restoreDescription")}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowDraftDialog(false)
+                dismiss()
+              }}
+            >
+              {t("dialog.discard")}
+            </Button>
+            <Button
+              onClick={() => {
+                setShowDraftDialog(false)
+                restore()
+              }}
+            >
+              {t("dialog.restore")}
             </Button>
           </DialogFooter>
         </DialogContent>

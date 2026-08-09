@@ -7,6 +7,7 @@ import type { AuditLog } from "@/utils/types"
 import { AUDIT_STATUS, AUDIT_ACTION } from "@/utils/types"
 import { computeDiffRows } from "@/utils/audit-diff"
 import { useUsers } from "@/hooks/use-users"
+import { localDayStartUtc, localDayEndUtc } from "@/utils/format"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
@@ -163,8 +164,8 @@ export const AuditPage = () => {
       entity: entityFilter || undefined,
       status: statusFilter === "all" ? undefined : statusFilter,
       userId: userIdFilter ? Number(userIdFilter) : undefined,
-      from: fromDate ? fromDate + "T00:00:00Z" : undefined,
-      to: toDate ? toDate + "T23:59:59Z" : undefined,
+      from: fromDate ? localDayStartUtc(fromDate) : undefined,
+      to: toDate ? localDayEndUtc(toDate) : undefined,
     }),
     placeholderData: (prev) => prev,
   })
@@ -401,6 +402,7 @@ export const AuditPage = () => {
             <DatePicker
               value={fromDate}
               onChange={(v) => updateParams({ from: v || undefined, page: undefined })}
+              max={toDate || undefined}
               className="w-40"
             />
           </div>
@@ -409,6 +411,7 @@ export const AuditPage = () => {
             <DatePicker
               value={toDate}
               onChange={(v) => updateParams({ to: v || undefined, page: undefined })}
+              min={fromDate || undefined}
               className="w-40"
             />
           </div>

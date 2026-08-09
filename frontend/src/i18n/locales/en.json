@@ -461,6 +461,7 @@
     "done": "Done"
   },
   "exportStatus": {
+    "new": "Created",
     "pending": "Pending Export",
     "approved": "Approved",
     "completed": "Completed",
@@ -495,7 +496,8 @@
     "fulfill": "Fulfill Export",
     "total": "Total",
     "cancelConfirmTitle": "Cancel Export Receipt",
-    "cancelConfirmDescription": "Confirm cancelling this export? Stock will be returned to warehouse."
+    "cancelConfirmDescription": "Confirm cancelling this export? Stock will be returned to warehouse.",
+    "timeline": "Status History"
   },
   "exportFulfill": {
     "scanned": "Scanned: {{serial}}",
@@ -663,6 +665,8 @@
     "returnSupplier": "Return to Supplier ({{count}})",
     "returnSupplierConfirmTitle": "Confirm return to supplier",
     "returnSupplierConfirmDesc": "Selected units will be returned to the supplier. This cannot be undone.",
+    "supplier": "Supplier",
+    "supplierPlaceholder": "Auto if empty",
     "returnCustomer": "Return to Customer ({{count}})",
     "returnCustomerConfirmTitle": "Confirm return to customer",
     "returnCustomerConfirmDesc": "Selected units will be rejected and returned to the customer. This cannot be undone."

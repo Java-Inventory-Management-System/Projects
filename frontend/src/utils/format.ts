@@ -24,3 +24,19 @@ export function formatMoney(value: number): string {
 export function formatDateTime(value: string | Date): string {
   return new Date(value).toLocaleString(locale())
 }
+
+const pad = (n: number) => String(n).padStart(2, "0")
+
+export function toLocalDateStr(d: Date): string {
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+}
+
+export function localDayStartUtc(dateStr: string): string {
+  const [y, m, d] = dateStr.split("-").map(Number)
+  return new Date(y, m - 1, d).toISOString()
+}
+
+export function localDayEndUtc(dateStr: string): string {
+  const [y, m, d] = dateStr.split("-").map(Number)
+  return new Date(y, m - 1, d, 23, 59, 59, 999).toISOString()
+}

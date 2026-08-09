@@ -13,6 +13,6 @@ export async function qcPassUnits(unitIds: number[]): Promise<void> {
   await http.post("/qc-processing/qc-pass", { unitIds })
 }
 
-export async function disposeConfirmUnits(unitIds: number[], action: string): Promise<void> {
-  await http.post("/qc-processing/dispose-confirm", { unitIds, action })
+export async function disposeConfirmUnits(unitIds: number[], action: string, supplierId?: number | null): Promise<void> {
+  await http.post("/qc-processing/dispose-confirm", { unitIds, action, supplierId })
 }

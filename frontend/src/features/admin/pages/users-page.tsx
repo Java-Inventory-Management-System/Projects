@@ -18,7 +18,18 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Search, Plus, RefreshCw, Shield, UserCog, KeyRound, Ban, CheckCircle } from "lucide-react"
+import { Search, Plus, RefreshCw, Shield, UserCog, KeyRound, Copy, Eye, EyeOff } from "lucide-react"
+import { ToggleActiveButton } from "@/components/toggle-active-button"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { DataTable, type Column } from "@/components/ui/data-table"
 import {
   Dialog,
@@ -97,12 +108,15 @@ export const UsersPage = () => {
 
   const [dialog, setDialog] = useState<"create" | "edit" | "role" | null>(null)
   const [tempPassword, setTempPassword] = useState<string | null>(null)
+  const [showTempPwd, setShowTempPwd] = useState(false)
+  const [resetPwdFor, setResetPwdFor] = useState<string | null>(null)
   const createForm = useForm({ defaultValues: { fullName: "", email: "", roleName: "STOCK", status: USER_STATUS.ACTIVE } })
 
   const [editUser, setEditUser] = useState<UserResponse | null>(null)
   const editForm = useForm({ defaultValues: { fullName: "", phoneNumber: "", gender: "" } })
   const [roleUserId, setRoleUserId] = useState<number | null>(null)
   const [roleVal, setRoleVal] = useState<string>("")
+  const [roleConfirmOpen, setRoleConfirmOpen] = useState(false)
 
   const createMut = useMutation({ mutationFn: createUser, onSuccess: invalidate })
   const updateMut = useMutation({ mutationFn: ({ id, data }: { id: number; data: import("@/services/user-service").UpdateInfoRequest }) => updateUserInfo(id, data), onSuccess: invalidate })
@@ -118,6 +132,7 @@ export const UsersPage = () => {
     try {
       const res = await createMut.mutateAsync(values)
       setTempPassword(res.tempPassword)
+      setResetPwdFor(null)
       toast.success(t('usersPage.createSuccessToast'))
     } catch (err) {
       toast.error((err as Error).message || t('usersPage.errorOccurred'))
@@ -161,10 +176,13 @@ export const UsersPage = () => {
     }
   }
 
-  const handleResetPassword = async (id: number) => {
+  const handleResetPassword = async (id: number, username: string) => {
     try {
       const pwd = await resetPwdMut.mutateAsync(id)
-      toast.success(t('usersPage.resetPwdSuccess', { password: pwd }))
+      setDialog("create")
+      setShowTempPwd(false)
+      setResetPwdFor(username)
+      setTempPassword(pwd)
     } catch (err) {
       toast.error((err as Error).message || t('usersPage.errorOccurred'))
     }
@@ -225,24 +243,18 @@ export const UsersPage = () => {
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" onClick={() => handleResetPassword(u.id)}>
+              <Button variant="ghost" size="icon" onClick={() => handleResetPassword(u.id, u.username)}>
                 <KeyRound className="size-4" />
               </Button>
             </TooltipTrigger>
             <TooltipContent>{t('usersPage.resetPwdTooltip')}</TooltipContent>
           </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" onClick={() => handleToggleStatus(u)}>
-                {u.isDeleted ? (
-                  <CheckCircle className="size-4 text-green-600" />
-                ) : (
-                  <Ban className="size-4 text-destructive" />
-                )}
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>{u.isDeleted ? t('usersPage.activateTooltip') : t('usersPage.deactivateTooltip')}</TooltipContent>
-          </Tooltip>
+          <ToggleActiveButton
+            active={!u.isDeleted}
+            name={u.fullName ?? u.username}
+            pending={toggleStatusMut.isPending}
+            onToggle={() => handleToggleStatus(u)}
+          />
         </div>
       ),
     },
@@ -309,13 +321,12 @@ export const UsersPage = () => {
       <Dialog
         open={dialog === "create"}
         onOpenChange={(v) => {
-          setDialog(v ? "create" : null)
-          if (!v) setTempPassword(null)
+          setDialog(v ? "create" : null); if (!v) { setResetPwdFor(null); setTempPassword(null); setShowTempPwd(false) }
         }}
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{t('usersPage.createDialogTitle')}</DialogTitle>
+            <DialogTitle>{resetPwdFor ? t('usersPage.resetDialogTitle', { username: resetPwdFor }) : t('usersPage.createDialogTitle')}</DialogTitle>
             {!tempPassword && <DialogDescription>{t('usersPage.createDialogDesc')}</DialogDescription>}
           </DialogHeader>
           {tempPassword ? (
@@ -323,7 +334,30 @@ export const UsersPage = () => {
               <div className="rounded-md border border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950/20 px-4 py-3 text-sm text-green-800 dark:text-green-200">
                 <p className="font-medium">{t('usersPage.createSuccess')}</p>
                 <p className="mt-2 text-xs">{t('usersPage.passwordNote')}</p>
-                <p className="mt-1 font-mono text-lg font-bold tracking-wider select-all">{tempPassword}</p>
+                <div className="mt-1 flex items-center gap-2">
+                  <p className="flex-1 font-mono text-lg font-bold tracking-wider break-all">
+                    {showTempPwd ? tempPassword : "•".repeat(tempPassword.length)}
+                  </p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={async () => {
+                      await navigator.clipboard.writeText(tempPassword).catch(() => {})
+                      toast.success(t('usersPage.passwordCopied'))
+                    }}
+                  >
+                    <Copy className="size-3.5 mr-1" />
+                    {t('usersPage.copyPassword')}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setShowTempPwd((v) => !v)}
+                    aria-label={showTempPwd ? t('usersPage.hidePassword') : t('usersPage.showPassword')}
+                  >
+                    {showTempPwd ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                  </Button>
+                </div>
                 <p className="mt-2 text-xs text-muted-foreground">
                   {t('usersPage.passwordHint')}
                 </p>
@@ -457,10 +491,29 @@ export const UsersPage = () => {
             <Button variant="outline" onClick={() => setDialog(null)}>
               {t('usersPage.cancel')}
             </Button>
-            <Button onClick={handleRoleChange}>{t('usersPage.roleSave')}</Button>
+            <Button onClick={() => setRoleConfirmOpen(true)}>{t('usersPage.roleSave')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={roleConfirmOpen} onOpenChange={setRoleConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('usersPage.roleConfirmTitle')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t('usersPage.roleConfirmDesc', {
+                name: (usersRes?.content ?? []).find((u) => u.id === roleUserId)?.fullName ?? roleUserId,
+                from: t('roleLabel.' + ((usersRes?.content ?? []).find((u) => u.id === roleUserId)?.role ?? roleVal)),
+                to: t('roleLabel.' + roleVal),
+              })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+            <AlertDialogAction onClick={handleRoleChange}>{t('usersPage.roleConfirmAction')}</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

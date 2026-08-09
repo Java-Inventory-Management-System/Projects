@@ -7,10 +7,11 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
-import { Plus, Pencil, Power } from "lucide-react"
+import { Plus, Pencil } from "lucide-react"
 import { usePermission } from "@/hooks/use-permission"
 import { ROLES } from "@/utils/permissions"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
+import { ToggleActiveButton } from "@/components/toggle-active-button"
 import { DataTable } from "@/components/ui/data-table"
 import { toast } from "@/utils/toast"
 import type { CatalogResponse } from "@/utils/types"
@@ -81,9 +82,11 @@ export function CatalogPage({
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
-        <Button onClick={openCreate}>
-          <Plus className="size-4 mr-1" /> {t("common.add")}
-        </Button>
+        {perm.hasRole(...ROLES.CAN_MANAGE_CATALOG) && (
+          <Button onClick={openCreate}>
+            <Plus className="size-4 mr-1" /> {t("common.add")}
+          </Button>
+        )}
       </div>
 
       <DataTable
@@ -108,7 +111,7 @@ export function CatalogPage({
             className: "w-[90px]",
             render: (b: CatalogResponse) => (
               <div className="flex gap-1">
-                {perm.hasRole(...ROLES.MANAGER) && (
+                {perm.hasRole(...ROLES.CAN_MANAGE_CATALOG) && (
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button variant="ghost" size="icon" onClick={() => openEdit(b)}>
@@ -118,15 +121,13 @@ export function CatalogPage({
                     <TooltipContent>{t("common.edit")}</TooltipContent>
                   </Tooltip>
                 )}
-                {perm.hasRole(...ROLES.MANAGER) && (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button variant="ghost" size="icon" onClick={() => toggle.mutate(b.id)}>
-                        <Power className={b.isActive ? "size-3.5 text-destructive" : "size-3.5 text-emerald-600"} />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>{b.isActive ? t("common.deactivate") : t("common.activate")}</TooltipContent>
-                  </Tooltip>
+                {perm.hasRole(...ROLES.CAN_MANAGE_CATALOG) && (
+                  <ToggleActiveButton
+                    active={b.isActive}
+                    name={b.name}
+                    pending={toggle.isPending}
+                    onToggle={() => toggle.mutate(b.id)}
+                  />
                 )}
               </div>
             ),

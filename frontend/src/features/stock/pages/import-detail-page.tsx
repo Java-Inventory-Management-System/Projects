@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { getImportReceiptById, approveImportReceipt, cancelImportReceipt } from "@/services/import-service"
 import { usePermission } from "@/hooks/use-permission"
+import { invalidateDashboard } from "@/hooks/use-reports"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -65,8 +66,7 @@ export function ImportDetailPage() {
       qc.invalidateQueries({ queryKey: ["import-receipt", id] })
       qc.invalidateQueries({ queryKey: ["import-receipts"] })
       qc.invalidateQueries({ queryKey: ["inventory"] })
-      qc.invalidateQueries({ queryKey: ["inventory-summary"] })
-      qc.invalidateQueries({ queryKey: ["low-stock"] })
+      invalidateDashboard(qc)
       qc.invalidateQueries({ queryKey: ["import-pending-count"] })
       toast.success(t("importDetail.actionSuccess"))
       setConfirmAction(null)
@@ -128,7 +128,7 @@ export function ImportDetailPage() {
           <Badge variant={s.variant}>{s.label}</Badge>
         </div>
         <div className="flex items-center gap-2">
-          {receipt.status === IMPORT_RECEIPT_STATUS.PENDING_APPROVAL && perm.canApprove() && (
+          {receipt.status === IMPORT_RECEIPT_STATUS.PENDING_APPROVAL && receipt.createdBy !== perm.user?.id && perm.canApprove() && (
             <ButtonGroup>
               <Button variant="outline" className="text-destructive" onClick={() => setConfirmAction("cancel")}>
                 <X className="size-4 mr-1" /> {t("importDetail.reject")}

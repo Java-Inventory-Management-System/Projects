@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useTranslation } from "react-i18next"
 import { useForm, Controller } from "react-hook-form"
-import { useParams, useNavigate } from "react-router-dom"
+import { useParams, useNavigate, useBlocker } from "react-router-dom"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { getProductById, updateProduct, toggleProductActive } from "@/services/product-service"
 import { getProductImages, createProductImage, deleteProductImage } from "@/services/product-image-service"
@@ -30,7 +30,8 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Upload, X } from "lucide-react"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Switch } from "@/components/ui/switch"
+import { ToggleActiveButton } from "@/components/toggle-active-button"
+import { UnsavedChangesDialog } from "@/components/unsaved-changes-dialog"
 import { AspectRatio } from "@/components/ui/aspect-ratio"
 import { ButtonGroup } from "@/components/ui/button-group"
 import {
@@ -85,7 +86,7 @@ export function ProductEditPage() {
   const [images, setImages] = useState<ProductImage[]>([])
   const [showDeleteImgDialog, setShowDeleteImgDialog] = useState<number | null>(null)
 
-  const { register, handleSubmit, control, reset, watch, formState: { errors } } = useForm<FormData>({
+  const { register, handleSubmit, control, reset, watch, formState: { errors, isDirty } } = useForm<FormData>({
     defaultValues: { name: "", sku: "", barcode: "", brandId: "", categoryId: "", unit: "", trackingType: "", sellPrice: "", minStock: "0", description: "", supplierIds: [] },
   })
 
@@ -132,10 +133,17 @@ export function ProductEditPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["products"] })
       toast.success(t("productForm.updateSuccess"))
+      navigatingAfterMut.current = true
       navigate("/products")
     },
     onError: (e: Error) => toast.error(e.message),
   })
+
+  const navigatingAfterMut = useRef(false)
+  const blocker = useBlocker(
+    ({ currentLocation, nextLocation }) =>
+      !navigatingAfterMut.current && isDirty && currentLocation.pathname !== nextLocation.pathname,
+  )
 
   const toggleActive = useMutation({
     mutationFn: () => toggleProductActive(productId),
@@ -202,7 +210,12 @@ export function ProductEditPage() {
           </Breadcrumb>
           <h1 className="text-xl font-semibold tracking-tight">{t("common.edit")} {t("productForm.product")}</h1>
         </div>
-        <Switch checked={isActive} onCheckedChange={() => toggleActive.mutate()} disabled={toggleActive.isPending} />
+        <ToggleActiveButton
+          active={isActive}
+          name={watch("name")}
+          pending={toggleActive.isPending}
+          onToggle={() => toggleActive.mutate()}
+        />
       </div>
 
       <form onSubmit={onSubmit}>
@@ -413,6 +426,12 @@ export function ProductEditPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <UnsavedChangesDialog
+        open={blocker.state === "blocked"}
+        onStay={() => blocker.state === "blocked" && blocker.reset()}
+        onLeave={() => blocker.state === "blocked" && blocker.proceed()}
+      />
     </div>
   )
 }

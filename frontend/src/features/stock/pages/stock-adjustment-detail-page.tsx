@@ -7,6 +7,7 @@ import {
   rejectStockAdjustment,
 } from "@/services/stock-adjustment-service"
 import { usePermission } from "@/hooks/use-permission"
+import { invalidateDashboard } from "@/hooks/use-reports"
 import { ADJUSTMENT_STATUS, ADJUSTMENT_TYPE } from "@/utils/types"
 import { ROLES } from "@/utils/permissions"
 import { Button } from "@/components/ui/button"
@@ -52,8 +53,7 @@ export const StockAdjustmentDetailPage = () => {
       qc.invalidateQueries({ queryKey: ["stock-adjustment", id] })
       qc.invalidateQueries({ queryKey: ["stock-adjustments"] })
       qc.invalidateQueries({ queryKey: ["inventory"] })
-      qc.invalidateQueries({ queryKey: ["inventory-summary"] })
-      qc.invalidateQueries({ queryKey: ["low-stock"] })
+      invalidateDashboard(qc)
       setApprovalAction(null)
       setApprovalNote("")
       toast.success(t("stockAdjDetail.approveSuccess"))
@@ -107,7 +107,7 @@ export const StockAdjustmentDetailPage = () => {
   const st = statusLabel[adj.status] ?? { label: adj.status, variant: "secondary" }
   // MANAGER/ADMIN: approve/reject adjustments
   const isManager = perm.hasRole(...ROLES.CAN_APPROVE)
-  const canApprove = adj.status === ADJUSTMENT_STATUS.PENDING && isManager
+  const canApprove = adj.status === ADJUSTMENT_STATUS.PENDING && isManager && adj.createdBy !== perm.user?.id
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
