@@ -24,6 +24,7 @@ public enum ErrorCode {
     REFRESH_TOKEN_INVALID("Invalid or expired refresh token"),
     REFRESH_TOKEN_REUSE_DETECTED("Refresh token reuse detected"),
     REFRESH_TOKEN_EXPIRED("Refresh token has expired, please log in again"),
+    TOO_MANY_LOGIN_ATTEMPTS("Too many failed login attempts, please try again later"),
 
     // ── Common ────────────────────────────────────────────────────
     VALIDATION_FAILED("Request validation failed"),

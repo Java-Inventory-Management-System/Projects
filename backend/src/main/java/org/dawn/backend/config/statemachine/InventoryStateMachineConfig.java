@@ -33,7 +33,8 @@ public class InventoryStateMachineConfig {
         return new StateMachine<>(StockCheckStatus.class)
             .allow(StockCheckStatus.PENDING, StockCheckStatus.IN_PROGRESS, StockCheckStatus.CANCELLED)
             .allow(StockCheckStatus.IN_PROGRESS, StockCheckStatus.COMPLETED, StockCheckStatus.CANCELLED)
-            .allow(StockCheckStatus.COMPLETED, StockCheckStatus.APPROVED, StockCheckStatus.IN_PROGRESS);
+            .allow(StockCheckStatus.COMPLETED, StockCheckStatus.APPROVED, StockCheckStatus.IN_PROGRESS)
+            .allow(StockCheckStatus.EXPIRED, StockCheckStatus.IN_PROGRESS);
     }
 
     @Bean

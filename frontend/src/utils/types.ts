@@ -49,6 +49,7 @@ export interface UserResponse {
   gender: number | null
   dob: string | null
   phoneNumber: string | null
+  lastLogin: string | null
   isPasswordReset: boolean
   isDeleted: boolean
   createdAt: string

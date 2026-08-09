@@ -213,6 +213,15 @@ export const UsersPage = () => {
       render: (u) => <span className="text-xs text-muted-foreground">{fmt(u.createdAt)}</span>,
     },
     {
+      header: t('usersPage.colLastLogin'),
+      sortKey: "lastLogin",
+      render: (u) => (
+        <span className="text-xs text-muted-foreground">
+          {u.lastLogin ? new Date(u.lastLogin).toLocaleString("vi-VN") : "—"}
+        </span>
+      ),
+    },
+    {
       header: t('usersPage.colActions'),
       className: "w-[140px]",
       render: (u) => (

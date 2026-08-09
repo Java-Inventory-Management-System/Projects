@@ -45,7 +45,7 @@ public class ReturnReceiptController {
     }
 
     @PostMapping("")
-    @PreAuthorize(AuthorizationExpressions.CAN_OPERATE)
+    @PreAuthorize(AuthorizationExpressions.CAN_CREATE_TRANSACTION)
     public ResponseObject<ReturnReceiptResponse> create(@RequestBody ReturnReceiptRequest request) {
         return ResponseObject.success(returnReceiptService.create(request));
     }

@@ -22,7 +22,7 @@ public class QcProcessingController {
     private final DisposeConfirmService disposeConfirmService;
 
     @GetMapping("")
-    @PreAuthorize(AuthorizationExpressions.CAN_OPERATE)
+    @PreAuthorize(AuthorizationExpressions.CAN_OPERATE_STOCK)
     public ResponseObject<List<QcUnitResponse>> listUnits(
             @RequestParam(required = false) String statuses) {
         List<ProductUnitStatus> statusList = statuses == null || statuses.isBlank()
@@ -36,17 +36,17 @@ public class QcProcessingController {
     }
 
     @PostMapping("/qc-pass")
-    @PreAuthorize(AuthorizationExpressions.CAN_OPERATE)
+    @PreAuthorize(AuthorizationExpressions.CAN_OPERATE_STOCK)
     public ResponseObject<Void> qcPass(@RequestBody QcPassRequest request) {
         qcPassService.confirm(request.unitIds());
         return ResponseObject.success(null);
     }
 
     @PostMapping("/dispose-confirm")
-    @PreAuthorize(AuthorizationExpressions.CAN_OPERATE)
-    public ResponseObject<Void> disposeConfirm(@RequestBody DisposeConfirmRequest request) {
-        disposeConfirmService.confirm(request.unitIds(), request.action(), request.supplierId());
-        return ResponseObject.success(null);
+    @PreAuthorize(AuthorizationExpressions.CAN_OPERATE_STOCK)
+    public ResponseObject<DisposeConfirmResponse> disposeConfirm(@RequestBody DisposeConfirmRequest request) {
+        DisposeConfirmResponse result = disposeConfirmService.confirm(request.unitIds(), request.action(), request.supplierId());
+        return ResponseObject.success(result);
     }
 
     public record QcPassRequest(List<Long> unitIds) {

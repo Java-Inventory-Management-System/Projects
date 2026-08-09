@@ -15,6 +15,7 @@ public record UserResponse(
         Integer gender,
         Instant dob,
         String phoneNumber,
+        Instant lastLogin,
         Boolean isPasswordReset,
         Boolean isDeleted,
         Instant createdAt,

@@ -51,7 +51,7 @@ public class ExportReceiptController {
     }
 
     @PostMapping("/export-receipt")
-    @PreAuthorize(AuthorizationExpressions.CAN_OPERATE)
+    @PreAuthorize(AuthorizationExpressions.CAN_CREATE_TRANSACTION)
     public ResponseObject<ExportReceiptResponse> create(@RequestBody ExportReceiptRequest request) {
         return ResponseObject.created(exportReceiptService.create(request));
     }
@@ -63,7 +63,7 @@ public class ExportReceiptController {
     }
 
     @PutMapping("/export-receipt/{id}/cancel")
-    @PreAuthorize(AuthorizationExpressions.CAN_OPERATE)
+    @PreAuthorize(AuthorizationExpressions.CAN_APPROVE)
     public ResponseObject<ExportReceiptResponse> cancel(@PathVariable Long id) {
         return ResponseObject.success(exportWorkflowService.cancel(id));
     }

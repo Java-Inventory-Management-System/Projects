@@ -20,13 +20,13 @@ public class BrandController {
     private final BrandService brandService;
 
     @GetMapping("")
-    @PreAuthorize(AuthorizationExpressions.CAN_VIEW_INVENTORY)
+    @PreAuthorize(AuthorizationExpressions.CAN_OPERATE)
     public ResponseObject<ResponsePage<BrandResponse>> getAll(Pageable pageable) {
         return ResponseObject.success(brandService.findAll(pageable));
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize(AuthorizationExpressions.CAN_VIEW_INVENTORY)
+    @PreAuthorize(AuthorizationExpressions.CAN_OPERATE)
     public ResponseObject<BrandResponse> getOne(@PathVariable Long id) {
         return ResponseObject.success(brandService.findOne(id));
     }

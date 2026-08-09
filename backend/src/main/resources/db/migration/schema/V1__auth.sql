@@ -1,4 +1,4 @@
--- V1: Authentication & Authorization
+-- V1: Authentication & Authorization (roles/users seed data lives in seed/V1__seed_auth.sql)
 
 -- User roles: ADMIN, MANAGER, SALES, STOCK
 CREATE TABLE roles (
@@ -82,26 +82,3 @@ CREATE TABLE audit_logs (
     INDEX idx_audit_action (action, created_at),
     INDEX idx_audit_status (status)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
-
-INSERT INTO roles (name, description)
-VALUES ('ADMIN', 'System Administrator'),
-       ('MANAGER', 'Warehouse Manager'),
-       ('SALES', 'Sales Person'),
-       ('STOCK', 'Stock Keeper');
-
-INSERT INTO users (username, full_name, password, email, status, role_id, is_password_reset)
-VALUES ('admin', 'Administrator',
-        '$2a$10$eK.JsUViqKjM9drfhi4dlu/XiLY0E4JO3Ccd2IzmhbNfdZEDeFnay',
-        'admin@system.com', 'ACTIVE', (SELECT id FROM roles WHERE name = 'ADMIN'), 0);
-INSERT INTO users (username, full_name, password, email, status, role_id, is_password_reset)
-VALUES ('manager', 'Manager',
-        '$2a$10$yDJg1GQnTrIAtljWPaI9f.E3sgcmD4MrBntLhMJd2B8VtP30ZcprC',
-        'manager@system.com', 'ACTIVE', (SELECT id FROM roles WHERE name = 'MANAGER'), 0);
-INSERT INTO users (username, full_name, password, email, status, role_id, is_password_reset)
-VALUES ('sales', 'Sales',
-        '$2a$10$ho16i2KPpfklD3a49hichOmUL0K06xmKQedGBZsidecteOWDmofbG',
-        'sales@system.com', 'ACTIVE', (SELECT id FROM roles WHERE name = 'SALES'), 0);
-INSERT INTO users (username, full_name, password, email, status, role_id, is_password_reset)
-VALUES ('stock', 'Stock',
-        '$2a$10$j1r5z1n5sIeyVAzsEjv6ieg6Zi6aLIJDRQ9bTtonaDocyfsYAlDdS',
-        'stock@system.com', 'ACTIVE', (SELECT id FROM roles WHERE name = 'STOCK'), 0);

@@ -59,7 +59,7 @@ public class ImportReceiptController {
     }
 
     @PostMapping("/import-receipt")
-    @PreAuthorize(AuthorizationExpressions.CAN_OPERATE_STOCK)
+    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER)
     public ResponseObject<ImportReceiptResponse> create(@RequestBody ImportReceiptRequest request) {
         if (request.originalWarrantyExportId() != null) {
             return ResponseObject.created(importConfirmationService.createAndConfirm(request));
@@ -92,9 +92,13 @@ public class ImportReceiptController {
     }
 
     @GetMapping("/product-unit")
-    @PreAuthorize(AuthorizationExpressions.CAN_OPERATE)
-    public ResponseObject<ResponsePage<ProductUnitResponse>> getProductUnits(Pageable pageable) {
-        return ResponseObject.success(productUnitService.findAll(pageable));
+@PreAuthorize(AuthorizationExpressions.CAN_OPERATE)
+public ResponseObject<ResponsePage<ProductUnitResponse>> getProductUnits(
+        Pageable pageable,
+        @RequestParam(required = false) String search,
+        @RequestParam(required = false) String status,
+        @RequestParam(required = false) Long productId) {
+return ResponseObject.success(productUnitService.findFiltered(search, status, productId, pageable));
     }
 
     @GetMapping("/product-unit/{id}")

@@ -33,7 +33,7 @@ public class AuditSnapshotMapperRegistry {
         mappers.put(Category.class, e -> CategoryMappingHelper.map((Category) e));
         mappers.put(Product.class, e -> ProductMappingHelper.map((Product) e));
         mappers.put(Supplier.class, e -> SupplierMappingHelper.map((Supplier) e));
-        mappers.put(Customer.class, e -> CustomerMappingHelper.map((Customer) e));
+        mappers.put(Customer.class, e -> CustomerMappingHelper.map((Customer) e, 0));
         mappers.put(Location.class, e -> LocationMappingHelper.map((Location) e));
     }
 

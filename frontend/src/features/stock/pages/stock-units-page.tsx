@@ -1,6 +1,6 @@
-import { useState, lazy, Suspense } from "react"
+import { lazy, Suspense } from "react"
 import { useTranslation } from "react-i18next"
-import { Outlet, useMatch, useSearchParams } from "react-router-dom"
+import { Outlet, useMatch, useNavigate, useSearchParams } from "react-router-dom"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useAuthStore } from "@/store/auth-store"
 import { AUTH_ENABLED } from "@/utils/http-client"
@@ -23,21 +23,20 @@ const TAB_FALLBACK = <Skeleton className="h-96 w-full" />
 export function StockUnitsPage() {
   const { t } = useTranslation()
   const user = useAuthStore((s) => s.user)
+  const navigate = useNavigate()
 
   const TABS = [
     { key: "overview" as const, label: t("common.overview"), roles: ROLES.CAN_VIEW_INVENTORY },
     { key: "list" as const, label: t("common.list") },
     { key: "inventory" as const, label: t("nav.inventory") },
-    { key: "box" as const, label: t("box.title") },
+    { key: "box" as const, label: t("box.title"), roles: ROLES.CAN_VIEW_INVENTORY },
     { key: "map" as const, label: t("stockUnits.map"), roles: ROLES.CAN_VIEW_INVENTORY },
   ]
 
   const availableTabs = TABS.filter((t) => !AUTH_ENABLED || !t.roles || (user && t.roles.includes(user.role)))
   const [searchParams] = useSearchParams()
-  const [tab, setTab] = useState<TabKey>(() => {
-    const q = searchParams.get("tab")
-    return availableTabs.some((t) => t.key === q) ? (q as TabKey) : (availableTabs[0]?.key ?? "list")
-  })
+  const q = searchParams.get("tab")
+  const tab = availableTabs.some((t) => t.key === q) ? (q as TabKey) : (availableTabs[0]?.key ?? "list")
   const isSealPage = useMatch("/stock/units/box/new") != null
 
   return (
@@ -46,7 +45,7 @@ export function StockUnitsPage() {
         {availableTabs.map((t) => (
           <button
             key={t.key}
-            onClick={() => setTab(t.key)}
+            onClick={() => navigate({ search: `?tab=${t.key}` })}
             className={`px-3 py-1.5 text-sm font-medium transition-colors rounded-t-md ${tab === t.key ? "border-b-2 border-primary text-primary" : "text-muted-foreground hover:text-foreground"}`}
           >
             {t.label}

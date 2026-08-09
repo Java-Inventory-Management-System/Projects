@@ -97,7 +97,7 @@ public class AuthController {
     }
 
     @PutMapping("/change-password")
-    @PreAuthorize(AuthorizationExpressions.CAN_VIEW_INVENTORY)
+    @PreAuthorize(AuthorizationExpressions.IS_AUTHENTICATED)
     public ResponseObject<String> changePassword(@RequestBody ChangePasswordRequest changeReq) {
         UserDetailsImpl currentUser = SecurityUtils.getCurrentUser();
         String message = authService.changePassword(currentUser.getUsername(), changeReq);

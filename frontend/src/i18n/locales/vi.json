@@ -1294,6 +1294,7 @@
     "colRole": "Vai trò",
     "colStatus": "Trạng thái",
     "colCreatedAt": "Ngày tạo",
+    "colLastLogin": "Đăng nhập cuối",
     "colActions": "Thao tác",
     "editTooltip": "Sửa thông tin",
     "changeRoleTooltip": "Đổi vai trò",

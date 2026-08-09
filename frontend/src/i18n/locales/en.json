@@ -1172,6 +1172,7 @@
     "colRole": "Role",
     "colStatus": "Status",
     "colCreatedAt": "Created Date",
+    "colLastLogin": "Last Login",
     "colActions": "Actions",
     "editTooltip": "Edit info",
     "changeRoleTooltip": "Change role",

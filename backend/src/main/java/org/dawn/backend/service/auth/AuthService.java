@@ -36,8 +36,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 @RequiredArgsConstructor
@@ -57,25 +59,54 @@ public class AuthService {
 
     public record LoginResult(JwtResponse response, String refreshToken) {}
 
+    private static final ConcurrentHashMap<String, long[]> LOGIN_FAILURES = new ConcurrentHashMap<>();
+    private static final int MAX_LOGIN_ATTEMPTS = 5;
+    private static final long LOCK_DURATION_MILLIS = Duration.ofMinutes(15).toMillis();
+
+    private void checkLoginRateLimit(String username) {
+        long[] entry = LOGIN_FAILURES.get(username.toLowerCase());
+        if (entry == null) return;
+        long now = System.currentTimeMillis();
+        if (now - entry[1] >= LOCK_DURATION_MILLIS) {
+            LOGIN_FAILURES.remove(username.toLowerCase());
+            return;
+        }
+        if (entry[0] >= MAX_LOGIN_ATTEMPTS) {
+            throw new PermissionDeniedException(ErrorCode.TOO_MANY_LOGIN_ATTEMPTS);
+        }
+    }
+
+    private void recordLoginFailure(String username) {
+        LOGIN_FAILURES.compute(username.toLowerCase(), (k, v) -> {
+            long now = System.currentTimeMillis();
+            if (v == null || now - v[1] >= LOCK_DURATION_MILLIS) return new long[]{1, now};
+            return new long[]{v[0] + 1, v[1]};
+        });
+    }
+
     public LoginResult login(LoginRequest req) {
         String ip = AuditLogService.clientIp();
         String requestId = UUID.randomUUID().toString().replace("-", "");
 
         try {
             String identifier = req.username();
+            checkLoginRateLimit(identifier);
 
             User user = userRepository
                     .findByUsername(req.username())
-                    .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.USER_NOT_FOUND));
+                    .orElseThrow(() -> new PermissionDeniedException(ErrorCode.INVALID_CREDENTIALS));
             log.info("Get username :{}", identifier);
 
             if (!passwordEncoder.matches(req.password(), user.getPassword())) {
-                throw new PermissionDeniedException(ErrorCode.INVALID_PASSWORD);
+                throw new PermissionDeniedException(ErrorCode.INVALID_CREDENTIALS);
             }
 
-            if (Boolean.TRUE.equals(user.getIsDeleted()) || ActiveStatus.ACTIVE != user.getStatus()) {
+            if (Boolean.TRUE.equals(user.getIsDeleted()) || ActiveStatus.INACTIVE == user.getStatus()) {
                 throw new PermissionDeniedException(ErrorCode.USER_INACTIVE);
             }
+
+            user.setLastLogin(Instant.now());
+            userRepository.save(user);
 
             String jwt = jwtUtils.generateToken(
                     user.getId(),
@@ -104,6 +135,7 @@ public class AuthService {
                     mr.message(), toJson(mr.messageFields()));
             return new LoginResult(response, refreshToken.getToken());
         } catch (Exception e) {
+            recordLoginFailure(req.username());
             AuditMessageBuilder.MessageResult mr = messageBuilder.build(null, LogConstant.Action.LOGIN_FAILED,
                     LogConstant.Entity.USER, null, null, null, LogConstant.Status.FAILED, e.getMessage());
             auditLogService.save(LogConstant.Action.LOGIN_FAILED, LogConstant.Entity.USER,
@@ -157,6 +189,10 @@ public class AuthService {
             throw new InvalidRequestException(ErrorCode.PASSWORD_NOT_MATCH);
         }
 
+        if (request.newPassword().length() < 6) {
+            throw new InvalidRequestException(ErrorCode.PASSWORD_TOO_SHORT);
+        }
+
         user.setPassword(passwordEncoder.encode(request.newPassword()));
 
         user.setIsPasswordReset(false);
@@ -171,25 +207,22 @@ public class AuthService {
             throw new InvalidRequestException(ErrorCode.EMAIL_NOT_EMPTY);
         }
 
-        User user = userRepository
-                .findByEmail(email.trim())
-                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.EMAIL_NOT_FOUND));
+        userRepository.findByEmail(email.trim()).ifPresent(user -> {
+            passwordResetTokenRepository.deleteByUserId(user.getId());
 
-        passwordResetTokenRepository.deleteByUserId(user.getId());
+            String token = UUID.randomUUID().toString();
+            Instant expiry = Instant.now().plus(15, ChronoUnit.MINUTES);
+            passwordResetTokenRepository.save(PasswordResetToken.builder()
+                    .userId(user.getId())
+                    .token(token)
+                    .expiryDate(expiry)
+                    .build());
 
-        String token = UUID.randomUUID().toString();
-        Instant expiry = Instant.now().plus(15, ChronoUnit.MINUTES);
-        passwordResetTokenRepository.save(PasswordResetToken.builder()
-                .userId(user.getId())
-                .token(token)
-                .expiryDate(expiry)
-                .build());
+            if (frontendUrl == null || frontendUrl.isBlank()) frontendUrl = "http://localhost:5173";
+            String resetLink = frontendUrl + "/reset-password?token=" + token;
 
-
-        if (frontendUrl == null || frontendUrl.isBlank()) frontendUrl = "http://localhost:5173";
-        String resetLink = frontendUrl + "/reset-password?token=" + token;
-
-        mailService.sendPasswordResetMail(email.trim(), user.getFullName(), resetLink);
+            mailService.sendPasswordResetMail(email.trim(), user.getFullName(), resetLink);
+        });
         return "Email đặt lại mật khẩu đã được gửi";
     }
 
@@ -241,6 +274,10 @@ public class AuthService {
         refreshTokenService.verifyExpiration(oldToken);
 
         User user = oldToken.getUser();
+        if (Boolean.TRUE.equals(user.getIsDeleted()) || ActiveStatus.INACTIVE == user.getStatus()) {
+            refreshTokenService.deleteByToken(refreshTokenValue);
+            throw new PermissionDeniedException(ErrorCode.USER_INACTIVE);
+        }
         String accessToken = jwtUtils.generateToken(
                 user.getId(),
                 user.getUsername(),
