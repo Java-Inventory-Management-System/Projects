@@ -26,6 +26,10 @@ describe("Stock Check Flow", () => {
     if (bulkItem) items.push({ productUnitId: bulkItem.productUnitId, actualStatus: "IN_STOCK", countedQuantity: 1 })
 
     await api.put(`/stock-check/${checkId}/items`, { items })
+    const sealedBoxIds = [...new Set(detail.data.data.items.map((i: any) => i.boxId).filter(Boolean))]
+    if (sealedBoxIds.length) {
+      await api.put(`/stock-check/${checkId}/confirm-boxes`, { boxIds: sealedBoxIds })
+    }
     const done = await api.put(`/stock-check/${checkId}/complete`)
     expect(done.data.data.status).toBe("COMPLETED")
 

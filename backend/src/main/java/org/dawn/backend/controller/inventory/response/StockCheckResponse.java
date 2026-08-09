@@ -13,6 +13,7 @@ public record StockCheckResponse(
         String status,
         String scopeType,
         Long scopeId,
+        String scopeName,
         String note,
         Long createdBy,
         String createdByName,

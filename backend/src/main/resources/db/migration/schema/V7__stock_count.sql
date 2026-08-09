@@ -1,13 +1,12 @@
--- V5: Inventory check & adjustment
+-- V7: Stock checks, adjustments & box confirmations
 
 -- ============= STOCK CHECKS =============
 
--- Stock check: count actual on-hand inventory
 CREATE TABLE stock_checks (
     id             BIGINT AUTO_INCREMENT PRIMARY KEY,
     check_code     VARCHAR(32)   NOT NULL UNIQUE,
-    status         VARCHAR(20)   NOT NULL DEFAULT 'PENDING',   -- PENDING→IN_PROGRESS→COMPLETED→APPROVED/REJECTED
-    scope_type     VARCHAR(20),                                -- LOCATION / PRODUCT / ... (null=warehouse-wide)
+    status         VARCHAR(20)   NOT NULL DEFAULT 'PENDING',
+    scope_type     VARCHAR(20),
     scope_id       BIGINT,
     note           TEXT,
     created_by     BIGINT        NOT NULL,
@@ -22,17 +21,17 @@ CREATE TABLE stock_checks (
     CONSTRAINT fk_sc_approved_by FOREIGN KEY (approved_by) REFERENCES users(id)
 );
 
--- Units being counted: expected vs actual
 CREATE TABLE stock_check_items (
     id                BIGINT AUTO_INCREMENT PRIMARY KEY,
     stock_check_id    BIGINT        NOT NULL,
     product_unit_id   BIGINT        NOT NULL,
     tracking_type     VARCHAR(20),
     expected_status   VARCHAR(30),
-    actual_status     VARCHAR(30),                             -- NULL = not yet counted
+    actual_status     VARCHAR(30),
     counted_quantity  DECIMAL(15,2),
+    expected_quantity DECIMAL(15,2) NULL,          -- bulk snapshot at check creation
     photo             TEXT,
-    difference        VARCHAR(20),                             -- MATCH / MISSING / EXTRA
+    difference        VARCHAR(20),
     note              TEXT,
     auto_filled       BOOLEAN DEFAULT FALSE,
     INDEX idx_sci_check (stock_check_id),
@@ -40,7 +39,6 @@ CREATE TABLE stock_check_items (
     CONSTRAINT fk_sci_unit  FOREIGN KEY (product_unit_id) REFERENCES product_units(id)
 );
 
--- Stock check edit history (who changed what)
 CREATE TABLE stock_check_item_histories (
     id                  BIGINT AUTO_INCREMENT PRIMARY KEY,
     stock_check_id      BIGINT        NOT NULL,
@@ -59,21 +57,32 @@ CREATE TABLE stock_check_item_histories (
     CONSTRAINT fk_scih_changed_by FOREIGN KEY (changed_by)    REFERENCES users(id)
 );
 
+CREATE TABLE stock_check_box_confirms (
+    id             BIGINT AUTO_INCREMENT PRIMARY KEY,
+    stock_check_id BIGINT NOT NULL,
+    box_id         BIGINT NOT NULL,
+    confirmed_by   BIGINT NOT NULL,
+    INDEX idx_scbc_check (stock_check_id),
+    CONSTRAINT uk_scbc_check_box UNIQUE (stock_check_id, box_id),
+    CONSTRAINT fk_scbc_check FOREIGN KEY (stock_check_id) REFERENCES stock_checks(id),
+    CONSTRAINT fk_scbc_box    FOREIGN KEY (box_id)         REFERENCES boxes(id),
+    CONSTRAINT fk_scbc_user   FOREIGN KEY (confirmed_by)   REFERENCES users(id)
+);
+
 -- ============= STOCK ADJUSTMENTS =============
 
--- Record loss / damage / found / expired items
 CREATE TABLE stock_adjustments (
     id              BIGINT AUTO_INCREMENT PRIMARY KEY,
     adjust_code     VARCHAR(32)   NOT NULL UNIQUE,
-    type            VARCHAR(20)   NOT NULL,                    -- LOST / DAMAGED / FOUND / EXPIRED
+    type            VARCHAR(20)   NOT NULL,          -- LOST / DAMAGED / FOUND / EXPIRED
     product_unit_id BIGINT,
     product_id      BIGINT,
-    quantity        INT,
+    quantity        DECIMAL(15,2) NULL,              -- decimal for bulk (meter/kg) goods
     reason          TEXT          NOT NULL,
     image_url       VARCHAR(500),
     serial_number   VARCHAR(100),
     location_id     BIGINT,
-    source_type     VARCHAR(20),                               -- STOCK_CHECK / MANUAL
+    source_type     VARCHAR(20),                     -- STOCK_CHECK / MANUAL
     source_id       BIGINT,
     status          VARCHAR(20)   NOT NULL DEFAULT 'PENDING',
     created_by      BIGINT        NOT NULL,
@@ -94,7 +103,6 @@ CREATE TABLE stock_adjustments (
 
 -- ============= PRICE ADJUSTMENTS =============
 
--- Change import unit price after receipt
 CREATE TABLE price_adjustments (
     id                  BIGINT AUTO_INCREMENT PRIMARY KEY,
     adjust_code         VARCHAR(32)   NOT NULL UNIQUE,

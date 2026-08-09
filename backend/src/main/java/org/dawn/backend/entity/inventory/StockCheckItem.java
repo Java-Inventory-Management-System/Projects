@@ -35,6 +35,9 @@ public class StockCheckItem extends BaseEntity {
     @Column(name = "counted_quantity", precision = 15, scale = 2)
     private BigDecimal countedQuantity;
 
+    @Column(name = "expected_quantity", precision = 15, scale = 2)
+    private BigDecimal expectedQuantity;
+
     @Column(name = "difference", length = 20)
     private String difference;
 

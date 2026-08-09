@@ -6,7 +6,7 @@ import {
   getStockCheckById,
   recordStockCheckItems,
   completeStockCheck,
-  startStockCheck,
+  reopenStockCheck,
   cancelStockCheck,
 } from "@/services/stock-check-service"
 import { usePermission } from "@/hooks/use-permission"
@@ -26,7 +26,7 @@ import {
 } from "@/components/ui/breadcrumb"
 import { Empty, EmptyTitle } from "@/components/ui/empty"
 import { PrintReceiptButton } from "../components/print-receipt"
-import { AlertCircle, CheckCircle2, HelpCircle, Save, ClipboardCheck, ListChecks, AlertTriangle, RotateCcw, Play, Ban } from "lucide-react"
+import { AlertCircle, CheckCircle2, HelpCircle, Save, ClipboardCheck, ListChecks, AlertTriangle, RotateCcw, Ban } from "lucide-react"
 import { Progress } from "@/components/ui/progress"
 import { ButtonGroup } from "@/components/ui/button-group"
 import { cn } from "@/utils/cn"
@@ -76,6 +76,7 @@ export const StockCheckDetailPage = () => {
   const [searchQuery, setSearchQuery] = useState("")
   const [cancelDialog, setCancelDialog] = useState(false)
   const [completeModal, setCompleteModal] = useState(false)
+  const [reopenDialog, setReopenDialog] = useState(false)
   const [resetDialog, setResetDialog] = useState(false)
   const [sealTarget, setSealTarget] = useState<StockCheckItem | null>(null)
   const dirtyRef = useRef(false)
@@ -167,13 +168,14 @@ export const StockCheckDetailPage = () => {
     onError: (err: Error) => toast.error(err.message || t("stockCheckDetail.completeError")),
   })
 
-  const startMut = useMutation({
-    mutationFn: () => startStockCheck(Number(id!)),
+  const reopenMut = useMutation({
+    mutationFn: () => reopenStockCheck(Number(id!)),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["stock-check", id] })
-      toast.success(t("stockCheckDetail.startSuccess"))
+      invalidateAll()
+      setReopenDialog(false)
+      toast.success(t("stockCheckDetail.reopenSuccess"))
     },
-    onError: (err: Error) => toast.error(err.message || t("stockCheckDetail.startError")),
+    onError: (err: Error) => toast.error(err.message || t("stockCheckDetail.reopenError")),
   })
 
   const cancelMut = useMutation({
@@ -375,18 +377,33 @@ if (i.trackingType === TRACKING_TYPE.BULK) return { ...i, actualStatus: i.expect
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
-          {check.status === STOCK_CHECK_STATUS.PENDING ? (
-            <Button onClick={() => startMut.mutate()} disabled={startMut.isPending}>
-              <Play className="size-4 mr-1" />
-              {startMut.isPending ? t("stockCheckDetail.starting") : t("stockCheckDetail.start")}
-            </Button>
-          ) : (
-            <Button onClick={() => setCompleteModal(true)} disabled={recordMut.isPending || completeMut.isPending}>
-              <ClipboardCheck className="size-4 mr-1" />
-              {completeMut.isPending ? t("stockCheckDetail.completing") : t("stockCheckDetail.complete")}
-            </Button>
-          )}
+          <Button onClick={() => setCompleteModal(true)} disabled={recordMut.isPending || completeMut.isPending}>
+            <ClipboardCheck className="size-4 mr-1" />
+            {completeMut.isPending ? t("stockCheckDetail.completing") : t("stockCheckDetail.complete")}
+          </Button>
         </ButtonGroup>
+      )}
+      {canOperateStock && check.status === STOCK_CHECK_STATUS.COMPLETED && (
+        <AlertDialog open={reopenDialog} onOpenChange={setReopenDialog}>
+          <AlertDialogTrigger asChild>
+            <Button variant="outline" disabled={reopenMut.isPending}>
+              <RotateCcw className="size-4 mr-1" />
+              {reopenMut.isPending ? t("stockCheckDetail.starting") : t("stockCheckDetail.start")}
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{t("stockCheckDetail.reopenConfirmTitle")}</AlertDialogTitle>
+              <AlertDialogDescription>
+                {t("stockCheckDetail.reopenConfirmDesc")}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+              <AlertDialogAction onClick={() => reopenMut.mutate()}>{t("stockCheckDetail.reopenConfirm")}</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       )}
       {canCancel && (
         <AlertDialog open={cancelDialog} onOpenChange={setCancelDialog}>

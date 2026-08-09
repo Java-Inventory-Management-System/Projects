@@ -45,6 +45,7 @@ public class PriceAdjustmentService {
     private final ImportReceiptItemRepository importReceiptItemRepository;
     private final ImportReceiptRepository importReceiptRepository;
     private final ProductRepository productRepository;
+    private final org.dawn.backend.repository.inventory.ProductUnitRepository productUnitRepository;
     private final UserRepository userRepository;
     private final SecurityPolicy securityPolicy;
     private final StateMachine<AdjustmentStatus> adjustmentStateMachine;
@@ -135,9 +136,6 @@ public class PriceAdjustmentService {
         if (request.newPrice() == null || request.newPrice().compareTo(java.math.BigDecimal.ONE) < 0) {
             throw new InvalidRequestException(ErrorCode.PRICE_ADJ_NEW_PRICE_NEGATIVE);
         }
-        if (request.newPrice().scale() > 0) {
-            throw new InvalidRequestException(ErrorCode.PRICE_ADJ_WHOLE_NUMBER);
-        }
         if (request.reason() == null || request.reason().isBlank()) {
             throw new InvalidRequestException(ErrorCode.PRICE_ADJ_REASON_REQUIRED);
         }
@@ -151,6 +149,12 @@ public class PriceAdjustmentService {
 
         var item = importReceiptItemRepository.findById(request.importReceiptItemId())
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.IMPORT_ITEM_NOT_FOUND));
+
+        var receipt = importReceiptRepository.findById(item.getReceiptId())
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.IMPORT_RECEIPT_NOT_FOUND));
+        if (receipt.getStatus() != org.dawn.backend.constant.enums.inventory.imports.ImportReceiptStatus.COMPLETED) {
+            throw new InvalidRequestException(ErrorCode.PRICE_ADJ_RECEIPT_NOT_COMPLETED);
+        }
 
         var oldPrice = item.getUnitPrice() != null ? item.getUnitPrice() : java.math.BigDecimal.ZERO;
         if (oldPrice.compareTo(request.newPrice()) == 0) {
@@ -190,6 +194,12 @@ public class PriceAdjustmentService {
         }
         item.setUnitPrice(adj.getNewPrice());
         importReceiptItemRepository.save(item);
+
+        var units = productUnitRepository.findByImportReceiptItemId(item.getId());
+        units.forEach(u -> u.setCostPrice(adj.getNewPrice()));
+        if (!units.isEmpty()) {
+            productUnitRepository.saveAll(units);
+        }
 
         int updated = priceAdjustmentRepository.optimisticUpdateStatus(
                 id, AdjustmentStatus.APPROVED, userId, approvalNote);
@@ -232,6 +242,7 @@ public class PriceAdjustmentService {
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.PRICE_ADJ_NOT_FOUND));
 
         adjustmentStateMachine.validate(adj.getStatus(), AdjustmentStatus.REJECTED);
+        securityPolicy.requireNotCreator(adj.getCreatedBy());
 
         int updated = priceAdjustmentRepository.optimisticUpdateStatus(
                 id, AdjustmentStatus.REJECTED, userId, reason);

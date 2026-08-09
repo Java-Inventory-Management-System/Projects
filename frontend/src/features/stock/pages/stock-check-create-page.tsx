@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ArrowLeft, Info } from "lucide-react"
 import { toast } from "@/utils/toast"
 import type { StockCheckScopeType } from "@/utils/types"
+import { BOX_STATUS } from "@/utils/types"
 
 export const StockCheckCreatePage = () => {
   const { t } = useTranslation()
@@ -170,7 +171,7 @@ export const StockCheckCreatePage = () => {
                   <SelectValue placeholder={t("stockCheckCreate.selectBox")} />
                 </SelectTrigger>
                 <SelectContent className="max-h-[50vh]">
-                  {(boxes ?? []).map((b) => (
+                  {(boxes ?? []).filter((b) => b.status !== BOX_STATUS.SEALED).map((b) => (
                     <SelectItem key={b.id} value={String(b.id)}>
                       {b.boxCode} ({b.locationCode ?? "—"})
                     </SelectItem>

@@ -20,7 +20,11 @@ import org.dawn.backend.repository.inventory.stockcheck.StockCheckBoxConfirmRepo
 import org.dawn.backend.repository.inventory.stockcheck.StockCheckItemHistoryRepository;
 import org.dawn.backend.repository.inventory.stockcheck.StockCheckItemRepository;
 import org.dawn.backend.repository.inventory.stockcheck.StockCheckRepository;
-import org.dawn.backend.service.inventory.adjustments.AdjustmentUnitService;
+import org.dawn.backend.constant.enums.inventory.adjustments.AdjustmentStatus;
+import org.dawn.backend.constant.enums.inventory.adjustments.AdjustmentType;
+import org.dawn.backend.controller.inventory.request.CreateStockCheckRequest;
+import org.dawn.backend.controller.inventory.request.StockCheckItemRequest;
+import org.dawn.backend.entity.inventory.StockAdjustment;
 import org.dawn.backend.shared.statemachine.StateMachine;
 import org.dawn.backend.constant.enums.inventory.stockcheck.StockCheckScopeType;
 import org.dawn.backend.constant.enums.inventory.stockcheck.StockCheckStatus;
@@ -37,12 +41,14 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -58,7 +64,6 @@ class StockCheckServiceTests {
     @Mock ProductRepository productRepository;
     @Mock org.dawn.backend.repository.auth.UserRepository userRepository;
     @Mock StockAdjustmentRepository adjustmentRepository;
-    @Mock AdjustmentUnitService adjustmentUnitService;
     @Mock BoxRepository boxRepository;
     @Mock SecurityPolicy securityPolicy;
     @Mock StateMachine<StockCheckStatus> stockCheckStateMachine;
@@ -88,6 +93,23 @@ class StockCheckServiceTests {
     @Test
     void boxScope_returnsUnitsOfBox() {
         var boxed = unit(7L, 2L, 1L, 3L, "SERIALIZED");
+        var box = new Box();
+        box.setId(3L);
+        box.setBoxCode("BOX-3");
+        box.setStatus(BoxStatus.UNSEALED);
+        when(boxRepository.findById(3L)).thenReturn(Optional.of(box));
+        when(productUnitRepository.findByBoxIdAndStatus(3L, ProductUnitStatus.IN_STOCK)).thenReturn(List.of(boxed));
+
+        var ids = stockCheckService.resolveUnitIdsByScope(StockCheckScopeType.BOX, 3L);
+
+        assertEquals(List.of(7L), ids);
+    }
+
+    @Test
+    void boxScope_returnsUnitsOfSealedBox() {
+        var boxed = unit(7L, 2L, 1L, 3L, "SERIALIZED");
+        var box = sealedBox(3L, "BOX-3");
+        when(boxRepository.findById(3L)).thenReturn(Optional.of(box));
         when(productUnitRepository.findByBoxIdAndStatus(3L, ProductUnitStatus.IN_STOCK)).thenReturn(List.of(boxed));
 
         var ids = stockCheckService.resolveUnitIdsByScope(StockCheckScopeType.BOX, 3L);
@@ -246,5 +268,163 @@ class StockCheckServiceTests {
 
         assertEquals("COMPLETED", response.status());
         assertEquals(StockCheckStatus.COMPLETED, sc.getStatus());
+    }
+
+    @Test
+    void complete_createsPendingAdjustmentForMissingSerializedUnit() {
+        var sc = inProgressCheck();
+        var item = countedItem(1L);
+        item.setExpectedStatus("IN_STOCK");
+        item.setActualStatus("LOST");
+        item.setDifference("MISSING");
+        var unit = unit(1L, 2L, 1L, null, "SERIALIZED");
+        when(stockCheckRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(sc));
+        when(stockCheckItemRepository.findByStockCheckId(1L)).thenReturn(List.of(item));
+        when(productUnitRepository.findAllById(any())).thenReturn(List.of(unit));
+        when(securityPolicy.requireAuthenticated()).thenReturn(10L);
+        when(adjustmentRepository.existsBySourceTypeAndSourceId(any(), any())).thenReturn(false);
+        when(adjustmentRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(stockCheckRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(productRepository.findAllById(anyList())).thenReturn(List.of());
+        when(userRepository.findById(100L)).thenReturn(Optional.of(new org.dawn.backend.entity.auth.User()));
+
+        stockCheckService.complete(1L);
+
+        ArgumentCaptor<StockAdjustment> captor = ArgumentCaptor.forClass(StockAdjustment.class);
+        verify(adjustmentRepository).save(captor.capture());
+        StockAdjustment adj = captor.getValue();
+        assertEquals(AdjustmentType.LOST.name(), adj.getType());
+        assertEquals(AdjustmentStatus.PENDING, adj.getStatus());
+        assertNull(adj.getApprovedBy());
+        assertEquals(0, BigDecimal.ONE.compareTo(adj.getQuantity()));
+    }
+
+    @Test
+    void complete_bulkShortage_createsLostAdjustmentWithRealQuantity() {
+        var sc = inProgressCheck();
+        var item = countedItem(1L);
+        item.setTrackingType("BULK");
+        item.setExpectedQuantity(BigDecimal.valueOf(1000));
+        item.setCountedQuantity(BigDecimal.valueOf(900));
+        item.setActualStatus("IN_STOCK");
+        item.setDifference("MISSING");
+        var unit = unit(1L, 2L, 1L, null, "BULK");
+        when(stockCheckRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(sc));
+        when(stockCheckItemRepository.findByStockCheckId(1L)).thenReturn(List.of(item));
+        when(productUnitRepository.findAllById(any())).thenReturn(List.of(unit));
+        when(securityPolicy.requireAuthenticated()).thenReturn(10L);
+        when(adjustmentRepository.existsBySourceTypeAndSourceId(any(), any())).thenReturn(false);
+        when(adjustmentRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(stockCheckRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(productRepository.findAllById(anyList())).thenReturn(List.of());
+        when(userRepository.findById(100L)).thenReturn(Optional.of(new org.dawn.backend.entity.auth.User()));
+
+        stockCheckService.complete(1L);
+
+        ArgumentCaptor<StockAdjustment> captor = ArgumentCaptor.forClass(StockAdjustment.class);
+        verify(adjustmentRepository).save(captor.capture());
+        StockAdjustment adj = captor.getValue();
+        assertEquals(AdjustmentType.LOST.name(), adj.getType());
+        assertEquals(0, BigDecimal.valueOf(100).compareTo(adj.getQuantity()));
+        assertEquals(AdjustmentStatus.PENDING, adj.getStatus());
+        assertNull(adj.getApprovedBy());
+    }
+
+    @Test
+    void complete_bulkSurplus_createsFoundAdjustment() {
+        var sc = inProgressCheck();
+        var item = countedItem(1L);
+        item.setTrackingType("BULK");
+        item.setExpectedQuantity(BigDecimal.valueOf(1000));
+        item.setCountedQuantity(BigDecimal.valueOf(1100));
+        item.setActualStatus("IN_STOCK");
+        item.setDifference("UNEXPECTED");
+        var unit = unit(1L, 2L, 1L, null, "BULK");
+        when(stockCheckRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(sc));
+        when(stockCheckItemRepository.findByStockCheckId(1L)).thenReturn(List.of(item));
+        when(productUnitRepository.findAllById(any())).thenReturn(List.of(unit));
+        when(securityPolicy.requireAuthenticated()).thenReturn(10L);
+        when(adjustmentRepository.existsBySourceTypeAndSourceId(any(), any())).thenReturn(false);
+        when(adjustmentRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(stockCheckRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(productRepository.findAllById(anyList())).thenReturn(List.of());
+        when(userRepository.findById(100L)).thenReturn(Optional.of(new org.dawn.backend.entity.auth.User()));
+
+        stockCheckService.complete(1L);
+
+        ArgumentCaptor<StockAdjustment> captor = ArgumentCaptor.forClass(StockAdjustment.class);
+        verify(adjustmentRepository).save(captor.capture());
+        StockAdjustment adj = captor.getValue();
+        assertEquals(AdjustmentType.FOUND.name(), adj.getType());
+        assertEquals(0, BigDecimal.valueOf(100).compareTo(adj.getQuantity()));
+        assertEquals(AdjustmentStatus.PENDING, adj.getStatus());
+        assertNull(adj.getApprovedBy());
+    }
+
+    @Test
+    void recordItems_rejectsInvalidActualStatus() {
+        var sc = inProgressCheck();
+        var item = countedItem(1L);
+        when(stockCheckRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(sc));
+        when(stockCheckItemRepository.findByStockCheckId(1L)).thenReturn(List.of(item));
+        when(securityPolicy.requireAuthenticated()).thenReturn(10L);
+
+        InvalidRequestException ex = assertThrows(InvalidRequestException.class,
+                () -> stockCheckService.recordItems(1L, new StockCheckItemRequest.BatchRequest(
+                        List.of(new StockCheckItemRequest(1L, "BANANAS", null, null, null)))));
+
+        assertTrue(ex.getMessage().contains("BANANAS"));
+        verify(stockCheckItemRepository, never()).save(any());
+    }
+
+    @Test
+    void create_rejectsUnitsAlreadyInAnotherActiveCheck() {
+        when(securityPolicy.requireAuthenticated()).thenReturn(10L);
+        when(locationRepository.findById(1L)).thenReturn(Optional.of(location(1L)));
+        when(locationRepository.findByZoneCode("A")).thenReturn(List.of(location(1L)));
+        var unit1 = unit(11L, 2L, 1L, null, "SERIALIZED");
+        when(productUnitRepository.findByLocationIdInAndStatus(anyList(), eq(ProductUnitStatus.IN_STOCK)))
+                .thenReturn(List.of(unit1));
+        when(boxRepository.findByLocationIdInAndStatus(anyList(), eq(BoxStatus.SEALED))).thenReturn(List.of());
+        when(stockCheckItemRepository.existsByProductUnitIdInActiveCheck(11L)).thenReturn(true);
+
+        InvalidRequestException ex = assertThrows(InvalidRequestException.class,
+                () -> stockCheckService.create(new CreateStockCheckRequest("ZONE", 1L, null)));
+
+        assertTrue(ex.getMessage().contains("11"));
+        verify(stockCheckRepository, never()).save(any());
+    }
+
+    @Test
+    void reopen_returnsCompletedCheckToInProgress_AndDeletesPendingAdjustments() {
+        var sc = inProgressCheck();
+        sc.setStatus(StockCheckStatus.COMPLETED);
+        when(stockCheckRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(sc));
+        when(securityPolicy.requireAuthenticated()).thenReturn(10L);
+        StockAdjustment pending = new StockAdjustment();
+        pending.setStatus(AdjustmentStatus.PENDING);
+        when(adjustmentRepository.findBySourceTypeAndSourceId(any(), any())).thenReturn(List.of(pending));
+        when(stockCheckRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        stubResponseDeps();
+
+        var response = stockCheckService.reopen(1L);
+
+        assertEquals("IN_PROGRESS", response.status());
+        assertEquals(StockCheckStatus.IN_PROGRESS, sc.getStatus());
+        verify(adjustmentRepository).delete(pending);
+    }
+
+    @Test
+    void reopen_rejectsWhenApprovedAdjustmentsExist() {
+        var sc = inProgressCheck();
+        sc.setStatus(StockCheckStatus.COMPLETED);
+        when(stockCheckRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(sc));
+        when(securityPolicy.requireAuthenticated()).thenReturn(10L);
+        StockAdjustment approved = new StockAdjustment();
+        approved.setStatus(AdjustmentStatus.APPROVED);
+        when(adjustmentRepository.findBySourceTypeAndSourceId(any(), any())).thenReturn(List.of(approved));
+
+        assertThrows(InvalidRequestException.class, () -> stockCheckService.reopen(1L));
+        verify(adjustmentRepository, never()).delete(any());
     }
 }

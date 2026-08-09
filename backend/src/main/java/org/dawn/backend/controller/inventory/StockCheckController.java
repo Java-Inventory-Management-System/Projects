@@ -65,10 +65,10 @@ public class StockCheckController {
         return ResponseObject.success(stockCheckService.recordItems(id, request));
     }
 
-    @PutMapping("/stock-check/{id}/start")
+    @PutMapping("/stock-check/{id}/reopen")
     @PreAuthorize(AuthorizationExpressions.CAN_OPERATE_STOCK)
-    public ResponseObject<StockCheckResponse> start(@PathVariable Long id) {
-        return ResponseObject.success(stockCheckService.start(id));
+    public ResponseObject<StockCheckResponse> reopen(@PathVariable Long id) {
+        return ResponseObject.success(stockCheckService.reopen(id));
     }
 
     @PutMapping("/stock-check/{id}/complete")

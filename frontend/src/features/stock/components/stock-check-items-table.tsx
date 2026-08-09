@@ -211,7 +211,8 @@ export function StockCheckItemsTable({
                                 type="button"
                                 variant={item.photo ? "default" : "outline"}
                                 size="icon"
-                                className="size-8 shrink-0"
+                                title={t("stockCheckItems.photoRequired")}
+                                className={cn("size-8 shrink-0", !item.photo && "border-destructive text-destructive")}
                                 disabled={uploadingItemId === item.id}
                                 onClick={() => {
                                   photoTargetRef.current = item.id
@@ -226,6 +227,9 @@ export function StockCheckItemsTable({
                                   <Camera className="size-3.5" />
                                 )}
                               </Button>
+                            )}
+                            {item.actualStatus === PRODUCT_UNIT_STATUS.DAMAGED_IN_STORAGE && !item.photo && (
+                              <span className="text-[10px] text-destructive shrink-0">{t("stockCheckItems.photoRequired")}</span>
                             )}
                           </>
                         ) : (

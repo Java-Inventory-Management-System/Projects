@@ -1,10 +1,12 @@
 package org.dawn.backend.controller.inventory.request;
 
+import java.math.BigDecimal;
+
 public record CreateStockAdjustmentRequest(
         String type,
         Long productUnitId,
         Long productId,
-        Integer quantity,
+        BigDecimal quantity,
         String reason,
         String imageUrl,
         String sourceType,
