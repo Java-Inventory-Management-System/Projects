@@ -1357,6 +1357,7 @@
     "boxes": "boxes",
     "empty": "empty",
     "zone": "Zone",
+    "inactive": " (inactive)",
     "binNotFound": "Location not found on map"
   },
   "approvalDialog": {

@@ -43,7 +43,7 @@ export function POCreatePage() {
 
   const { data: productsRes } = useProducts(0, 1000)
   const { data: suppliers = [] } = useSuppliers()
-  const products = useMemo(() => productsRes?.content ?? [], [productsRes])
+  const products = useMemo(() => (productsRes?.content ?? []).filter((p) => p.isActive), [productsRes])
 
   const defaultDate = useMemo(() => {
     const d = new Date()

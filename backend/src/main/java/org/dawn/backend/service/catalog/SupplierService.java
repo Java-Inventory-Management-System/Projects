@@ -9,6 +9,8 @@ import org.dawn.backend.constant.shared.LogConstant;
 import org.dawn.backend.controller.catalog.request.SupplierRequest;
 import org.dawn.backend.controller.catalog.response.SupplierResponse;
 import org.dawn.backend.entity.catalog.Supplier;
+import org.dawn.backend.exception.type.InvalidRequestException;
+import org.dawn.backend.exception.type.ResourceAlreadyExistedException;
 import org.dawn.backend.exception.type.ResourceNotFoundException;
 import org.dawn.backend.repository.catalog.SupplierRepository;
 import org.springframework.data.domain.Pageable;
@@ -40,6 +42,12 @@ public class SupplierService {
     @Transactional
     @AuditLog(action = LogConstant.Action.CREATE_SUPPLIER, entity = LogConstant.Entity.SUPPLIER)
     public SupplierResponse create(SupplierRequest request) {
+        if (request.name() == null || request.name().isBlank()) {
+            throw new InvalidRequestException(ErrorCode.SUPPLIER_NAME_REQUIRED);
+        }
+        if (supplierRepository.existsByNameIgnoreCase(request.name().trim())) {
+            throw new ResourceAlreadyExistedException(ErrorCode.SUPPLIER_NAME_EXISTS);
+        }
         Supplier supplier = Supplier.builder()
                 .name(request.name())
                 .contactPerson(request.contactPerson())
@@ -58,7 +66,14 @@ public class SupplierService {
         Supplier supplier = supplierRepository
                 .findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.SUPPLIER_NOT_FOUND));
-        if (request.name() != null) supplier.setName(request.name());
+        if (request.name() != null && !request.name().isBlank()) {
+            String newName = request.name().trim();
+            if (!supplier.getName().equalsIgnoreCase(newName)
+                    && supplierRepository.existsByNameIgnoreCase(newName)) {
+                throw new ResourceAlreadyExistedException(ErrorCode.SUPPLIER_NAME_EXISTS);
+            }
+            supplier.setName(newName);
+        }
         if (request.contactPerson() != null) supplier.setContactPerson(request.contactPerson());
         if (request.phone() != null) supplier.setPhone(request.phone());
         if (request.email() != null) supplier.setEmail(request.email());

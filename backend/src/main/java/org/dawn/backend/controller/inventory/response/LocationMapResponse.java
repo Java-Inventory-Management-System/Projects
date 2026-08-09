@@ -19,6 +19,7 @@ public record LocationMapResponse(
         String fullCode,
         long productCount,
         Long maxCapacity,
+        Boolean isActive,
         List<String> productSkuList,
         long boxCount,
         List<String> boxCodes,

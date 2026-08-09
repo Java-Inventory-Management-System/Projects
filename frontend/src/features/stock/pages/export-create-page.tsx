@@ -60,7 +60,7 @@ export const ExportCreatePage = () => {
   const [showDraftDialog, setShowDraftDialog] = useState(false)
 
   const { data: productsRes } = useProducts(0, 100)
-  const products = useMemo(() => productsRes?.content ?? [], [productsRes])
+  const products = useMemo(() => (productsRes?.content ?? []).filter((p) => p.isActive), [productsRes])
 
   const form = useForm<ExportFormFields>({
     defaultValues: { reason: "", customerId: "", note: "", items: [] },

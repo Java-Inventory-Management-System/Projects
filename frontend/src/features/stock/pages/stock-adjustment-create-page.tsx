@@ -129,6 +129,8 @@ export const StockAdjustmentCreatePage = () => {
     enabled: watchedType === ADJUSTMENT_TYPE.FOUND && foundMode === "new",
   })
 
+  const activeProducts = (productsData?.content ?? []).filter((p) => p.isActive)
+
   const selectedUnitId = form.watch("selectedUnitId")
   const { data: unitAdjustments } = useQuery({
     queryKey: ["stock-adjustments", "by-unit", selectedUnitId],
@@ -508,7 +510,7 @@ export const StockAdjustmentCreatePage = () => {
                         <Skeleton key={i} className="h-8 w-full" />
                       ))}
                     </div>
-                  ) : !productsData || productsData.content.length === 0 ? (
+                  ) : activeProducts.length === 0 ? (
                     <Empty className="py-4">
                       <EmptyTitle>{t("stockAdjCreate.noProductsFound")}</EmptyTitle>
                     </Empty>
@@ -522,7 +524,7 @@ export const StockAdjustmentCreatePage = () => {
                         </tr>
                       </thead>
                       <tbody>
-                        {productsData.content.map((p: { id: number; sku: string | null; name: string | null }) => {
+                        {activeProducts.map((p: { id: number; sku: string | null; name: string | null }) => {
                           const selectedProductId = formValues.selectedProductId
                           return (
                           <tr

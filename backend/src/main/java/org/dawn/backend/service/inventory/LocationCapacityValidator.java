@@ -31,6 +31,9 @@ public class LocationCapacityValidator {
         if (locationId == null) return;
         Location location = locationRepository.findByIdForUpdate(locationId).orElse(null);
         if (location == null || location.getMaxCapacity() == null) return;
+        if (!Boolean.TRUE.equals(location.getIsActive())) {
+            throw new InvalidRequestException(ErrorCode.LOCATION_INACTIVE.format(location.getFullCode()));
+        }
         BigDecimal used = productUnitRepository.usageByLocation().getOrDefault(locationId, BigDecimal.ZERO);
         if (excludedUnitIds != null && !excludedUnitIds.isEmpty()) {
             BigDecimal excludedAtThisBin = productUnitRepository.usageByLocationIdAndIdIn(locationId, excludedUnitIds);

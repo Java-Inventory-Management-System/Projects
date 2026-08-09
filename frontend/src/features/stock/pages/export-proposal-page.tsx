@@ -71,7 +71,7 @@ export const ExportProposalPage = () => {
   const [showDraftDialog, setShowDraftDialog] = useState(false)
 
   const { data: productsRes } = useProducts(0, 100)
-  const products = useMemo(() => productsRes?.content ?? [], [productsRes])
+  const products = useMemo(() => (productsRes?.content ?? []).filter((p) => p.isActive), [productsRes])
   const { data: invRes } = useInventory(0, 500)
   const invMap = useMemo(() => {
     const m = new Map<number, number>()

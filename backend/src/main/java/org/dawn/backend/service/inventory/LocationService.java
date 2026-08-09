@@ -115,7 +115,7 @@ public class LocationService {
                     List<String> boxCodes = boxMap.getOrDefault(loc.getId(), Collections.emptyList()).stream()
                             .map(Box::getBoxCode).toList();
                     List<BinProduct> binProducts = productMap.getOrDefault(loc.getId(), Collections.emptyList());
-                    return new BinData(loc.getId(), loc.getBinCode(), loc.getFullCode(), counts.getOrDefault(loc.getId(), BigDecimal.ZERO).longValue(), mc, skus, boxCodes.size(), boxCodes, binProducts);
+                    return new BinData(loc.getId(), loc.getBinCode(), loc.getFullCode(), counts.getOrDefault(loc.getId(), BigDecimal.ZERO).longValue(), mc, loc.getIsActive(), skus, boxCodes.size(), boxCodes, binProducts);
                 }).toList();
                 return new ShelfData(shelfEntry.getKey(), bins);
             }).toList();
@@ -174,9 +174,19 @@ public class LocationService {
         if (request.zoneCode() != null) location.setZoneCode(request.zoneCode().trim().toUpperCase());
         if (request.shelfCode() != null) location.setShelfCode(request.shelfCode().trim());
         if (request.binCode() != null) location.setBinCode(request.binCode().trim().toUpperCase());
-        location.setFullCode(location.getZoneCode() + "-" + location.getShelfCode() + "-" + location.getBinCode());
+        String newFullCode = location.getZoneCode() + "-" + location.getShelfCode() + "-" + location.getBinCode();
+        if (!location.getFullCode().equals(newFullCode) && locationRepository.existsByFullCode(newFullCode)) {
+            throw new ResourceAlreadyExistedException(ErrorCode.LOCATION_CODE_EXISTS);
+        }
+        location.setFullCode(newFullCode);
         if (request.description() != null) location.setDescription(request.description());
-        if (request.maxCapacity() != null) location.setMaxCapacity(request.maxCapacity());
+        if (request.maxCapacity() != null) {
+            BigDecimal used = productUnitRepository.usageByLocation().getOrDefault(id, BigDecimal.ZERO);
+            if (request.maxCapacity().compareTo(used) < 0) {
+                throw new InvalidRequestException(ErrorCode.LOCATION_CAPACITY_BELOW_USAGE.format(location.getFullCode(), used));
+            }
+            location.setMaxCapacity(request.maxCapacity());
+        }
         return LocationMappingHelper.map(locationRepository.save(location));
     }
 

@@ -165,6 +165,7 @@ export interface LocationMapBin {
   fullCode: string
   productCount: number
   maxCapacity: number | null
+  isActive: boolean
   productSkuList: string[]
   boxCount: number
   boxCodes: string[]

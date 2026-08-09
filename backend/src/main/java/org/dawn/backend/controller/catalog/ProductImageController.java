@@ -19,7 +19,7 @@ public class ProductImageController {
     private final ProductImageService productImageService;
 
     @GetMapping("/product/{productId}")
-    @PreAuthorize(AuthorizationExpressions.CAN_VIEW_REPORTS)
+    @PreAuthorize(AuthorizationExpressions.CAN_VIEW_INVENTORY)
     public ResponseObject<List<ProductImageResponse>> getByProductId(@PathVariable Long productId) {
         return ResponseObject.success(productImageService.findByProductId(productId));
     }

@@ -29,7 +29,8 @@ export function LocationMapGrid({ data, highlightBinId = null, onSelect }: Locat
                     {shelf.bins.map((bin) => {
                       const isSelected = String(bin.id) === String(highlightBinId)
                       const color = binColor(bin.productCount, bin.maxCapacity)
-                      const boxCodesTitle = bin.boxCodes.length > 0 ? ` · ${bin.boxCodes.join(", ")}` : ""
+                      const boxCodesTitle = bin.boxCodes.length > 0 ? ` � ${bin.boxCodes.join(", ")}` : ""
+                      const inactive = !bin.isActive
                       const inner = (
                         <span
                           className={cn(
@@ -37,10 +38,16 @@ export function LocationMapGrid({ data, highlightBinId = null, onSelect }: Locat
                             color.bg,
                             color.border,
                             isSelected && "ring-2 ring-primary",
+                            inactive && "opacity-40",
                           )}
-                          title={`${bin.fullCode}${bin.maxCapacity != null ? ` (${bin.productCount}/${bin.maxCapacity})` : bin.productCount > 0 ? ` (${bin.productCount} ${t("locPicker.units")})` : ` (${t("locPicker.empty")})`}${bin.boxCount > 0 ? ` · ${bin.boxCount} ${t("locPicker.boxes")}${boxCodesTitle}` : ""}`}
+                          title={`${bin.fullCode}${inactive ? t("locPicker.inactive") : ""}${bin.maxCapacity != null ? ` (${bin.productCount}/${bin.maxCapacity})` : bin.productCount > 0 ? ` (${bin.productCount} ${t("locPicker.units")})` : ` (${t("locPicker.empty")})`}${bin.boxCount > 0 ? ` � ${bin.boxCount} ${t("locPicker.boxes")}${boxCodesTitle}` : ""}`}
                         >
                           {bin.binCode}
+                          {bin.maxCapacity != null && (
+                            <span className="text-[8px] text-muted-foreground/70">
+                              {bin.productCount}/{bin.maxCapacity}
+                            </span>
+                          )}
                           {bin.boxCount > 0 && (
                             <span
                               className="rounded-sm bg-amber-100 px-1 text-[8px] font-semibold leading-3 text-amber-700 dark:bg-amber-900/60 dark:text-amber-300"
@@ -55,8 +62,9 @@ export function LocationMapGrid({ data, highlightBinId = null, onSelect }: Locat
                         <button
                           key={bin.id}
                           type="button"
+                          disabled={inactive}
                           onClick={() => onSelect(String(bin.id))}
-                          className="cursor-pointer transition-all hover:ring-1 hover:ring-ring"
+                          className="cursor-pointer transition-all hover:ring-1 hover:ring-ring disabled:cursor-not-allowed disabled:opacity-40"
                         >
                           {inner}
                         </button>

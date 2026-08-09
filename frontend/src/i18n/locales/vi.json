@@ -1471,6 +1471,7 @@
     "boxes": "hộp",
     "empty": "trống",
     "zone": "Khu",
+    "inactive": " (ngừng hoạt động)",
     "binNotFound": "Không tìm thấy vị trí trên bản đồ"
   },
   "approvalDialog": {

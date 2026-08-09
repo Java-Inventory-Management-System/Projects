@@ -21,12 +21,15 @@ import org.dawn.backend.repository.catalog.BrandRepository;
 import org.dawn.backend.repository.catalog.CategoryRepository;
 import org.dawn.backend.repository.catalog.ProductRepository;
 import org.dawn.backend.repository.catalog.SupplierRepository;
+import org.dawn.backend.constant.enums.inventory.ProductUnitStatus;
+import org.dawn.backend.repository.inventory.ProductUnitRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -41,6 +44,7 @@ public class ProductService {
     private final BrandRepository brandRepository;
     private final CategoryRepository categoryRepository;
     private final SupplierRepository supplierRepository;
+    private final ProductUnitRepository productUnitRepository;
 
     private static final List<String> BULK_UNITS = List.of(UnitOfMeasure.METER.name(), UnitOfMeasure.KG.name(), UnitOfMeasure.TUBE.name());
     private static final List<String> SERIALIZED_UNITS = List.of(UnitOfMeasure.PIECE.name(), UnitOfMeasure.BOX.name(), UnitOfMeasure.SET.name());
@@ -79,9 +83,10 @@ public class ProductService {
 
         String unit = request.unit() != null ? request.unit() : UnitOfMeasure.PIECE.name();
         TrackingType trackingType = request.trackingType() != null
-                ? TrackingType.valueOf(request.trackingType())
+                ? parseTrackingType(request.trackingType())
                 : TrackingType.SERIALIZED;
         validateUnitTracking(unit, trackingType);
+        validatePriceFields(request.sellPrice(), request.minStock());
 
         Brand brand = null;
         if (request.brandId() != null) {
@@ -145,11 +150,19 @@ public class ProductService {
         }
         if (request.description() != null) product.setDescription(request.description());
         if (request.unit() != null) product.setUnit(request.unit());
-        if (request.trackingType() != null) product.setTrackingType(request.trackingType());
+        if (request.trackingType() != null) {
+            TrackingType newTrackingType = parseTrackingType(request.trackingType());
+            if (!product.getTrackingType().equals(newTrackingType.name())
+                    && productUnitRepository.countByProductIdAndStatus(product.getId(), ProductUnitStatus.IN_STOCK) > 0) {
+                throw new InvalidRequestException(ErrorCode.TRACKING_CHANGE_BLOCKED);
+            }
+            product.setTrackingType(newTrackingType.name());
+        }
+        validatePriceFields(request.sellPrice(), request.minStock());
         if (request.sellPrice() != null) product.setSellPrice(request.sellPrice());
         if (request.minStock() != null) product.setMinStock(request.minStock());
 
-                validateUnitTracking(product.getUnit(), TrackingType.valueOf(product.getTrackingType()));
+                validateUnitTracking(product.getUnit(), parseTrackingType(product.getTrackingType()));
         return ProductMappingHelper.map(productRepository.save(product));
     }
 
@@ -174,7 +187,28 @@ public class ProductService {
         return new HashSet<>(found);
     }
 
+    private TrackingType parseTrackingType(String raw) {
+        try {
+            return TrackingType.valueOf(raw);
+        } catch (IllegalArgumentException | NullPointerException e) {
+            throw new InvalidRequestException(ErrorCode.INVALID_UNIT_TRACKING.format(raw, "SERIALIZED/BULK"));
+        }
+    }
+
+    private void validatePriceFields(BigDecimal sellPrice, Integer minStock) {
+        if (sellPrice != null && sellPrice.signum() < 0) {
+            throw new InvalidRequestException(ErrorCode.NEGATIVE_PRICE);
+        }
+        if (minStock != null && minStock < 0) {
+            throw new InvalidRequestException(ErrorCode.NEGATIVE_MIN_STOCK);
+        }
+    }
+
     private void validateUnitTracking(String unit, TrackingType trackingType) {
+        if (unit == null
+                || Arrays.stream(UnitOfMeasure.values()).noneMatch(u -> u.name().equals(unit))) {
+            throw new InvalidRequestException(ErrorCode.INVALID_UNIT.format(unit));
+        }
         boolean requiresBulk = BULK_UNITS.contains(unit);
         boolean requiresSerialized = SERIALIZED_UNITS.contains(unit);
         if (requiresBulk && trackingType == TrackingType.SERIALIZED) {

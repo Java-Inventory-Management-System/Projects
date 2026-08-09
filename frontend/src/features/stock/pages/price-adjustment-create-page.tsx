@@ -110,7 +110,7 @@ const [displayPrice, setDisplayPrice] = useState("")
     [availableItems, oldPrice, save, t],
   )
 
-  const products = productsRes?.content ?? []
+  const products = (productsRes?.content ?? []).filter((p) => p.isActive)
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
