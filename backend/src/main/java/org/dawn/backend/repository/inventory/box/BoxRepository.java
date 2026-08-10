@@ -3,6 +3,8 @@ package org.dawn.backend.repository.inventory.box;
 import jakarta.persistence.LockModeType;
 import org.dawn.backend.constant.enums.inventory.box.BoxStatus;
 import org.dawn.backend.entity.inventory.Box;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
@@ -34,4 +36,10 @@ public interface BoxRepository extends JpaRepository<Box, Long> {
     List<Box> findByStatus(BoxStatus status, Sort sort);
 
     List<Box> findByLocationIdAndStatus(Long locationId, BoxStatus status, Sort sort);
+
+    Page<Box> findByLocationId(Long locationId, Pageable pageable);
+
+    Page<Box> findByStatus(BoxStatus status, Pageable pageable);
+
+    Page<Box> findByLocationIdAndStatus(Long locationId, BoxStatus status, Pageable pageable);
 }

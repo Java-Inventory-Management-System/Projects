@@ -50,6 +50,27 @@ public class ProductUnitService {
     }
 
     @Transactional(readOnly = true)
+    public ResponsePage<ProductUnitResponse> findFiltered(String search, String status, Long productId, Pageable pageable) {
+        var products = productRepository.findAll().stream()
+                .collect(Collectors.toMap(Product::getId, p -> p));
+        var locations = locationRepository.findAll().stream()
+                .collect(Collectors.toMap(Location::getId, l -> l));
+        ProductUnitStatus s = safeParseProductUnitStatus(status);
+        boolean empty = s == null && status != null && !status.isBlank();
+        Page<ProductUnit> page = !empty
+                ? productUnitRepository.findFiltered(search != null && !search.isBlank() ? search : null, s, productId, pageable)
+                : Page.empty(pageable);
+        return ResponsePage.of(page.map(unit -> {
+                    Product p = products.get(unit.getProductId());
+                    Location loc = unit.getLocationId() != null ? locations.get(unit.getLocationId()) : null;
+                    return ProductUnitMappingHelper.map(unit,
+                            p != null ? p.getName() : null,
+                            p != null ? p.getSku() : null,
+                            loc != null ? loc.getFullCode() : null);
+                }));
+    }
+
+    @Transactional(readOnly = true)
     public ProductUnitResponse findOne(Long id) {
         var unit = productUnitRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.PRODUCT_UNIT_NOT_FOUND));

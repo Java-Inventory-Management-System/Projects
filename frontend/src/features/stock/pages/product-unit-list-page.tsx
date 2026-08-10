@@ -98,15 +98,16 @@ export const ProductUnitListPage = () => {
   const sortStr = `importedAt,${sortOrder}`
 
   const { data: unitsRes, isLoading, error: fetchError } = useQuery({
-    queryKey: ["product-units", hasFilters ? "all" : page, pageSize, sortStr, statusFilter, productFilter, debouncedSearch || ""],
-    queryFn: () => (hasFilters ? getProductUnits(0, 10000, sortStr) : getProductUnits(page, pageSize, sortStr)),
-  })
-
-  const filtered = (unitsRes?.content ?? []).filter((u) => {
-    if (debouncedSearch && !u.serialNumber.toLowerCase().includes(debouncedSearch.toLowerCase())) return false
-    if (statusFilter !== "all" && u.status !== statusFilter) return false
-    if (productFilter !== "all" && u.productId !== Number(productFilter)) return false
-    return true
+    queryKey: ["product-units", page, pageSize, sortStr, statusFilter, productFilter, debouncedSearch || ""],
+    queryFn: () =>
+      getProductUnits(
+        page,
+        pageSize,
+        sortStr,
+        debouncedSearch || undefined,
+        statusFilter !== "all" ? statusFilter : undefined,
+        productFilter !== "all" ? Number(productFilter) : undefined,
+      ),
   })
 
   const columns: Column<ProductUnit>[] = [
@@ -255,22 +256,20 @@ export const ProductUnitListPage = () => {
       ) : (
         <DataTable
           columns={columns}
-          data={filtered}
+          data={unitsRes?.content ?? []}
           isLoading={isLoading}
           emptyMessage={hasFilters ? t("productUnitList.emptySearch") : t("productUnitList.empty")}
           sort={sort}
           onSort={handleSort}
           totalElements={unitsRes?.pagination?.totalElements}
-          page={!hasFilters ? page : undefined}
-          totalPages={!hasFilters ? unitsRes?.pagination?.totalPages : undefined}
-          pageSize={!hasFilters ? pageSize : undefined}
-          onPageChange={!hasFilters ? (p) => updateParams({ page: String(p) }) : undefined}
-          onPageSizeChange={!hasFilters
-            ? (s) => {
-                setPageSize(s)
-                updateParams({ page: undefined })
-              }
-            : undefined}
+          page={page}
+          totalPages={unitsRes?.pagination?.totalPages}
+          pageSize={pageSize}
+          onPageChange={(p) => updateParams({ page: String(p) })}
+          onPageSizeChange={(s) => {
+            setPageSize(s)
+            updateParams({ page: undefined })
+          }}
         />
       )}
 

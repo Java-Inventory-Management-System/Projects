@@ -22,8 +22,15 @@ export async function getProductUnits(
   page = 0,
   size = 20,
   sort = "importedAt,desc",
+  search?: string,
+  status?: string,
+  productId?: number,
 ): Promise<ResponsePage<ProductUnit>> {
-  const res = await http.get("/product-unit", { params: { page, size, sort } })
+  const params: Record<string, string | number> = { page, size, sort }
+  if (search) params.search = search
+  if (status) params.status = status
+  if (productId != null && productId !== 0) params.productId = productId
+  const res = await http.get("/product-unit", { params })
   return mapResponsePage(res, mapProductUnit)
 }
 

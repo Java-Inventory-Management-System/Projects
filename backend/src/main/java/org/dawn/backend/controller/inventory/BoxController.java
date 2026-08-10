@@ -2,12 +2,14 @@ package org.dawn.backend.controller.inventory;
 
 import lombok.RequiredArgsConstructor;
 import org.dawn.backend.config.web.response.ResponseObject;
+import org.dawn.backend.config.web.response.ResponsePage;
 import org.dawn.backend.constant.security.AuthorizationExpressions;
 import org.dawn.backend.controller.inventory.request.MoveBoxRequest;
 import org.dawn.backend.controller.inventory.request.SealBoxRequest;
 import org.dawn.backend.controller.inventory.response.BoxResponse;
 import org.dawn.backend.service.inventory.ReceiptPrintService;
 import org.dawn.backend.service.inventory.box.BoxService;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -24,10 +26,11 @@ public class BoxController {
 
     @GetMapping("/box")
     @PreAuthorize(AuthorizationExpressions.CAN_VIEW_INVENTORY)
-    public ResponseObject<List<BoxResponse>> getAll(
+    public ResponseObject<ResponsePage<BoxResponse>> getAll(
             @RequestParam(required = false) Long locationId,
-            @RequestParam(required = false) String status) {
-        return ResponseObject.success(boxService.findAll(locationId, status));
+            @RequestParam(required = false) String status,
+            Pageable pageable) {
+        return ResponseObject.success(boxService.findAll(locationId, status, pageable));
     }
 
     @GetMapping("/box/{id}")

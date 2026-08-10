@@ -83,8 +83,8 @@ describe("Box Flow", () => {
     expect(zoneDetail.data.data.items.some((i: any) => i.serialNumber === serialNumbers[0])).toBe(true)
     await api.put(`/stock-check/${zoneCheck.data.data.id}/cancel`)
 
-    const list = await api.get("/box", { params: { status: "SEALED" } })
-    expect(list.data.data.some((b: any) => b.id === boxId)).toBe(true)
+    const list = await api.get("/box", { params: { status: "SEALED", size: 100 } })
+    expect(list.data.data.content.some((b: any) => b.id === boxId)).toBe(true)
 
     const print = await api.get(`/box/${boxId}/print`)
     expect(print.status).toBe(200)

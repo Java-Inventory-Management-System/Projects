@@ -24,7 +24,9 @@ export const ProductsPage = () => {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const brandFilter = searchParams.get("brandId") ? Number(searchParams.get("brandId")) : undefined
-  const categoryFilter = searchParams.get("categoryId") ? Number(searchParams.get("categoryId")) : undefined
+  const categoryFilter = searchParams.get("filter") === "uncategorized"
+    ? 0
+    : (searchParams.get("categoryId") ? Number(searchParams.get("categoryId")) : undefined)
 
   const [searchInput, setSearchInput] = useState(searchParams.get("q") ?? "")
   const [page, setPage] = useState(0)
@@ -176,9 +178,10 @@ export const ProductsPage = () => {
           </SelectContent>
         </Select>
         <Select
-          value={categoryFilter ? String(categoryFilter) : "all"}
+          value={categoryFilter !== undefined ? String(categoryFilter) : "all"}
           onValueChange={(v) => {
             const next = new URLSearchParams(searchParams)
+            next.delete("filter")
             if (v === "all") next.delete("categoryId")
             else next.set("categoryId", v)
             setSearchParams(next)
@@ -190,6 +193,7 @@ export const ProductsPage = () => {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">{t("common.all")}</SelectItem>
+            <SelectItem value="0">{t("productsPage.uncategorized")}</SelectItem>
             {categories.map((c) => (
               <SelectItem key={c.id} value={String(c.id)}>
                 {c.name}

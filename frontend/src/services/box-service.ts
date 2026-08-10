@@ -1,8 +1,12 @@
 import http from "@/utils/http-client"
-import type { Box, BoxableImport, BoxType } from "@/utils/types"
+import type { Box, BoxableImport, BoxType, ResponsePage } from "@/utils/types"
+import { mapResponsePage } from "@/utils/mappers"
 
-export async function getBoxes(params?: { locationId?: number; status?: string }): Promise<Box[]> {
-  return (await http.get("/box", { params })) as unknown as Box[]
+export async function getBoxes(
+  params?: { locationId?: number; status?: string; page?: number; size?: number },
+): Promise<ResponsePage<Box>> {
+  const res = await http.get("/box", { params: { page: params?.page ?? 0, size: params?.size ?? 50, ...params } })
+  return mapResponsePage(res, (b) => b as unknown as Box)
 }
 
 export async function getBoxById(id: number): Promise<Box> {

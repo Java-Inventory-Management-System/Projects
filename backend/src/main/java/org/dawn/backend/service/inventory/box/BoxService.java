@@ -19,6 +19,7 @@ import org.dawn.backend.entity.inventory.Box;
 import org.dawn.backend.entity.inventory.ImportReceipt;
 import org.dawn.backend.entity.inventory.ImportReceiptItem;
 import org.dawn.backend.entity.inventory.ProductUnit;
+import org.dawn.backend.config.web.response.ResponsePage;
 import org.dawn.backend.exception.type.InvalidRequestException;
 import org.dawn.backend.exception.type.ResourceNotFoundException;
 import org.dawn.backend.repository.auth.UserRepository;
@@ -32,6 +33,8 @@ import org.dawn.backend.repository.inventory.stockcheck.StockCheckItemRepository
 import org.dawn.backend.service.inventory.LocationCapacityValidator;
 import org.dawn.backend.shared.util.ReceiptCodeGenerator;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -68,22 +71,21 @@ public class BoxService {
     private int largeMaxUnits = 100;
 
     @Transactional(readOnly = true)
-    public List<BoxResponse> findAll(Long locationId, String status) {
-        List<Box> boxes = status != null
+    public ResponsePage<BoxResponse> findAll(Long locationId, String status, Pageable pageable) {
+        Page<Box> page = status != null
                 ? (locationId != null
-                        ? boxRepository.findByLocationIdAndStatus(locationId, BoxStatus.valueOf(status.toUpperCase()), BoxRepository.BY_NEWEST)
-                        : boxRepository.findByStatus(BoxStatus.valueOf(status.toUpperCase()), BoxRepository.BY_NEWEST))
-                : (locationId != null ? boxRepository.findByLocationId(locationId, BoxRepository.BY_NEWEST) : boxRepository.findAll(BoxRepository.BY_NEWEST));
-        if (boxes.isEmpty()) return List.of();
+                        ? boxRepository.findByLocationIdAndStatus(locationId, BoxStatus.valueOf(status.toUpperCase()), pageable)
+                        : boxRepository.findByStatus(BoxStatus.valueOf(status.toUpperCase()), pageable))
+                : (locationId != null ? boxRepository.findByLocationId(locationId, pageable) : boxRepository.findAll(pageable));
+        List<Box> boxes = page.getContent();
+        if (boxes.isEmpty()) return ResponsePage.of(page.map(b -> toResponse(b, Map.of(), Map.of(), Map.of(), null, 0)));
         Map<Long, Long> counts = productUnitRepository.findByBoxIdInAndStatus(
                         boxes.stream().map(Box::getId).toList(), ProductUnitStatus.IN_STOCK).stream()
                 .collect(Collectors.groupingBy(ProductUnit::getBoxId, Collectors.counting()));
         var locationMap = fetchLocations(boxes);
         var userMap = fetchUserNames(boxes);
         var receiptCodeMap = fetchReceiptCodes(boxes);
-        return boxes.stream()
-                .map(b -> toResponse(b, locationMap, userMap, receiptCodeMap, null, counts.getOrDefault(b.getId(), 0L).intValue()))
-                .toList();
+        return ResponsePage.of(page.map(b -> toResponse(b, locationMap, userMap, receiptCodeMap, null, counts.getOrDefault(b.getId(), 0L).intValue())));
     }
 
     @Transactional(readOnly = true)

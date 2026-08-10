@@ -1,6 +1,8 @@
 package org.dawn.backend.service.inventory.box;
 
 import org.dawn.backend.config.security.SecurityPolicy;
+import org.dawn.backend.config.web.response.ResponsePage;
+import org.springframework.data.domain.PageRequest;
 import org.dawn.backend.constant.enums.inventory.ProductUnitStatus;
 import org.dawn.backend.constant.enums.inventory.box.BoxType;
 import org.dawn.backend.controller.inventory.request.SealBoxRequest;
@@ -111,19 +113,19 @@ class BoxServiceTests {
                 .locationId(1L)
                 .status(org.dawn.backend.constant.enums.inventory.box.BoxStatus.UNSEALED)
                 .build();
-        when(boxRepository.findAll(org.mockito.ArgumentMatchers.any(org.springframework.data.domain.Sort.class)))
-                .thenReturn(List.of(box));
+        when(boxRepository.findAll(org.mockito.ArgumentMatchers.any(org.springframework.data.domain.Pageable.class)))
+                .thenReturn(new org.springframework.data.domain.PageImpl<>(List.of(box), PageRequest.of(0, 20), 1));
         when(productUnitRepository.findByBoxIdInAndStatus(anyList(), any()))
                 .thenReturn(List.of());
         when(locationRepository.findAllById(anyList())).thenReturn(List.of(location));
         when(userRepository.findAllById(anyList())).thenReturn(List.of());
 
-        var responses = boxService.findAll(null, null);
+        var responses = boxService.findAll(null, null, PageRequest.of(0, 20));
 
-        assertEquals(1, responses.size());
-        assertNull(responses.get(0).importReceiptCode());
-        assertNull(responses.get(0).sealedByName());
-        assertNull(responses.get(0).createdByName());
+        assertEquals(1, responses.getContent().size());
+        assertNull(responses.getContent().get(0).importReceiptCode());
+        assertNull(responses.getContent().get(0).sealedByName());
+        assertNull(responses.getContent().get(0).createdByName());
     }
 
     @Test

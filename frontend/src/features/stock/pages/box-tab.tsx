@@ -27,14 +27,18 @@ export const BoxTab = () => {
   const qc = useQueryClient()
   const navigate = useNavigate()
   const [status, setStatus] = useState<string>("all")
+  const [page, setPage] = useState(0)
+  const [pageSize, setPageSize] = useState(20)
   const [mismatch, setMismatch] = useState<{ boxId: number; boxCode: string; sealed: number; actual: number } | null>(null)
 
-  const { data: boxes, isLoading } = useQuery({
-    queryKey: ["boxes", status],
-    queryFn: () => getBoxes(status === "all" ? undefined : { status }),
+  const { data: boxesRes, isLoading } = useQuery({
+    queryKey: ["boxes", status, page, pageSize],
+    queryFn: () =>
+      getBoxes({ status: status === "all" ? undefined : status, page, size: pageSize }),
     placeholderData: (prev) => prev,
     staleTime: 60_000,
   })
+  const boxes = boxesRes?.content
 
   const unsealMut = useMutation({
     mutationFn: async (boxId: number) => {
@@ -146,7 +150,7 @@ export const BoxTab = () => {
       </div>
 
       <div className="flex gap-2">
-        <Select value={status} onValueChange={setStatus}>
+        <Select value={status} onValueChange={(v) => { setStatus(v); setPage(0) }}>
           <SelectTrigger className="w-40">
             <SelectValue />
           </SelectTrigger>
@@ -163,7 +167,15 @@ export const BoxTab = () => {
         data={boxes ?? []}
         isLoading={isLoading}
         emptyMessage={t("box.empty")}
-        totalElements={boxes?.length}
+        totalElements={boxesRes?.pagination?.totalElements}
+        totalPages={boxesRes?.pagination?.totalPages}
+        page={page}
+        pageSize={pageSize}
+        onPageChange={setPage}
+        onPageSizeChange={(s) => {
+          setPageSize(s)
+          setPage(0)
+        }}
         rowKey={(b) => b.id}
       />
     </div>
@@ -191,14 +203,24 @@ function BoxActions({ box, onUnseal, unsealPending, onMove, movePending, onDelet
       {box.status === BOX_STATUS.SEALED && (
         <>
           <MoveBoxButton box={box} onMove={onMove} pending={movePending} />
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onUnseal}
-            disabled={unsealPending}
-          >
-            {t("box.unseal")}
-          </Button>
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="sm" disabled={unsealPending}>
+                {t("box.unseal")}
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>{t("box.unsealTitle")} {box.boxCode}</DialogTitle>
+              </DialogHeader>
+              <p className="text-sm text-muted-foreground">{t("box.unsealConfirm")}</p>
+              <DialogFooter>
+                <Button variant="destructive" onClick={onUnseal} disabled={unsealPending}>
+                  {unsealPending ? t("box.unsealing") : t("box.unseal")}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </>
       )}
       {box.status === BOX_STATUS.UNSEALED && (
@@ -252,7 +274,11 @@ function MoveBoxButton({
   }, [locationMap, locationId, box])
 
   return (
-    <Dialog>
+    <Dialog
+      onOpenChange={(open) => {
+        if (open) setLocationId("")
+      }}
+    >
       <DialogTrigger asChild>
         <Button variant="outline" size="sm">{t("box.move")}</Button>
       </DialogTrigger>
