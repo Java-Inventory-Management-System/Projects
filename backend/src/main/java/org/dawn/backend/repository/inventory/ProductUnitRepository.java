@@ -66,9 +66,27 @@ public interface ProductUnitRepository extends JpaRepository<ProductUnit, Long> 
     long countByProductIdAndStatus(@Param("productId") Long productId, @Param("status") ProductUnitStatus status);
     @Query("SELECT COUNT(p) FROM ProductUnit p WHERE p.productId = :productId AND p.status = :status AND p.boxId IS NULL AND p.id NOT IN (SELECT sci.productUnitId FROM StockCheckItem sci WHERE sci.stockCheckId IN (SELECT sc.id FROM StockCheck sc WHERE sc.status = 'IN_PROGRESS'))")
     long countByProductIdAndStatusAndBoxIdIsNull(@Param("productId") Long productId, @Param("status") ProductUnitStatus status);
+
+    @Query("SELECT COALESCE(SUM(CASE WHEN p.trackingType = 'BULK' THEN COALESCE(p.remainingQuantity, 0) ELSE 1 END), 0) FROM ProductUnit p WHERE p.productId = :productId AND p.status = :status AND p.boxId IS NULL " + NOT_IN_STOCK_CHECK)
+    BigDecimal sumQuantityByProductIdAndStatusAndBoxIdIsNull(@Param("productId") Long productId, @Param("status") ProductUnitStatus status);
+
+    @Query("SELECT COALESCE(SUM(CASE WHEN p.trackingType = 'BULK' THEN COALESCE(p.remainingQuantity, 0) ELSE 1 END), 0) FROM ProductUnit p WHERE p.productId = :productId AND p.status = :status " + NOT_IN_STOCK_CHECK)
+    BigDecimal sumQuantityByProductIdAndStatus(@Param("productId") Long productId, @Param("status") ProductUnitStatus status);
     long countByLocationId(Long locationId);
     Page<ProductUnit> findByStatus(ProductUnitStatus status, Pageable pageable);
     List<ProductUnit> findByStatusInOrderById(Collection<ProductUnitStatus> statuses);
+
+    @Query("""
+            SELECT p FROM ProductUnit p WHERE
+              (:search IS NULL OR LOWER(p.serialNumber) LIKE LOWER(CONCAT('%', :search, '%')))
+              AND (:status IS NULL OR p.status = :status)
+              AND (:productId IS NULL OR p.productId = :productId)
+            """)
+    Page<ProductUnit> findFiltered(
+            @Param("search") String search,
+            @Param("status") ProductUnitStatus status,
+            @Param("productId") Long productId,
+            Pageable pageable);
 
     @Query("""
             SELECT u FROM ProductUnit u
@@ -80,6 +98,9 @@ public interface ProductUnitRepository extends JpaRepository<ProductUnit, Long> 
     Page<ProductUnit> findByProductId(@Param("productId") Long productId, Pageable pageable);
 
     List<ProductUnit> findByProductIdInAndStatus(List<Long> productIds, ProductUnitStatus status);
+
+    @Query("SELECT p FROM ProductUnit p WHERE p.productId IN :productIds AND p.status = :status " + NOT_IN_STOCK_CHECK)
+    List<ProductUnit> findByProductIdInAndStatusNotInStockCheck(@Param("productIds") List<Long> productIds, @Param("status") ProductUnitStatus status);
 
     List<ProductUnit> findByLocationIdInAndStatus(List<Long> locationIds, ProductUnitStatus status);
 
@@ -157,10 +178,16 @@ public interface ProductUnitRepository extends JpaRepository<ProductUnit, Long> 
             SELECT pu.product_id,
               CASE WHEN p.tracking_type = 'BULK' THEN SUM(pu.remaining_quantity) ELSE COUNT(*) END as qty,
               p.min_stock,
-              p.sell_price
+              p.sell_price,
+              CASE WHEN p.tracking_type = 'BULK' THEN SUM(pu.remaining_quantity * COALESCE(pu.cost_price, 0))
+                   ELSE SUM(COALESCE(pu.cost_price, 0)) END as cost_value
             FROM product_units pu
             JOIN products p ON p.id = pu.product_id
             WHERE pu.status = 'IN_STOCK' AND p.is_active = true
+              AND pu.id NOT IN (
+                  SELECT sci.product_unit_id FROM stock_check_items sci
+                  JOIN stock_checks sc ON sc.id = sci.stock_check_id
+                  WHERE sc.status = 'IN_PROGRESS')
             GROUP BY pu.product_id, p.tracking_type, p.min_stock, p.sell_price
             """, nativeQuery = true)
     List<Object[]> aggregateInStockByProduct();
@@ -170,10 +197,16 @@ public interface ProductUnitRepository extends JpaRepository<ProductUnit, Long> 
               CASE WHEN p.tracking_type = 'BULK' THEN SUM(pu.remaining_quantity) ELSE COUNT(*) END as qty,
               p.min_stock,
               p.sell_price,
-              p.category_id
+              p.category_id,
+              CASE WHEN p.tracking_type = 'BULK' THEN SUM(pu.remaining_quantity * COALESCE(pu.cost_price, 0))
+                   ELSE SUM(COALESCE(pu.cost_price, 0)) END as cost_value
             FROM product_units pu
             JOIN products p ON p.id = pu.product_id
             WHERE pu.status = 'IN_STOCK' AND p.is_active = true AND pu.product_id IN :productIds
+              AND pu.id NOT IN (
+                  SELECT sci.product_unit_id FROM stock_check_items sci
+                  JOIN stock_checks sc ON sc.id = sci.stock_check_id
+                  WHERE sc.status = 'IN_PROGRESS')
             GROUP BY pu.product_id, p.tracking_type, p.min_stock, p.sell_price, p.category_id
             """, nativeQuery = true)
     List<Object[]> aggregateInStockByProductIdIn(@Param("productIds") List<Long> productIds);

@@ -5,7 +5,7 @@ import org.dawn.backend.entity.inventory.Customer;
 
 public interface CustomerMappingHelper {
 
-    static CustomerResponse map(Customer customer) {
+    static CustomerResponse map(Customer customer, long exportCount) {
         return CustomerResponse.builder()
                 .id(customer.getId())
                 .name(customer.getName())
@@ -14,6 +14,7 @@ public interface CustomerMappingHelper {
                 .address(customer.getAddress())
                 .note(customer.getNote())
                 .isActive(customer.getIsActive())
+                .exportCount(exportCount)
                 .createdAt(customer.getCreatedAt())
                 .updatedAt(customer.getUpdatedAt())
                 .build();

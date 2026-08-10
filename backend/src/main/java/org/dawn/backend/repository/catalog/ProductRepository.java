@@ -28,7 +28,7 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
               (:search IS NULL OR LOWER(p.name) LIKE LOWER(CONCAT('%', :search, '%'))
                OR LOWER(p.sku) LIKE LOWER(CONCAT('%', :search, '%')))
               AND (:brandId IS NULL OR p.brand.id = :brandId)
-              AND (:categoryId IS NULL OR p.category.id = :categoryId)
+              AND (:categoryId IS NULL OR (:categoryId = 0 AND p.category IS NULL) OR p.category.id = :categoryId)
             """)
     Page<Product> searchProducts(
             @Param("search") String search,

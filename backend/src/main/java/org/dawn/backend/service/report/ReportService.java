@@ -23,6 +23,8 @@ import org.dawn.backend.repository.catalog.CategoryRepository;
 import org.dawn.backend.repository.catalog.ProductRepository;
 import org.dawn.backend.repository.catalog.SupplierRepository;
 import org.dawn.backend.repository.inventory.CustomerRepository;
+import org.dawn.backend.repository.inventory.exports.ExportReceiptItemRepository;
+import org.dawn.backend.repository.inventory.exports.ExportReceiptItemUnitRepository;
 import org.dawn.backend.repository.inventory.exports.ExportReceiptRepository;
 import org.dawn.backend.repository.inventory.imports.ImportReceiptItemRepository;
 import org.dawn.backend.repository.inventory.imports.ImportReceiptRepository;
@@ -56,6 +58,8 @@ public class ReportService {
     private final SupplierRepository supplierRepository;
     private final CustomerRepository customerRepository;
     private final ImportReceiptItemRepository importReceiptItemRepository;
+    private final ExportReceiptItemRepository exportReceiptItemRepository;
+    private final ExportReceiptItemUnitRepository exportReceiptItemUnitRepository;
     private final StockCheckRepository stockCheckRepository;
     private final StockCheckItemRepository stockCheckItemRepository;
     private final StockAdjustmentRepository stockAdjustmentRepository;
@@ -72,10 +76,11 @@ public class ReportService {
         for (var row : aggregates) {
             long qty = ((Number) row[1]).longValue();
             int minStock = row[2] != null ? ((Number) row[2]).intValue() : 0;
-            BigDecimal sellPrice = row[3] != null ? BigDecimal.valueOf(((Number) row[3]).doubleValue()) : BigDecimal.ZERO;
+            BigDecimal costValue = row[4] != null
+                    ? BigDecimal.valueOf(((Number) row[4]).doubleValue()) : BigDecimal.ZERO;
 
             totalUnits += qty;
-            totalValue = totalValue.add(sellPrice.multiply(BigDecimal.valueOf(qty)));
+            totalValue = totalValue.add(costValue);
 
             if (qty <= minStock && qty > 0) {
                 lowStockCount++;
@@ -87,8 +92,8 @@ public class ReportService {
         Instant now = Instant.now();
         Instant monthAgo = now.minus(java.time.Duration.ofDays(30));
         BigDecimal importTotal = importReceiptRepository.sumTotalAmountByStatusAndCreatedAtBetween(monthAgo, now);
-        BigDecimal exportTotal = exportReceiptRepository.sumTotalAmountByStatusAndCreatedAtBetween(monthAgo, now);
-        BigDecimal previousValue = totalValue.subtract(importTotal).add(exportTotal);
+        BigDecimal exportCost = exportReceiptItemUnitRepository.sumCostPriceOfCompletedExports(monthAgo, now);
+        BigDecimal previousValue = totalValue.subtract(importTotal).add(exportCost);
         if (previousValue.compareTo(BigDecimal.ZERO) < 0) previousValue = BigDecimal.ZERO;
 
         BigDecimal trendPercent = BigDecimal.ZERO;
@@ -220,13 +225,14 @@ public class ReportService {
             String name = receipt.getCustomerId() != null
                     ? customerNames.getOrDefault(receipt.getCustomerId(), "Unknown")
                     : "Unknown";
+            int lineItems = exportReceiptItemRepository.findByReceiptId(receipt.getId()).size();
 
             result.add(ActivityResponse.builder()
                     .type("EXPORT")
                     .receiptCode(receipt.getReceiptCode())
                     .date(receipt.getCreatedAt())
                     .counterpartyName(name)
-                    .lineItems(0)
+                    .lineItems(lineItems)
                     .totalAmount(receipt.getTotalAmount() != null ? receipt.getTotalAmount() : BigDecimal.ZERO)
                     .build());
         }
@@ -284,7 +290,7 @@ public class ReportService {
         List<Long> productIds = productPage.getContent().stream().map(Product::getId).toList();
 
         Map<Long, List<ProductUnit>> unitsByProduct = productUnitRepository
-                .findByProductIdInAndStatus(productIds, ProductUnitStatus.IN_STOCK)
+                .findByProductIdInAndStatusNotInStockCheck(productIds, ProductUnitStatus.IN_STOCK)
                 .stream()
                 .collect(Collectors.groupingBy(ProductUnit::getProductId));
 

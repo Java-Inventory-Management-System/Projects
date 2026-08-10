@@ -9,8 +9,10 @@ import org.dawn.backend.constant.shared.LogConstant;
 import org.dawn.backend.controller.inventory.request.CustomerRequest;
 import org.dawn.backend.controller.inventory.response.CustomerResponse;
 import org.dawn.backend.entity.inventory.Customer;
+import org.dawn.backend.exception.type.InvalidRequestException;
 import org.dawn.backend.exception.type.ResourceNotFoundException;
 import org.dawn.backend.repository.inventory.CustomerRepository;
+import org.dawn.backend.repository.inventory.exports.ExportReceiptRepository;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,19 +23,20 @@ import org.springframework.transaction.annotation.Transactional;
 public class CustomerService {
 
     private final CustomerRepository customerRepository;
+    private final ExportReceiptRepository exportReceiptRepository;
 
     @Transactional(readOnly = true)
     public ResponsePage<CustomerResponse> findAll(Pageable pageable) {
         return ResponsePage.of(customerRepository
                 .findAll(pageable)
-                .map(CustomerMappingHelper::map));
+                .map(c -> mapWithExportCount(c)));
     }
 
     @Transactional(readOnly = true)
     public CustomerResponse findOne(Long id) {
         return customerRepository
                 .findById(id)
-                .map(CustomerMappingHelper::map)
+                .map(this::mapWithExportCount)
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.CUSTOMER_NOT_FOUND));
     }
 
@@ -41,12 +44,18 @@ public class CustomerService {
     public ResponsePage<CustomerResponse> search(String keyword, Pageable pageable) {
         return ResponsePage.of(customerRepository
                 .findByNameContainingIgnoreCase(keyword, pageable)
-                .map(CustomerMappingHelper::map));
+                .map(this::mapWithExportCount));
+    }
+
+    private CustomerResponse mapWithExportCount(Customer customer) {
+        return CustomerMappingHelper.map(customer,
+                exportReceiptRepository.countByCustomerId(customer.getId()));
     }
 
     @Transactional
     @AuditLog(action = LogConstant.Action.CREATE_CUSTOMER, entity = LogConstant.Entity.CUSTOMER)
     public CustomerResponse create(CustomerRequest request) {
+        assertPhoneEmailUnique(request.phone(), request.email(), null);
         Customer customer = Customer.builder()
                 .name(request.name().trim())
                 .phone(request.phone())
@@ -54,7 +63,7 @@ public class CustomerService {
                 .address(request.address())
                 .note(request.note())
                 .build();
-        return CustomerMappingHelper.map(customerRepository.save(customer));
+        return mapWithExportCount(customerRepository.save(customer));
     }
 
     @Transactional
@@ -63,12 +72,30 @@ public class CustomerService {
         Customer customer = customerRepository
                 .findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.CUSTOMER_NOT_FOUND));
+        String phone = request.phone() != null ? request.phone() : customer.getPhone();
+        String email = request.email() != null ? request.email() : customer.getEmail();
+        assertPhoneEmailUnique(phone, email, id);
         if (request.name() != null) customer.setName(request.name().trim());
         if (request.phone() != null) customer.setPhone(request.phone());
         if (request.email() != null) customer.setEmail(request.email());
         if (request.address() != null) customer.setAddress(request.address());
         if (request.note() != null) customer.setNote(request.note());
-        return CustomerMappingHelper.map(customerRepository.save(customer));
+        return mapWithExportCount(customerRepository.save(customer));
+    }
+
+    private void assertPhoneEmailUnique(String phone, String email, Long excludeId) {
+        if (phone != null && !phone.isBlank()
+                && (excludeId == null
+                    ? customerRepository.existsByPhone(phone)
+                    : customerRepository.existsByPhoneAndIdNot(phone, excludeId))) {
+            throw new InvalidRequestException(ErrorCode.CUSTOMER_PHONE_EXISTS);
+        }
+        if (email != null && !email.isBlank()
+                && (excludeId == null
+                    ? customerRepository.existsByEmail(email)
+                    : customerRepository.existsByEmailAndIdNot(email, excludeId))) {
+            throw new InvalidRequestException(ErrorCode.CUSTOMER_EMAIL_EXISTS);
+        }
     }
 
     @Transactional
@@ -78,6 +105,6 @@ public class CustomerService {
                 .findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.CUSTOMER_NOT_FOUND));
         customer.setIsActive(!Boolean.TRUE.equals(customer.getIsActive()));
-        return CustomerMappingHelper.map(customerRepository.save(customer));
+        return mapWithExportCount(customerRepository.save(customer));
     }
 }
