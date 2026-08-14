@@ -2,12 +2,9 @@ services:
   backend:
     build:
       context: ./backend
-    volumes:
-      - ./backend/src:/app/src
     environment:
-      SPRING_PROFILES_ACTIVE: dev
       MAIL_ENABLED: "false"
-      APP_SECURITY_ENABLED: ${APP_SECURITY_ENABLED:-false}
+      APP_SECURITY_ENABLED: ${APP_SECURITY_ENABLED:-true}
 
   frontend:
     build:
@@ -15,6 +12,6 @@ services:
       dockerfile: Dockerfile
       args:
         VITE_BASE_API_URL: ${VITE_BASE_API_URL:-/api/v1}
-        VITE_ENABLED_AUTH: ${VITE_ENABLED_AUTH:-false}
+        VITE_ENABLED_AUTH: ${VITE_ENABLED_AUTH:-true}
     ports:
       - '5173:80'
