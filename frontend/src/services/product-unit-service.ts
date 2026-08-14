@@ -1,5 +1,5 @@
 import http from "@/utils/http-client"
-import { PRODUCT_UNIT_STATUS, type ProductUnit, type ProductUnitStatus, type ResponsePage } from "@/utils/types"
+import { PRODUCT_UNIT_STATUS, type ProductUnit, type ProductUnitHistory, type ProductUnitStatus, type ResponsePage } from "@/utils/types"
 import { mapResponsePage, mapProductUnit } from "@/utils/mappers"
 
 const EXPORT_SERIAL_STATUSES: Record<string, ProductUnitStatus[]> = {
@@ -37,6 +37,15 @@ export async function getProductUnits(
 export async function getProductUnitsByStatus(status: string, page = 0, size = 20): Promise<ResponsePage<ProductUnit>> {
   const res = await http.get(`/product-unit/status/${status}`, { params: { page, size, sort: "importedAt,desc" } })
   return mapResponsePage(res, mapProductUnit)
+}
+
+export async function getProductUnitById(id: number): Promise<ProductUnit> {
+  const res = await http.get(`/product-unit/${id}`)
+  return mapProductUnit(res)
+}
+
+export async function getProductUnitHistory(id: number): Promise<ProductUnitHistory> {
+  return http.get(`/product-unit/${id}/history`)
 }
 
 export async function getSerialsForExport(

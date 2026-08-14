@@ -42,6 +42,7 @@ class LocationServiceTests {
     @Mock SecurityPolicy securityPolicy;
     @Mock LocationCapacityValidator capacityValidator;
     @Mock BoxRepository boxRepository;
+    @Mock org.dawn.backend.service.inventory.box.BoxCapacity boxCapacity;
 
     @InjectMocks LocationService locationService;
 

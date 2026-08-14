@@ -62,6 +62,7 @@ public class QcPassService {
     private final ExportReceiptRepository exportReceiptRepository;
     private final SecurityPolicy securityPolicy;
     private final org.dawn.backend.repository.auth.UserRepository userRepository;
+    private final org.dawn.backend.service.inventory.box.BoxCapacity boxCapacity;
 
     @Transactional
     @AuditLog(action = LogConstant.Action.QC_PASS, entity = LogConstant.Entity.PRODUCT_UNIT)
@@ -72,7 +73,7 @@ public class QcPassService {
         }
 
         var units = productUnitRepository.findByIdsForUpdate(unitIds);
-        var usage = productUnitRepository.usageByLocation();
+        var usage = boxCapacity.usageByLocation();
         for (var unit : units) {
             if (!PASSABLE_STATUSES.contains(unit.getStatus())) {
                 throw new InvalidRequestException(

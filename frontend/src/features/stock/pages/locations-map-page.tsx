@@ -8,6 +8,13 @@ import { Empty, EmptyTitle } from "@/components/ui/empty"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
   Sheet,
   SheetContent,
   SheetHeader,
@@ -72,6 +79,8 @@ export function LocationsMapPage() {
     zoomedShelf,
     openZoom,
     zoomStage,
+    viewMode,
+    switchView,
     zoomedZone,
     zoomedShelfData,
     dragSource,
@@ -185,6 +194,39 @@ export function LocationsMapPage() {
             {t("locMap.refresh")}
           </Button>
         </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="flex gap-0.5 rounded-lg border p-0.5 bg-muted/40">
+          {(["zone", "overview"] as const).map((m) => (
+            <button
+              key={m}
+              onClick={() => switchView(m)}
+              className={`px-2.5 py-1 rounded text-[11px] font-medium transition-colors cursor-pointer ${
+                viewMode === m ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {t(m === "zone" ? "locMap.viewZone" : "locMap.viewOverview")}
+            </button>
+          ))}
+        </div>
+        {viewMode === "zone" && (data?.zones.length ?? 0) > 0 && (
+          <Select
+            value={zoomedZone?.zoneCode ?? ""}
+            onValueChange={(code) => openZoom({ zoneCode: code, shelfCode: null })}
+          >
+            <SelectTrigger className="h-8 w-44 text-xs">
+              <SelectValue placeholder={t("locMap.selectZone")} />
+            </SelectTrigger>
+            <SelectContent className="max-h-[50vh]">
+              {(data?.zones ?? []).map((z) => (
+                <SelectItem key={z.zoneCode} value={z.zoneCode} className="text-xs">
+                  {z.zoneCode}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
       </div>
 
       <div className="flex flex-wrap items-center gap-2">

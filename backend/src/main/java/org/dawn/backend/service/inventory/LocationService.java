@@ -29,6 +29,7 @@ import org.dawn.backend.repository.inventory.LocationRepository;
 import org.dawn.backend.repository.inventory.ProductUnitRepository;
 import org.dawn.backend.repository.inventory.ProductUnitStatusLogRepository;
 import org.dawn.backend.repository.inventory.box.BoxRepository;
+import org.dawn.backend.service.inventory.box.BoxCapacity;
 import org.dawn.backend.entity.inventory.Box;
 import org.dawn.backend.config.security.SecurityPolicy;
 import org.springframework.data.domain.Pageable;
@@ -58,11 +59,12 @@ public class LocationService {
     private final SecurityPolicy securityPolicy;
     private final LocationCapacityValidator capacityValidator;
     private final BoxRepository boxRepository;
+    private final BoxCapacity boxCapacity;
 
     @Transactional(readOnly = true)
     public LocationMapResponse getMap() {
         var locations = locationRepository.findAllByOrderByZoneCodeAscShelfCodeAscBinCodeAsc();
-        var counts = productUnitRepository.usageByLocation();
+        var counts = boxCapacity.usageByLocation();
         var skuMap = productUnitRepository.findSkuByLocationId();
         var sealedBoxes = boxRepository.findByLocationIdInAndStatus(locations.stream().map(Location::getId).toList(), BoxStatus.SEALED);
         var boxMap = sealedBoxes.stream()
@@ -181,7 +183,7 @@ public class LocationService {
         location.setFullCode(newFullCode);
         if (request.description() != null) location.setDescription(request.description());
         if (request.maxCapacity() != null) {
-            BigDecimal used = productUnitRepository.usageByLocation().getOrDefault(id, BigDecimal.ZERO);
+            BigDecimal used = boxCapacity.usageByLocation().getOrDefault(id, BigDecimal.ZERO);
             if (request.maxCapacity().compareTo(used) < 0) {
                 throw new InvalidRequestException(ErrorCode.LOCATION_CAPACITY_BELOW_USAGE.format(location.getFullCode(), used));
             }

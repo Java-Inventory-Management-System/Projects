@@ -1,11 +1,11 @@
 import { useState, useCallback } from "react"
 import { useTranslation } from "react-i18next"
-import { useSearchParams } from "react-router-dom"
+import { useNavigate, useSearchParams } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 import { useDebounce } from "@/hooks/use-debounce"
 import { getProductUnits } from "@/services/product-unit-service"
 import { getProducts } from "@/services/product-service"
-import { PRODUCT_UNIT_STATUS, type ProductUnit } from "@/utils/types"
+import { PRODUCT_UNIT_STATUS } from "@/utils/types"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
@@ -14,7 +14,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { DataTable, type Column } from "@/components/ui/data-table"
-import { ViewProductUnitModal } from "../components/view-product-unit-modal"
 import { LocationCodePopover } from "../components/location-code-popover"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 
@@ -52,6 +51,7 @@ function fmt(d: string | null) {
 
 export const ProductUnitListPage = () => {
   const { t } = useTranslation()
+  const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const page = Number(searchParams.get("page") ?? "0")
   const [pageSize, setPageSize] = useState(10)
@@ -70,8 +70,6 @@ export const ProductUnitListPage = () => {
     })
   }, [])
 
-  const [viewUnit, setViewUnit] = useState<ProductUnit | null>(null)
-  const [viewOpen, setViewOpen] = useState(false)
   const [filterOpen, setFilterOpen] = useState(true)
 
   const updateParams = useCallback(
@@ -114,7 +112,7 @@ export const ProductUnitListPage = () => {
     {
       header: t("table.serial"),
       sortKey: "serialNumber",
-      render: (u) => <span className="font-mono text-xs">{u.serialNumber}</span>,
+      render: (u) => <span className="font-mono text-xs">{u.serialNumber || u.productSku}</span>,
     },
     {
       header: t("table.product"),
@@ -151,10 +149,7 @@ export const ProductUnitListPage = () => {
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => {
-                setViewUnit(u)
-                setViewOpen(true)
-              }}
+              onClick={() => navigate(`/stock/units/${u.id}?tab=list`)}
             >
               <Eye className="size-4" />
             </Button>
@@ -235,45 +230,45 @@ export const ProductUnitListPage = () => {
         </CollapsibleContent>
       </Collapsible>
 
-      {fetchError ? (
-        <div className="rounded-lg border p-8 text-center">
-          <p className="text-sm text-destructive mb-2">{fetchError instanceof Error ? fetchError.message : t("productUnitList.loadError")}</p>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              setSearch("")
-              setSearchParams((prev) => {
-                const next = new URLSearchParams(prev)
-                for (const key of ["page", "status", "product", "sort"]) next.delete(key)
-                return next
-              }, { replace: true })
-            }}
-          >
-            <RefreshCw className="size-3 mr-1" /> {t("productUnitList.retry")}
-          </Button>
+      <div className="space-y-4">
+        {fetchError ? (
+            <div className="rounded-lg border p-8 text-center">
+              <p className="text-sm text-destructive mb-2">{fetchError instanceof Error ? fetchError.message : t("productUnitList.loadError")}</p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setSearch("")
+                  setSearchParams((prev) => {
+                    const next = new URLSearchParams(prev)
+                    for (const key of ["page", "status", "product", "sort"]) next.delete(key)
+                    return next
+                  }, { replace: true })
+                }}
+              >
+                <RefreshCw className="size-3 mr-1" /> {t("productUnitList.retry")}
+              </Button>
+            </div>
+          ) : (
+            <DataTable
+              columns={columns}
+              data={unitsRes?.content ?? []}
+              isLoading={isLoading}
+              emptyMessage={hasFilters ? t("productUnitList.emptySearch") : t("productUnitList.empty")}
+              sort={sort}
+              onSort={handleSort}
+              totalElements={unitsRes?.pagination?.totalElements}
+              page={page}
+              totalPages={unitsRes?.pagination?.totalPages}
+              pageSize={pageSize}
+              onPageChange={(p) => updateParams({ page: String(p) })}
+              onPageSizeChange={(s) => {
+                setPageSize(s)
+                updateParams({ page: undefined })
+              }}
+            />
+          )}
         </div>
-      ) : (
-        <DataTable
-          columns={columns}
-          data={unitsRes?.content ?? []}
-          isLoading={isLoading}
-          emptyMessage={hasFilters ? t("productUnitList.emptySearch") : t("productUnitList.empty")}
-          sort={sort}
-          onSort={handleSort}
-          totalElements={unitsRes?.pagination?.totalElements}
-          page={page}
-          totalPages={unitsRes?.pagination?.totalPages}
-          pageSize={pageSize}
-          onPageChange={(p) => updateParams({ page: String(p) })}
-          onPageSizeChange={(s) => {
-            setPageSize(s)
-            updateParams({ page: undefined })
-          }}
-        />
-      )}
-
-      <ViewProductUnitModal unit={viewUnit} open={viewOpen} onOpenChange={setViewOpen} />
-    </div>
+      </div>
   )
 }

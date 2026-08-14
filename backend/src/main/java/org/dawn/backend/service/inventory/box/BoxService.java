@@ -32,7 +32,6 @@ import org.dawn.backend.repository.inventory.imports.ImportReceiptRepository;
 import org.dawn.backend.repository.inventory.stockcheck.StockCheckItemRepository;
 import org.dawn.backend.service.inventory.LocationCapacityValidator;
 import org.dawn.backend.shared.util.ReceiptCodeGenerator;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -62,13 +61,7 @@ public class BoxService {
     private final StockCheckItemRepository stockCheckItemRepository;
     private final SecurityPolicy securityPolicy;
     private final LocationCapacityValidator capacityValidator;
-
-    @Value("${app.box.max-units.SMALL:20}")
-    private int smallMaxUnits = 20;
-    @Value("${app.box.max-units.MEDIUM:50}")
-    private int mediumMaxUnits = 50;
-    @Value("${app.box.max-units.LARGE:100}")
-    private int largeMaxUnits = 100;
+    private final BoxCapacity boxCapacity;
 
     @Transactional(readOnly = true)
     public ResponsePage<BoxResponse> findAll(Long locationId, String status, Pageable pageable) {
@@ -159,17 +152,13 @@ public class BoxService {
             throw new InvalidRequestException(ErrorCode.BOX_UNITS_REQUIRED);
         }
 
-        capacityValidator.assertCapacity(request.locationId(), quantity, unitIds);
-
         BoxType boxType = request.boxType() == null ? BoxType.MEDIUM : request.boxType();
-        int maxUnits = switch (boxType) {
-            case SMALL -> smallMaxUnits;
-            case LARGE -> largeMaxUnits;
-            default -> mediumMaxUnits;
-        };
+        int maxUnits = boxType.maxUnits();
         if (quantity.compareTo(BigDecimal.valueOf(maxUnits)) > 0) {
             throw new InvalidRequestException(ErrorCode.BOX_MAX_UNITS.format( boxType.name(), maxUnits));
         }
+
+        capacityValidator.assertCapacity(request.locationId(), BigDecimal.valueOf(maxUnits), unitIds);
 
         Box box = Box.builder()
                 .boxCode(ReceiptCodeGenerator.generate("BOX-", boxRepository::existsByBoxCode))
@@ -243,6 +232,17 @@ public class BoxService {
     }
 
     @Transactional
+    public void reclose(Long id) {
+        var box = boxRepository.findByIdForUpdate(id)
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.BOX_NOT_FOUND));
+        if (box.getStatus() != BoxStatus.UNSEALED) return;
+        box.setStatus(BoxStatus.SEALED);
+        box.setSealedBy(box.getUnsealedBy());
+        box.setSealedAt(Instant.now());
+        boxRepository.save(box);
+    }
+
+    @Transactional
     @AuditLog(action = LogConstant.Action.MOVE_BOX, entity = LogConstant.Entity.BOX)
     public BoxResponse move(Long id, MoveBoxRequest request) {
         securityPolicy.requireAuthenticated();
@@ -257,8 +257,10 @@ public class BoxService {
             throw new InvalidRequestException(ErrorCode.BOX_MOVE_OPEN);
         }
         var units = productUnitRepository.findByBoxId(id);
-        capacityValidator.assertCapacity(request.locationId(), box.getSealedQuantity(),
-                units.stream().map(ProductUnit::getId).toList());
+        if (!box.getLocationId().equals(request.locationId())) {
+            capacityValidator.assertCapacity(request.locationId(),
+                    BigDecimal.valueOf(box.getBoxType().maxUnits()));
+        }
         box.setLocationId(request.locationId());
         box = boxRepository.save(box);
         for (var unit : units) {

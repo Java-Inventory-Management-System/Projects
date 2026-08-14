@@ -1,12 +1,13 @@
 {
   "nav": {
     "dashboard": "Dashboard",
+    "workQueue": "Work Queue",
     "products": "Products",
     "brands": "Brands",
     "categories": "Categories",
     "suppliers": "Suppliers",
     "customers": "Customers",
-    "inventory": "Inventory",
+    "inventory": "Warehouse",
     "purchaseOrders": "Purchase Orders",
     "imports": "Imports",
     "exports": "Exports",
@@ -19,13 +20,17 @@
     "qcProcessing": "QC Station",
     "stockOps": "Checks & Adjustments",
     "returnsQc": "Returns & QC",
-    "catalogSettings": "System Catalog"  },
+    "catalogSettings": "System Catalog"
+  },
   "common": {
     "pageNotFound": "Page Not Found",
     "pageNotFoundDesc": "The page you are looking for doesn't exist.",
     "accessDenied": "Access Denied",
     "accessDeniedDesc": "You don't have permission to access this page.",
     "backToDashboard": "Back to Dashboard",
+    "viewAll": "View all",
+    "today": "Today",
+    "yesterday": "Yesterday",
     "logout": "Logout",
     "cancel": "Cancel",
     "processing": "Processing...",
@@ -53,6 +58,7 @@
     "deactivateTitle": "Deactivate",
     "activateConfirm": "Activate \"{{name}}\"?",
     "deactivateConfirm": "Deactivate \"{{name}}\"? This may immediately affect users and related data.",
+    "deactivateWarning": "In-progress documents continue normally. Only new transactions are blocked.",
     "name": "Name",
     "description": "Description",
     "phone": "Phone",
@@ -163,7 +169,13 @@
     "completed": "Completed",
     "approved": "Approved",
     "cancelled": "Cancelled",
-    "expired": "Expired"
+    "expired": "Expired",
+    "scope": "Scope",
+    "start": "Start Check",
+    "startSuccess": "Check started",
+    "startError": "Could not start check",
+    "zoneDueTitle": "Zones due for stock check",
+    "zoneDueDesc": "{{zones}} zones due, {{pending}} checks pending"
   },
   "stockUnits": {
     "map": "Warehouse Map"
@@ -322,7 +334,8 @@
     "internal": "Internal Transfer",
     "returnSupplier": "Return to Supplier",
     "dispose": "Dispose",
-    "warrantyReplacement": "Warranty Replacement"
+    "warrantyReplacement": "Warranty Replacement",
+    "other": "Other"
   },
   "returnReason": {
     "changeMind": "Change of Mind",
@@ -337,8 +350,8 @@
   },
   "importStatus": {
     "draft": "Draft",
-    "pendingApproval": "Pending Approval",
-    "completed": "Completed",
+    "received": "Received",
+    "rejected": "Rejected",
     "cancelled": "Cancelled"
   },
   "importWarranty": {
@@ -366,6 +379,8 @@
     "title": "Create Import",
     "stepSelectOrder": "Select Order",
     "stepSerials": "Enter Serials",
+    "stepSerialsQc": "Serials & QC",
+    "missingBins": "Products missing a bin: {{products}}",
     "stepQcConfirm": "QC & Confirm",
     "orderSelected": "Selected Order",
     "stepIndicator": "Step 1/3 - Select Order",
@@ -378,7 +393,7 @@
     "createdFrom": "Created import from order",
     "createSuccess": "Import receipt created successfully",
     "createError": "Error creating import receipt",
-    "submitSuccess": "Submitted for approval successfully",
+    "submitSuccess": "Stock received successfully",
     "error": "An error occurred",
     "missingSerials": "Products missing serials and not marked NOT_RECEIVED: {{products}}",
     "noOrderSelected": "● No order selected",
@@ -388,28 +403,70 @@
     "createReceipt": "Create Receipt",
     "sending": "Submitting...",
     "confirm": "Confirm",
+    "confirmReceived": "Receive Stock",
+    "rejectReceipt": "Reject Receipt",
+    "rejectDialogTitle": "Reject Receipt",
+    "rejectDialogDesc": "Confirm rejecting this receipt? A reason and evidence photo are required.",
+    "rejectReasonLabel": "Rejection reason",
+    "rejectReasonPlaceholder": "Enter reason...",
+    "rejectReasonRequired": "Rejection reason is required",
+    "evidenceLabel": "Evidence photo",
+    "rejectEvidenceRequired": "Evidence photo is required",
+    "confirmReject": "Confirm Reject",
+    "rejectSuccess": "Receipt rejected",
     "next": "Next",
     "back": "Back",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "cancelReceipt": "Cancel receipt",
+    "cancelDialogTitle": "Cancel import receipt",
+    "cancelDialogDesc": "Cancel this import receipt? This cannot be undone.",
+    "confirmCancel": "Confirm cancel",
+    "cancelSuccess": "Receipt cancelled",
+    "exit": "Exit",
+    "noteRequired": "Note is required",
+    "qcRejectedSummary": "{{count}} failed serial(s) will not be stocked"
   },
   "importDetail": {
     "actionSuccess": "Action successful",
     "notFound": "Import receipt not found",
-    "reject": "Reject",
-    "approve": "Approve",
+    "rejectReceipt": "Reject Receipt",
     "cancelReceipt": "Cancel Receipt",
-    "enterSerials": "Enter Serials",
+    "enterSerials": "Continue Entering Serials",
+    "received": "Received",
+    "cancelled": "Receipt cancelled",
+    "rejected": "Receipt rejected",
+    "rejectedBy": "Rejected by",
+    "rejectReason": "Rejection reason",
+    "evidence": "Evidence photo",
     "total": "Total",
     "warrantyMonths": "{{months}} months",
     "warrantyAbbr": "{{count}}mo",
-    "approveConfirmTitle": "Approve Import Receipt",
-    "approveConfirmDescription": "Confirm approving this import? Stock will be added to warehouse.",
-    "cancelConfirmTitle": "Cancel Import Receipt",
-    "cancelConfirmDescription": "Confirm cancelling this import? Stock will be removed from warehouse."
+    "cancelConfirmTitle": "Cancel Receipt",
+    "cancelConfirmDescription": "Confirm cancelling this receipt?",
+    "rejectDialogTitle": "Reject Receipt",
+    "rejectDialogDesc": "A reason and evidence photo are required to reject this receipt.",
+    "rejectReasonLabel": "Rejection reason",
+    "rejectReasonPlaceholder": "Enter reason...",
+    "rejectReasonRequired": "Rejection reason is required",
+    "evidenceLabel": "Evidence photo",
+    "rejectEvidenceRequired": "Evidence photo is required",
+    "confirmReject": "Confirm Reject",
+    "taskReceivedTime": "Task Received At:",
+    "resolveAction": "Resolve",
+    "resolveDialogTitle": "Resolve rejected receipt",
+    "resolveDialogDesc": "Choose the outcome after working with the supplier.",
+    "resolveReturned": "Returned to supplier",
+    "resolveResending": "Supplier resending",
+    "resolveHint": "The receipt stays Rejected until the supplier resends and you stock it.",
+    "resolveNoteLabel": "Note (optional)",
+    "resolveNotePlaceholder": "e.g. contacted supplier on 12/08, resend expected next week...",
+    "resolveSuccess": "Resolution saved",
+    "resolvedBy": "Resolved by"
   },
   "importList": {
     "title": "Imports",
-    "empty": "No import receipts yet"
+    "empty": "No import receipts yet",
+    "tabAll": "All"
   },
   "importStepProducts": {
     "allProductsAdded": "All products already added",
@@ -425,21 +482,24 @@
     "warranty": "Warranty (mo)",
     "total": "Total"
   },
-  "importStepQc": {
-    "heading": "Quality Check",
-    "progress": "Progress",
-    "noSerials": "No serials to check",
-    "pass": "Pass",
-    "fail": "Fail",
-    "failReasonPlaceholder": "Fail reason...",
-    "failWarning": "⚠ {{count}} serials failed",
-    "noteLabel": "Note",
-    "notePlaceholder": "Enter note (optional)...",
-    "locationHint": "Storage location:",
-    "locationHintDesc": "Will be determined after import."
+  "binAllocator": {
+    "title": "Allocate Bins",
+    "open": "Split bins",
+    "qty": "Qty",
+    "addBin": "Add bin",
+    "total": "Total: {{actual}}/{{expected}}",
+    "save": "Save Allocation",
+    "missingBin": "Every bin needs a location",
+    "qtyMismatch": "Total {{actual}} does not match {{expected}}",
+    "dupSerials": "A serial cannot be in two bins",
+    "editSerials": "Serials ({{count}})",
+    "addSerials": "Add serials"
   },
   "importStepSerials": {
-    "heading": "Enter Serials",
+    "bulkNoSerial": "Bulk item - no serials",
+    "poMismatchTitle": "Serials not in the purchase order:",
+    "poMismatch": "{{count}} serial(s) not in the PO",
+    "poMismatchNote": "Warning only - import will still be accepted.",
     "progress": "Progress",
     "product": "Product",
     "expected": "Expected",
@@ -467,7 +527,13 @@
     "description": "Description",
     "descriptionPlaceholder": "Enter description...",
     "qty": "Qty",
-    "done": "Done"
+    "done": "Done",
+    "poMissingTitle": "Planned PO serials not received:",
+    "poMissing": "{{count}} planned PO serial(s) not received",
+    "qcColumn": "QC",
+    "qcPassed": "passed",
+    "qcProgress": "QC {done}/{total}",
+    "qcProgressTitle": "Quality check progress"
   },
   "exportStatus": {
     "new": "Created",
@@ -477,7 +543,8 @@
     "cancelled": "Cancelled"
   },
   "exportCreate": {
-    "title": "Create Export Receipt","reasonPlaceholder": "Select reason",
+    "title": "Create Export Receipt",
+    "reasonPlaceholder": "Select reason",
     "customer": "Customer",
     "searchCustomer": "Search / Select customer...",
     "addProductLabel": "Add Product",
@@ -496,7 +563,10 @@
     "selectSerialTitle": "Select export serials",
     "selectSerialDescription": "Select specific serials for this product. You can uncheck serials you don't want to export.",
     "noSerials": "No serials in stock",
-    "confirmSerial": "Confirm ({{count}} serial)"
+    "confirmSerial": "Confirm ({{count}} serial)",
+    "otherReason": "Other reason",
+    "otherReasonPlaceholder": "Enter your export reason",
+    "otherReasonRequired": "Please enter the reason"
   },
   "exportDetail": {
     "actionSuccess": "Action successful",
@@ -506,7 +576,8 @@
     "total": "Total",
     "cancelConfirmTitle": "Cancel Export Receipt",
     "cancelConfirmDescription": "Confirm cancelling this export? Stock will be returned to warehouse.",
-    "timeline": "Status History"
+    "timeline": "Status History",
+    "evidence": "Evidence images"
   },
   "exportFulfill": {
     "scanned": "Scanned: {{serial}}",
@@ -530,7 +601,14 @@
     "serialInputPlaceholder": "Enter serial + Enter",
     "serialNotFound": "Serial not found",
     "noSerials": "No serials in stock",
-    "confirmSerial": "Confirm ({{count}} serial)"
+    "confirmSerial": "Confirm ({{count}} serial)",
+    "note": "Export note",
+    "noteRequired": "Please enter a note",
+    "notePlaceholder": "Enter a note for this export",
+    "evidenceLabel": "Evidence images (goods condition on export)",
+    "evidenceRequired": "Please attach at least 1 evidence image",
+    "serialLimitReached": "You can select at most {{count}} serials for this product",
+    "selectedCount": "Selected {{selected}}/{{total}}"
   },
   "exportList": {
     "receiptCode": "Receipt Code",
@@ -538,7 +616,8 @@
     "empty": "No export receipts yet"
   },
   "exportProposal": {
-    "title": "Export Proposal","reasonPlaceholder": "Select reason",
+    "title": "Export Proposal",
+    "reasonPlaceholder": "Select reason",
     "reasonRequired": "Please select an export reason",
     "customer": "Customer",
     "customerRequired": "Please select a customer",
@@ -563,9 +642,13 @@
     "chooseReason": "Select export reason",
     "supplier": "Supplier",
     "noSupplier": "Product has no supplier assigned",
-    "supplierMismatch": "All products must belong to the same supplier"
+    "supplierMismatch": "All products must belong to the same supplier",
+    "otherReason": "Other reason",
+    "otherReasonPlaceholder": "Enter your export reason",
+    "otherReasonRequired": "Please enter the reason"
   },
   "poStatus": {
+    "draft": "Draft",
     "open": "Open",
     "partial": "Partial",
     "completed": "Completed",
@@ -576,6 +659,10 @@
     "supplier": "Supplier",
     "supplierPlaceholder": "Select supplier",
     "expectedDate": "Expected Delivery Date",
+    "invoiceCode": "Invoice Code",
+    "invoiceCodePlaceholder": "e.g. INV-2026-001 (optional)",
+    "serials": "Serials (optional)",
+    "serialsPlaceholder": "One serial per line",
     "products": "Products",
     "selectedProducts": "{{count}} selected",
     "searchProduct": "Search products...",
@@ -601,10 +688,41 @@
     "cancelSuccess": "Purchase order cancelled",
     "cancel": "Cancel",
     "cancelTitle": "Cancel Purchase Order",
-    "cancelConfirm": "The order will move to cancelled and can no longer create import receipts. Continue?",
+    "cancelConfirm": "The order will move to cancelled. Warehouse draft receipts will be cancelled along with it. Continue?",
+    "openOrder": "Link ASN & Open Order",
+    "openOrderTitle": "Open order for warehouse",
+    "asnCode": "ASN Code",
+    "asnCodePlaceholder": "e.g. ASN-2026-001 (optional)",
+    "openOrderConfirm": "The order will move to Open; warehouse can now create receipts. Order serials are locked after opening.",
+    "openSuccess": "Order opened, warehouse can receive stock",
+    "opening": "Opening...",
+    "confirmOpen": "Open Order",
+    "invoiceCode": "Invoice Code:",
+    "serials": "Serials",
     "createImport": "Create Import Receipt",
+    "edit": "Edit Order",
+    "locked": "Locked",
     "products": "Products",
-    "total": "Total"
+    "total": "Total",
+    "rejectedBanner": "{{count}} import receipt(s) rejected/returned for this order",
+    "receipts": "Related Import Receipts",
+    "noReceipts": "No import receipts for this order yet",
+    "rejectInfo": "Return reason",
+    "rejectedBy": "By {{name}}"
+  },
+  "poEdit": {
+    "title": "Edit Purchase Order",
+    "hint": "Edit quantities, prices and serials",
+    "serials": "Serials",
+    "editSerials": "Edit serials ({{count}})",
+    "addSerials": "Add serials",
+    "bulkNoSerial": "Bulk item — no serials",
+    "save": "Save Changes",
+    "saving": "Saving...",
+    "saveSuccess": "Purchase order updated",
+    "saveError": "Could not update purchase order",
+    "locked": "Locked",
+    "lockedMessage": "This order is locked because an import receipt exists. Contact a manager to cancel the receipt first."
   },
   "poList": {
     "poCode": "PO Code",
@@ -613,7 +731,9 @@
     "createOrder": "Create Order",
     "empty": "No purchase orders yet",
     "cancelSuccess": "Cancelled {{code}}",
-    "cancelOrder": "Cancel Order"
+    "cancelOrder": "Cancel Order",
+    "rejected": "Rejected",
+    "rejectedBadge": "Rejected {{count}}"
   },
   "priceAdjStatus": {
     "pending": "Pending",
@@ -658,7 +778,6 @@
     "processedAt": "Time",
     "qcPass": "QC Pass ({{count}})",
     "dispose": "Dispose ({{count}})",
-    "returnSupplier": "Return to Supplier ({{count}})",
     "passSuccess": "QC-passed {{count}} unit(s)",
     "disposeSuccess": "Processing completed",
     "empty": "No units",
@@ -671,8 +790,8 @@
     "sendWarranty": "Send to Manufacturer ({{count}})",
     "sendWarrantyConfirmTitle": "Confirm send to manufacturer",
     "sendWarrantyConfirmDesc": "Selected units will be sent to the manufacturer. A warranty export receipt is created automatically. This cannot be undone.",
-  "passConfirmTitle": "Confirm QC pass",
-  "passConfirmDesc": "Units will move to a regular shelf and this cannot be undone. Continue?",
+    "passConfirmTitle": "Confirm QC pass",
+    "passConfirmDesc": "Units will move to a regular shelf and this cannot be undone. Continue?",
     "disposeConfirmTitle": "Confirm disposal",
     "disposeConfirmDesc": "Selected units will be disposed and leave the warehouse. This cannot be undone.",
     "returnSupplier": "Return to Supplier ({{count}})",
@@ -734,7 +853,8 @@
     "serial": "Serial",
     "warranty": "Warranty",
     "importDate": "Import Date",
-    "warrantyUntil": "Warranty Until"
+    "warrantyUntil": "Warranty Until",
+    "receiptCode": "Receipt Code"
   },
   "label": {
     "supplier": "Supplier:",
@@ -801,8 +921,6 @@
     "resetConfirmTitle": "Confirm Reset",
     "resetConfirmDesc": "This will clear all current check results...",
     "resetConfirm": "Confirm Reset",
-    "starting": "Reopening...",
-    "start": "Reopen Check",
     "reopenConfirmTitle": "Reopen stock check?",
     "reopenConfirmDesc": "The check will return to in-progress; unapproved adjustments will be deleted.",
     "reopenConfirm": "Confirm Reopen",
@@ -811,9 +929,7 @@
     "reject": "Reject",
     "approveAll": "Approve All",
     "diffSummary": "Differences Found",
-    "zone": "Zone",
     "box": "Box",
-    "category": "Category",
     "diffMissing": "Missing",
     "diffUnexpected": "Unexpected",
     "diffPartial": "Partial",
@@ -822,6 +938,14 @@
     "scope": "Scope:",
     "zone": "Zone",
     "category": "Category",
+    "checkedBy": "Checked by",
+    "enteredBy": "Entered by",
+    "pendingBannerTitle": "Check not started",
+    "pendingBannerDesc": "Click \"Start Check\" to snapshot the expected list, then record results.",
+    "start": "Start Check",
+    "starting": "Starting...",
+    "startSuccess": "Check started",
+    "startError": "Could not start check",
     "approvalNote": "Approval Note:",
     "total": "Total: {{count}}",
     "match": "Match: {{count}}",
@@ -834,9 +958,9 @@
     "approveConfirm": "Confirm Approval",
     "rejectConfirm": "Confirm Rejection",
     "completeDialogTitle": "Complete Stock Check",
-    "completeDialogAutoFill": "Auto-fill {{count}} unchecked serials?",
-    "completeDialogAdjustment": "The system will auto-create and auto-approve a stock adjustment for the detected differences, changing quantities immediately.",
-    "completeDialogAutoFillBtn": "Auto-fill & Complete",
+    "completeDialogUntouched": "{{count}} rows have no recorded result.",
+    "completeDialogUntouchedConfirm": "I confirm rows without a result are treated as matching (no adjustment created).",
+    "completeDialogAdjustment": "The system will reseal opened boxes and record the last checked time for the zone.",
     "cancel": "Cancel",
     "cancelConfirmTitle": "Cancel stock check?",
     "cancelConfirmDesc": "The stock check will be cancelled and no adjustments will be created. This cannot be undone.",
@@ -937,6 +1061,43 @@
     "batchNotFound": "Selected batch not found",
     "priceMustDiff": "New price must differ from old price",
     "productLabel": "Product #{{id}}"
+  },
+  "priceHistory": {
+    "title": "Price History",
+    "loading": "Loading...",
+    "empty": "No price adjustments yet for this product",
+    "current": "Currently applied",
+    "approved": "Approved",
+    "pending": "Pending",
+    "effective": "Effective: {{from}} → {{to}}",
+    "now": "now",
+    "requestedAt": "Requested at {{date}}",
+    "receipt": "Import receipt {{code}} · {{date}}",
+    "reason": "Reason: {{reason}}"
+  },
+  "unitHistory": {
+    "title": "History",
+    "loading": "Loading...",
+    "empty": "No history yet",
+    "by": "By {{name}}",
+    "importedFrom": "Imported from receipt {{code}}",
+    "statusChange": "Status: {{status}}",
+    "sourceType": {
+      "importReceipt": "Import",
+      "exportReceipt": "Export",
+      "stockAdjustment": "Stock adjustment",
+      "stockCheck": "Stock check",
+      "returnReceipt": "Return",
+      "relocate": "Relocation",
+      "qcProcessing": "QC processing",
+      "externalSystem": "External system"
+    }
+  },
+  "unitDetail": {
+    "breadcrumb": "List",
+    "notFound": "Product in stock not found",
+    "notFoundDesc": "The item does not exist or you don't have permission to view it.",
+    "backToList": "Back to list"
   },
   "priceAdjDetail": {
     "notFound": "Price adjustment not found",
@@ -1158,7 +1319,11 @@
     "stockQty": "Stock Qty",
     "unitPrice": "Unit Price",
     "totalValue": "Total Value",
-    "cumulative": "Cumulative"
+    "cumulative": "Cumulative",
+    "rejectedImportAlert": "{{count}} import receipt(s) rejected/returned -",
+    "viewRejectedImports": "view list",
+    "unresolvedRejectedImports": "Rejected imports awaiting resolution",
+    "percentOfTotal": "Share of value"
   },
   "usersPage": {
     "title": "User Management",
@@ -1353,7 +1518,11 @@
     "viewDetail": "View Details",
     "enterSerials": "Enter Serials",
     "noData": "No data",
-    "notFound": "Import receipt not found"
+    "notFound": "Import receipt not found",
+    "rejectedBy": "Rejected by",
+    "rejectedAt": "Rejected at",
+    "rejectReason": "Rejection reason",
+    "evidence": "Evidence photo"
   },
   "viewExportModal": {
     "total": "Total",
@@ -1481,7 +1650,9 @@
     "manageLocations": "Manage Locations",
     "zoneCount": "{{zones}} zones · {{bins}} locations",
     "zoneLabel": "Zone {{code}}",
-    "zoomedHeader": "Zone {{zone}} — Shelf {{shelf}}"
+    "zoomedHeader": "Zone {{zone}} — Shelf {{shelf}}",
+    "viewOverview": "Full view",
+    "viewZone": "By zone"
   },
   "serialModal": {
     "title": "Import Serials",
@@ -1502,7 +1673,8 @@
     "reduceSerials": "Reduce serial count",
     "missingSerials": "Missing {{diff}} serials",
     "confirmShortage": "Confirm ({{diff}} missing)",
-    "confirmSerials": "Confirm {{count}} serials"
+    "confirmSerials": "Confirm {{count}} serials",
+    "qcTitle": "Quality check"
   },
   "serialSearch": {
     "placeholder": "Search serial...",
@@ -1606,6 +1778,11 @@
     "selectZone": "Select Zone",
     "zone": "Zone",
     "zonePrefix": "Zone",
+    "binFrom": "From bin",
+    "binTo": "To bin",
+    "binHint": "Leave empty to check the whole zone",
+    "countPreview": "About {{count}} items in scope",
+    "counting": "Counting...",
     "box": "Box",
     "selectBox": "Select Box"
   },
@@ -1625,7 +1802,12 @@
     "statusLost": "Lost",
     "statusRemoved": "Removed",
     "unchecked": "Unchecked",
-    "box": "Box"
+    "box": "Box",
+    "suspectSeal": "Seal suspected",
+    "damagedPackaging": "Damaged packaging",
+    "localOnly": "Extra",
+    "addUnexpected": "Add extra",
+    "extraItem": "Extra item"
   },
   "errors": {
     "INVALID_PASSWORD": "Incorrect password",
@@ -1719,5 +1901,46 @@
     "scanCamera": "Toggle camera",
     "continueSealing": "Continue sealing {{count}} more units",
     "sealAnother": "Seal another box"
+  },
+  "importStepQc": {
+    "pass": "Pass",
+    "fail": "Fail",
+    "failReasonPlaceholder": "Reason…",
+    "noteLabel": "Note",
+    "notePlaceholder": "Note (required)."
+  },
+  "exportSchema": {
+    "requiredReason": "Please select an export reason"
+  },
+  "workQueue": {
+    "title": "Work Queue",
+    "subtitle": "Items that need your action or attention",
+    "approvalTitle": "Awaiting your approval",
+    "greeting": "Hello, {{name}} ({{role}})",
+    "updatedAt": "Updated at {{time}}",
+    "allDone": "Nothing to do",
+    "allDoneDesc": "Everything is up to date. Check back later.",
+    "status": {
+      "rejected": "Rejected",
+      "pendingApproval": "Pending",
+      "draft": "Draft",
+      "inProgress": "In progress",
+      "pendingQc": "Pending QC",
+      "completed": "Awaiting approval"
+    },
+    "sections": {
+      "importRejected": "Rejected imports to handle",
+      "exportPending": "Exports awaiting approval",
+      "qcPending": "Units pending QC",
+      "importDraft": "Draft imports unfinished",
+      "stockCheck": "Your open stock checks",
+      "lowStock": "Products running low",
+      "exportMine": "My exports (awaiting approval)",
+      "returnMine": "My returns (awaiting approval)",
+      "returnApproval": "Returns awaiting approval",
+      "adjustmentApproval": "Stock adjustments awaiting approval",
+      "priceApproval": "Price adjustments awaiting approval",
+      "checkApproval": "Stock checks awaiting approval"
+    }
   }
 }

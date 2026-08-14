@@ -73,9 +73,6 @@ app:
     api-key: ${CLOUDINARY_API_KEY:}
     api-secret: ${CLOUDINARY_API_SECRET:}
 
-  box:
-    max-units: {SMALL: 20, MEDIUM: 50, LARGE: 100}
-
   # JWT
   jwtCookieName: ${JWT_COOKIE_NAME}
   jwtRefreshCookieName: ${JWT_COOKIE_REFRESH_NAME}

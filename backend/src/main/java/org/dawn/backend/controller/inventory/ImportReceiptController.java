@@ -15,6 +15,7 @@ import org.dawn.backend.controller.inventory.request.ConfirmImportRequest;
 import org.dawn.backend.controller.inventory.request.ImportReceiptRequest;
 import org.dawn.backend.controller.inventory.response.BoxableImportResponse;
 import org.dawn.backend.controller.inventory.response.ImportReceiptResponse;
+import org.dawn.backend.controller.inventory.response.ProductUnitHistoryResponse;
 import org.dawn.backend.controller.inventory.response.ProductUnitResponse;
 import org.dawn.backend.service.inventory.imports.ImportConfirmationService;
 import org.dawn.backend.service.inventory.imports.ImportReceiptService;
@@ -42,8 +43,8 @@ public class ImportReceiptController {
 
     @GetMapping("/import-receipt")
     @PreAuthorize(AuthorizationExpressions.CAN_VIEW_INVENTORY)
-    public ResponseObject<ResponsePage<ImportReceiptResponse>> getAll(Pageable pageable, @RequestParam(required = false) String status) {
-        return ResponseObject.success(importReceiptService.findAll(pageable, status));
+    public ResponseObject<ResponsePage<ImportReceiptResponse>> getAll(Pageable pageable, @RequestParam(required = false) String status, @RequestParam(required = false, defaultValue = "false") boolean unresolved) {
+        return ResponseObject.success(importReceiptService.findAll(pageable, status, unresolved));
     }
 
     @GetMapping("/import-receipt/boxable")
@@ -59,7 +60,7 @@ public class ImportReceiptController {
     }
 
     @PostMapping("/import-receipt")
-    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER)
+    @PreAuthorize(AuthorizationExpressions.CAN_OPERATE_STOCK)
     public ResponseObject<ImportReceiptResponse> create(@RequestBody ImportReceiptRequest request) {
         if (request.originalWarrantyExportId() != null) {
             return ResponseObject.created(importConfirmationService.createAndConfirm(request));
@@ -73,14 +74,22 @@ public class ImportReceiptController {
         return ResponseObject.success(importConfirmationService.confirm(id, request));
     }
 
-    @PutMapping("/import-receipt/{id}/approve")
-    @PreAuthorize(AuthorizationExpressions.CAN_APPROVE)
-    public ResponseObject<ImportReceiptResponse> approve(@PathVariable Long id) {
-        return ResponseObject.success(importWorkflowService.approve(id));
+    @PutMapping("/import-receipt/{id}/reject")
+    @PreAuthorize(AuthorizationExpressions.CAN_OPERATE_STOCK)
+    public ResponseObject<ImportReceiptResponse> reject(@PathVariable Long id,
+                                                       @RequestBody org.dawn.backend.controller.inventory.request.RejectImportRequest request) {
+        return ResponseObject.success(importWorkflowService.reject(id, request.reason(), request.evidenceImageUrl()));
+    }
+
+    @PutMapping("/import-receipt/{id}/resolve")
+    @PreAuthorize(AuthorizationExpressions.CAN_OPERATE_STOCK)
+    public ResponseObject<ImportReceiptResponse> resolve(@PathVariable Long id,
+                                                       @RequestBody org.dawn.backend.controller.inventory.request.ResolveImportRequest request) {
+        return ResponseObject.success(importWorkflowService.resolve(id, request.resolution(), request.note()));
     }
 
     @PutMapping("/import-receipt/{id}/cancel")
-    @PreAuthorize(AuthorizationExpressions.CAN_APPROVE)
+    @PreAuthorize(AuthorizationExpressions.CAN_OPERATE_STOCK)
     public ResponseObject<ImportReceiptResponse> cancel(@PathVariable Long id) {
         return ResponseObject.success(importWorkflowService.cancel(id));
     }
@@ -105,6 +114,12 @@ return ResponseObject.success(productUnitService.findFiltered(search, status, pr
     @PreAuthorize(AuthorizationExpressions.CAN_OPERATE)
     public ResponseObject<ProductUnitResponse> getProductUnit(@PathVariable Long id) {
         return ResponseObject.success(productUnitService.findOne(id));
+    }
+
+    @GetMapping("/product-unit/{id}/history")
+    @PreAuthorize(AuthorizationExpressions.CAN_VIEW_INVENTORY)
+    public ResponseObject<ProductUnitHistoryResponse> getProductUnitHistory(@PathVariable Long id) {
+        return ResponseObject.success(productUnitService.findHistory(id));
     }
 
     @GetMapping("/product-unit/status/{status}")

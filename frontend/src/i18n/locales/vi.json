@@ -1,12 +1,13 @@
 {
   "nav": {
     "dashboard": "Dashboard",
+    "workQueue": "Việc cần làm",
     "products": "Sản phẩm",
     "brands": "Thương hiệu",
     "categories": "Danh mục",
     "suppliers": "Nhà cung cấp",
     "customers": "Khách hàng",
-    "inventory": "Tồn kho",
+    "inventory": "Kho",
     "purchaseOrders": "Đơn đặt hàng",
     "imports": "Phiếu nhập",
     "exports": "Phiếu xuất",
@@ -27,6 +28,9 @@
     "accessDenied": "Từ chối truy cập",
     "accessDeniedDesc": "Bạn không có quyền truy cập trang này.",
     "backToDashboard": "Về trang chủ",
+    "viewAll": "Xem tất cả",
+    "today": "Hôm nay",
+    "yesterday": "Hôm qua",
     "logout": "Đăng xuất",
     "cancel": "Hủy",
     "processing": "Đang xử lý...",
@@ -54,6 +58,7 @@
     "deactivateTitle": "Vô hiệu hoá",
     "activateConfirm": "Kích hoạt \"{{name}}\"?",
     "deactivateConfirm": "Vô hiệu hoá \"{{name}}\"? Thao tác này có thể ảnh hưởng ngay đến người dùng và dữ liệu liên quan.",
+    "deactivateWarning": "Phiếu đang xử lý vẫn tiếp tục bình thường. Chỉ các giao dịch mới bị chặn.",
     "name": "Tên",
     "description": "Mô tả",
     "phone": "SĐT",
@@ -271,7 +276,8 @@
     "reduceSerials": "Giảm số serial",
     "missingSerials": "Còn thiếu {{diff}} serial",
     "confirmShortage": "Xác nhận (thiếu {{diff}})",
-    "confirmSerials": "Xác nhận {{count}} serial"
+    "confirmSerials": "Xác nhận {{count}} serial",
+    "qcTitle": "Kiểm tra chất lượng"
   },
   "stockCheckList": {
     "checkCode": "Mã phiếu",
@@ -287,7 +293,13 @@
     "completed": "Đã hoàn tất",
     "approved": "Đã duyệt",
     "cancelled": "Đã hủy",
-    "expired": "Quá hạn"
+    "expired": "Quá hạn",
+    "scope": "Phạm vi",
+    "start": "Bắt đầu kiểm",
+    "startSuccess": "Đã bắt đầu kiểm kê",
+    "startError": "Không thể bắt đầu kiểm",
+    "zoneDueTitle": "Có khu vực đến hạn kiểm kê",
+    "zoneDueDesc": "{{zones}} khu vực đến hạn, {{pending}} phiếu đang chờ xử lý"
   },
   "stockUnits": {
     "map": "Bản đồ kho"
@@ -446,7 +458,8 @@
     "internal": "Nội bộ",
     "returnSupplier": "Trả NCC",
     "dispose": "Hủy hàng",
-    "warrantyReplacement": "Thay thế bảo hành"
+    "warrantyReplacement": "Thay thế bảo hành",
+    "other": "Khác"
   },
   "returnReason": {
     "changeMind": "Đổi ý",
@@ -461,8 +474,8 @@
   },
   "importStatus": {
     "draft": "Bản nháp",
-    "pendingApproval": "Chờ duyệt",
-    "completed": "Hoàn tất",
+    "received": "Đã nhận hàng",
+    "rejected": "Bị từ chối",
     "cancelled": "Đã hủy"
   },
   "importWarranty": {
@@ -490,6 +503,8 @@
     "title": "Nhập kho",
     "stepSelectOrder": "Chọn đơn hàng",
     "stepSerials": "Nhập serial",
+    "stepSerialsQc": "Serial & QC",
+    "missingBins": "Sản phẩm chưa chọn bin: {{products}}",
     "stepQcConfirm": "QC & Xác nhận",
     "orderSelected": "Đơn hàng đã chọn",
     "stepIndicator": "Bước 1/3 — Chọn đơn hàng",
@@ -512,28 +527,70 @@
     "createReceipt": "Tạo phiếu",
     "sending": "Đang gửi...",
     "confirm": "Xác nhận",
+    "confirmReceived": "Đã nhận hàng",
+    "rejectReceipt": "Từ chối nhập",
+    "rejectDialogTitle": "Từ chối nhập hàng",
+    "rejectDialogDesc": "Xác nhận từ chối phiếu nhập này? Cần kèm lý do và ảnh bằng chứng.",
+    "rejectReasonLabel": "Lý do từ chối",
+    "rejectReasonPlaceholder": "Nhập lý do...",
+    "rejectReasonRequired": "Bắt buộc nhập lý do từ chối",
+    "evidenceLabel": "Ảnh bằng chứng",
+    "rejectEvidenceRequired": "Bắt buộc đính kèm ảnh bằng chứng",
+    "confirmReject": "Xác nhận từ chối",
+    "rejectSuccess": "Đã từ chối nhập hàng",
     "next": "Tiếp theo",
     "back": "Quay lại",
-    "cancel": "Hủy"
+    "cancel": "Hủy",
+    "cancelReceipt": "Hủy phiếu nhập",
+    "cancelDialogTitle": "Hủy phiếu nhập",
+    "cancelDialogDesc": "Xác nhận hủy phiếu nhập này? Không thể khôi phục.",
+    "confirmCancel": "Xác nhận hủy",
+    "cancelSuccess": "Đã hủy phiếu nhập",
+    "exit": "Thoát",
+    "noteRequired": "Vui lòng nhập ghi chú",
+    "qcRejectedSummary": "{{count}} serial lỗi sẽ không nhập kho"
   },
   "importDetail": {
     "actionSuccess": "Thao tác thành công",
     "notFound": "Không tìm thấy phiếu nhập",
-    "reject": "Từ chối",
-    "approve": "Duyệt",
+    "rejectReceipt": "Từ chối nhập",
     "cancelReceipt": "Hủy phiếu",
-    "enterSerials": "Nhập serial",
+    "enterSerials": "Tiếp tục nhập serial",
+    "received": "Đã nhận",
+    "cancelled": "Đã hủy phiếu nhập",
+    "rejected": "Đã từ chối phiếu nhập",
+    "rejectedBy": "Người từ chối",
+    "rejectReason": "Lý do từ chối",
+    "evidence": "Ảnh bằng chứng",
     "total": "Tổng",
     "warrantyMonths": "{{months}} tháng",
     "warrantyAbbr": "{{count}}t",
-    "approveConfirmTitle": "Duyệt phiếu nhập",
-    "approveConfirmDescription": "Xác nhận duyệt phiếu nhập này? Hàng sẽ được nhập kho.",
     "cancelConfirmTitle": "Hủy phiếu nhập",
-    "cancelConfirmDescription": "Xác nhận hủy phiếu nhập này? Hàng sẽ bị xóa khỏi kho."
+    "cancelConfirmDescription": "Xác nhận hủy phiếu nhập này?",
+    "rejectDialogTitle": "Từ chối nhập hàng",
+    "rejectDialogDesc": "Cần kèm lý do và ảnh bằng chứng để từ chối phiếu nhập này.",
+    "rejectReasonLabel": "Lý do từ chối",
+    "rejectReasonPlaceholder": "Nhập lý do...",
+    "rejectReasonRequired": "Bắt buộc nhập lý do từ chối",
+    "evidenceLabel": "Ảnh bằng chứng",
+    "rejectEvidenceRequired": "Bắt buộc đính kèm ảnh bằng chứng",
+    "confirmReject": "Xác nhận từ chối",
+    "taskReceivedTime": "Thời gian nhận việc:",
+    "resolveAction": "Xử lý",
+    "resolveDialogTitle": "Xử lý phiếu từ chối",
+    "resolveDialogDesc": "Chọn kết quả xử lý sau khi làm việc với nhà cung cấp.",
+    "resolveReturned": "Đã trả hàng cho NCC",
+    "resolveResending": "NCC sẽ gửi lại",
+    "resolveHint": "Sau khi chọn, phiếu nhập vẫn ở trạng thái Từ chối cho đến khi NCC gửi lại và bạn nhập kho.",
+    "resolveNoteLabel": "Ghi chú (tùy chọn)",
+    "resolveNotePlaceholder": "VD: đã liên hệ NCC ngày 12/08, hẹn gửi lại tuần sau...",
+    "resolveSuccess": "Đã lưu kết quả xử lý",
+    "resolvedBy": "Người xử lý"
   },
   "importList": {
     "title": "Nhập kho",
-    "empty": "Chưa có phiếu nhập nào"
+    "empty": "Chưa có phiếu nhập nào",
+    "tabAll": "Tất cả"
   },
   "importStepProducts": {
     "allProductsAdded": "Tất cả sản phẩm đã được thêm",
@@ -549,21 +606,24 @@
     "warranty": "BH (tháng)",
     "total": "Thành tiền"
   },
-  "importStepQc": {
-    "heading": "Kiểm tra chất lượng",
-    "progress": "Tiến độ",
-    "noSerials": "Chưa có serial nào để kiểm tra",
-    "pass": "Đạt",
-    "fail": "Không đạt",
-    "failReasonPlaceholder": "Lý do không đạt...",
-    "failWarning": "⚠ {{count}} serial không đạt",
-    "noteLabel": "Ghi chú",
-    "notePlaceholder": "Nhập ghi chú (không bắt buộc)...",
-    "locationHint": "Vị trí lưu kho:",
-    "locationHintDesc": "Vị trí sẽ được xác định sau khi nhập kho."
+  "binAllocator": {
+    "title": "Chia bin",
+    "open": "Chia bin",
+    "qty": "SL",
+    "addBin": "Thêm bin",
+    "total": "Tổng: {{actual}}/{{expected}}",
+    "save": "Lưu phân bổ",
+    "missingBin": "Mỗi bin phải chọn vị trí",
+    "qtyMismatch": "Tổng {{actual}} không khớp {{expected}}",
+    "dupSerials": "Một serial không thể ở 2 bin",
+    "editSerials": "Serial ({{count}})",
+    "addSerials": "Thêm serial"
   },
   "importStepSerials": {
-    "heading": "Nhập serial",
+    "bulkNoSerial": "Sản phẩm bán lẻ — không cần serial",
+    "poMismatchTitle": "Serial không có trong đơn PO:",
+    "poMismatch": "{{count}} serial không có trong PO",
+    "poMismatchNote": "Chỉ cảnh báo — vẫn cho nhập kho.",
     "progress": "Tiến độ",
     "product": "Sản phẩm",
     "expected": "Dự kiến",
@@ -591,7 +651,13 @@
     "description": "Mô tả",
     "descriptionPlaceholder": "Nhập mô tả...",
     "qty": "SL",
-    "done": "Xong"
+    "done": "Xong",
+    "poMissingTitle": "Serial dự kiến trong PO chưa nhận:",
+    "poMissing": "{{count}} serial dự kiến trong PO chưa nhận",
+    "qcColumn": "QC",
+    "qcPassed": "đạt",
+    "qcProgress": "QC {done}/{total}",
+    "qcProgressTitle": "Tiến độ kiểm tra chất lượng"
   },
   "exportStatus": {
     "new": "Khởi tạo",
@@ -601,7 +667,8 @@
     "cancelled": "Đã hủy"
   },
   "exportCreate": {
-    "title": "Tạo phiếu xuất kho","reasonPlaceholder": "Chọn lý do",
+    "title": "Tạo phiếu xuất kho",
+    "reasonPlaceholder": "Chọn lý do",
     "customer": "Khách hàng",
     "searchCustomer": "Tìm kiếm / Chọn khách hàng...",
     "addProductLabel": "Thêm sản phẩm",
@@ -620,7 +687,10 @@
     "selectSerialTitle": "Chọn serial xuất kho",
     "selectSerialDescription": "Chọn serial cụ thể cho sản phẩm này. Có thể bỏ chọn serial không muốn xuất.",
     "noSerials": "Không còn serial tồn kho",
-    "confirmSerial": "Xác nhận ({{count}} serial)"
+    "confirmSerial": "Xác nhận ({{count}} serial)",
+    "otherReason": "Lý do khác",
+    "otherReasonPlaceholder": "Nhập lý do xuất của bạn",
+    "otherReasonRequired": "Vui lòng nhập lý do"
   },
   "exportDetail": {
     "actionSuccess": "Thao tác thành công",
@@ -630,7 +700,8 @@
     "total": "Tổng",
     "cancelConfirmTitle": "Hủy phiếu xuất",
     "cancelConfirmDescription": "Xác nhận hủy phiếu xuất này? Hàng sẽ được trả lại kho.",
-    "timeline": "Lịch sử trạng thái"
+    "timeline": "Lịch sử trạng thái",
+    "evidence": "Ảnh bằng chứng"
   },
   "exportFulfill": {
     "scanned": "Đã quét: {{serial}}",
@@ -654,7 +725,14 @@
     "serialInputPlaceholder": "Nhập serial + Enter",
     "serialNotFound": "Không tìm thấy serial này",
     "noSerials": "Không còn serial tồn kho",
-    "confirmSerial": "Xác nhận ({{count}} serial)"
+    "confirmSerial": "Xác nhận ({{count}} serial)",
+    "note": "Ghi chú xuất kho",
+    "noteRequired": "Vui lòng nhập ghi chú",
+    "notePlaceholder": "Nhập ghi chú khi xuất kho",
+    "evidenceLabel": "Ảnh bằng chứng (trạng thái hàng khi xuất)",
+    "evidenceRequired": "Vui lòng đính kèm ít nhất 1 ảnh bằng chứng",
+    "serialLimitReached": "Chỉ được chọn tối đa {{count}} serial cho sản phẩm này",
+    "selectedCount": "Đã chọn {{selected}}/{{total}}"
   },
   "exportList": {
     "receiptCode": "Mã phiếu",
@@ -662,7 +740,8 @@
     "empty": "Chưa có phiếu xuất nào"
   },
   "exportProposal": {
-    "title": "Đề xuất xuất kho","reasonPlaceholder": "Chọn lý do",
+    "title": "Đề xuất xuất kho",
+    "reasonPlaceholder": "Chọn lý do",
     "reasonRequired": "Vui lòng chọn lý do xuất",
     "customer": "Khách hàng",
     "customerRequired": "Vui lòng chọn khách hàng",
@@ -687,9 +766,13 @@
     "chooseReason": "Chọn lý do xuất kho",
     "supplier": "Nhà cung cấp",
     "noSupplier": "Sản phẩm chưa được gán nhà cung cấp",
-    "supplierMismatch": "Các sản phẩm phải thuộc cùng một nhà cung cấp"
+    "supplierMismatch": "Các sản phẩm phải thuộc cùng một nhà cung cấp",
+    "otherReason": "Lý do khác",
+    "otherReasonPlaceholder": "Nhập lý do xuất của bạn",
+    "otherReasonRequired": "Vui lòng nhập lý do"
   },
   "poStatus": {
+    "draft": "Bản nháp",
     "open": "Đang mở",
     "partial": "Giao một phần",
     "completed": "Hoàn tất",
@@ -700,6 +783,10 @@
     "supplier": "Nhà cung cấp",
     "supplierPlaceholder": "Chọn NCC",
     "expectedDate": "Ngày giao dự kiến",
+    "invoiceCode": "Mã hóa đơn",
+    "invoiceCodePlaceholder": "VD: HD-2026-001 (tùy chọn)",
+    "serials": "Serial (tùy chọn)",
+    "serialsPlaceholder": "Mỗi dòng 1 serial",
     "products": "Sản phẩm",
     "selectedProducts": "Đã chọn {{count}} SP",
     "searchProduct": "Tìm sản phẩm...",
@@ -725,10 +812,41 @@
     "cancelSuccess": "Đã hủy đơn hàng",
     "cancel": "Hủy",
     "cancelTitle": "Hủy đơn hàng",
-    "cancelConfirm": "Đơn hàng sẽ chuyển sang trạng thái đã hủy và không thể tạo phiếu nhập từ nó. Tiếp tục?",
+    "cancelConfirm": "Đơn hàng sẽ chuyển sang trạng thái đã hủy. Các phiếu nhập bản nháp của kho sẽ bị hủy theo. Tiếp tục?",
+    "openOrder": "Link ASN & Mở đơn",
+    "openOrderTitle": "Mở đơn cho kho nhận hàng",
+    "asnCode": "Mã ASN",
+    "asnCodePlaceholder": "VD: ASN-2026-001 (tùy chọn)",
+    "openOrderConfirm": "Đơn sẽ chuyển sang trạng thái Đang mở; kho có thể tạo phiếu nhập. Serial của đơn sẽ bị khóa sau khi mở.",
+    "openSuccess": "Đã mở đơn, kho có thể nhận hàng",
+    "opening": "Đang mở...",
+    "confirmOpen": "Mở đơn",
+    "invoiceCode": "Mã hóa đơn:",
+    "serials": "Serial",
     "createImport": "Tạo phiếu nhập",
+    "edit": "Sửa đơn",
+    "locked": "Đã khóa",
     "products": "Sản phẩm",
-    "total": "Tổng"
+    "total": "Tổng",
+    "rejectedBanner": "Có {{count}} phiếu nhập bị từ chối/trả hàng cho đơn này",
+    "receipts": "Phiếu nhập liên quan",
+    "noReceipts": "Chưa có phiếu nhập nào cho đơn này",
+    "rejectInfo": "Lý do trả hàng",
+    "rejectedBy": "Bởi {{name}}"
+  },
+  "poEdit": {
+    "title": "Sửa đơn đặt hàng",
+    "hint": "Sửa số lượng, đơn giá và serial",
+    "serials": "Serial",
+    "editSerials": "Sửa serial ({{count}})",
+    "addSerials": "Thêm serial",
+    "bulkNoSerial": "Sản phẩm bán lẻ — không cần serial",
+    "save": "Lưu thay đổi",
+    "saving": "Đang lưu...",
+    "saveSuccess": "Đã cập nhật đơn hàng",
+    "saveError": "Không thể cập nhật đơn hàng",
+    "locked": "Đã khóa",
+    "lockedMessage": "Đơn đã khóa vì có phiếu nhập kho. Liên hệ quản lý hủy phiếu trước khi sửa."
   },
   "poList": {
     "poCode": "Mã PO",
@@ -737,7 +855,9 @@
     "createOrder": "Tạo đơn hàng",
     "empty": "Chưa có đơn đặt hàng nào",
     "cancelSuccess": "Đã hủy {{code}}",
-    "cancelOrder": "Hủy đơn hàng"
+    "cancelOrder": "Hủy đơn hàng",
+    "rejected": "Trả về",
+    "rejectedBadge": "Bị trả {{count}}"
   },
   "priceAdjStatus": {
     "pending": "Chờ duyệt",
@@ -795,8 +915,8 @@
     "searchPlaceholder": "Tìm serial hoặc sản phẩm...",
     "sendWarrantyConfirmTitle": "Xác nhận gửi bảo hành",
     "sendWarrantyConfirmDesc": "Các đơn vị được chọn sẽ được gửi đến nhà sản xuất. Hệ thống tự tạo phiếu xuất bảo hành. Hành động này không thể hoàn tác.",
-  "passConfirmTitle": "Xác nhận kiểm đạt",
-  "passConfirmDesc": "Hàng sẽ chuyển về kệ bán, không hoàn tác được. Xác nhận tiếp tục?",
+    "passConfirmTitle": "Xác nhận kiểm đạt",
+    "passConfirmDesc": "Hàng sẽ chuyển về kệ bán, không hoàn tác được. Xác nhận tiếp tục?",
     "disposeConfirmTitle": "Xác nhận hủy",
     "disposeConfirmDesc": "Các đơn vị được chọn sẽ bị hủy bỏ và rời khỏi kho. Hành động này không thể hoàn tác.",
     "returnSupplier": "Trả NCC ({{count}})",
@@ -859,7 +979,8 @@
     "serial": "Serial",
     "warranty": "BH",
     "importDate": "Ngày nhập",
-    "warrantyUntil": "BH đến"
+    "warrantyUntil": "BH đến",
+    "receiptCode": "Mã phiếu"
   },
   "label": {
     "supplier": "Nhà cung cấp:",
@@ -883,7 +1004,6 @@
     "reject": "Từ chối",
     "rejectTitle": "Từ chối phiếu",
     "no": "Không",
-    "restore": "Khôi phục",
     "processing": "Đang xử lý...",
     "confirm": "Xác nhận",
     "back": "Quay lại",
@@ -927,8 +1047,6 @@
     "resetConfirmTitle": "Xác nhận reset",
     "resetConfirmDesc": "Thao tác này sẽ xoá tất cả trạng thái kiểm tra hiện tại...",
     "resetConfirm": "Xác nhận reset",
-    "starting": "Đang mở lại...",
-    "start": "Mở lại kiểm kê",
     "reopenConfirmTitle": "Mở lại phiếu kiểm kho?",
     "reopenConfirmDesc": "Phiếu sẽ chuyển về trạng thái đang kiểm; các điều chỉnh chưa duyệt sẽ bị xóa.",
     "reopenConfirm": "Xác nhận mở lại",
@@ -937,9 +1055,7 @@
     "reject": "Từ chối",
     "approveAll": "Duyệt toàn bộ",
     "diffSummary": "Chênh lệch phát hiện",
-    "zone": "Khu",
     "box": "Hộp",
-    "category": "Danh mục",
     "diffMissing": "Thiếu",
     "diffUnexpected": "Bất thường",
     "diffPartial": "Thiếu một phần",
@@ -948,6 +1064,14 @@
     "scope": "Phạm vi:",
     "zone": "Khu vực",
     "category": "Danh mục",
+    "checkedBy": "Người kiểm",
+    "enteredBy": "Người nhập",
+    "pendingBannerTitle": "Phiếu chưa bắt đầu",
+    "pendingBannerDesc": "Bấm \"Bắt đầu kiểm\" để chốt danh sách kỳ vọng rồi nhập kết quả.",
+    "start": "Bắt đầu kiểm",
+    "starting": "Đang bắt đầu...",
+    "startSuccess": "Đã bắt đầu kiểm kê",
+    "startError": "Không thể bắt đầu kiểm",
     "approvalNote": "Ghi chú duyệt:",
     "total": "Tổng: {{count}}",
     "match": "Khớp: {{count}}",
@@ -960,9 +1084,9 @@
     "approveConfirm": "Xác nhận duyệt",
     "rejectConfirm": "Xác nhận từ chối",
     "completeDialogTitle": "Hoàn tất kiểm kê",
-    "completeDialogAutoFill": "Tự động điền {{count}} serial chưa kiểm?",
-    "completeDialogAdjustment": "Hệ thống sẽ tự động tạo phiếu điều chỉnh tồn kho theo chênh lệch phát hiện và tự duyệt, thay đổi số lượng hàng ngay lập tức.",
-    "completeDialogAutoFillBtn": "Tự động điền & Hoàn tất",
+    "completeDialogUntouched": "Còn {{count}} dòng chưa ghi kết quả.",
+    "completeDialogUntouchedConfirm": "Tôi xác nhận các dòng chưa ghi kết quả được coi là khớp (không tạo điều chỉnh).",
+    "completeDialogAdjustment": "Hệ thống sẽ đóng các hộp đã mở và ghi nhận lần kiểm gần nhất cho khu vực.",
     "cancel": "Hủy phiếu",
     "cancelConfirmTitle": "Hủy phiếu kiểm kho?",
     "cancelConfirmDesc": "Phiếu kiểm kho sẽ bị hủy và không tạo điều chỉnh nào. Hành động này không thể hoàn tác.",
@@ -1063,6 +1187,43 @@
     "batchNotFound": "Không tìm thấy lô hàng đã chọn",
     "priceMustDiff": "Giá mới phải khác giá cũ",
     "productLabel": "Sản phẩm #{{id}}"
+  },
+  "priceHistory": {
+    "title": "Lịch sử giá",
+    "loading": "Đang tải...",
+    "empty": "Chưa có điều chỉnh giá nào cho sản phẩm này",
+    "current": "Đang áp dụng",
+    "approved": "Đã duyệt",
+    "pending": "Chờ duyệt",
+    "effective": "Hiệu lực: {{from}} → {{to}}",
+    "now": "nay",
+    "requestedAt": "Đề xuất lúc {{date}}",
+    "receipt": "Phiếu nhập {{code}} · {{date}}",
+    "reason": "Lý do: {{reason}}"
+  },
+  "unitHistory": {
+    "title": "Lịch sử",
+    "loading": "Đang tải...",
+    "empty": "Chưa có dữ liệu lịch sử",
+    "by": "Bởi {{name}}",
+    "importedFrom": "Nhập kho từ phiếu {{code}}",
+    "statusChange": "Trạng thái: {{status}}",
+    "sourceType": {
+      "importReceipt": "Nhập kho",
+      "exportReceipt": "Xuất kho",
+      "stockAdjustment": "Điều chỉnh kho",
+      "stockCheck": "Kiểm kê",
+      "returnReceipt": "Trả hàng",
+      "relocate": "Chuyển vị trí",
+      "qcProcessing": "Xử lý QC",
+      "externalSystem": "Hệ thống ngoài"
+    }
+  },
+  "unitDetail": {
+    "breadcrumb": "Danh sách",
+    "notFound": "Không tìm thấy sản phẩm trong kho",
+    "notFoundDesc": "Sản phẩm không tồn tại hoặc bạn không có quyền xem sản phẩm này.",
+    "backToList": "Quay lại danh sách"
   },
   "priceAdjDetail": {
     "notFound": "Không tìm thấy phiếu điều chỉnh giá",
@@ -1284,7 +1445,11 @@
     "stockQty": "SL tồn",
     "unitPrice": "Đơn giá",
     "totalValue": "Tổng giá trị",
-    "cumulative": "Tích luỹ"
+    "cumulative": "Tích luỹ",
+    "rejectedImportAlert": "Có {{count}} phiếu nhập bị từ chối/trả hàng -",
+    "viewRejectedImports": "xem danh sách",
+    "unresolvedRejectedImports": "Phiếu từ chối chờ xử lý",
+    "percentOfTotal": "Tỷ trọng giá trị"
   },
   "usersPage": {
     "title": "Quản lý người dùng",
@@ -1462,7 +1627,9 @@
     "max": "Tối đa",
     "relocateRemaining": "Còn lại {{count}} ở {{code}}",
     "relocateAfter": "sau chuyển: {{count}} ở {{code}}",
-    "autoCancel": "Tự động hủy sau {{countdown}}s"
+    "autoCancel": "Tự động hủy sau {{countdown}}s",
+    "viewOverview": "Toàn cảnh",
+    "viewZone": "Theo khu"
   },
   "viewImportModal": {
     "total": "Tổng",
@@ -1470,7 +1637,11 @@
     "viewDetail": "Xem chi tiết",
     "enterSerials": "Nhập serial",
     "noData": "Không có dữ liệu",
-    "notFound": "Không tìm thấy phiếu nhập"
+    "notFound": "Không tìm thấy phiếu nhập",
+    "rejectedBy": "Người từ chối",
+    "rejectedAt": "Thời điểm từ chối",
+    "rejectReason": "Lý do từ chối",
+    "evidence": "Ảnh bằng chứng"
   },
   "viewExportModal": {
     "total": "Tổng",
@@ -1609,6 +1780,11 @@
     "selectZone": "Chọn khu vực",
     "zone": "Khu vực",
     "zonePrefix": "Khu",
+    "binFrom": "Từ bin",
+    "binTo": "Đến bin",
+    "binHint": "Để trống nếu kiểm cả khu",
+    "countPreview": "Ước tính {{count}} sản phẩm trong phạm vi",
+    "counting": "Đang đếm...",
     "box": "Hộp",
     "selectBox": "Chọn hộp"
   },
@@ -1628,7 +1804,12 @@
     "statusLost": "Mất",
     "statusRemoved": "Đã loại bỏ",
     "unchecked": "Chưa kiểm",
-    "box": "Hộp"
+    "box": "Hộp",
+    "suspectSeal": "Nghi seal",
+    "damagedPackaging": "Hư bao bì",
+    "localOnly": "Hàng dư",
+    "addUnexpected": "Thêm hàng dư",
+    "extraItem": "Hàng dư"
   },
   "box": {
     "title": "Hộp",
@@ -1690,5 +1871,46 @@
     "scanCamera": "Bật/tắt camera",
     "continueSealing": "Đóng tiếp {{count}} đơn vị còn lại",
     "sealAnother": "Đóng hộp khác"
+  },
+  "importStepQc": {
+    "pass": "Đạt",
+    "fail": "Lỗi",
+    "failReasonPlaceholder": "Lý do lỗi…",
+    "noteLabel": "Ghi chú",
+    "notePlaceholder": "Ghi chú (bắt buộc)."
+  },
+  "exportSchema": {
+    "requiredReason": "Vui lòng chọn lý do xuất"
+  },
+  "workQueue": {
+    "title": "Việc cần làm",
+    "subtitle": "Các mục cần bạn xử lý hoặc theo dõi",
+    "approvalTitle": "Chờ bạn duyệt",
+    "greeting": "Xin chào, {{name}} ({{role}})",
+    "updatedAt": "Cập nhật lúc {{time}}",
+    "allDone": "Không còn việc cần xử lý",
+    "allDoneDesc": "Mọi mục đã cập nhật, hãy quay lại sau.",
+    "status": {
+      "rejected": "Bị từ chối",
+      "pendingApproval": "Chờ duyệt",
+      "draft": "Nháp",
+      "inProgress": "Đang mở",
+      "pendingQc": "Chờ QC",
+      "completed": "Chờ phê duyệt"
+    },
+    "sections": {
+      "importRejected": "Phiếu nhập bị từ chối cần xử lý",
+      "exportPending": "Phiếu xuất chờ duyệt",
+      "qcPending": "Hàng chờ kiểm tra QC",
+      "importDraft": "Phiếu nhập nháp chưa hoàn tất",
+      "stockCheck": "Kiểm kho của bạn đang mở",
+      "lowStock": "Sản phẩm sắp hết hàng",
+      "exportMine": "Phiếu xuất tôi đã tạo (chờ duyệt)",
+      "returnMine": "Phiếu trả tôi đã tạo (chờ duyệt)",
+      "returnApproval": "Phiếu trả chờ duyệt",
+      "adjustmentApproval": "Điều chỉnh kho chờ duyệt",
+      "priceApproval": "Điều chỉnh giá chờ duyệt",
+      "checkApproval": "Kiểm kho chờ phê duyệt"
+    }
   }
 }

@@ -224,6 +224,29 @@ export interface ProductUnit {
   updatedAt: string
 }
 
+export interface ProductUnitImportInfo {
+  importReceiptItemId: number | null
+  receiptCode: string | null
+  receiptDate: string | null
+  importedAt: string | null
+}
+
+export interface ProductUnitHistoryEvent {
+  id: number
+  fromStatus: string | null
+  toStatus: string
+  sourceType: string
+  sourceId: number | null
+  sourceCode: string | null
+  changedByName: string | null
+  createdAt: string
+}
+
+export interface ProductUnitHistory {
+  importInfo: ProductUnitImportInfo | null
+  events: ProductUnitHistoryEvent[]
+}
+
 export type ProductUnitStatus =
   | "PENDING_QC"
   | "IN_STOCK"
@@ -279,7 +302,16 @@ export interface ImportReceipt {
   createdByName: string | null
   approvedBy: number | null
   approvedByName: string | null
+  rejectedBy: number | null
+  rejectedByName: string | null
+  rejectedAt: string | null
   rejectReason: string | null
+  evidenceImage: string | null
+  resolution: string | null
+  resolutionNote: string | null
+  resolvedBy: number | null
+  resolvedByName: string | null
+  resolvedAt: string | null
   createdAt: string
   updatedAt: string
   items: ImportReceiptItem[]
@@ -293,7 +325,7 @@ export interface DiscrepancyNote {
   reportedAt: string
 }
 
-export type ImportReceiptStatus = "DRAFT" | "PENDING_APPROVAL" | "COMPLETED" | "CANCELLED"
+export type ImportReceiptStatus = "DRAFT" | "RECEIVED" | "REJECTED" | "CANCELLED"
 
 export interface ImportReceiptItem {
   id: number
@@ -314,23 +346,30 @@ export interface ImportReceiptItem {
 
 // ============ Purchase Order ============
 
-export type PurchaseOrderStatus = "OPEN" | "PARTIAL" | "COMPLETED" | "CANCELLED"
+export type PurchaseOrderStatus = "DRAFT" | "OPEN" | "PARTIAL" | "COMPLETED" | "CANCELLED"
 
 export interface PurchaseOrderItem {
   id: number
   productId: number
   productName: string
   productSku: string | null
+  trackingType: string | null
   quantity: number
   unitPrice: number
   receivedQuantity: number
+  serials: string[]
 }
 
 export interface CreatePurchaseOrderRequest {
   supplierId: number
   expectedDate: string
   note: string | null
-  items: Array<{ productId: number; quantity: number; unitPrice: number }>
+  invoiceCode: string | null
+  items: Array<{ productId: number; quantity: number; unitPrice: number; serials?: string[] }>
+}
+
+export interface UpdatePurchaseOrderRequest {
+  items: Array<{ productId: number; quantity: number; unitPrice: number; serials?: string[] }>
 }
 
 export interface PurchaseOrder {
@@ -341,8 +380,12 @@ export interface PurchaseOrder {
   items: PurchaseOrderItem[]
   totalAmount: number
   status: PurchaseOrderStatus
+  locked: boolean
+  rejectedReceiptCount: number
   expectedDate: string
   note: string | null
+  invoiceCode: string | null
+  asnCode: string | null
   createdBy: number | null
   createdByName: string
   createdAt: string
@@ -372,6 +415,7 @@ export interface ExportReceipt {
   rejectedByName: string | null
   rejectedAt: string | null
   rejectReason: string | null
+  evidenceImages: string[]
   createdAt: string
   updatedAt: string
   items: ExportReceiptItem[]
@@ -385,7 +429,7 @@ export interface ExportReceiptStatusHistory {
   changedBy: number
 }
 
-export type ExportReason = "SALE" | "INTERNAL" | "RETURN_SUPPLIER" | "DISPOSE" | "WARRANTY_REPLACEMENT"
+export type ExportReason = "SALE" | "INTERNAL" | "RETURN_SUPPLIER" | "DISPOSE" | "WARRANTY_REPLACEMENT" | "OTHER"
 export type ExportReceiptStatus = "PENDING" | "APPROVED" | "COMPLETED" | "CANCELLED"
 
 export interface ExportReceiptItem {
@@ -421,6 +465,10 @@ export interface StockCheckItem {
   note: string | null
   photo: string | null
   autoFilled: boolean
+  suspectSeal: boolean | null
+  damagedPackaging: boolean | null
+  touchedAt: string | null
+  localOnly?: boolean
 }
 
 export interface StockCheck {
@@ -430,12 +478,18 @@ export interface StockCheck {
   scopeType: StockCheckScopeType | null
   scopeId: number | null
   scopeName: string | null
+  binFrom: string | null
+  binTo: string | null
   note: string | null
   createdBy: number | null
   createdByName: string | null
   approvedBy: number | null
   approvedByName: string | null
   approvalNote: string | null
+  checkedBy: number | null
+  checkedByName: string | null
+  enteredBy: number | null
+  enteredByName: string | null
   items: StockCheckItem[]
   totalItems: number
   matchCount: number
@@ -444,6 +498,27 @@ export interface StockCheck {
   autoFilledCount: number
   createdAt: string
   updatedAt: string
+}
+
+export interface StockCheckZoneStatus {
+  pendingChecks: number
+  zones: Array<{
+    zoneCode: string
+    clusterCount: number
+    dueClusterCount: number
+  }>
+}
+
+export interface StockCheckSchedule {
+  id: number
+  zoneCode: string
+  binFrom: string | null
+  binTo: string | null
+  frequencyDays: number
+  isActive: boolean
+  defaultAssigneeId: number | null
+  defaultAssigneeName: string | null
+  note: string | null
 }
 
 // ============ Box ============
@@ -541,8 +616,11 @@ export interface PriceAdjustment {
   id: number
   adjustCode: string
   importReceiptItemId: number
+  productId: number | null
   productName: string | null
   productSku: string | null
+  receiptCode: string | null
+  receiptDate: string | null
   oldPrice: number
   newPrice: number
   reason: string
@@ -740,13 +818,21 @@ export interface LineItem {
   productName: string
   productSku: string
   categoryId: number | null
+  trackingType: string | null
   quantity: number
   unitPrice: number
   warrantyMonths: number
   serials: string[]
   locationId: string
+  allocations: LocationAllocation[]
   itemStatus: "NORMAL" | "NOT_RECEIVED"
   notReceivedReason: string
+}
+
+export interface LocationAllocation {
+  locationId: string
+  quantity: number
+  serials: string[]
 }
 
 export interface QcRecord {
@@ -760,8 +846,8 @@ export interface QcRecord {
 
 export const IMPORT_RECEIPT_STATUS = {
   DRAFT: "DRAFT",
-  PENDING_APPROVAL: "PENDING_APPROVAL",
-  COMPLETED: "COMPLETED",
+  RECEIVED: "RECEIVED",
+  REJECTED: "REJECTED",
   CANCELLED: "CANCELLED",
 } as const
 
@@ -784,9 +870,11 @@ export const EXPORT_REASON = {
   RETURN_SUPPLIER: "RETURN_SUPPLIER",
   DISPOSE: "DISPOSE",
   WARRANTY_REPLACEMENT: "WARRANTY_REPLACEMENT",
+  OTHER: "OTHER",
 } as const
 
 export const PURCHASE_ORDER_STATUS = {
+  DRAFT: "DRAFT",
   OPEN: "OPEN",
   PARTIAL: "PARTIAL",
   COMPLETED: "COMPLETED",

@@ -77,8 +77,10 @@ public interface ProductUnitRepository extends JpaRepository<ProductUnit, Long> 
     List<ProductUnit> findByStatusInOrderById(Collection<ProductUnitStatus> statuses);
 
     @Query("""
-            SELECT p FROM ProductUnit p WHERE
-              (:search IS NULL OR LOWER(p.serialNumber) LIKE LOWER(CONCAT('%', :search, '%')))
+            SELECT p FROM ProductUnit p JOIN Product pr ON pr.id = p.productId WHERE
+              (:search IS NULL OR LOWER(p.serialNumber) LIKE LOWER(CONCAT('%', :search, '%'))
+                OR LOWER(pr.sku) LIKE LOWER(CONCAT('%', :search, '%'))
+                OR LOWER(pr.name) LIKE LOWER(CONCAT('%', :search, '%')))
               AND (:status IS NULL OR p.status = :status)
               AND (:productId IS NULL OR p.productId = :productId)
             """)
@@ -129,7 +131,9 @@ public interface ProductUnitRepository extends JpaRepository<ProductUnit, Long> 
     @Query("""
             SELECT p.locationId,
               SUM(CASE WHEN p.trackingType = 'BULK' THEN COALESCE(p.remainingQuantity, 0) ELSE 1 END)
-            FROM ProductUnit p WHERE p.status = 'IN_STOCK' AND p.locationId IS NOT NULL GROUP BY p.locationId
+            FROM ProductUnit p
+            WHERE p.status = 'IN_STOCK' AND p.locationId IS NOT NULL AND p.boxId IS NULL
+            GROUP BY p.locationId
             """)
     List<Object[]> usageByLocationRaw();
 

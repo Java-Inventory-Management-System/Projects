@@ -4,6 +4,7 @@ import org.dawn.backend.config.security.SecurityPolicy;
 import org.dawn.backend.config.web.response.ResponsePage;
 import org.springframework.data.domain.PageRequest;
 import org.dawn.backend.constant.enums.inventory.ProductUnitStatus;
+import org.dawn.backend.constant.enums.inventory.box.BoxStatus;
 import org.dawn.backend.constant.enums.inventory.box.BoxType;
 import org.dawn.backend.controller.inventory.request.SealBoxRequest;
 import org.dawn.backend.entity.catalog.Product;
@@ -56,6 +57,7 @@ class BoxServiceTests {
     @Mock StockCheckItemRepository stockCheckItemRepository;
     @Mock SecurityPolicy securityPolicy;
     @Mock LocationCapacityValidator capacityValidator;
+    @Mock BoxCapacity boxCapacity;
 
     @InjectMocks BoxService boxService;
 
@@ -249,5 +251,29 @@ class BoxServiceTests {
         verify(boxRepository).save(captor.capture());
         assertEquals(7L, captor.getValue().getImportReceiptId());
         assertEquals(BoxType.LARGE, captor.getValue().getBoxType());
+    }
+
+    @Test
+    void reclose_flipsUnsealedBoxToSealed_keepsUnitsUntouched() {
+        var box = Box.builder().id(3L).boxCode("BOX-3").status(BoxStatus.UNSEALED).unsealedBy(5L).build();
+        when(boxRepository.findByIdForUpdate(3L)).thenReturn(Optional.of(box));
+        when(boxRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        boxService.reclose(3L);
+
+        assertEquals(BoxStatus.SEALED, box.getStatus());
+        assertEquals(5L, box.getSealedBy());
+        verify(productUnitRepository, org.mockito.Mockito.never())
+                .save(any(ProductUnit.class));
+    }
+
+    @Test
+    void reclose_ignoresBoxNotUnsealed() {
+        var box = Box.builder().id(3L).boxCode("BOX-3").status(BoxStatus.SEALED).build();
+        when(boxRepository.findByIdForUpdate(3L)).thenReturn(Optional.of(box));
+
+        boxService.reclose(3L);
+
+        verify(boxRepository, org.mockito.Mockito.never()).save(any());
     }
 }

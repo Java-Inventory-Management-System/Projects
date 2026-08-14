@@ -38,6 +38,7 @@ export function StockUnitsPage() {
   const q = searchParams.get("tab")
   const tab = availableTabs.some((t) => t.key === q) ? (q as TabKey) : (availableTabs[0]?.key ?? "list")
   const isSealPage = useMatch("/stock/units/box/new") != null
+  const isSubPage = useMatch("/stock/units/:id") != null || isSealPage
 
   return (
     <div className="space-y-4">
@@ -45,14 +46,14 @@ export function StockUnitsPage() {
         {availableTabs.map((t) => (
           <button
             key={t.key}
-            onClick={() => navigate({ search: `?tab=${t.key}` })}
+            onClick={() => navigate(`/stock/units?tab=${t.key}`, { replace: true })}
             className={`px-3 py-1.5 text-sm font-medium transition-colors rounded-t-md ${tab === t.key ? "border-b-2 border-primary text-primary" : "text-muted-foreground hover:text-foreground"}`}
           >
             {t.label}
           </button>
         ))}
       </div>
-      {isSealPage ? (
+      {isSubPage ? (
         <Suspense fallback={TAB_FALLBACK}>
           <Outlet />
         </Suspense>

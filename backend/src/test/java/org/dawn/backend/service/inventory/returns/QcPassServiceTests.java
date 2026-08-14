@@ -28,6 +28,7 @@ class QcPassServiceTests {
     @Mock ProductUnitStatusLogRepository statusLogRepository;
     @Mock LocationRepository locationRepository;
     @Mock SecurityPolicy securityPolicy;
+    @Mock org.dawn.backend.service.inventory.box.BoxCapacity boxCapacity;
 
     @InjectMocks QcPassService service;
 
@@ -45,7 +46,7 @@ class QcPassServiceTests {
     }
 
     private void stubQcZoneAndSellableShelf() {
-        when(productUnitRepository.usageByLocation()).thenReturn(java.util.Map.of());
+        when(boxCapacity.usageByLocation()).thenReturn(java.util.Map.of());
         when(locationRepository.findById(anyLong()))
                 .thenReturn(Optional.of(loc(5L, "QC", true)));
         when(locationRepository.findAllByOrderByZoneCodeAscShelfCodeAscBinCodeAsc())
@@ -122,7 +123,6 @@ class QcPassServiceTests {
         ProductUnit pu = unit(4L, ProductUnitStatus.WAITING_RMA_EXPORT, 6L, 20L);
         when(productUnitRepository.findByIdsForUpdate(List.of(4L))).thenReturn(List.of(pu));
         when(securityPolicy.requireAuthenticated()).thenReturn(userId);
-        when(productUnitRepository.usageByLocation()).thenReturn(java.util.Map.of());
 
         assertThrows(InvalidRequestException.class, () -> service.confirm(List.of(4L)));
         verify(statusLogRepository, never()).save(any());

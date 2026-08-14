@@ -35,6 +35,8 @@ export function useLocationMapPage() {
   const [deactivatedIds, setDeactivatedIds] = useState<Record<number, true>>({})
   const [zoomedShelf, _setZoomedShelf] = useState<{ zoneCode: string; shelfCode: string | null } | null>(null)
   const [zoomStage, setZoomStage] = useState<"idle" | "entering" | "visible" | "exiting">("idle")
+  const [viewMode, setViewMode] = useState<"overview" | "zone">("zone")
+  const zoneAutoOpened = useRef(false)
   const [dragSource, setDragSource] = useState<{ bin: DetailBin; zoneCode: string } | null>(null)
   const [relocateTarget, setRelocateTarget] = useState<{ source: DetailBin; dest: DetailBin } | null>(null)
   const [relocateCountdown, setRelocateCountdown] = useState(0)
@@ -68,6 +70,22 @@ export function useLocationMapPage() {
       requestAnimationFrame(() => setZoomStage("visible"))
     }
   }
+
+  function switchView(mode: "overview" | "zone") {
+    setViewMode(mode)
+    if (mode === "overview") {
+      openZoom(null)
+    } else if (zoomStage === "idle" && data && data.zones.length > 0) {
+      openZoom({ zoneCode: data.zones[0].zoneCode, shelfCode: null })
+    }
+  }
+
+  useEffect(() => {
+    if (viewMode !== "zone" || zoomStage !== "idle" || zoneAutoOpened.current) return
+    if (!data || data.zones.length === 0) return
+    zoneAutoOpened.current = true
+    openZoom({ zoneCode: data.zones[0].zoneCode, shelfCode: null })
+  }, [viewMode, zoomStage, data])
 
   useEffect(() => {
     if (zoomStage !== "visible") return
@@ -537,6 +555,8 @@ export function useLocationMapPage() {
     zoomedShelf,
     openZoom,
     zoomStage,
+    viewMode,
+    switchView,
     isZoneZoomed,
     zoomedZone,
     zoomedShelfData,

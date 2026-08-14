@@ -33,6 +33,8 @@ public interface BoxRepository extends JpaRepository<Box, Long> {
 
     List<Box> findByLocationIdInAndStatus(List<Long> locationIds, BoxStatus status);
 
+    List<Box> findByLocationIdIn(List<Long> locationIds);
+
     List<Box> findByStatus(BoxStatus status, Sort sort);
 
     List<Box> findByLocationIdAndStatus(Long locationId, BoxStatus status, Sort sort);
@@ -42,4 +44,7 @@ public interface BoxRepository extends JpaRepository<Box, Long> {
     Page<Box> findByStatus(BoxStatus status, Pageable pageable);
 
     Page<Box> findByLocationIdAndStatus(Long locationId, BoxStatus status, Pageable pageable);
+
+    @Query("SELECT b.locationId, b.boxType, COUNT(b) FROM Box b WHERE b.status = 'SEALED' AND b.locationId IS NOT NULL GROUP BY b.locationId, b.boxType")
+    List<Object[]> sealedBoxUsageRaw();
 }
