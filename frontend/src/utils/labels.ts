@@ -34,8 +34,8 @@ const EXPORT_STATUS_VARIANT: Record<ExportReceiptStatus, LabelVariant> = {
 
 const IMPORT_STATUS_VARIANT: Record<ImportReceiptStatus, LabelVariant> = {
   [IMPORT_RECEIPT_STATUS.DRAFT]: "secondary",
-  [IMPORT_RECEIPT_STATUS.PENDING_APPROVAL]: "outline",
-  [IMPORT_RECEIPT_STATUS.COMPLETED]: "default",
+  [IMPORT_RECEIPT_STATUS.RECEIVED]: "default",
+  [IMPORT_RECEIPT_STATUS.REJECTED]: "destructive",
   [IMPORT_RECEIPT_STATUS.CANCELLED]: "destructive",
 }
 

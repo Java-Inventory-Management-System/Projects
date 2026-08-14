@@ -40,10 +40,6 @@ test.describe("Warranty Flow (Bảo hành) — SOP §6", () => {
       headers: { Authorization: `Bearer ${stockToken}` },
     })
     expect(confirmRes.ok()).toBeTruthy()
-    const impApproveRes = await stock.request.put(`${API_URL}/import-receipt/${impId}/approve`, {
-      headers: { Authorization: `Bearer ${managerToken}` },
-    })
-    expect(impApproveRes.ok()).toBeTruthy()
 
     const unitsRes = await stock.request.get(`${API_URL}/import-receipt/${impId}/units`, {
       headers: { Authorization: `Bearer ${stockToken}` },

@@ -3,7 +3,6 @@ import { loginAsStock, loginAsManager } from "./helpers/auth"
 import { navigateTo } from "./helpers/nav"
 import { initTokens, getToken, API_URL, createPurchaseOrder } from "./helpers/api"
 import { cleanupProduct1 } from "./helpers/cleanup"
-import { approveDialog } from "./helpers/approve"
 
 test.describe("Multi-Role Cross-Flow (Liên kết nghiệp vụ)", () => {
 
@@ -47,15 +46,11 @@ test.describe("Multi-Role Cross-Flow (Liên kết nghiệp vụ)", () => {
     })
     expect(confirmRes.ok()).toBeTruthy()
 
-    // MANAGER approves import via detail page
-    await navigateTo(mgr, `/stock/imports/${impId}`)
-    await approveDialog(mgr, impId)
-
-    // Verify import COMPLETED
+    // Verify import RECEIVED (no approval step)
     const impVerify = await mgr.request.get(`${API_URL}/import-receipt/${impId}`, {
       headers: { Authorization: `Bearer ${managerToken}` },
     })
-    expect(((await impVerify.json()) as { data: { status: string } }).data.status).toBe("COMPLETED")
+    expect(((await impVerify.json()) as { data: { status: string } }).data.status).toBe("RECEIVED")
 
     // Get product unit IDs via dedicated endpoint
     const unitsRes = await mgr.request.get(`${API_URL}/import-receipt/${impId}/units`, {

@@ -35,6 +35,7 @@ interface Props<R extends Receipt> {
     page: number,
     size: number,
     sort?: string,
+    status?: string,
   ) => { data?: { content: R[]; pagination: { totalPages: number; totalElements: number } }; isLoading: boolean }
   cancelService: (id: number) => Promise<unknown>
   approveService?: (id: number) => Promise<unknown>
@@ -44,8 +45,11 @@ interface Props<R extends Receipt> {
   cancelledStatus?: string
   completedStatus?: string
   scanStatuses?: string[]
+  scanPerm?: () => boolean
+  cancellableStatuses?: string[]
   cancelPerm?: () => boolean
   createPerm?: () => boolean
+  statusTabs?: Array<{ value?: string; label: string }>
 }
 
 export function ReceiptListPage<R extends Receipt>({
@@ -58,12 +62,15 @@ export function ReceiptListPage<R extends Receipt>({
   approveService,
   ViewModal,
   columns,
-  approvableStatus = IMPORT_RECEIPT_STATUS.PENDING_APPROVAL,
-  cancelledStatus = IMPORT_RECEIPT_STATUS.CANCELLED,
-  completedStatus = IMPORT_RECEIPT_STATUS.COMPLETED,
-  scanStatuses = [IMPORT_RECEIPT_STATUS.DRAFT, IMPORT_RECEIPT_STATUS.PENDING_APPROVAL],
+  approvableStatus = "PENDING_APPROVAL",
+  cancelledStatus = "CANCELLED",
+  completedStatus = "COMPLETED",
+  scanStatuses = [IMPORT_RECEIPT_STATUS.DRAFT],
+  scanPerm,
+  cancellableStatuses,
   cancelPerm,
   createPerm,
+  statusTabs,
 }: Props<R>) {
   const { t } = useTranslation()
   const navigate = useNavigate()
@@ -73,6 +80,7 @@ export function ReceiptListPage<R extends Receipt>({
   const canCancelPerm = cancelPerm ?? hasCancelPerm
   const page = Number(searchParams.get("page") ?? "0")
   const pageSize = Number(searchParams.get("size") ?? "10")
+  const status = searchParams.get("status") ?? undefined
   const [viewReceipt, setViewReceipt] = useState<R | null>(null)
   const [cancelTarget, setCancelTarget] = useState<R | null>(null)
   const [approveTarget, setApproveTarget] = useState<R | null>(null)
@@ -101,7 +109,7 @@ export function ReceiptListPage<R extends Receipt>({
     [setSearchParams],
   )
 
-  const { data, isLoading } = useHook(page, pageSize, sortStr)
+  const { data, isLoading } = useHook(page, pageSize, sortStr, status)
 
   const cancelMut = useMutation({
     mutationFn: (id: number) => cancelService(id),
@@ -162,7 +170,7 @@ export function ReceiptListPage<R extends Receipt>({
           </TooltipTrigger>
           <TooltipContent>{t("common.viewDetail")}</TooltipContent>
         </Tooltip>
-        {scanStatuses.includes(r.status) && (
+        {scanPerm?.() !== false && scanStatuses.includes(r.status) && (
           <Tooltip>
             <TooltipTrigger asChild>
               <Button variant="ghost" size="icon" onClick={() => navigate(`${newRoute}?id=${r.id}`)}>
@@ -182,7 +190,7 @@ export function ReceiptListPage<R extends Receipt>({
             <TooltipContent>{t("receiptList.approveReceipt")}</TooltipContent>
           </Tooltip>
         )}
-        {canCancelPerm() && r.status !== cancelledStatus && r.status !== completedStatus && (
+        {canCancelPerm() && r.status !== cancelledStatus && r.status !== completedStatus && (!cancellableStatuses || cancellableStatuses.includes(r.status)) && (
           <Tooltip>
             <TooltipTrigger asChild>
               <Button variant="ghost" size="icon" onClick={() => setCancelTarget(r)}>
@@ -208,7 +216,23 @@ export function ReceiptListPage<R extends Receipt>({
         )}
       </div>
 
-        <DataTable
+        {statusTabs && (
+        <div className="flex flex-wrap items-center gap-1">
+          {statusTabs.map((tab) => (
+            <Button
+              key={tab.value ?? "all"}
+              variant={status === tab.value ? "secondary" : "ghost"}
+              size="sm"
+              className="h-8 text-xs"
+              onClick={() => updateParams({ status: tab.value, page: undefined })}
+            >
+              {tab.label}
+            </Button>
+          ))}
+        </div>
+      )}
+
+      <DataTable
         columns={[...columns, actionsCol]}
         data={data?.content ?? []}
         isLoading={isLoading}

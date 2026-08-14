@@ -1,6 +1,7 @@
-import { useState, useMemo } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useTranslation } from "react-i18next"
-import type { LineItem, DiscrepancyNote } from "@/utils/types"
+import type { LineItem, DiscrepancyNote, QcRecord } from "@/utils/types"
+import { TRACKING_TYPE } from "@/utils/types"
 import type { ItemAction } from "../reducers/import-create-reducer"
 import { toast } from "@/utils/toast"
 import { Button } from "@/components/ui/button"
@@ -19,7 +20,8 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { SerialModal } from "@/features/stock/components/serial-modal"
 import { LocationPicker } from "@/features/stock/components/location-picker"
-import { ScanLine, CircleCheckBig, Circle, ClipboardList, Check, X, Plus, ListChecks } from "lucide-react"
+import { BinAllocatorDialog } from "@/features/stock/components/import-create-bin-allocator"
+import { ScanLine, CircleCheckBig, Circle, ClipboardList, Check, X, Plus, ListChecks, Layers } from "lucide-react"
 
 interface PreviewEntry {
   line: number
@@ -106,9 +108,11 @@ interface Props {
   dispatch: React.Dispatch<ItemAction>
   discrepancyNotes: DiscrepancyNote[]
   onDiscrepancyNotesChange: (notes: DiscrepancyNote[]) => void
+  poSerialsByProduct?: Map<number, Set<string>>
+  onQcStatus: (status: { hasRecords: boolean; done: boolean; records: QcRecord[] }) => void
 }
 
-export function ImportStepSerials({ items, dispatch, discrepancyNotes, onDiscrepancyNotesChange }: Props) {
+export function ImportStepSerials({ items, dispatch, discrepancyNotes, onDiscrepancyNotesChange, poSerialsByProduct, onQcStatus }: Props) {
   const { t } = useTranslation()
   const [serialModalOpen, setSerialModalOpen] = useState(false)
   const [activeItemId, setActiveItemId] = useState<number | null>(null)
@@ -117,12 +121,80 @@ export function ImportStepSerials({ items, dispatch, discrepancyNotes, onDiscrep
   const [discrepancyOpen, setDiscrepancyOpen] = useState(false)
   const [discDesc, setDiscDesc] = useState("")
   const [discQty, setDiscQty] = useState("")
+  const [allocatorFor, setAllocatorFor] = useState<number | null>(null)
+  const [qcRecords, setQcRecords] = useState<QcRecord[]>([])
+
+  const allSerials = useMemo(
+    () =>
+      items
+        .filter((i) => i.itemStatus !== "NOT_RECEIVED")
+        .flatMap((i) => i.serials.map((s) => ({ serial: s, productName: i.productName }))),
+    [items],
+  )
+
+  useEffect(() => {
+    setQcRecords((prev) => {
+      const prevMap = new Map(prev.map((r) => [r.serial, r]))
+      const synced: QcRecord[] = []
+      let changed = false
+      for (const s of allSerials) {
+        const existing = prevMap.get(s.serial)
+        if (existing) {
+          synced.push(existing)
+        } else {
+          synced.push({ serial: s.serial, productName: s.productName, passed: true, failReason: "" })
+          changed = true
+        }
+      }
+      if (prev.length - synced.length > 0) changed = true
+      return changed ? synced : prev
+    })
+  }, [allSerials])
+
+  useEffect(() => {
+    onQcStatus({
+      hasRecords: qcRecords.length > 0,
+      done: qcRecords.length > 0 && qcRecords.every((r) => r.passed || r.failReason.trim().length > 0),
+      records: qcRecords,
+    })
+  }, [qcRecords, onQcStatus])
+
+  function handleQcChange(serial: string, changes: { passed?: boolean; failReason?: string }) {
+    setQcRecords((prev) => {
+      const existing = prev.find((r) => r.serial === serial)
+      if (existing) return prev.map((r) => (r.serial === serial ? { ...r, ...changes } : r))
+      const item = items.find((i) => i.serials.includes(serial))
+      return [...prev, { serial, productName: item?.productName ?? "", passed: true, failReason: "", ...changes }]
+    })
+  }
 
   const activeItem = items.find((i) => i.tempId === activeItemId)
 
   const totalExpected = useMemo(() => items.reduce((s, i) => s + i.quantity, 0), [items])
-  const totalReceived = useMemo(() => items.filter((i) => i.itemStatus !== "NOT_RECEIVED").reduce((s, i) => s + i.serials.length, 0), [items])
+  const totalReceived = useMemo(
+    () =>
+      items
+        .filter((i) => i.itemStatus !== "NOT_RECEIVED")
+        .reduce((s, i) => s + (i.trackingType === TRACKING_TYPE.BULK ? i.quantity : i.serials.length), 0),
+    [items],
+  )
   const progressPct = totalExpected > 0 ? Math.round((totalReceived / totalExpected) * 100) : 0
+
+  const reconcile = useMemo(() => {
+    const extra: Array<{ item: LineItem; serials: string[] }> = []
+    const missing: Array<{ item: LineItem; serials: string[] }> = []
+    if (!poSerialsByProduct) return { extra, missing }
+    for (const i of items) {
+      if (i.trackingType === TRACKING_TYPE.BULK || i.itemStatus === "NOT_RECEIVED") continue
+      const poSet = poSerialsByProduct.get(i.productId)
+      if (!poSet || poSet.size === 0) continue
+      const extraSerials = i.serials.filter((s) => !poSet.has(s))
+      if (extraSerials.length > 0) extra.push({ item: i, serials: extraSerials })
+      const missingSerials = [...poSet].filter((s) => !i.serials.includes(s))
+      if (missingSerials.length > 0) missing.push({ item: i, serials: missingSerials })
+    }
+    return { extra, missing }
+  }, [items, poSerialsByProduct])
 
   function saveSerials(tempId: number, serials: string[]) {
     dispatch({ type: "SAVE_SERIALS", tempId, serials })
@@ -186,8 +258,6 @@ export function ImportStepSerials({ items, dispatch, discrepancyNotes, onDiscrep
 
   return (
     <div className="space-y-4">
-      <h2 className="text-sm font-semibold text-muted-foreground">{t("importStepSerials.heading")}</h2>
-
       {items.length > 0 && (
         <>
           <div className="flex items-center gap-3 text-sm">
@@ -199,6 +269,21 @@ export function ImportStepSerials({ items, dispatch, discrepancyNotes, onDiscrep
               />
             </div>
             <span className="font-medium tabular-nums">{totalReceived}/{totalExpected}</span>
+            {qcRecords.length > 0 && (
+              <span
+                className={`rounded-full px-2 py-0.5 text-xs font-medium tabular-nums ${
+                  qcRecords.every((r) => r.passed || r.failReason.trim())
+                    ? "bg-green-100 text-green-700 dark:bg-green-950/30 dark:text-green-400"
+                    : "bg-amber-100 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400"
+                }`}
+                title={t("importStepSerials.qcProgressTitle")}
+              >
+                {t("importStepSerials.qcProgress", {
+                  done: qcRecords.filter((r) => r.passed || r.failReason.trim()).length,
+                  total: qcRecords.length,
+                })}
+              </span>
+            )}
           </div>
 
           <div className="rounded-lg border overflow-x-auto">
@@ -209,15 +294,22 @@ export function ImportStepSerials({ items, dispatch, discrepancyNotes, onDiscrep
                   <TableHead className="w-16 text-right">{t("importStepSerials.expected")}</TableHead>
                   <TableHead className="w-20 text-center">{t("importStepSerials.received")}</TableHead>
                   <TableHead className="w-28 text-center">{t("importStepSerials.serial")}</TableHead>
+                  <TableHead className="w-24 text-center">{t("importStepSerials.qcColumn")}</TableHead>
                   <TableHead className="w-36">{t("importStepSerials.location")}</TableHead>
                   <TableHead className="w-28 text-center">{t("importStepSerials.status")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {items.map((item) => {
+                  const isBulk = item.trackingType === TRACKING_TYPE.BULK
                   const serialCount = item.serials.length
-                  const serialOk = serialCount === item.quantity
                   const isNotReceived = item.itemStatus === "NOT_RECEIVED"
+                  const serialOk = isBulk ? !isNotReceived : serialCount === item.quantity
+                  const itemQc = isBulk || isNotReceived
+                    ? null
+                    : item.serials.map((s) => qcRecords.find((r) => r.serial === s)).filter((r): r is QcRecord => !!r)
+                  const qcPending = itemQc ? itemQc.filter((r) => !r.passed && !r.failReason.trim()).length : 0
+                  const qcPassed = itemQc ? itemQc.filter((r) => r.passed).length : 0
                   return (
                     <TableRow key={item.tempId}>
                       <TableCell className="font-medium text-sm truncate max-w-[200px]" title={item.productName}>
@@ -238,12 +330,14 @@ export function ImportStepSerials({ items, dispatch, discrepancyNotes, onDiscrep
                           <span className="text-muted-foreground text-xs">—</span>
                         ) : (
                           <span className={serialOk ? "text-green-600 font-medium" : "text-amber-600"}>
-                            {serialCount}
+                            {isBulk ? item.quantity : serialCount}
                           </span>
                         )}
                       </TableCell>
                       <TableCell className="text-center">
-                        {isNotReceived ? (
+                        {isBulk ? (
+                          <span className="text-xs text-muted-foreground">{t("importStepSerials.bulkNoSerial")}</span>
+                        ) : isNotReceived ? (
                           <span className="text-xs text-muted-foreground italic">{t("importStepSerials.notReceived")}</span>
                         ) : (
                           <Button
@@ -261,12 +355,42 @@ export function ImportStepSerials({ items, dispatch, discrepancyNotes, onDiscrep
                         )}
                       </TableCell>
                       <TableCell>
-                        <LocationPicker
-                          value={item.locationId}
-                          onSelect={(locId) =>
-                            dispatch({ type: "UPDATE_ITEM", tempId: item.tempId, field: "locationId", value: locId })
-                          }
-                        />
+                        {itemQc ? (
+                          <span
+                            className={`inline-flex items-center gap-1 text-xs font-medium ${
+                              qcPending > 0
+                                ? "text-amber-600"
+                                : qcPassed === itemQc.length
+                                  ? "text-green-600"
+                                  : "text-muted-foreground"
+                            }`}
+                          >
+                            {qcPassed}/{itemQc.length} {t("importStepSerials.qcPassed")}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          <LocationPicker
+                            value={item.locationId}
+                            onSelect={(locId) =>
+                              dispatch({ type: "UPDATE_ITEM", tempId: item.tempId, field: "locationId", value: locId })
+                            }
+                          />
+                          {item.quantity > 1 && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="gap-1 text-xs h-8"
+                              onClick={() => setAllocatorFor(item.tempId)}
+                            >
+                              <Layers className="size-3.5" />
+                              {t("binAllocator.open")}
+                            </Button>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell className="text-center">
                         <Tooltip>
@@ -314,6 +438,40 @@ export function ImportStepSerials({ items, dispatch, discrepancyNotes, onDiscrep
               ))}
             </div>
           )}
+
+          {(reconcile.extra.length > 0 || reconcile.missing.length > 0) && (
+            <div className="space-y-1.5 rounded-md border border-amber-300/60 bg-amber-50 px-3 py-2.5 dark:border-amber-800 dark:bg-amber-950/20">
+              {reconcile.extra.length > 0 && (
+                <>
+                  <p className="text-xs font-medium text-amber-800 dark:text-amber-300">
+                    {t("importStepSerials.poMismatchTitle")}
+                  </p>
+                  {reconcile.extra.map(({ item, serials }) => (
+                    <p key={`e-${item.tempId}`} className="text-xs text-amber-700 dark:text-amber-400">
+                      <strong>{item.productName}:</strong>{" "}
+                      {t("importStepSerials.poMismatch", { count: serials.length })}{" "}
+                      <span className="font-mono">{serials.slice(0, 5).join(", ")}{serials.length > 5 ? "…" : ""}</span>
+                    </p>
+                  ))}
+                </>
+              )}
+              {reconcile.missing.length > 0 && (
+                <>
+                  <p className="text-xs font-medium text-amber-800 dark:text-amber-300">
+                    {t("importStepSerials.poMissingTitle")}
+                  </p>
+                  {reconcile.missing.map(({ item, serials }) => (
+                    <p key={`m-${item.tempId}`} className="text-xs text-amber-700 dark:text-amber-400">
+                      <strong>{item.productName}:</strong>{" "}
+                      {t("importStepSerials.poMissing", { count: serials.length })}{" "}
+                      <span className="font-mono">{serials.slice(0, 5).join(", ")}{serials.length > 5 ? "…" : ""}</span>
+                    </p>
+                  ))}
+                </>
+              )}
+              <p className="text-[11px] text-amber-600/80 dark:text-amber-500/80">{t("importStepSerials.poMismatchNote")}</p>
+            </div>
+          )}
         </>
       )}
 
@@ -342,6 +500,19 @@ export function ImportStepSerials({ items, dispatch, discrepancyNotes, onDiscrep
           required={activeItem.quantity}
           serials={activeItem.serials}
           onSave={(serials) => saveSerials(activeItem.tempId, serials)}
+          qcRecords={qcRecords}
+          onQcChange={handleQcChange}
+        />
+      )}
+
+      {allocatorFor != null && (
+        <BinAllocatorDialog
+          open={allocatorFor != null}
+          onOpenChange={(open) => {
+            if (!open) setAllocatorFor(null)
+          }}
+          item={items.find((i) => i.tempId === allocatorFor)!}
+          dispatch={dispatch}
         />
       )}
 

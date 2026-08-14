@@ -12,9 +12,16 @@ export async function getImportReceipts(
   size = 20,
   sort?: string,
   status?: string,
+  unresolved?: boolean,
 ): Promise<ResponsePage<ImportReceipt>> {
   const res = await http.get("/import-receipt", {
-    params: { page, size, sort: sort ?? "createdAt,desc", ...(status && { status }) },
+    params: {
+      page,
+      size,
+      sort: sort ?? "createdAt,desc",
+      ...(status && { status }),
+      ...(unresolved && { unresolved }),
+    },
   })
   return mapResponsePage(res, mapImportReceipt)
 }
@@ -57,15 +64,34 @@ export async function confirmImportReceipt(
       itemId: number
       serialNumbers: string[]
       locationId: number | null
+      allocations?: Array<{
+        locationId: number
+        quantity: number
+        serialNumbers: string[]
+      }>
     }>
+    note?: string
+    rejectedSerials?: Array<{ serial: string; reason: string }>
+    notReceivedItemIds?: number[]
   },
 ): Promise<ImportReceipt> {
   const res = await http.put(`/import-receipt/${id}/confirm`, data)
   return mapImportReceipt(res)
 }
 
-export async function approveImportReceipt(id: number): Promise<ImportReceipt> {
-  const res = await http.put(`/import-receipt/${id}/approve`)
+export async function resolveImportReceipt(
+  id: number,
+  data: { resolution: string; note?: string },
+): Promise<ImportReceipt> {
+  const res = await http.put(`/import-receipt/${id}/resolve`, data)
+  return mapImportReceipt(res)
+}
+
+export async function rejectImportReceipt(
+  id: number,
+  data: { reason: string; evidenceImageUrl: string },
+): Promise<ImportReceipt> {
+  const res = await http.put(`/import-receipt/${id}/reject`, data)
   return mapImportReceipt(res)
 }
 

@@ -11,10 +11,10 @@ import { ScanLine, Eye } from "lucide-react"
 
 const getStatusLabel = (status: string, t: TFunction): { label: string; variant: "default" | "secondary" | "outline" | "destructive" } => {
   const keyMap: Record<string, string> = {
-    [IMPORT_RECEIPT_STATUS.DRAFT]: "draft", [IMPORT_RECEIPT_STATUS.PENDING_APPROVAL]: "pendingApproval", [IMPORT_RECEIPT_STATUS.COMPLETED]: "completed", [IMPORT_RECEIPT_STATUS.CANCELLED]: "cancelled",
+    [IMPORT_RECEIPT_STATUS.DRAFT]: "draft", [IMPORT_RECEIPT_STATUS.RECEIVED]: "received", [IMPORT_RECEIPT_STATUS.REJECTED]: "rejected", [IMPORT_RECEIPT_STATUS.CANCELLED]: "cancelled",
   }
   const variantMap: Record<string, "secondary" | "outline" | "default" | "destructive"> = {
-    [IMPORT_RECEIPT_STATUS.DRAFT]: "secondary", [IMPORT_RECEIPT_STATUS.PENDING_APPROVAL]: "outline", [IMPORT_RECEIPT_STATUS.COMPLETED]: "default", [IMPORT_RECEIPT_STATUS.CANCELLED]: "destructive",
+    [IMPORT_RECEIPT_STATUS.DRAFT]: "secondary", [IMPORT_RECEIPT_STATUS.RECEIVED]: "default", [IMPORT_RECEIPT_STATUS.REJECTED]: "destructive", [IMPORT_RECEIPT_STATUS.CANCELLED]: "destructive",
   }
   return { label: t(`importStatus.${keyMap[status] ?? status}`, status), variant: variantMap[status] ?? "secondary" }
 }
@@ -58,18 +58,63 @@ export const ViewImportModal = ({
               <p className="font-medium">{receipt.supplierName || "—"}</p>
             </div>
             <div>
-              <span className="text-muted-foreground">{t("label.createdDate")}</span>
-              <p className="font-medium">{new Date(receipt.createdAt).toLocaleString("vi-VN")}</p>
+              <span className="text-muted-foreground">{t("importDetail.taskReceivedTime")}</span>
+              <p className="font-medium">{new Date(receipt.updatedAt).toLocaleString("vi-VN")}</p>
             </div>
             <div>
               <span className="text-muted-foreground">{t("label.creator")}</span>
               <p className="font-medium">{receipt.createdByName || "—"}</p>
             </div>
-            <div>
-              <span className="text-muted-foreground">{t("label.approver")}</span>
-              <p className="font-medium">{receipt.approvedByName ?? "—"}</p>
-            </div>
+            {receipt.status === IMPORT_RECEIPT_STATUS.REJECTED ? (
+              <>
+                <div>
+                  <span className="text-muted-foreground">{t("viewImportModal.rejectedBy")}</span>
+                  <p className="font-medium">{receipt.rejectedByName ?? "—"}</p>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">{t("viewImportModal.rejectedAt")}</span>
+                  <p className="font-medium">{receipt.rejectedAt ? new Date(receipt.rejectedAt).toLocaleString("vi-VN") : "—"}</p>
+                </div>
+              </>
+            ) : (
+              <div>
+                <span className="text-muted-foreground">{t("label.approver")}</span>
+                <p className="font-medium">{receipt.approvedByName ?? "—"}</p>
+              </div>
+            )}
           </div>
+          {receipt.status === IMPORT_RECEIPT_STATUS.REJECTED && (
+            <div className="rounded-md border border-destructive/20 bg-destructive/5 px-3 py-2.5 text-sm space-y-2">
+              <div>
+                <span className="text-xs font-medium text-destructive tracking-wide">{t("viewImportModal.rejectReason")}</span>
+                <p className="mt-1 leading-relaxed">{receipt.rejectReason ?? "—"}</p>
+              </div>
+              {receipt.evidenceImage && (
+                <img
+                  src={receipt.evidenceImage}
+                  alt={t("viewImportModal.evidence")}
+                  className="max-h-48 rounded-md border object-contain"
+                />
+              )}
+            </div>
+          )}
+          {receipt.status === IMPORT_RECEIPT_STATUS.REJECTED && receipt.resolution && (
+            <div className="rounded-md border bg-primary/5 px-3 py-2.5 text-sm space-y-1.5">
+              <div className="flex items-center gap-2">
+                <Badge variant="outline">
+                  {receipt.resolution === "RETURNED_TO_SUPPLIER"
+                    ? t("importDetail.resolveReturned")
+                    : t("importDetail.resolveResending")}
+                </Badge>
+                {receipt.resolvedByName && (
+                  <span className="text-xs text-muted-foreground">
+                    {t("importDetail.resolvedBy")}: {receipt.resolvedByName}
+                  </span>
+                )}
+              </div>
+              {receipt.resolutionNote && <p className="leading-relaxed">{receipt.resolutionNote}</p>}
+            </div>
+          )}
           {receipt.note && (
             <div className="rounded-md border bg-muted/20 px-3 py-2.5 text-sm">
               <span className="text-xs font-medium text-muted-foreground tracking-wide">{t("label.note")}</span>

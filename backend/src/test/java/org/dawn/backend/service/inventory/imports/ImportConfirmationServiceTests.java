@@ -1,7 +1,6 @@
 package org.dawn.backend.service.inventory.imports;
 
 import org.dawn.backend.constant.enums.inventory.ProductUnitStatus;
-import org.dawn.backend.constant.enums.inventory.exports.ExportReason;
 import org.dawn.backend.constant.enums.inventory.imports.ImportReceiptStatus;
 import org.dawn.backend.controller.inventory.request.ConfirmImportRequest;
 import org.dawn.backend.controller.inventory.request.ConfirmImportRequest.SerialAssignment;
@@ -61,6 +60,7 @@ class ImportConfirmationServiceTests {
     @Mock StateMachine<ImportReceiptStatus> importReceiptStateMachine;
     @Mock PurchaseOrderRepository purchaseOrderRepository;
     @Mock PurchaseOrderItemRepository purchaseOrderItemRepository;
+    @Mock ImportWorkflowService importWorkflowService;
 
     @InjectMocks ImportConfirmationService service;
 
@@ -136,7 +136,7 @@ class ImportConfirmationServiceTests {
     }
 
     private void stubWarrantyExport() {
-        when(exportReceiptRepository.findById(exportReceiptId)).thenReturn(Optional.of(exportReceipt(ExportReason.WARRANTY_REPLACEMENT.name())));
+        when(exportReceiptRepository.findById(exportReceiptId)).thenReturn(Optional.of(exportReceipt("WARRANTY_REPLACEMENT")));
         when(exportReceiptItemUnitRepository.findProductUnitIdsByReceiptId(exportReceiptId)).thenReturn(Set.of(1L));
         when(productUnitRepository.findAllById(Set.of(1L))).thenReturn(List.of(sentUnit()));
         Location staging = location(5L);
@@ -247,7 +247,7 @@ class ImportConfirmationServiceTests {
     @Test
     void warranty_fail_exportNotReplacement() {
         when(exportReceiptRepository.findById(exportReceiptId))
-                .thenReturn(Optional.of(exportReceipt(ExportReason.SALE.name())));
+                .thenReturn(Optional.of(exportReceipt("SALE")));
         stubReceiptSave();
         when(securityPolicy.requireAuthenticated()).thenReturn(userId);
 
@@ -371,9 +371,11 @@ class ImportConfirmationServiceTests {
         stubConfirmContext(draftReceipt(), List.of(bulkItem, serialItem),
                 bulkProduct("METER"), serializedProduct(21L));
 
-        service.confirm(importReceiptId, new ConfirmImportRequest(importReceiptId, List.of(
-                new SerialAssignment(200L, null, 10L),
-                new SerialAssignment(201L, List.of("SN-1", "SN-2"), 11L))));
+        service.confirm(importReceiptId,
+                new ConfirmImportRequest(importReceiptId,
+                        List.of(
+                                new SerialAssignment(200L, null, 10L, null),
+                                new SerialAssignment(201L, List.of("SN-1", "SN-2"), 11L, null))));
 
         List<ProductUnit> saved = capturedSavedUnits();
         assertEquals(3, saved.size());
@@ -386,7 +388,19 @@ class ImportConfirmationServiceTests {
         assertTrue(saved.stream().anyMatch(u -> "SN-1".equals(u.getSerialNumber()) && 11L == u.getLocationId()));
         assertTrue(saved.stream().anyMatch(u -> "SN-2".equals(u.getSerialNumber())));
         verify(importReceiptRepository).save(argThat(r ->
-                ImportReceiptStatus.PENDING_APPROVAL.equals(r.getStatus())));
+                ImportReceiptStatus.RECEIVED.equals(r.getStatus())));
+    }
+
+    @Test
+    void confirm_persistsNote() {
+        ImportReceiptItem item = receiptItem(200L, 20L, BigDecimal.ONE);
+        stubConfirmContext(draftReceipt(), List.of(item), bulkProduct("METER"));
+
+        service.confirm(importReceiptId, new ConfirmImportRequest(importReceiptId,
+                List.of(new SerialAssignment(200L, null, 10L, null)), "Hàng đủ, nhập OK"));
+
+        verify(importReceiptRepository).save(argThat(r ->
+                "Hàng đủ, nhập OK".equals(r.getNote())));
     }
 
     @Test
@@ -395,7 +409,7 @@ class ImportConfirmationServiceTests {
         stubConfirmContext(draftReceipt(), List.of(item), bulkProduct("TUBE"));
 
         service.confirm(importReceiptId, new ConfirmImportRequest(importReceiptId,
-                List.of(new SerialAssignment(200L, null, 10L))));
+                List.of(new SerialAssignment(200L, null, 10L, null))));
 
         ProductUnit unit = capturedSavedUnits().get(0);
         assertEquals("BULK", unit.getTrackingType());
@@ -408,7 +422,7 @@ class ImportConfirmationServiceTests {
         stubConfirmContext(draftReceipt(), List.of(item), serializedProduct(21L));
 
         ConfirmImportRequest request = new ConfirmImportRequest(importReceiptId,
-                List.of(new SerialAssignment(200L, List.of("SN-1", "SN-2"), 10L)));
+                List.of(new SerialAssignment(200L, List.of("SN-1", "SN-2"), 10L, null)));
 
         assertThrows(InvalidRequestException.class, () -> service.confirm(importReceiptId, request));
         verify(productUnitRepository, never()).saveAll(anyList());
@@ -420,7 +434,7 @@ class ImportConfirmationServiceTests {
         stubConfirmContext(draftReceipt(), List.of(item), serializedProduct(21L));
 
         ConfirmImportRequest request = new ConfirmImportRequest(importReceiptId,
-                List.of(new SerialAssignment(200L, List.of("SN-1", "SN-2", "SN-3"), 10L)));
+                List.of(new SerialAssignment(200L, List.of("SN-1", "SN-2", "SN-3"), 10L, null)));
 
         assertThrows(InvalidRequestException.class, () -> service.confirm(importReceiptId, request));
         verify(productUnitRepository, never()).saveAll(anyList());
@@ -431,7 +445,7 @@ class ImportConfirmationServiceTests {
         stubConfirmContext(draftReceipt(), List.of(), bulkProduct("METER"));
 
         ConfirmImportRequest request = new ConfirmImportRequest(importReceiptId,
-                List.of(new SerialAssignment(999L, null, 10L)));
+                List.of(new SerialAssignment(999L, null, 10L, null)));
 
         assertThrows(InvalidRequestException.class, () -> service.confirm(importReceiptId, request));
         verify(productUnitRepository, never()).saveAll(anyList());
@@ -445,7 +459,7 @@ class ImportConfirmationServiceTests {
                 bulkProduct("METER"), serializedProduct(21L));
 
         ConfirmImportRequest request = new ConfirmImportRequest(importReceiptId,
-                List.of(new SerialAssignment(200L, null, 10L)));
+                List.of(new SerialAssignment(200L, null, 10L, null)));
 
         assertThrows(InvalidRequestException.class, () -> service.confirm(importReceiptId, request));
         verify(productUnitRepository, never()).saveAll(anyList());
@@ -457,7 +471,7 @@ class ImportConfirmationServiceTests {
         stubConfirmContext(draftReceipt(), List.of(item), serializedProduct(21L));
 
         ConfirmImportRequest request = new ConfirmImportRequest(importReceiptId,
-                List.of(new SerialAssignment(200L, List.of("SN-1"), null)));
+                List.of(new SerialAssignment(200L, List.of("SN-1"), null, null)));
 
         assertThrows(InvalidRequestException.class, () -> service.confirm(importReceiptId, request));
         verify(productUnitRepository, never()).saveAll(anyList());
@@ -469,9 +483,174 @@ class ImportConfirmationServiceTests {
         stubConfirmContext(draftReceipt(), List.of(item), bulkProduct("METER"));
 
         ConfirmImportRequest request = new ConfirmImportRequest(importReceiptId,
-                List.of(new SerialAssignment(200L, null, 10L)));
+                List.of(new SerialAssignment(200L, null, 10L, null)));
 
         assertThrows(InvalidRequestException.class, () -> service.confirm(importReceiptId, request));
         verify(productUnitRepository, never()).saveAll(anyList());
+    }
+
+    // ─── Confirm 2 bước: chia nhiều bin (allocations) ────
+
+    private ConfirmImportRequest.SerialAssignment.Allocation alloc(Long locationId, String qty, String... serials) {
+        return new ConfirmImportRequest.SerialAssignment.Allocation(
+                locationId, new BigDecimal(qty), List.of(serials));
+    }
+
+    @Test
+    void confirm_serializedAllocations_spreadAcrossBins() {
+        ImportReceiptItem item = receiptItem(200L, 21L, BigDecimal.valueOf(3));
+        stubConfirmContext(draftReceipt(), List.of(item), serializedProduct(21L));
+
+        ConfirmImportRequest request = new ConfirmImportRequest(importReceiptId,
+                List.of(new SerialAssignment(200L, List.of("SN-1", "SN-2", "SN-3"), null,
+                        List.of(alloc(10L, "2", "SN-1", "SN-2"), alloc(11L, "1", "SN-3")))));
+
+        service.confirm(importReceiptId, request);
+
+        List<ProductUnit> saved = capturedSavedUnits();
+        assertEquals(3, saved.size());
+        assertEquals(10L, saved.stream().filter(u -> "SN-1".equals(u.getSerialNumber())).findFirst().orElseThrow().getLocationId());
+        assertEquals(10L, saved.stream().filter(u -> "SN-2".equals(u.getSerialNumber())).findFirst().orElseThrow().getLocationId());
+        assertEquals(11L, saved.stream().filter(u -> "SN-3".equals(u.getSerialNumber())).findFirst().orElseThrow().getLocationId());
+    }
+
+    @Test
+    void confirm_serializedAllocationDuplicateSerial_throws() {
+        ImportReceiptItem item = receiptItem(200L, 21L, BigDecimal.valueOf(2));
+        stubConfirmContext(draftReceipt(), List.of(item), serializedProduct(21L));
+
+        ConfirmImportRequest request = new ConfirmImportRequest(importReceiptId,
+                List.of(new SerialAssignment(200L, List.of("SN-1", "SN-1"), null,
+                        List.of(alloc(10L, "1", "SN-1"), alloc(11L, "1", "SN-1")))));
+
+        assertThrows(InvalidRequestException.class, () -> service.confirm(importReceiptId, request));
+        verify(productUnitRepository, never()).saveAll(anyList());
+    }
+
+    @Test
+    void confirm_serializedAllocationSerialCountMismatch_throws() {
+        ImportReceiptItem item = receiptItem(200L, 21L, BigDecimal.valueOf(2));
+        stubConfirmContext(draftReceipt(), List.of(item), serializedProduct(21L));
+
+        ConfirmImportRequest request = new ConfirmImportRequest(importReceiptId,
+                List.of(new SerialAssignment(200L, List.of("SN-1"), null,
+                        List.of(alloc(10L, "2", "SN-1")))));
+
+        assertThrows(InvalidRequestException.class, () -> service.confirm(importReceiptId, request));
+        verify(productUnitRepository, never()).saveAll(anyList());
+    }
+
+    @Test
+    void confirm_serializedAllocationMissingLocation_throws() {
+        ImportReceiptItem item = receiptItem(200L, 21L, BigDecimal.ONE);
+        stubConfirmContext(draftReceipt(), List.of(item), serializedProduct(21L));
+
+        ConfirmImportRequest request = new ConfirmImportRequest(importReceiptId,
+                List.of(new SerialAssignment(200L, List.of("SN-1"), null,
+                        List.of(alloc(null, "1", "SN-1")))));
+
+        assertThrows(InvalidRequestException.class, () -> service.confirm(importReceiptId, request));
+        verify(productUnitRepository, never()).saveAll(anyList());
+    }
+
+    @Test
+    void confirm_bulkAllocations_splitAcrossBins() {
+        ImportReceiptItem item = receiptItem(200L, 20L, new BigDecimal("5.5"));
+        stubConfirmContext(draftReceipt(), List.of(item), bulkProduct("METER"));
+
+        ConfirmImportRequest request = new ConfirmImportRequest(importReceiptId,
+                List.of(new SerialAssignment(200L, null, null,
+                        List.of(alloc(10L, "3"), alloc(11L, "2.5")))));
+
+        service.confirm(importReceiptId, request);
+
+        List<ProductUnit> saved = capturedSavedUnits();
+        assertEquals(2, saved.size());
+        assertEquals(10L, saved.get(0).getLocationId());
+        assertEquals(0, new BigDecimal("3").compareTo(saved.get(0).getRemainingQuantity()));
+        assertEquals(11L, saved.get(1).getLocationId());
+    }
+
+    @Test
+    void confirm_bulkAllocations_qtySumMismatch_throws() {
+        ImportReceiptItem item = receiptItem(200L, 20L, new BigDecimal("5.5"));
+        stubConfirmContext(draftReceipt(), List.of(item), bulkProduct("METER"));
+
+        ConfirmImportRequest request = new ConfirmImportRequest(importReceiptId,
+                List.of(new SerialAssignment(200L, null, null,
+                        List.of(alloc(10L, "3"), alloc(11L, "3")))));
+
+        assertThrows(InvalidRequestException.class, () -> service.confirm(importReceiptId, request));
+        verify(productUnitRepository, never()).saveAll(anyList());
+    }
+
+    @Test
+    void confirm_bulkAllocationSerialNotAllowed_throws() {
+        ImportReceiptItem item = receiptItem(200L, 20L, BigDecimal.ONE);
+        stubConfirmContext(draftReceipt(), List.of(item), bulkProduct("METER"));
+
+        ConfirmImportRequest request = new ConfirmImportRequest(importReceiptId,
+                List.of(new SerialAssignment(200L, List.of("SN-1"), null,
+                        List.of(alloc(10L, "1")))));
+
+        assertThrows(InvalidRequestException.class, () -> service.confirm(importReceiptId, request));
+        verify(productUnitRepository, never()).saveAll(anyList());
+    }
+
+    // ─── QC: serial lỗi → không nhập kho (không tạo unit) ────
+
+    @Test
+    void confirm_rejectedSerial_excludedFromStock() {
+        ImportReceiptItem item = receiptItem(200L, 21L, BigDecimal.valueOf(2));
+        stubConfirmContext(draftReceipt(), List.of(item), serializedProduct(21L));
+
+        ConfirmImportRequest request = new ConfirmImportRequest(importReceiptId,
+                List.of(new SerialAssignment(200L, List.of("SN-1", "SN-2"), 10L, null)),
+                null,
+                List.of(new ConfirmImportRequest.RejectedSerial("SN-2", "Trầy xước")),
+                null);
+
+        service.confirm(importReceiptId, request);
+
+        List<ProductUnit> saved = capturedSavedUnits();
+        assertEquals(1, saved.size());
+        assertEquals("SN-1", saved.get(0).getSerialNumber());
+        verify(importReceiptItemRepository).saveAll(argThat(items ->
+                BigDecimal.ONE.compareTo(((ImportReceiptItem) ((List<?>) items).get(0)).getReceivedQuantity()) == 0));
+    }
+
+    @Test
+    void confirm_rejectedSerialNotInEnteredList_throws() {
+        ImportReceiptItem item = receiptItem(200L, 21L, BigDecimal.valueOf(2));
+        stubConfirmContext(draftReceipt(), List.of(item), serializedProduct(21L));
+
+        ConfirmImportRequest request = new ConfirmImportRequest(importReceiptId,
+                List.of(new SerialAssignment(200L, List.of("SN-1", "SN-2"), 10L, null)),
+                null,
+                List.of(new ConfirmImportRequest.RejectedSerial("SN-999", "Lỗi")),
+                null);
+
+        assertThrows(InvalidRequestException.class, () -> service.confirm(importReceiptId, request));
+        verify(productUnitRepository, never()).saveAll(anyList());
+    }
+
+    @Test
+    void confirm_notReceivedItem_allowedAndZeroReceived() {
+        ImportReceiptItem bulkItem = receiptItem(200L, 20L, BigDecimal.ONE);
+        ImportReceiptItem serialItem = receiptItem(201L, 21L, BigDecimal.ONE);
+        stubConfirmContext(draftReceipt(), List.of(bulkItem, serialItem),
+                bulkProduct("METER"), serializedProduct(21L));
+
+        ConfirmImportRequest request = new ConfirmImportRequest(importReceiptId,
+                List.of(new SerialAssignment(200L, null, 10L, null)),
+                null, null,
+                List.of(201L));
+
+        service.confirm(importReceiptId, request);
+
+        List<ProductUnit> saved = capturedSavedUnits();
+        assertEquals(1, saved.size());
+        verify(importReceiptItemRepository).saveAll(argThat(items ->
+                BigDecimal.ZERO.compareTo(((ImportReceiptItem) ((List<?>) items).get(1)).getReceivedQuantity()) == 0));
     }
 }

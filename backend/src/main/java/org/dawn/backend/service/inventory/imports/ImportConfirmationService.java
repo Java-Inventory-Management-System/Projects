@@ -8,7 +8,6 @@ import org.dawn.backend.constant.enums.catalog.TrackingType;
 import org.dawn.backend.constant.enums.catalog.UnitOfMeasure;
 import org.dawn.backend.constant.enums.inventory.ProductUnitStatus;
 import org.dawn.backend.constant.enums.inventory.SourceType;
-import org.dawn.backend.constant.enums.inventory.exports.ExportReason;
 import org.dawn.backend.constant.enums.inventory.imports.ImportReceiptStatus;
 import org.dawn.backend.constant.enums.inventory.imports.WarrantyResultType;
 import org.dawn.backend.constant.shared.LogConstant;
@@ -43,7 +42,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -64,6 +65,7 @@ public class ImportConfirmationService {
     private final StateMachine<ImportReceiptStatus> importReceiptStateMachine;
     private final SecurityPolicy securityPolicy;
     private final ImportReceiptService importReceiptService;
+    private final ImportWorkflowService importWorkflowService;
     private final LocationCapacityValidator capacityValidator;
     private final ExportReceiptRepository exportReceiptRepository;
     private final ExportReceiptItemUnitRepository exportReceiptItemUnitRepository;
@@ -105,7 +107,7 @@ public class ImportConfirmationService {
                                 .orElse(null))
                 .purchaseOrderId(request.purchaseOrderId())
                 .originalWarrantyExportId(request.originalWarrantyExportId())
-                .status(ImportReceiptStatus.PENDING_APPROVAL)
+                .status(ImportReceiptStatus.RECEIVED)
                 .note(request.note())
                 .createdBy(userId)
                 .build();
@@ -114,6 +116,15 @@ public class ImportConfirmationService {
 
         if (request.originalWarrantyExportId() != null) {
             return createAndConfirmWarranty(request, receipt, userId);
+        }
+
+        if (request.purchaseOrderId() != null) {
+            Map<Long, BigDecimal> currentByProduct = new HashMap<>();
+            for (ImportReceiptRequest.ImportItemRequest itemReq : request.items()) {
+                currentByProduct.merge(itemReq.productId(),
+                        itemReq.quantity() != null ? itemReq.quantity() : BigDecimal.ZERO, BigDecimal::add);
+            }
+            importWorkflowService.assertNotOverReceived(request.purchaseOrderId(), currentByProduct);
         }
 
         BigDecimal totalAmount = BigDecimal.ZERO;
@@ -230,7 +241,7 @@ public class ImportConfirmationService {
 
         ImportReceipt receipt = importReceiptRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.IMPORT_RECEIPT_NOT_FOUND));
-        importReceiptStateMachine.validate(receipt.getStatus(), ImportReceiptStatus.PENDING_APPROVAL);
+        importReceiptStateMachine.validate(receipt.getStatus(), ImportReceiptStatus.RECEIVED);
 
         var items = importReceiptItemRepository.findByReceiptId(id);
         var itemsById = items.stream().collect(Collectors.toMap(
@@ -246,6 +257,33 @@ public class ImportConfirmationService {
                 .map(ConfirmImportRequest.SerialAssignment::itemId)
                 .collect(Collectors.toSet());
 
+        var notReceivedIds = request.notReceivedItemIds() != null
+                ? Set.copyOf(request.notReceivedItemIds())
+                : Set.<Long>of();
+        var rejectedSerials = request.rejectedSerials() != null
+                ? request.rejectedSerials()
+                : List.<ConfirmImportRequest.RejectedSerial>of();
+        var rejectedSet = rejectedSerials.stream()
+                .map(r -> r.serial() == null ? "" : r.serial().trim().toLowerCase())
+                .filter(s -> !s.isEmpty())
+                .collect(Collectors.toSet());
+
+        if (!rejectedSet.isEmpty()) {
+            var allEnteredSerials = assignments.stream().flatMap(a -> {
+                var allocs = a.allocations();
+                if (allocs != null && !allocs.isEmpty()) {
+                    return allocs.stream().flatMap(al -> (al.serialNumbers() == null
+                            ? List.<String>of() : al.serialNumbers()).stream());
+                }
+                return (a.serialNumbers() == null ? List.<String>of() : a.serialNumbers()).stream();
+            }).map(String::trim).filter(s -> !s.isEmpty()).map(String::toLowerCase).collect(Collectors.toSet());
+            for (var rej : rejectedSerials) {
+                if (rej.serial() == null || !allEnteredSerials.contains(rej.serial().trim().toLowerCase())) {
+                    throw new InvalidRequestException(ErrorCode.QC_REJECTED_SERIAL_NOT_IN_LIST.format(rej.serial()));
+                }
+            }
+        }
+
         for (Long itemId : assignedItemIds) {
             if (!itemsById.containsKey(itemId)) {
                 throw new InvalidRequestException(ErrorCode.IMPORT_ITEM_NOT_IN_RECEIPT.format( itemId));
@@ -254,7 +292,7 @@ public class ImportConfirmationService {
 
         List<Long> missingItems = items.stream()
                 .map(ImportReceiptItem::getId)
-                .filter(itemId -> !assignedItemIds.contains(itemId))
+                .filter(itemId -> !assignedItemIds.contains(itemId) && !notReceivedIds.contains(itemId))
                 .toList();
         if (!missingItems.isEmpty()) {
             throw new InvalidRequestException(ErrorCode.IMPORT_CONFIRM_ITEMS_INCOMPLETE.format( missingItems));
@@ -265,12 +303,13 @@ public class ImportConfirmationService {
 
         for (var assignment : assignments) {
             ImportReceiptItem item = itemsById.get(assignment.itemId());
+            if (notReceivedIds.contains(assignment.itemId())) {
+                continue;
+            }
             Product product = productMap.get(item.getProductId());
             boolean isBulk = product != null && product.getUnit() != null && BULK_UNITS.contains(product.getUnit());
-
-            if (assignment.locationId() == null) {
-                throw new InvalidRequestException(ErrorCode.IMPORT_LOCATION_REQUIRED.format( item.getId()));
-            }
+            List<ConfirmImportRequest.SerialAssignment.Allocation> allocations = assignment.allocations();
+            boolean useAllocations = allocations != null && !allocations.isEmpty();
 
             if (isBulk) {
                 if (item.getQuantity() == null || item.getQuantity().compareTo(BigDecimal.ZERO) <= 0) {
@@ -279,28 +318,45 @@ public class ImportConfirmationService {
                 if (assignment.serialNumbers() != null && !assignment.serialNumbers().isEmpty()) {
                     throw new InvalidRequestException(ErrorCode.SERIAL_NOT_ALLOWED_FOR_BULK);
                 }
-                capacityValidator.assertCapacity(assignment.locationId(), item.getQuantity());
-                unitsToSave.add(ProductUnit.builder()
-                        .serialNumber(null)
-                        .productId(item.getProductId())
-                        .trackingType(TrackingType.BULK.name())
-                        .initialQuantity(item.getQuantity())
-                        .remainingQuantity(item.getQuantity())
-                        .importReceiptItemId(item.getId())
-                        .locationId(assignment.locationId())
-                        .status(ProductUnitStatus.IN_STOCK)
-                        .importedAt(now)
-                        .warrantyMonths(item.getWarrantyMonths())
-                        .build());
+                if (useAllocations) {
+                    validateAllocationQuantities(item, allocations);
+                    for (var alloc : allocations) {
+                        capacityValidator.assertCapacity(alloc.locationId(), alloc.quantity());
+                        unitsToSave.add(bulkUnit(item, alloc.locationId(), alloc.quantity(), now));
+                    }
+                } else {
+                    if (assignment.locationId() == null) {
+                        throw new InvalidRequestException(ErrorCode.IMPORT_LOCATION_REQUIRED.format( item.getId()));
+                    }
+                    capacityValidator.assertCapacity(assignment.locationId(), item.getQuantity());
+                    unitsToSave.add(bulkUnit(item, assignment.locationId(), item.getQuantity(), now));
+                }
             } else {
-                var serials = assignment.serialNumbers() == null
-                        ? List.<String>of()
-                        : assignment.serialNumbers().stream()
-                                .map(String::trim)
-                                .peek(s -> {
-                                    if (s.isBlank()) throw new InvalidRequestException(ErrorCode.SERIAL_BLANK);
-                                })
-                                .toList();
+                List<String> serials;
+                if (useAllocations) {
+                    serials = allocations.stream()
+                            .flatMap(a -> (a.serialNumbers() == null ? List.<String>of() : a.serialNumbers()).stream())
+                            .map(String::trim)
+                            .peek(s -> {
+                                if (s.isBlank()) throw new InvalidRequestException(ErrorCode.SERIAL_BLANK);
+                            })
+                            .toList();
+                    var seen = new java.util.HashSet<String>();
+                    for (String s : serials) {
+                        if (!seen.add(s.toLowerCase())) {
+                            throw new InvalidRequestException(ErrorCode.ALLOCATION_SERIAL_DUPLICATE.format(s));
+                        }
+                    }
+                } else {
+                    serials = assignment.serialNumbers() == null
+                            ? List.<String>of()
+                            : assignment.serialNumbers().stream()
+                                    .map(String::trim)
+                                    .peek(s -> {
+                                        if (s.isBlank()) throw new InvalidRequestException(ErrorCode.SERIAL_BLANK);
+                                    })
+                                    .toList();
+                }
                 if (serials.isEmpty()) {
                     throw new InvalidRequestException(ErrorCode.SERIAL_REQUIRED_FOR_SERIALIZED);
                 }
@@ -308,30 +364,58 @@ public class ImportConfirmationService {
                     throw new InvalidRequestException(ErrorCode.SERIAL_COUNT_MUST_MATCH);
                 }
 
-                var existing = productUnitRepository.findExistingSerialNumbers(serials);
+                List<String> passSerials = serials.stream()
+                        .filter(s -> !rejectedSet.contains(s.toLowerCase()))
+                        .toList();
+
+                var existing = productUnitRepository.findExistingSerialNumbers(passSerials);
                 if (!existing.isEmpty()) {
                     throw new ResourceAlreadyExistedException(
                             ErrorCode.SERIAL_ALREADY_EXISTS_LIST.format( String.join(", ", existing)));
                 }
 
-                capacityValidator.assertCapacity(assignment.locationId(), BigDecimal.valueOf(serials.size()));
-
                 String trackingType = product != null
                         ? TrackingType.valueOf(product.getTrackingType()).name()
                         : TrackingType.SERIALIZED.name();
-                for (String serial : serials) {
-                    unitsToSave.add(ProductUnit.builder()
-                            .serialNumber(serial)
-                            .productId(item.getProductId())
-                            .trackingType(trackingType)
-                            .initialQuantity(null)
-                            .remainingQuantity(null)
-                            .importReceiptItemId(item.getId())
-                            .locationId(assignment.locationId())
-                            .status(ProductUnitStatus.IN_STOCK)
-                            .importedAt(now)
-                            .warrantyMonths(item.getWarrantyMonths())
-                            .build());
+
+                if (useAllocations) {
+                    for (var alloc : allocations) {
+                        List<String> allocSerials = alloc.serialNumbers() == null
+                                ? List.<String>of()
+                                : alloc.serialNumbers().stream().map(String::trim)
+                                        .filter(s -> !s.isBlank()).toList();
+                        boolean rejectedHere = allocSerials.stream()
+                                .anyMatch(s -> rejectedSet.contains(s.toLowerCase()));
+                        if (rejectedHere) {
+                            allocSerials = allocSerials.stream()
+                                    .filter(s -> !rejectedSet.contains(s.toLowerCase())).toList();
+                        }
+                        BigDecimal allocQty = alloc.quantity() != null
+                                ? alloc.quantity()
+                                : BigDecimal.valueOf(allocSerials.size());
+                        if (alloc.locationId() == null) {
+                            throw new InvalidRequestException(ErrorCode.ALLOCATION_LOCATION_REQUIRED.format(item.getId()));
+                        }
+                        if (allocQty.compareTo(BigDecimal.ZERO) <= 0) {
+                            throw new InvalidRequestException(ErrorCode.ALLOCATION_QTY_INVALID.format(item.getId()));
+                        }
+                        if (!rejectedHere && BigDecimal.valueOf(allocSerials.size()).compareTo(allocQty) != 0) {
+                            throw new InvalidRequestException(
+                                    ErrorCode.ALLOCATION_SERIAL_COUNT_MISMATCH.format(item.getId(), allocQty));
+                        }
+                        capacityValidator.assertCapacity(alloc.locationId(), allocQty);
+                        for (String serial : allocSerials) {
+                            unitsToSave.add(serializedUnit(item, serial, trackingType, alloc.locationId(), now));
+                        }
+                    }
+                } else {
+                    if (assignment.locationId() == null) {
+                        throw new InvalidRequestException(ErrorCode.IMPORT_LOCATION_REQUIRED.format( item.getId()));
+                    }
+                    capacityValidator.assertCapacity(assignment.locationId(), BigDecimal.valueOf(passSerials.size()));
+                    for (String serial : passSerials) {
+                        unitsToSave.add(serializedUnit(item, serial, trackingType, assignment.locationId(), now));
+                    }
                 }
             }
         }
@@ -344,17 +428,110 @@ public class ImportConfirmationService {
             }
         }
 
-        receipt.setStatus(ImportReceiptStatus.PENDING_APPROVAL);
+        var assignmentById = assignments.stream()
+                .collect(Collectors.toMap(ConfirmImportRequest.SerialAssignment::itemId, a -> a));
+        for (var item : items) {
+            if (notReceivedIds.contains(item.getId())) {
+                item.setReceivedQuantity(BigDecimal.ZERO);
+                continue;
+            }
+            var assignment = assignmentById.get(item.getId());
+            if (assignment == null) {
+                continue;
+            }
+            Product product = productMap.get(item.getProductId());
+            boolean isBulk = product != null && product.getUnit() != null && BULK_UNITS.contains(product.getUnit());
+            item.setReceivedQuantity(isBulk
+                    ? item.getQuantity()
+                    : BigDecimal.valueOf(passCount(assignment, rejectedSet)));
+        }
+        importReceiptItemRepository.saveAll(items);
+
+        if (receipt.getPurchaseOrderId() != null) {
+            Map<Long, BigDecimal> currentByProduct = items.stream()
+                    .filter(i -> i.getReceivedQuantity() != null
+                            && i.getReceivedQuantity().compareTo(BigDecimal.ZERO) > 0)
+                    .collect(Collectors.toMap(ImportReceiptItem::getProductId,
+                            ImportReceiptItem::getReceivedQuantity, BigDecimal::add));
+            importWorkflowService.assertNotOverReceived(receipt.getPurchaseOrderId(), currentByProduct);
+        }
+
+        receipt.setStatus(ImportReceiptStatus.RECEIVED);
+        if (request.note() != null) {
+            receipt.setNote(request.note());
+        }
         receipt = importReceiptRepository.save(receipt);
 
+        if (receipt.getPurchaseOrderId() != null) {
+            importWorkflowService.updatePOProgress(receipt.getPurchaseOrderId());
+        }
+
         return importReceiptService.toResponse(receipt);
+    }
+
+    private void validateAllocationQuantities(ImportReceiptItem item, List<ConfirmImportRequest.SerialAssignment.Allocation> allocations) {
+        BigDecimal sum = BigDecimal.ZERO;
+        for (var alloc : allocations) {
+            if (alloc.locationId() == null) {
+                throw new InvalidRequestException(ErrorCode.ALLOCATION_LOCATION_REQUIRED.format(item.getId()));
+            }
+            BigDecimal qty = alloc.quantity();
+            if (qty == null || qty.compareTo(BigDecimal.ZERO) <= 0) {
+                throw new InvalidRequestException(ErrorCode.ALLOCATION_QTY_INVALID.format(item.getId()));
+            }
+            sum = sum.add(qty);
+        }
+        if (sum.compareTo(item.getQuantity()) != 0) {
+            throw new InvalidRequestException(ErrorCode.ALLOCATION_QTY_MISMATCH.format(sum, item.getQuantity()));
+        }
+    }
+
+    private long passCount(ConfirmImportRequest.SerialAssignment assignment, Set<String> rejectedSet) {
+        var serials = assignment.allocations() != null && !assignment.allocations().isEmpty()
+                ? assignment.allocations().stream()
+                        .flatMap(a -> (a.serialNumbers() == null ? List.<String>of() : a.serialNumbers()).stream())
+                : (assignment.serialNumbers() == null ? List.<String>of().stream() : assignment.serialNumbers().stream());
+        return serials.map(String::trim)
+                .filter(s -> !s.isBlank())
+                .filter(s -> !rejectedSet.contains(s.toLowerCase()))
+                .count();
+    }
+
+    private ProductUnit bulkUnit(ImportReceiptItem item, Long locationId, BigDecimal qty, Instant now) {        return ProductUnit.builder()
+                .serialNumber(null)
+                .productId(item.getProductId())
+                .trackingType(TrackingType.BULK.name())
+                .initialQuantity(qty)
+                .remainingQuantity(qty)
+                .importReceiptItemId(item.getId())
+                .locationId(locationId)
+                .status(ProductUnitStatus.IN_STOCK)
+                .importedAt(now)
+                .warrantyMonths(item.getWarrantyMonths())
+                .build();
+    }
+
+    private ProductUnit serializedUnit(ImportReceiptItem item, String serial, String trackingType,
+                                       Long locationId, Instant now) {
+        return ProductUnit.builder()
+                .serialNumber(serial)
+                .productId(item.getProductId())
+                .trackingType(trackingType)
+                .initialQuantity(null)
+                .remainingQuantity(null)
+                .importReceiptItemId(item.getId())
+                .locationId(locationId)
+                .status(ProductUnitStatus.IN_STOCK)
+                .importedAt(now)
+                .warrantyMonths(item.getWarrantyMonths())
+                .build();
     }
 
     private ImportReceiptResponse createAndConfirmWarranty(ImportReceiptRequest request, ImportReceipt receipt, Long userId) {
         var export = exportReceiptRepository.findById(request.originalWarrantyExportId())
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.EXPORT_RECEIPT_NOT_FOUND));
-        boolean supplierReturn = ExportReason.RETURN_SUPPLIER.name().equals(export.getReason());
-        if (!supplierReturn && !ExportReason.WARRANTY_REPLACEMENT.name().equals(export.getReason())) {
+        boolean supplierReturn = "RETURN_SUPPLIER".equals(export.getReason());
+        if (!supplierReturn && !"WARRANTY_REPLACEMENT".equals(export.getReason())) {
             throw new InvalidRequestException(ErrorCode.WARRANTY_IMPORT_EXPORT_NOT_REPLACEMENT);
         }
         var exportUnitIds = exportReceiptItemUnitRepository.findProductUnitIdsByReceiptId(export.getId());

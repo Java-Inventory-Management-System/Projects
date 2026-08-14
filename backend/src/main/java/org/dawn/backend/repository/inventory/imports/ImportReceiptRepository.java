@@ -13,6 +13,7 @@ import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -25,6 +26,7 @@ public interface ImportReceiptRepository extends JpaRepository<ImportReceipt, Lo
     Optional<ImportReceipt> findByIdForUpdate(@Param("id") Long id);
 
     Page<ImportReceipt> findByStatus(ImportReceiptStatus status, Pageable pageable);
+    Page<ImportReceipt> findByStatusAndResolutionIsNull(ImportReceiptStatus status, Pageable pageable);
     Page<ImportReceipt> findBySupplierId(Long supplierId, Pageable pageable);
     boolean existsByReceiptCode(String receiptCode);
     Page<ImportReceipt> findByReceiptCodeStartingWith(String prefix, Pageable pageable);
@@ -33,8 +35,20 @@ public interface ImportReceiptRepository extends JpaRepository<ImportReceipt, Lo
     List<ImportReceipt> findByPurchaseOrderId(Long purchaseOrderId);
     boolean existsByPurchaseOrderIdAndStatus(Long purchaseOrderId, ImportReceiptStatus status);
     boolean existsByPurchaseOrderIdAndStatusNot(Long purchaseOrderId, ImportReceiptStatus status);
+    boolean existsByPurchaseOrderIdAndStatusIn(Long purchaseOrderId, List<ImportReceiptStatus> statuses);
     boolean existsByOriginalWarrantyExportId(Long originalWarrantyExportId);
+    long countByPurchaseOrderIdAndStatus(Long purchaseOrderId, ImportReceiptStatus status);
 
-    @Query("SELECT COALESCE(SUM(r.totalAmount), 0) FROM ImportReceipt r WHERE r.status = 'COMPLETED' AND r.createdAt BETWEEN :from AND :to")
+    interface PurchaseOrderIdCount {
+        Long getPurchaseOrderId();
+        long getCount();
+    }
+
+    @Query("SELECT r.purchaseOrderId AS purchaseOrderId, COUNT(r) AS count FROM ImportReceipt r " +
+            "WHERE r.purchaseOrderId IN :ids AND r.status = :status GROUP BY r.purchaseOrderId")
+    List<PurchaseOrderIdCount> countByPurchaseOrderIdInAndStatusGrouped(
+            @Param("ids") Collection<Long> ids, @Param("status") ImportReceiptStatus status);
+
+    @Query("SELECT COALESCE(SUM(r.totalAmount), 0) FROM ImportReceipt r WHERE r.status = 'RECEIVED' AND r.createdAt BETWEEN :from AND :to")
     BigDecimal sumTotalAmountByStatusAndCreatedAtBetween(@Param("from") Instant from, @Param("to") Instant to);
 }

@@ -38,10 +38,6 @@ test.describe("Price Adjustment Flow (Điều chỉnh giá) — SOP §8", () => 
       headers: { Authorization: `Bearer ${stockToken}` },
     })
     expect(confirmRes.ok()).toBeTruthy()
-    const impApproveRes = await stock.request.put(`${API_URL}/import-receipt/${impId}/approve`, {
-      headers: { Authorization: `Bearer ${managerToken}` },
-    })
-    expect(impApproveRes.ok()).toBeTruthy()
 
     const adjRes = await stock.request.post(`${API_URL}/price-adjustment`, {
       data: { importReceiptItemId: impItemId, newPrice: 12000000, reason: "E2E market adjustment" },

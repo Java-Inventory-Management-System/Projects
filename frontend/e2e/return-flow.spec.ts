@@ -38,16 +38,12 @@ test.describe("Return Flow (Trả hàng) — SOP §7", () => {
     const impId: number = impData.id
     const impItemId: number = impData.items[0].id
 
-    // Confirm + approve import
+    // Confirm → RECEIVED (no approval step)
     const confirmRes = await stock.request.put(`${API_URL}/import-receipt/${impId}/confirm`, {
       data: { serials: [{ itemId: impItemId, serialNumbers: [serial], locationId: 1 }] },
       headers: { Authorization: `Bearer ${stockToken}` },
     })
     expect(confirmRes.ok()).toBeTruthy()
-    const impApproveRes = await stock.request.put(`${API_URL}/import-receipt/${impId}/approve`, {
-      headers: { Authorization: `Bearer ${managerToken}` },
-    })
-    expect(impApproveRes.ok()).toBeTruthy()
 
     // Get product unit IDs from the import
     const unitsRes = await stock.request.get(`${API_URL}/import-receipt/${impId}/units`, {

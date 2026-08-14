@@ -1,33 +1,43 @@
 import { useState, useMemo, useReducer, useEffect, useRef } from "react"
 import { useNavigate, useBlocker, useSearchParams } from "react-router-dom"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { createImportReceipt, confirmImportReceipt, getImportReceiptById, getImportReceipts } from "@/services/import-service"
+import { createImportReceipt, confirmImportReceipt, getImportReceiptById, getImportReceipts, rejectImportReceipt, cancelImportReceipt } from "@/services/import-service"
 import { getExportReceipts, getExportUnits, type ExportUnit } from "@/services/export-service"
 import { usePurchaseOrders, usePurchaseOrderById } from "@/hooks/use-purchase-orders"
 import { useLocationMap } from "@/hooks/use-location-map"
-import { type DiscrepancyNote } from "@/utils/types"
-import { EXPORT_RECEIPT_STATUS, EXPORT_REASON } from "@/utils/types"
+import { type DiscrepancyNote, type QcRecord } from "@/utils/types"
+import { EXPORT_RECEIPT_STATUS, EXPORT_REASON, PURCHASE_ORDER_STATUS } from "@/utils/types"
 import { toast } from "@/utils/toast"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Card, CardContent } from "@/components/ui/card"
+import { Textarea } from "@/components/ui/textarea"
+import { ImageUpload } from "@/components/ui/image-upload"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useTranslation } from "react-i18next"
-import { Check, ChevronLeft, ChevronRight } from "lucide-react"
+import { Ban, Check, ChevronLeft, LogOut, X } from "lucide-react"
 import { ImportStepSerials } from "../components/import-create-step-serials"
-import { ImportStepQc } from "../components/import-create-step-qc"
 import { UnsavedChangesDialog } from "@/components/unsaved-changes-dialog"
 import { SerialModal } from "../components/serial-modal"
 import { itemReducer } from "../reducers/import-create-reducer"
 import { Label } from "@/components/ui/label"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 const WARRANTY_RESULT_TYPES = ["REPAIRED", "REJECTED", "REPLACED"]
 const steps = (t: (k: string) => string) => [
   { num: 1, label: t("importCreate.stepSelectOrder") },
-  { num: 2, label: t("importCreate.stepSerials") },
-  { num: 3, label: t("importCreate.stepQcConfirm") },
+  { num: 2, label: t("importCreate.stepSerialsQc") },
 ]
 
 function StepIndicator({ current }: { current: number }) {
@@ -78,7 +88,10 @@ export const ImportCreatePage = () => {
 
   const [step, setStep] = useState(isResume ? 2 : 1)
   const [receiptId, setReceiptId] = useState<number | null>(isResume ? Number(resumeId) : null)
-  const [selectedPoId, setSelectedPoId] = useState<number | null>(null)
+  const [selectedPoId, setSelectedPoId] = useState<number | null>(() => {
+    const poParam = searchParams.get("poId")
+    return poParam ? Number(poParam) : null
+  })
   const [specialMode, setSpecialMode] = useState(false)
   const [selectedWarrantyExportId, setSelectedWarrantyExportId] = useState<number | null>(null)
   const [warrantyResultMap, setWarrantyResultMap] = useState<Record<string, string>>({})
@@ -92,11 +105,16 @@ export const ImportCreatePage = () => {
   const [items, dispatch] = useReducer(itemReducer, [])
   const navigatingAfterMut = useRef(false)
   const [qcBlocked, setQcBlocked] = useState(false)
+  const [qcRecords, setQcRecords] = useState<QcRecord[]>([])
   const [note, setNote] = useState("")
   const [discrepancyNotes, setDiscrepancyNotes] = useState<DiscrepancyNote[]>([])
 
   const { data: poListRes } = usePurchaseOrders(0, 999, "createdAt,desc")
   const { data: po } = usePurchaseOrderById(Number(selectedPoId))
+  const poSerialsByProduct = useMemo(() => {
+    if (!po) return undefined
+    return new Map(po.items.map((i) => [i.productId, new Set(i.serials)]))
+  }, [po])
   const { data: locationMap } = useLocationMap()
   const { data: exportListRes } = useQuery({
     queryKey: ["export-receipts"],
@@ -152,7 +170,12 @@ export const ImportCreatePage = () => {
   }, [warrantyUnits])
 
   const availablePOs = useMemo(
-    () => (poListRes?.content ?? []).filter((po) => po.status !== "COMPLETED" && po.status !== "CANCELLED"),
+    () =>
+      (poListRes?.content ?? []).filter(
+        (po) =>
+          po.status === PURCHASE_ORDER_STATUS.OPEN ||
+          po.status === PURCHASE_ORDER_STATUS.PARTIAL,
+      ),
     [poListRes],
   )
 
@@ -164,25 +187,35 @@ export const ImportCreatePage = () => {
 
   useEffect(() => {
     if (!receipt) return
+    const plannedByProduct = new Map<number, string[]>()
+    if (poSerialsByProduct) {
+      for (const [productId, serials] of poSerialsByProduct) plannedByProduct.set(productId, [...serials])
+    }
     dispatch({
       type: "SET_ITEMS",
-      payload: receipt.items.map((item) => ({
-        tempId: item.id,
-        productId: item.productId,
-        productName: item.productName,
-        productSku: item.productSku ?? "",
-        categoryId: null,
-        quantity: item.quantity,
-        unitPrice: item.unitPrice,
-        warrantyMonths: item.warrantyMonths,
-        serials: [],
-        locationId: item.locationId ? String(item.locationId) : "",
-        itemStatus: "NORMAL" as const,
-        notReceivedReason: "",
-      })),
+      payload: receipt.items.map((item) => {
+        const planned = item.trackingType === "BULK" ? [] : (plannedByProduct.get(item.productId) ?? [])
+        const prefill = planned.splice(0, item.quantity)
+        return {
+          tempId: item.id,
+          productId: item.productId,
+          productName: item.productName,
+          productSku: item.productSku ?? "",
+          categoryId: null,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          warrantyMonths: item.warrantyMonths,
+          trackingType: item.trackingType ?? null,
+          serials: prefill,
+          locationId: item.locationId ? String(item.locationId) : "",
+          itemStatus: "NORMAL" as const,
+          notReceivedReason: "",
+          allocations: [],
+        }
+      }),
     })
     setNote(receipt.note ?? "")
-  }, [receipt])
+  }, [receipt, poSerialsByProduct])
 
   useEffect(() => {
     if (locationMap === undefined || items.length === 0) return
@@ -240,8 +273,61 @@ export const ImportCreatePage = () => {
     },
   })
 
+  const [rejectOpen, setRejectOpen] = useState(false)
+  const [rejectReason, setRejectReason] = useState("")
+  const [rejectEvidence, setRejectEvidence] = useState("")
+  const [cancelOpen, setCancelOpen] = useState(false)
+
+  const rejectMut = useMutation({
+    mutationFn: () =>
+      rejectImportReceipt(Number(receiptId), {
+        reason: rejectReason.trim(),
+        evidenceImageUrl: rejectEvidence.split(",")[0] ?? "",
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["import-receipts"] })
+      queryClient.invalidateQueries({ queryKey: ["import-receipt", receiptId] })
+      toast.success(t("importCreate.rejectSuccess"))
+      navigatingAfterMut.current = true
+      navigate("/stock/imports")
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || t("importCreate.error"))
+    },
+  })
+
+  const cancelMut = useMutation({
+    mutationFn: () => cancelImportReceipt(Number(receiptId)),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["import-receipts"] })
+      queryClient.invalidateQueries({ queryKey: ["import-receipt", receiptId] })
+      toast.success(t("importCreate.cancelSuccess"))
+      navigatingAfterMut.current = true
+      navigate("/stock/imports")
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || t("importCreate.error"))
+    },
+  })
+
+  const handleReject = () => {
+    if (!rejectReason.trim()) {
+      toast.error(t("importCreate.rejectReasonRequired"))
+      return
+    }
+    if (!rejectEvidence) {
+      toast.error(t("importCreate.rejectEvidenceRequired"))
+      return
+    }
+    rejectMut.mutate()
+  }
+
   const itemsReadyForSubmit = useMemo(
-    () => items.length > 0 && items.every((i) => i.serials.length > 0 || i.itemStatus === "NOT_RECEIVED"),
+    () =>
+      items.length > 0 &&
+      items.every(
+        (i) => i.itemStatus === "NOT_RECEIVED" || i.trackingType === "BULK" || i.serials.length > 0,
+      ),
     [items],
   )
 
@@ -299,21 +385,64 @@ export const ImportCreatePage = () => {
 
   const handleConfirm = () => {
     if (!itemsReadyForSubmit || !receiptId) return
-    const missingItems = items.filter((i) => i.serials.length === 0 && i.itemStatus !== "NOT_RECEIVED")
+    if (!note.trim()) {
+      toast.error(t("importCreate.noteRequired"))
+      return
+    }
+    const missingItems = items.filter(
+      (i) =>
+        i.itemStatus !== "NOT_RECEIVED" &&
+        i.trackingType !== "BULK" &&
+        i.serials.length === 0,
+    )
     if (missingItems.length > 0) {
       toast.error(
         t("importCreate.missingSerials", { products: missingItems.map((i) => i.productName).join(", ") }),
       )
       return
     }
+    const noBinItems = items.filter(
+      (i) =>
+        i.itemStatus === "NORMAL" &&
+        i.allocations.length === 0 &&
+        !i.locationId,
+    )
+    if (noBinItems.length > 0) {
+      toast.error(t("importCreate.missingBins", { products: noBinItems.map((i) => i.productName).join(", ") }))
+      return
+    }
     const serials = items
-      .filter((i) => i.itemStatus === "NORMAL" && i.serials.length > 0)
-      .map((i) => ({
-        itemId: i.tempId,
-        serialNumbers: i.serials,
-        locationId: i.locationId ? Number(i.locationId) : null,
-      }))
-    submitMut.mutate({ receiptId, serials })
+      .filter((i) => i.itemStatus === "NORMAL")
+      .map((i) => {
+        const isBulk = i.trackingType === "BULK"
+        const allocations = i.allocations.length > 0 ? i.allocations : null
+        if (allocations) {
+          return {
+            itemId: i.tempId,
+            serialNumbers: isBulk ? [] : allocations.flatMap((a) => a.serials),
+            locationId: Number(allocations[0].locationId) || null,
+            allocations: allocations.map((a) => ({
+              locationId: Number(a.locationId),
+              quantity: a.quantity,
+              serialNumbers: isBulk ? [] : a.serials,
+            })),
+          }
+        }
+        return {
+          itemId: i.tempId,
+          serialNumbers: isBulk ? [] : i.serials,
+          locationId: i.locationId ? Number(i.locationId) : null,
+        }
+      })
+    submitMut.mutate({
+      receiptId,
+      serials,
+      note: note.trim(),
+      rejectedSerials: qcRecords
+        .filter((r) => !r.passed && r.failReason.trim().length > 0)
+        .map((r) => ({ serial: r.serial, reason: r.failReason.trim() })),
+      notReceivedItemIds: items.filter((i) => i.itemStatus === "NOT_RECEIVED").map((i) => i.tempId),
+    })
   }
 
   const hasUnsaved = step > 1 && items.some((i) => i.serials.length > 0) && !submitMut.isSuccess
@@ -335,9 +464,6 @@ export const ImportCreatePage = () => {
   return (
     <div className="mx-auto w-full max-w-5xl space-y-4">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="sm" onClick={() => navigate("/stock/imports")}>
-          &larr; {t("common.back")}
-        </Button>
         <h1 className="text-xl font-semibold tracking-tight">{t("importCreate.title")}</h1>
         {receiptId && receipt && (
           <span className="text-sm font-mono text-muted-foreground">{receipt.receiptCode}</span>
@@ -709,19 +835,30 @@ export const ImportCreatePage = () => {
               dispatch={dispatch}
               discrepancyNotes={discrepancyNotes}
               onDiscrepancyNotesChange={setDiscrepancyNotes}
+              poSerialsByProduct={poSerialsByProduct}
+              onQcStatus={(status) => {
+                setQcBlocked(status.hasRecords && !status.done)
+                setQcRecords(status.records)
+              }}
             />
           )}
         </>
       )}
 
-      {/* Step 3: QC & Xác nhận */}
-      {step === 3 && (
-        <ImportStepQc
-          items={items}
-          note={note}
-          setNote={setNote}
-          onQcStatus={(status) => setQcBlocked(status.hasRecords && !status.done)}
-        />
+      {/* Note */}
+      {step > 1 && (
+        <div className="space-y-2">
+          <Label htmlFor="note-confirm" className="text-xs">
+            {t("importStepQc.noteLabel")} <span className="text-destructive">*</span>
+          </Label>
+          <Textarea
+            id="note-confirm"
+            placeholder={t("importStepQc.notePlaceholder")}
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            rows={2}
+          />
+        </div>
       )}
 
       {/* Navigation */}
@@ -733,14 +870,24 @@ export const ImportCreatePage = () => {
             </Button>
           ) : (
             <Button variant="outline" onClick={() => navigate("/stock/imports")}>
-              {t("importCreate.cancel")}
+              {t("importCreate.exit")}
             </Button>
           )}
         </div>
         <div className="flex gap-2">
-          {step > 1 && (
+          {step > 1 && (!isResume || step > 2) && (
             <Button variant="ghost" onClick={() => navigate("/stock/imports")}>
-              {t("importCreate.cancel")}
+              <LogOut className="size-4 mr-1" /> {t("importCreate.exit")}
+            </Button>
+          )}
+          {step > 1 && receiptId && (
+            <Button variant="outline" className="text-destructive" onClick={() => setRejectOpen(true)} disabled={rejectMut.isPending}>
+              <X className="size-4 mr-1" /> {t("importCreate.rejectReceipt")}
+            </Button>
+          )}
+          {step > 1 && receiptId && receipt?.status === "DRAFT" && (
+            <Button variant="outline" className="text-destructive" onClick={() => setCancelOpen(true)} disabled={cancelMut.isPending}>
+              <Ban className="size-4 mr-1" /> {t("importCreate.cancelReceipt")}
             </Button>
           )}
           {!isResume && step === 1 && !specialMode && (
@@ -783,29 +930,31 @@ export const ImportCreatePage = () => {
             </Tooltip>
           )}
           {step === 2 && (
-            <Button onClick={() => setStep(3)}>
-              {t("importCreate.next")} <ChevronRight className="size-4 ml-1" />
-            </Button>
-          )}
-          {step === 3 && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span>
-                  <Button
-                    onClick={handleConfirm}
-                    disabled={!itemsReadyForSubmit || submitMut.isPending || qcBlocked}
-                  >
-                    {submitMut.isPending ? t("importCreate.sending") : t("importCreate.confirm")}
-                  </Button>
-                </span>
-              </TooltipTrigger>
-              {(!itemsReadyForSubmit || qcBlocked) && (
-                <TooltipContent side="top" className="text-xs">
-                  {!itemsReadyForSubmit && <p>{t("importCreate.missingSerialsNote")}</p>}
-                  {qcBlocked && <p>{t("importCreate.qcFailNote")}</p>}
-                </TooltipContent>
+            <>
+              {qcRecords.some((r) => !r.passed) && (
+                <p className="text-xs text-destructive font-medium">
+                  {t("importCreate.qcRejectedSummary", { count: qcRecords.filter((r) => !r.passed).length })}
+                </p>
               )}
-            </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span>
+                    <Button
+                      onClick={handleConfirm}
+                      disabled={!itemsReadyForSubmit || submitMut.isPending || qcBlocked}
+                    >
+                      {submitMut.isPending ? t("importCreate.sending") : t("importCreate.confirmReceived")}
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                {(!itemsReadyForSubmit || qcBlocked) && (
+                  <TooltipContent side="top" className="text-xs">
+                    {!itemsReadyForSubmit && <p>{t("importCreate.missingSerialsNote")}</p>}
+                    {qcBlocked && <p>{t("importCreate.qcFailNote")}</p>}
+                  </TooltipContent>
+                )}
+              </Tooltip>
+            </>
           )}
         </div>
       </div>
@@ -815,6 +964,56 @@ export const ImportCreatePage = () => {
         onStay={() => blocker.state === "blocked" && blocker.reset()}
         onLeave={() => blocker.state === "blocked" && blocker.proceed()}
       />
+
+      <AlertDialog open={cancelOpen} onOpenChange={setCancelOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("importCreate.cancelDialogTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>{t("importCreate.cancelDialogDesc")}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("dialog.no")}</AlertDialogCancel>
+            <AlertDialogAction onClick={() => cancelMut.mutate()} disabled={cancelMut.isPending}>
+              {cancelMut.isPending ? t("dialog.processing") : t("importCreate.confirmCancel")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={rejectOpen} onOpenChange={setRejectOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("importCreate.rejectDialogTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>{t("importCreate.rejectDialogDesc")}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="reject-reason">
+                {t("importCreate.rejectReasonLabel")} <span className="text-destructive">*</span>
+              </Label>
+              <Textarea
+                id="reject-reason"
+                rows={3}
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                placeholder={t("importCreate.rejectReasonPlaceholder")}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>
+                {t("importCreate.evidenceLabel")} <span className="text-destructive">*</span>
+              </Label>
+              <ImageUpload value={rejectEvidence} onChange={setRejectEvidence} />
+            </div>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("dialog.no")}</AlertDialogCancel>
+            <AlertDialogAction onClick={handleReject} disabled={rejectMut.isPending}>
+              {rejectMut.isPending ? t("dialog.processing") : t("importCreate.confirmReject")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

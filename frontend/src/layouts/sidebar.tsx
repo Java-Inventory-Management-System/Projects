@@ -22,7 +22,7 @@ export function Sidebar({ collapsed, onNavigate }: SidebarProps) {
   const { data: importPending } = useQuery({
     queryKey: ["import-pending-count"],
     queryFn: async () => {
-      const r = await getImportReceipts(0, 1, undefined, IMPORT_RECEIPT_STATUS.PENDING_APPROVAL)
+      const r = await getImportReceipts(0, 1, undefined, IMPORT_RECEIPT_STATUS.DRAFT)
       return r.pagination.totalElements
     },
     enabled: !AUTH_ENABLED || !!user,

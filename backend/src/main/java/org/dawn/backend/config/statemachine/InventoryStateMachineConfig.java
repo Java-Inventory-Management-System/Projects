@@ -16,8 +16,8 @@ public class InventoryStateMachineConfig {
     @Bean
     public StateMachine<ImportReceiptStatus> importReceiptStateMachine() {
         return new StateMachine<>(ImportReceiptStatus.class)
-            .allow(ImportReceiptStatus.DRAFT, ImportReceiptStatus.PENDING_APPROVAL, ImportReceiptStatus.CANCELLED)
-            .allow(ImportReceiptStatus.PENDING_APPROVAL, ImportReceiptStatus.COMPLETED, ImportReceiptStatus.CANCELLED);
+            // ponytail: bỏ bước duyệt (v2) — stock tự nhận/từ chối; RECEIVED là trạng thái cuối
+            .allow(ImportReceiptStatus.DRAFT, ImportReceiptStatus.RECEIVED, ImportReceiptStatus.REJECTED, ImportReceiptStatus.CANCELLED);
     }
 
     @Bean

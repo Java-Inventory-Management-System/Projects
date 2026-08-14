@@ -2,7 +2,7 @@ import { useMemo } from "react"
 import { useNavigate } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { useImportReceipts } from "@/hooks/use-import-receipts"
-import { cancelImportReceipt, approveImportReceipt } from "@/services/import-service"
+import { cancelImportReceipt } from "@/services/import-service"
 import { ViewImportModal } from "../components/view-import-modal"
 import { ReceiptListPage } from "../components/receipt-list-page"
 import { Badge } from "@/components/ui/badge"
@@ -10,7 +10,6 @@ import type { Column } from "@/components/ui/data-table"
 import { IMPORT_RECEIPT_STATUS, type ImportReceipt } from "@/utils/types"
 import { useImportStatusLabel } from "@/utils/labels"
 import { usePermission } from "@/hooks/use-permission"
-import { ROLES } from "@/utils/permissions"
 
 export function ImportListPage() {
   const { t } = useTranslation()
@@ -38,7 +37,18 @@ export function ImportListPage() {
       header: t("table.status"),
       render: (r) => {
         const s = statusLabel[r.status] ?? { label: r.status, variant: "secondary" as const }
-        return <Badge variant={s.variant}>{s.label}</Badge>
+        return (
+          <div className="flex flex-col items-start gap-1">
+            <Badge variant={s.variant}>{s.label}</Badge>
+            {r.status === IMPORT_RECEIPT_STATUS.REJECTED && r.resolution && (
+              <Badge variant="outline">
+                {r.resolution === "RETURNED_TO_SUPPLIER"
+                  ? t("importDetail.resolveReturned")
+                  : t("importDetail.resolveResending")}
+              </Badge>
+            )}
+          </div>
+        )
       },
     },
     { header: t("table.creator"), render: (r) => <span className="text-muted-foreground">{r.createdByName || "—"}</span> },
@@ -49,7 +59,6 @@ export function ImportListPage() {
         <span className="text-muted-foreground text-xs">{new Date(r.createdAt).toLocaleDateString("vi-VN")}</span>
       ),
     },
-    { header: t("table.approver"), render: (r) => <span className="text-muted-foreground">{r.approvedByName ?? "—"}</span> },
   ], [navigate, t, statusLabel])
   return (
     <ReceiptListPage<ImportReceipt>
@@ -59,11 +68,20 @@ export function ImportListPage() {
       queryKey="import-receipts"
       useHook={useImportReceipts}
       cancelService={cancelImportReceipt}
-      approveService={approveImportReceipt}
       ViewModal={ViewImportModal}
       columns={columns}
       scanStatuses={[IMPORT_RECEIPT_STATUS.DRAFT]}
-      createPerm={perm.hasRole.bind(null, ...ROLES.MANAGER)}
+      scanPerm={() => perm.hasRole("STOCK")}
+      cancellableStatuses={[IMPORT_RECEIPT_STATUS.DRAFT]}
+      cancelPerm={() => perm.hasRole("STOCK")}
+      createPerm={() => perm.hasRole("STOCK")}
+      statusTabs={[
+        { label: t("importList.tabAll") },
+        { value: IMPORT_RECEIPT_STATUS.DRAFT, label: t("importStatus.draft") },
+        { value: IMPORT_RECEIPT_STATUS.RECEIVED, label: t("importStatus.received") },
+        { value: IMPORT_RECEIPT_STATUS.REJECTED, label: t("importStatus.rejected") },
+        { value: IMPORT_RECEIPT_STATUS.CANCELLED, label: t("importStatus.cancelled") },
+      ]}
     />
   )
 }
