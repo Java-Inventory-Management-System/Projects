@@ -28,9 +28,11 @@ public class LogConstant {
         public static final String UPDATE_PRODUCT = "UPDATE_PRODUCT";
         public static final String TOGGLE_PRODUCT = "TOGGLE_PRODUCT";
         public static final String CREATE_IMPORT = "CREATE_IMPORT";
-        public static final String CONFIRM_IMPORT = "CONFIRM_IMPORT";
-        public static final String APPROVE_IMPORT = "APPROVE_IMPORT";
+    public static final String CONFIRM_IMPORT = "CONFIRM_IMPORT";
+    public static final String REJECT_IMPORT = "REJECT_IMPORT";
+    public static final String APPROVE_IMPORT = "APPROVE_IMPORT";
         public static final String CANCEL_IMPORT = "CANCEL_IMPORT";
+    public static final String RESOLVE_IMPORT = "RESOLVE_IMPORT";
         public static final String EDIT_SERIAL = "EDIT_SERIAL";
         public static final String CREATE_LOCATION = "CREATE_LOCATION";
         public static final String UPDATE_LOCATION = "UPDATE_LOCATION";
@@ -58,6 +60,9 @@ public class LogConstant {
         public static final String REJECT_ADJUSTMENT = "REJECT_ADJUSTMENT";
 
         public static final String CREATE_PURCHASE_ORDER = "CREATE_PURCHASE_ORDER";
+        public static final String UPDATE_PURCHASE_ORDER = "UPDATE_PURCHASE_ORDER";
+        public static final String DELETE_PURCHASE_ORDER = "DELETE_PURCHASE_ORDER";
+        public static final String OPEN_PURCHASE_ORDER = "OPEN_PURCHASE_ORDER";
         public static final String CANCEL_PURCHASE_ORDER = "CANCEL_PURCHASE_ORDER";
         public static final String RECORD_STOCK_CHECK = "RECORD_STOCK_CHECK";
         public static final String CONFIRM_STOCK_CHECK_BOX = "CONFIRM_STOCK_CHECK_BOX";

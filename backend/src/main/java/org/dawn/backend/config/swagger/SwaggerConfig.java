@@ -49,7 +49,6 @@ public class SwaggerConfig {
                 .externalDocs(doc);
     }
 
-    // All APIs
     @Bean
     public GroupedOpenApi publicApi() {
         return GroupedOpenApi

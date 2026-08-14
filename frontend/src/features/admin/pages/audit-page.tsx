@@ -211,8 +211,12 @@ export const AuditPage = () => {
     { header: t('auditPage.colAction'), render: (log) => <span className="text-xs font-medium">{log.action}</span> },
     {
       header: t('auditPage.colMessage'),
-      className: "min-w-[240px]",
-      render: (log) => <span className="text-xs line-clamp-1">{log.message || "—"}</span>,
+      className: "max-w-[320px]",
+      render: (log) => (
+        <span className="block truncate text-xs" title={log.message || undefined}>
+          {log.message || "—"}
+        </span>
+      ),
     },
     { header: t('auditPage.colEntity'), render: (log) => <span className="text-xs">{log.entityName}</span> },
     { header: t('auditPage.colEntityId'), render: (log) => <span className="text-xs font-mono">{log.entityId || "—"}</span> },

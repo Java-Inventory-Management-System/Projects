@@ -1,4 +1,4 @@
--- V1: Authentication & Authorization (roles/users seed data lives in seed/V1__seed_auth.sql)
+-- V1: Authentication & Authorization (roles/users seed data lives in seed/V8__seed_auth.sql)
 
 -- User roles: ADMIN, MANAGER, SALES, STOCK
 CREATE TABLE roles (

@@ -12,13 +12,20 @@ CREATE TABLE stock_checks (
     created_by     BIGINT        NOT NULL,
     approved_by    BIGINT,
     approval_note  TEXT,
+    checked_by     BIGINT NULL,
+    entered_by     BIGINT NULL,
+    bin_from       VARCHAR(10) NULL,
+    bin_to         VARCHAR(10) NULL,
+    box_status_snapshot TEXT NULL,
     created_at     TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at     TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_stock_checks_status (status),
     INDEX idx_stock_checks_scope (scope_type, scope_id),
     INDEX idx_sc_created_by (created_by),
     CONSTRAINT fk_sc_created_by  FOREIGN KEY (created_by)  REFERENCES users(id),
-    CONSTRAINT fk_sc_approved_by FOREIGN KEY (approved_by) REFERENCES users(id)
+    CONSTRAINT fk_sc_approved_by FOREIGN KEY (approved_by) REFERENCES users(id),
+    CONSTRAINT fk_sc_checked_by FOREIGN KEY (checked_by) REFERENCES users(id),
+    CONSTRAINT fk_sc_entered_by FOREIGN KEY (entered_by) REFERENCES users(id)
 );
 
 CREATE TABLE stock_check_items (
@@ -34,6 +41,9 @@ CREATE TABLE stock_check_items (
     difference        VARCHAR(20),
     note              TEXT,
     auto_filled       BOOLEAN DEFAULT FALSE,
+    touched_at        TIMESTAMP NULL,
+    suspect_seal      BOOLEAN NOT NULL DEFAULT FALSE,
+    damaged_packaging BOOLEAN NOT NULL DEFAULT FALSE,
     INDEX idx_sci_check (stock_check_id),
     CONSTRAINT fk_sci_check FOREIGN KEY (stock_check_id)  REFERENCES stock_checks(id),
     CONSTRAINT fk_sci_unit  FOREIGN KEY (product_unit_id) REFERENCES product_units(id)
@@ -57,16 +67,23 @@ CREATE TABLE stock_check_item_histories (
     CONSTRAINT fk_scih_changed_by FOREIGN KEY (changed_by)    REFERENCES users(id)
 );
 
-CREATE TABLE stock_check_box_confirms (
-    id             BIGINT AUTO_INCREMENT PRIMARY KEY,
-    stock_check_id BIGINT NOT NULL,
-    box_id         BIGINT NOT NULL,
-    confirmed_by   BIGINT NOT NULL,
-    INDEX idx_scbc_check (stock_check_id),
-    CONSTRAINT uk_scbc_check_box UNIQUE (stock_check_id, box_id),
-    CONSTRAINT fk_scbc_check FOREIGN KEY (stock_check_id) REFERENCES stock_checks(id),
-    CONSTRAINT fk_scbc_box    FOREIGN KEY (box_id)         REFERENCES boxes(id),
-    CONSTRAINT fk_scbc_user   FOREIGN KEY (confirmed_by)   REFERENCES users(id)
+-- ============= STOCK CHECK SCHEDULES =============
+
+CREATE TABLE stock_check_schedules (
+    id                  BIGINT AUTO_INCREMENT PRIMARY KEY,
+    zone_code           VARCHAR(10) NOT NULL,
+    bin_from            VARCHAR(10) NULL,
+    bin_to              VARCHAR(10) NULL,
+    frequency_days      INT         NOT NULL,
+    is_active           BOOLEAN     NOT NULL DEFAULT TRUE,
+    default_assignee_id BIGINT      NULL,
+    note                TEXT        NULL,
+    created_by          BIGINT      NOT NULL,
+    created_at          TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at          TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_scs_zone (zone_code),
+    CONSTRAINT fk_scs_assignee  FOREIGN KEY (default_assignee_id) REFERENCES users(id),
+    CONSTRAINT fk_scs_created_by FOREIGN KEY (created_by)         REFERENCES users(id)
 );
 
 -- ============= STOCK ADJUSTMENTS =============
@@ -114,6 +131,7 @@ CREATE TABLE price_adjustments (
     created_by          BIGINT        NOT NULL,
     approved_by         BIGINT,
     approval_note       TEXT,
+    approved_at         TIMESTAMP NULL,
     created_at          TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at          TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_pa_status (status),

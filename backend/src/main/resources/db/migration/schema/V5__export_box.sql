@@ -9,9 +9,9 @@ CREATE TABLE export_receipts (
     reason                  VARCHAR(30)   NOT NULL,       -- SALE / TRANSFER / RETURN_SUPPLIER
     customer_id             BIGINT,
     total_amount            DECIMAL(15,2),
-    source_import_receipt_id BIGINT,                      -- (unused, reserved)
+    source_import_receipt_id BIGINT,
     total_cogs              DECIMAL(15,2),
-    supplier_status         VARCHAR(20),                  -- (unused, reserved for supplier returns)
+    supplier_status         VARCHAR(20),
     supplier_result         VARCHAR(20),
     status                  VARCHAR(20)   NOT NULL DEFAULT 'PENDING',
     note                    TEXT,
@@ -23,6 +23,7 @@ CREATE TABLE export_receipts (
     rejected_at             TIMESTAMP NULL,
     reject_reason           TEXT,
     external_reference      VARCHAR(100) NULL,            -- external order ref
+    evidence_images         TEXT NULL,                    -- comma-joined Cloudinary URLs
     created_at              TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at              TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_export_receipts_status (status),

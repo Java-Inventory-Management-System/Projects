@@ -1,7 +1,7 @@
 package org.dawn.backend.constant.shared;
 
 /**
- * Locations of the single QC processing zone (V10) used by the return/RMA flow.
+ * Locations of the single QC processing zone used by the return/RMA flow.
  * Unit must pass QC (QcPassService) before leaving this zone to IN_STOCK.
  */
 public final class QcProcessingLocations {
