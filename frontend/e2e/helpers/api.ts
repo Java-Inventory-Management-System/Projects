@@ -24,6 +24,19 @@ function randomSerial(prefix = "SN") {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`
 }
 
+export async function updatePurchaseOrder(
+  page: Page,
+  id: number,
+  items: Array<{ productId: number; quantity: number; unitPrice: number; serials?: string[] }>,
+): Promise<void> {
+  if (!stockToken || !managerToken) await initTokens(page)
+  const res = await page.request.put(`${API}/purchase-order/${id}`, {
+    data: { items },
+    headers: { Authorization: `Bearer ${managerToken}` },
+  })
+  if (!res.ok()) throw new Error(`PO update failed: ${await res.text()}`)
+}
+
 export async function createPurchaseOrder(page: Page): Promise<number> {
   if (!stockToken || !managerToken) await initTokens(page)
   const res = await page.request.post(`${API}/purchase-order`, {
@@ -36,7 +49,20 @@ export async function createPurchaseOrder(page: Page): Promise<number> {
     headers: { Authorization: `Bearer ${managerToken}` },
   })
   if (!res.ok()) throw new Error(`PO create failed: ${await res.text()}`)
-  return (await res.json()).data.id
+  const id = (await res.json()).data.id as number
+  await updatePurchaseOrder(page, id, [
+    {
+      productId: 1,
+      quantity: 10,
+      unitPrice: 10000000,
+      serials: Array.from({ length: 10 }, () => randomSerial("PO")),
+    },
+  ])
+  const openRes = await page.request.put(`${API}/purchase-order/${id}/open`, {
+    headers: { Authorization: `Bearer ${managerToken}` },
+  })
+  if (!openRes.ok()) throw new Error(`PO open failed: ${await openRes.text()}`)
+  return id
 }
 
 export async function ensureImport(page: Page): Promise<{ importReceiptId: number; productUnitIds: number[] }> {
@@ -76,10 +102,6 @@ export async function ensureImport(page: Page): Promise<{ importReceiptId: numbe
       })),
     },
     headers: { Authorization: `Bearer ${stockToken}` },
-  })
-
-  await page.request.put(`${API}/import-receipt/${id}/approve`, {
-    headers: { Authorization: `Bearer ${managerToken}` },
   })
 
   const unitsRes = await page.request.get(`${API}/import-receipt/${id}/units`, {

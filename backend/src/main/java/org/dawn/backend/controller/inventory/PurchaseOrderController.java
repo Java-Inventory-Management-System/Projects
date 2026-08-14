@@ -5,13 +5,17 @@ import org.dawn.backend.config.web.response.ResponseObject;
 import org.dawn.backend.config.web.response.ResponsePage;
 import org.dawn.backend.constant.security.AuthorizationExpressions;
 import org.dawn.backend.controller.inventory.request.CreatePurchaseOrderRequest;
+import org.dawn.backend.controller.inventory.request.UpdatePurchaseOrderRequest;
 import org.dawn.backend.controller.inventory.response.PurchaseOrderResponse;
 import org.dawn.backend.service.inventory.PurchaseOrderService;
 import org.dawn.backend.service.inventory.ReceiptPrintService;
+import org.dawn.backend.service.inventory.imports.ImportReceiptService;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/purchase-order")
@@ -19,6 +23,7 @@ import org.springframework.web.bind.annotation.*;
 public class PurchaseOrderController {
 
     private final PurchaseOrderService purchaseOrderService;
+    private final ImportReceiptService importReceiptService;
     private final ReceiptPrintService receiptPrintService;
 
     @GetMapping(value = "/{id}/print", produces = MediaType.TEXT_HTML_VALUE)
@@ -41,6 +46,12 @@ public class PurchaseOrderController {
         return ResponseObject.success(purchaseOrderService.findOne(id));
     }
 
+    @GetMapping("/{id}/receipts")
+    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER)
+    public ResponseObject<List<org.dawn.backend.controller.inventory.response.ImportReceiptResponse>> getReceipts(@PathVariable Long id) {
+        return ResponseObject.success(importReceiptService.findByPurchaseOrderId(id));
+    }
+
     @PostMapping
     @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER)
     public ResponseObject<PurchaseOrderResponse> create(@RequestBody CreatePurchaseOrderRequest request) {
@@ -51,5 +62,26 @@ public class PurchaseOrderController {
     @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER)
     public ResponseObject<PurchaseOrderResponse> cancel(@PathVariable Long id) {
         return ResponseObject.success(purchaseOrderService.cancel(id));
+    }
+
+    @PutMapping("/{id}/open")
+    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER)
+    public ResponseObject<PurchaseOrderResponse> open(@PathVariable Long id,
+                                                      @RequestParam(required = false) String asnCode) {
+        return ResponseObject.success(purchaseOrderService.open(id, asnCode));
+    }
+
+    @PutMapping("/{id}")
+    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER)
+    public ResponseObject<PurchaseOrderResponse> update(@PathVariable Long id,
+                                                        @RequestBody UpdatePurchaseOrderRequest request) {
+        return ResponseObject.success(purchaseOrderService.update(id, request));
+    }
+
+    @DeleteMapping("/{id}")
+    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER)
+    public ResponseObject<Void> delete(@PathVariable Long id) {
+        purchaseOrderService.delete(id);
+        return ResponseObject.deleted();
     }
 }

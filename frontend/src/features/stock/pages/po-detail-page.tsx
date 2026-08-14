@@ -1,9 +1,14 @@
+import { useState } from "react"
 import { useParams, useNavigate } from "react-router-dom"
 import { useTranslation } from "react-i18next"
-import { usePurchaseOrderById, useCancelPurchaseOrder } from "@/hooks/use-purchase-orders"
+import { usePurchaseOrderById, usePurchaseOrderReceipts, useCancelPurchaseOrder, useOpenPurchaseOrder } from "@/hooks/use-purchase-orders"
+import { usePermission } from "@/hooks/use-permission"
+import { ROLES } from "@/utils/permissions"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -16,7 +21,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { ButtonGroup } from "@/components/ui/button-group"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
-import { ArrowDownToLine, X } from "lucide-react"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { ArrowDownToLine, Link2, X, Pencil } from "lucide-react"
 import { PrintReceiptButton } from "../components/print-receipt"
 import { toast } from "@/utils/toast"
 import { PURCHASE_ORDER_STATUS } from "@/utils/types"
@@ -25,10 +31,15 @@ export function PODetailPage() {
   const { t } = useTranslation()
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const perm = usePermission()
   const { data: po, isLoading } = usePurchaseOrderById(Number(id))
+  const { data: receipts } = usePurchaseOrderReceipts(Number(id))
   const cancelMut = useCancelPurchaseOrder()
+  const openMut = useOpenPurchaseOrder()
+  const [asnCode, setAsnCode] = useState("")
 
   const statusConfig: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
+    DRAFT: { label: t("poStatus.draft"), variant: "secondary" },
     OPEN: { label: t("poStatus.open"), variant: "default" },
     PARTIAL: { label: t("poStatus.partial"), variant: "default" },
     COMPLETED: { label: t("poStatus.completed"), variant: "default" },
@@ -45,6 +56,15 @@ export function PODetailPage() {
   if (!po) return <p className="text-sm text-muted-foreground">{t("poDetail.notFound")}</p>
 
   const s = statusConfig[po.status] ?? { label: po.status, variant: "secondary" }
+  const isManager = perm.hasRole(...ROLES.MANAGER)
+  const isStock = perm.hasRole("STOCK")
+  const rejectedReceipts = receipts?.filter((r) => r.status === "REJECTED") ?? []
+  const receiptStatusConfig: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
+    DRAFT: { label: t("importStatus.draft"), variant: "secondary" },
+    RECEIVED: { label: t("importStatus.received"), variant: "default" },
+    REJECTED: { label: t("importStatus.rejected"), variant: "destructive" },
+    CANCELLED: { label: t("importStatus.cancelled"), variant: "outline" },
+  }
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
@@ -66,7 +86,62 @@ export function PODetailPage() {
           <Badge variant={s.variant}>{s.label}</Badge>
         </div>
         <ButtonGroup>
-          {po.status === PURCHASE_ORDER_STATUS.OPEN && (
+          {(po.status === PURCHASE_ORDER_STATUS.DRAFT || po.status === PURCHASE_ORDER_STATUS.OPEN) &&
+            !po.locked &&
+            isManager && (
+              <Button variant="outline" onClick={() => navigate(`/stock/purchase-orders/${po.id}/edit`)}>
+                <Pencil className="size-4 mr-1" /> {t("poDetail.edit")}
+              </Button>
+            )}
+          {po.locked && (
+            <Badge variant="secondary" className="self-center">
+              {t("poDetail.locked")}
+            </Badge>
+          )}
+          {po.status === PURCHASE_ORDER_STATUS.DRAFT && isManager && (
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button variant="outline">
+                  <Link2 className="size-4 mr-1" /> {t("poDetail.openOrder")}
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>{t("poDetail.openOrderTitle")}</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-2">
+                  <Label htmlFor="asn-code">{t("poDetail.asnCode")}</Label>
+                  <Input
+                    id="asn-code"
+                    placeholder={t("poDetail.asnCodePlaceholder")}
+                    value={asnCode}
+                    onChange={(e) => setAsnCode(e.target.value)}
+                  />
+                </div>
+                <p className="text-sm text-muted-foreground">{t("poDetail.openOrderConfirm")}</p>
+                <DialogFooter>
+                  <Button
+                    onClick={() => {
+                      openMut.mutate(
+                        { id: po.id, asnCode: asnCode.trim() || undefined },
+                        {
+                          onSuccess: () => {
+                            toast.success(t("poDetail.openSuccess"))
+                            setAsnCode("")
+                          },
+                          onError: (e) => toast.error(e.message),
+                        },
+                      )
+                    }}
+                    disabled={openMut.isPending}
+                  >
+                    {openMut.isPending ? t("poDetail.opening") : t("poDetail.confirmOpen")}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          )}
+          {(po.status === PURCHASE_ORDER_STATUS.DRAFT || po.status === PURCHASE_ORDER_STATUS.OPEN) && isManager && (
             <Dialog>
               <DialogTrigger asChild>
                 <Button
@@ -100,13 +175,21 @@ export function PODetailPage() {
             </Dialog>
           )}
           <PrintReceiptButton id={po.id} type="po" />
-          {po.status !== PURCHASE_ORDER_STATUS.CANCELLED && (
+          {po.status === PURCHASE_ORDER_STATUS.OPEN && isStock && (
             <Button onClick={() => navigate(`/stock/imports/new?poId=${po.id}`)}>
               <ArrowDownToLine className="size-4 mr-1" /> {t("poDetail.createImport")}
             </Button>
           )}
         </ButtonGroup>
       </div>
+
+      {(po.rejectedReceiptCount ?? 0) > 0 && (
+        <Alert variant="destructive">
+          <AlertDescription>
+            {t("poDetail.rejectedBanner", { count: po.rejectedReceiptCount })}
+          </AlertDescription>
+        </Alert>
+      )}
 
       <Card>
         <CardContent className="pt-6">
@@ -118,6 +201,14 @@ export function PODetailPage() {
             <div>
               <span className="text-muted-foreground">{t("poDetail.expectedDate")}</span>
               <p className="font-medium">{new Date(po.expectedDate).toLocaleDateString("vi-VN")}</p>
+            </div>
+            <div>
+              <span className="text-muted-foreground">{t("poDetail.invoiceCode")}</span>
+              <p className="font-medium font-mono">{po.invoiceCode ?? "—"}</p>
+            </div>
+            <div>
+              <span className="text-muted-foreground">{t("poDetail.asnCode")}</span>
+              <p className="font-medium font-mono">{po.asnCode ?? "—"}</p>
             </div>
             <div>
               <span className="text-muted-foreground">{t("label.creator")}</span>
@@ -148,6 +239,7 @@ export function PODetailPage() {
                 <TableHead>{t("table.product")}</TableHead>
                 <TableHead className="w-20 text-right">{t("table.qty")}</TableHead>
                 <TableHead className="w-28 text-right">{t("table.unitPrice")}</TableHead>
+                <TableHead className="w-40">{t("poDetail.serials")}</TableHead>
                 <TableHead className="w-28 text-right">{t("table.total")}</TableHead>
               </TableRow>
             </TableHeader>
@@ -162,6 +254,19 @@ export function PODetailPage() {
                   <TableCell className="text-right tabular-nums">
                     {(item.unitPrice ?? 0).toLocaleString("vi-VN")}₫
                   </TableCell>
+                  <TableCell>
+                    {item.serials.length > 0 ? (
+                      <div className="flex flex-wrap gap-1">
+                        {item.serials.map((s) => (
+                          <span key={s} className="rounded bg-muted px-1.5 py-0.5 text-[11px] font-mono">
+                            {s}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    )}
+                  </TableCell>
                   <TableCell className="text-right tabular-nums">
                     {((item.quantity ?? 0) * (item.unitPrice ?? 0)).toLocaleString("vi-VN")}₫
                   </TableCell>
@@ -169,6 +274,59 @@ export function PODetailPage() {
               ))}
             </TableBody>
           </Table>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">{t("poDetail.receipts")}</CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          {receipts && receipts.length > 0 ? (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t("table.receiptCode")}</TableHead>
+                  <TableHead>{t("table.status")}</TableHead>
+                  <TableHead>{t("poDetail.rejectInfo")}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {receipts.map((r) => {
+                  const rs = receiptStatusConfig[r.status] ?? { label: r.status, variant: "secondary" }
+                  return (
+                    <TableRow key={r.id}>
+                      <TableCell>
+                        <a
+                          href={`/stock/imports/${r.id}`}
+                          className="font-mono text-xs font-medium underline-offset-4 hover:underline"
+                        >
+                          {r.receiptCode}
+                        </a>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={rs.variant}>{rs.label}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        {r.status === "REJECTED" ? (
+                          <div className="text-sm">
+                            <p className="text-destructive">{r.rejectReason}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {t("poDetail.rejectedBy", { name: r.rejectedByName ?? "—" })}
+                            </p>
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
+              </TableBody>
+            </Table>
+          ) : (
+            <p className="px-6 py-4 text-sm text-muted-foreground">{t("poDetail.noReceipts")}</p>
+          )}
         </CardContent>
       </Card>
 

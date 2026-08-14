@@ -15,8 +15,12 @@ public record PurchaseOrderResponse(
         String supplierName,
         BigDecimal totalAmount,
         String status,
+        Boolean locked,
+        long rejectedReceiptCount,
         LocalDate expectedDate,
         String note,
+        String invoiceCode,
+        String asnCode,
         Long createdBy,
         String createdByName,
         Instant createdAt,
@@ -29,8 +33,10 @@ public record PurchaseOrderResponse(
             Long productId,
             String productName,
             String productSku,
+            String trackingType,
             BigDecimal quantity,
             BigDecimal unitPrice,
-            BigDecimal receivedQuantity
+            BigDecimal receivedQuantity,
+            List<String> serials
     ) {}
 }

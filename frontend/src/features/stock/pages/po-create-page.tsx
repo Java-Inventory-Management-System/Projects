@@ -22,6 +22,7 @@ import { Empty, EmptyTitle } from "@/components/ui/empty"
 
 interface POFormFields {
   supplierId: string
+  invoiceCode: string
   note: string
   expectedDate: string
   items: {
@@ -52,7 +53,7 @@ export function POCreatePage() {
   }, [])
 
   const form = useForm<POFormFields>({
-    defaultValues: { supplierId: "", note: "", expectedDate: defaultDate, items: [] },
+    defaultValues: { supplierId: "", invoiceCode: "", note: "", expectedDate: defaultDate, items: [] },
   })
   const { fields, append, remove } = useFieldArray({ control: form.control, name: "items" })
   const watchedSupplierId = form.watch("supplierId")
@@ -96,20 +97,27 @@ export function POCreatePage() {
     setProductPopoverOpen(false)
   }, [selectedProductIds, pickerProducts, fields, append, nextTempId, t])
 
-  const totalAmount = useMemo(() => fields.reduce((sum, i) => sum + i.quantity * i.unitPrice, 0), [fields])
-
   const onSubmit = form.handleSubmit((values) => {
-    const invalidItem = values.items.find((i) => !i.quantity || i.quantity <= 0 || i.unitPrice == null || i.unitPrice < 0)
+    const invalidItem = values.items.find((i) => !i.quantity || i.quantity <= 0)
     if (invalidItem) {
       toast.error(t("poCreate.invalidItem"))
+      return
+    }
+    if (values.items.some((i) => !i.unitPrice || i.unitPrice < 0)) {
+      toast.error(t("poCreate.invalidPrice"))
       return
     }
     createMut.mutate(
       {
         supplierId: Number(values.supplierId),
+        invoiceCode: values.invoiceCode.trim() || null,
         expectedDate: values.expectedDate,
         note: values.note || null,
-        items: values.items.map((i) => ({ productId: i.productId, quantity: i.quantity, unitPrice: i.unitPrice })),
+        items: values.items.map((i) => ({
+          productId: i.productId,
+          quantity: i.quantity,
+          unitPrice: i.unitPrice,
+        })),
       },
       {
         onSuccess: () => {
@@ -148,7 +156,7 @@ export function POCreatePage() {
                     <SelectValue placeholder={t("poCreate.supplierPlaceholder")} />
                   </SelectTrigger>
                   <SelectContent>
-                    {suppliers.map((s) => (
+                    {suppliers.filter((s) => s.isActive).map((s) => (
                       <SelectItem key={s.id} value={String(s.id)}>
                         {s.name}
                       </SelectItem>
@@ -161,6 +169,14 @@ export function POCreatePage() {
           <div className="space-y-2">
             <Label htmlFor="expectedDate">{t("poCreate.expectedDate")}</Label>
             <Input id="expectedDate" type="date" {...form.register("expectedDate")} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="invoiceCode">{t("poCreate.invoiceCode")}</Label>
+            <Input
+              id="invoiceCode"
+              placeholder={t("poCreate.invoiceCodePlaceholder")}
+              {...form.register("invoiceCode")}
+            />
           </div>
         </div>
 
@@ -230,15 +246,14 @@ export function POCreatePage() {
               <TableRow>
                 <TableHead>{t("table.product")}</TableHead>
                 <TableHead className="w-24 text-right">{t("table.qty")}</TableHead>
-                <TableHead className="w-28 text-right">{t("table.unitPrice")}</TableHead>
-                <TableHead className="w-28 text-right">{t("table.total")}</TableHead>
+                <TableHead className="w-32 text-right">{t("table.unitPrice")}</TableHead>
                 <TableHead className="w-12" />
               </TableRow>
             </TableHeader>
             <TableBody>
               {fields.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8">
+                  <TableCell colSpan={4} className="text-center py-8">
                     <Empty>
                       <EmptyTitle>{t("poCreate.noProducts")}</EmptyTitle>
                     </Empty>
@@ -263,12 +278,9 @@ export function POCreatePage() {
                       <Input
                         type="number"
                         min={0}
-                        className="h-8 w-24 text-right"
+                        className="h-8 w-28 text-right"
                         {...form.register(`items.${index}.unitPrice`, { valueAsNumber: true })}
                       />
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {(item.quantity * item.unitPrice).toLocaleString("vi-VN")}₫
                     </TableCell>
                     <TableCell>
                       <Button variant="ghost" size="icon" onClick={() => remove(index)}>
@@ -280,10 +292,6 @@ export function POCreatePage() {
               )}
             </TableBody>
           </Table>
-        </div>
-
-        <div className="flex justify-end">
-          <span className="text-lg font-semibold">{t("poCreate.total")}: {totalAmount.toLocaleString("vi-VN")}₫</span>
         </div>
 
         <div className="space-y-2">

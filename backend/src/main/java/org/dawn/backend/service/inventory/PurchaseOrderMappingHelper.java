@@ -12,7 +12,8 @@ import java.util.Map;
 public interface PurchaseOrderMappingHelper {
 
     static PurchaseOrderResponse map(PurchaseOrder po, String supplierName, String createdByName,
-                                      List<PurchaseOrderItem> items, Map<Long, Product> products) {
+                                      List<PurchaseOrderItem> items, Map<Long, Product> products,
+                                      boolean locked, long rejectedReceiptCount) {
         List<POItemResponse> itemResponses = items.stream().map(item -> {
             Product p = products.get(item.getProductId());
             return POItemResponse.builder()
@@ -20,9 +21,13 @@ public interface PurchaseOrderMappingHelper {
                     .productId(item.getProductId())
                     .productName(p != null ? p.getName() : null)
                     .productSku(p != null ? p.getSku() : null)
+                    .trackingType(p != null ? p.getTrackingType() : null)
                     .quantity(item.getQuantity())
                     .unitPrice(item.getUnitPrice())
                     .receivedQuantity(item.getReceivedQuantity())
+                    .serials(item.getSerials() != null && !item.getSerials().isBlank()
+                            ? List.of(item.getSerials().split("\r?\n"))
+                            : List.of())
                     .build();
         }).toList();
 
@@ -33,8 +38,12 @@ public interface PurchaseOrderMappingHelper {
                 .supplierName(supplierName)
                 .totalAmount(po.getTotalAmount())
                 .status(po.getStatus().name())
+                .locked(locked)
+                .rejectedReceiptCount(rejectedReceiptCount)
                 .expectedDate(po.getExpectedDate())
                 .note(po.getNote())
+                .invoiceCode(po.getInvoiceCode())
+                .asnCode(po.getAsnCode())
                 .createdBy(po.getCreatedBy())
                 .createdByName(createdByName)
                 .createdAt(po.getCreatedAt())
