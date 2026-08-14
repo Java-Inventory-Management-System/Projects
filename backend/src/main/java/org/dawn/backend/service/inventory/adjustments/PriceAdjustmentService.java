@@ -30,6 +30,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -49,6 +51,7 @@ public class PriceAdjustmentService {
     private final UserRepository userRepository;
     private final SecurityPolicy securityPolicy;
     private final StateMachine<AdjustmentStatus> adjustmentStateMachine;
+    private final org.dawn.backend.service.shared.LockGuard lockGuard;
 
     @Transactional(readOnly = true)
     public ResponsePage<PriceAdjustmentResponse> findAll(Pageable pageable, String status) {
@@ -59,9 +62,9 @@ public class PriceAdjustmentService {
                     ? Page.empty(pageable)
                     : priceAdjustmentRepository.findAll(pageable);
         var adjs = page.getContent();
-        var itemProductMap = fetchItemProductMap(adjs);
+        var itemContextMap = fetchItemContextMap(adjs);
         var userMap = fetchUserMap(adjs);
-        return ResponsePage.of(page.map(a -> enrich(a, itemProductMap, userMap)));
+        return ResponsePage.of(page.map(a -> enrich(a, itemContextMap, userMap)));
     }
 
     @Transactional(readOnly = true)
@@ -86,9 +89,9 @@ public class PriceAdjustmentService {
                     ? Page.empty(pageable)
                     : priceAdjustmentRepository.findByCreatedBy(userId, pageable);
         var adjs = page.getContent();
-        var itemProductMap = fetchItemProductMap(adjs);
+        var itemContextMap = fetchItemContextMap(adjs);
         var userMap = fetchUserMap(adjs);
-        return ResponsePage.of(page.map(a -> enrich(a, itemProductMap, userMap)));
+        return ResponsePage.of(page.map(a -> enrich(a, itemContextMap, userMap)));
     }
 
     @Transactional(readOnly = true)
@@ -98,7 +101,7 @@ public class PriceAdjustmentService {
 
         var receiptIds = items.stream().map(ImportReceiptItem::getReceiptId).distinct().toList();
         var receipts = importReceiptRepository.findAllById(receiptIds).stream()
-                .filter(r -> r.getStatus() == org.dawn.backend.constant.enums.inventory.imports.ImportReceiptStatus.COMPLETED)
+                .filter(r -> r.getStatus() == org.dawn.backend.constant.enums.inventory.imports.ImportReceiptStatus.RECEIVED)
                 .collect(java.util.stream.Collectors.toMap(ImportReceipt::getId, java.util.function.Function.identity()));
 
         var product = productRepository.findById(productId).orElse(null);
@@ -149,10 +152,11 @@ public class PriceAdjustmentService {
 
         var item = importReceiptItemRepository.findById(request.importReceiptItemId())
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.IMPORT_ITEM_NOT_FOUND));
+        lockGuard.assertProductsActive(java.util.List.of(item.getProductId()));
 
         var receipt = importReceiptRepository.findById(item.getReceiptId())
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.IMPORT_RECEIPT_NOT_FOUND));
-        if (receipt.getStatus() != org.dawn.backend.constant.enums.inventory.imports.ImportReceiptStatus.COMPLETED) {
+        if (receipt.getStatus() != org.dawn.backend.constant.enums.inventory.imports.ImportReceiptStatus.RECEIVED) {
             throw new InvalidRequestException(ErrorCode.PRICE_ADJ_RECEIPT_NOT_COMPLETED);
         }
 
@@ -201,12 +205,15 @@ public class PriceAdjustmentService {
             productUnitRepository.saveAll(units);
         }
 
-        int updated = priceAdjustmentRepository.optimisticUpdateStatus(
-                id, AdjustmentStatus.APPROVED, userId, approvalNote);
+        int updated = priceAdjustmentRepository.optimisticApprove(
+                id, userId, approvalNote, Instant.now());
         if (updated == 0) {
             throw new InvalidRequestException(ErrorCode.PRICE_ADJ_ONLY_PENDING_APPROVE);
         }
         adj.setStatus(AdjustmentStatus.APPROVED);
+        adj.setApprovedBy(userId);
+        adj.setApprovalNote(approvalNote);
+        adj.setApprovedAt(Instant.now());
         return enrich(adj);
     }
 
@@ -226,6 +233,7 @@ public class PriceAdjustmentService {
         if (updated == 0) {
             throw new InvalidRequestException(ErrorCode.PRICE_ADJ_ONLY_PENDING_CANCEL);
         }
+        adj.setStatus(AdjustmentStatus.CANCELLED);
         return enrich(adj);
     }
 
@@ -249,21 +257,52 @@ public class PriceAdjustmentService {
         if (updated == 0) {
             throw new InvalidRequestException(ErrorCode.PRICE_ADJ_ONLY_PENDING_REJECT);
         }
+        adj.setStatus(AdjustmentStatus.REJECTED);
         return enrich(adj);
     }
 
-    private Map<Long, String[]> fetchItemProductMap(List<PriceAdjustment> adjs) {
+    @Transactional(readOnly = true)
+    public List<PriceAdjustmentResponse> findHistoryByProduct(Long productId) {
+        var itemIds = importReceiptItemRepository.findByProductId(productId).stream()
+                .map(ImportReceiptItem::getId)
+                .toList();
+        if (itemIds.isEmpty()) return List.of();
+        var adjs = priceAdjustmentRepository.findByImportReceiptItemIdIn(itemIds).stream()
+                .filter(a -> a.getStatus() == AdjustmentStatus.APPROVED
+                        || a.getStatus() == AdjustmentStatus.PENDING)
+                .sorted(Comparator.comparing(PriceAdjustment::getCreatedAt).reversed())
+                .toList();
+        if (adjs.isEmpty()) return List.of();
+        var itemContextMap = fetchItemContextMap(adjs);
+        var userMap = fetchUserMap(adjs);
+        return adjs.stream().map(a -> enrich(a, itemContextMap, userMap)).toList();
+    }
+
+    private record ItemContext(Long productId, String productName, String productSku,
+                               String receiptCode, Instant receiptDate) {}
+
+    private Map<Long, ItemContext> fetchItemContextMap(List<PriceAdjustment> adjs) {
         var itemIds = adjs.stream().map(PriceAdjustment::getImportReceiptItemId).distinct().toList();
         var items = importReceiptItemRepository.findAllById(itemIds).stream()
                 .collect(Collectors.toMap(ImportReceiptItem::getId, Function.identity()));
+        var receiptIds = items.values().stream().map(ImportReceiptItem::getReceiptId).distinct().toList();
+        var receipts = importReceiptRepository.findAllById(receiptIds).stream()
+                .collect(Collectors.toMap(ImportReceipt::getId, Function.identity()));
         var productIds = items.values().stream().map(ImportReceiptItem::getProductId).distinct().toList();
         var products = productRepository.findAllById(productIds).stream()
                 .collect(Collectors.toMap(Product::getId, Function.identity()));
         return items.entrySet().stream().collect(Collectors.toMap(
                 Map.Entry::getKey,
                 e -> {
-                    var p = products.get(e.getValue().getProductId());
-                    return new String[]{p != null ? p.getName() : null, p != null ? p.getSku() : null};
+                    var item = e.getValue();
+                    var p = products.get(item.getProductId());
+                    var r = receipts.get(item.getReceiptId());
+                    return new ItemContext(
+                            item.getProductId(),
+                            p != null ? p.getName() : null,
+                            p != null ? p.getSku() : null,
+                            r != null ? r.getReceiptCode() : null,
+                            r != null ? r.getCreatedAt() : null);
                 }));
     }
 
@@ -280,30 +319,42 @@ public class PriceAdjustmentService {
                 .collect(Collectors.toMap(User::getId, User::getFullName));
     }
 
-    private PriceAdjustmentResponse enrich(PriceAdjustment adj, Map<Long, String[]> itemProductMap, Map<Long, String> userMap) {
-        var itemProduct = itemProductMap.get(adj.getImportReceiptItemId());
+    private PriceAdjustmentResponse enrich(PriceAdjustment adj, Map<Long, ItemContext> itemContextMap, Map<Long, String> userMap) {
+        var ctx = itemContextMap.get(adj.getImportReceiptItemId());
         return PriceAdjustmentMappingHelper.map(adj,
-                itemProduct != null ? itemProduct[0] : null,
-                itemProduct != null ? itemProduct[1] : null,
+                ctx != null ? ctx.productId() : null,
+                ctx != null ? ctx.productName() : null,
+                ctx != null ? ctx.productSku() : null,
+                ctx != null ? ctx.receiptCode() : null,
+                ctx != null ? ctx.receiptDate() : null,
                 userMap.get(adj.getCreatedBy()),
                 adj.getApprovedBy() != null ? userMap.get(adj.getApprovedBy()) : null);
     }
 
     private PriceAdjustmentResponse enrich(PriceAdjustment adj) {
         var item = importReceiptItemRepository.findById(adj.getImportReceiptItemId()).orElse(null);
-        String productName = null, productSku = null;
+        String productId = null, productName = null, productSku = null, receiptCode = null;
+        Instant receiptDate = null;
         if (item != null) {
+            productId = String.valueOf(item.getProductId());
             var product = productRepository.findById(item.getProductId()).orElse(null);
             if (product != null) {
                 productName = product.getName();
                 productSku = product.getSku();
+            }
+            var receipt = importReceiptRepository.findById(item.getReceiptId()).orElse(null);
+            if (receipt != null) {
+                receiptCode = receipt.getReceiptCode();
+                receiptDate = receipt.getCreatedAt();
             }
         }
         var createdByName = userRepository.findById(adj.getCreatedBy()).map(User::getFullName).orElse(null);
         var approvedByName = adj.getApprovedBy() != null
                 ? userRepository.findById(adj.getApprovedBy()).map(User::getFullName).orElse(null)
                 : null;
-        return PriceAdjustmentMappingHelper.map(adj, productName, productSku, createdByName, approvedByName);
+        return PriceAdjustmentMappingHelper.map(adj,
+                productId != null ? Long.valueOf(productId) : null,
+                productName, productSku, receiptCode, receiptDate, createdByName, approvedByName);
     }
 
     private AdjustmentStatus safeParseAdjustmentStatus(String value) {

@@ -129,6 +129,7 @@ export function SuppliersPage() {
               name={s.name}
               pending={toggle.isPending}
               onToggle={() => toggle.mutate(s.id)}
+              confirmDescription={s.isActive ? t("common.deactivateWarning") : undefined}
             />
           )}
         </div>

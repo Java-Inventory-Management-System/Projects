@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -22,6 +23,9 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     List<Product> findByIsActiveTrue();
     long countByIsActiveTrue();
     Page<Product> findByNameContainingIgnoreCaseAndIsActiveTrue(String name, Pageable pageable);
+
+    @Query("SELECT p FROM Product p LEFT JOIN FETCH p.category WHERE p.id IN :ids")
+    List<Product> findByIdsWithCategory(@Param("ids") Collection<Long> ids);
 
     @Query("""
             SELECT p FROM Product p WHERE

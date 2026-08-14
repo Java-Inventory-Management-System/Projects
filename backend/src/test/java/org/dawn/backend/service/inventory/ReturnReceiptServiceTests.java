@@ -27,6 +27,8 @@ import org.dawn.backend.repository.inventory.exports.ExportReceiptRepository;
 import org.dawn.backend.repository.inventory.returns.ReturnReceiptItemRepository;
 import org.dawn.backend.repository.inventory.returns.ReturnReceiptRepository;
 import org.dawn.backend.service.inventory.returns.ReturnReceiptService;
+import org.dawn.backend.constant.shared.ErrorCode;
+import org.dawn.backend.service.shared.LockGuard;
 import org.dawn.backend.shared.util.ReceiptCodeGenerator;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -61,6 +63,7 @@ class ReturnReceiptServiceTests {
     @Mock org.dawn.backend.repository.inventory.LocationRepository locationRepository;
     @Mock StateMachine<ReturnReceiptStatus> returnReceiptStateMachine;
     @Mock SecurityPolicy securityPolicy;
+    @Mock LockGuard lockGuard;
 
     @InjectMocks ReturnReceiptService returnReceiptService;
 
@@ -164,6 +167,27 @@ class ReturnReceiptServiceTests {
 
             assertThrows(InvalidRequestException.class, () -> returnReceiptService.create(request));
         }
+    }
+
+    @Test
+    void create_inactiveProduct_rejected() {
+        ReturnReceiptRequest request = new ReturnReceiptRequest(
+                customerId, exportReceiptId, ReturnReason.DEFECTIVE.name(), null,
+                List.of(new ReturnItemRequest(productUnitId, 20L, BigDecimal.ONE, ReturnCondition.GOOD.name(), ResultingAction.RESTOCK.name(), null, null))
+        );
+        var exportReceipt = mock(ExportReceipt.class);
+        when(exportReceiptRepository.findById(exportReceiptId)).thenReturn(Optional.of(exportReceipt));
+        when(exportReceipt.getCustomerId()).thenReturn(customerId);
+        doThrow(new InvalidRequestException(ErrorCode.PRODUCT_INACTIVE))
+                .when(lockGuard).assertProductsActive(any());
+
+        try (MockedStatic<ReceiptCodeGenerator> gen = mockStatic(ReceiptCodeGenerator.class)) {
+            when(securityPolicy.requireAuthenticated()).thenReturn(userId);
+            gen.when(() -> ReceiptCodeGenerator.generate(eq("RET-"), any())).thenReturn("RET-001");
+
+            assertThrows(InvalidRequestException.class, () -> returnReceiptService.create(request));
+        }
+        verify(returnReceiptRepository, never()).save(any());
     }
 
     @Test

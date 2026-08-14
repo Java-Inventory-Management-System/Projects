@@ -215,6 +215,7 @@ export function ProductEditPage() {
           name={watch("name")}
           pending={toggleActive.isPending}
           onToggle={() => toggleActive.mutate()}
+          confirmDescription={isActive ? t("common.deactivateWarning") : undefined}
         />
       </div>
 

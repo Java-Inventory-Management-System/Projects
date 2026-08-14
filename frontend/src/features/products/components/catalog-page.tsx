@@ -25,6 +25,7 @@ interface Props {
   createItem: (data: { name: string; description: string | null }) => Promise<CatalogResponse>
   updateItem: (id: number, data: { name: string; description: string | null }) => Promise<CatalogResponse>
   toggleItem: (id: number) => Promise<void>
+  deactivateWarning?: boolean
 }
 
 export function CatalogPage({
@@ -36,6 +37,7 @@ export function CatalogPage({
   createItem,
   updateItem,
   toggleItem,
+  deactivateWarning,
 }: Props) {
   const { t } = useTranslation()
   const perm = usePermission()
@@ -127,6 +129,7 @@ export function CatalogPage({
                     name={b.name}
                     pending={toggle.isPending}
                     onToggle={() => toggle.mutate(b.id)}
+                    confirmDescription={b.isActive && deactivateWarning ? t("common.deactivateWarning") : undefined}
                   />
                 )}
               </div>

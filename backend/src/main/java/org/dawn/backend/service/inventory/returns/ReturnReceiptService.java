@@ -16,6 +16,7 @@ import org.dawn.backend.constant.enums.inventory.*;
 import org.dawn.backend.constant.shared.LogConstant;
 import org.dawn.backend.constant.shared.QcProcessingLocations;
 import org.dawn.backend.controller.inventory.request.ReturnReceiptRequest;
+import org.dawn.backend.controller.inventory.request.ReturnReceiptRequest.ReturnItemRequest;
 import org.dawn.backend.controller.inventory.response.ReturnReceiptResponse;
 import org.dawn.backend.entity.auth.User;
 import org.dawn.backend.entity.catalog.Product;
@@ -60,17 +61,23 @@ public class ReturnReceiptService {
     private final org.dawn.backend.repository.inventory.LocationRepository locationRepository;
     private final StateMachine<ReturnReceiptStatus> returnReceiptStateMachine;
     private final SecurityPolicy securityPolicy;
+    private final org.dawn.backend.service.shared.LockGuard lockGuard;
 
     private static final String RETURN_STAGING_LOCATION_FULL_CODE = QcProcessingLocations.QC_SHELF_1_NEW_RETURNS;
     private static final String WARRANTY_HOLD_LOCATION_FULL_CODE = QcProcessingLocations.QC_SHELF_2_WAIT_RMA;
 
     @Transactional(readOnly = true)
     public ResponsePage<ReturnReceiptResponse> findAll(Pageable pageable,
-                                                        String status,
-                                                        String reason,
-                                                        String search) {
+                                                       String status,
+                                                       String reason,
+                                                       String search,
+                                                       Long createdBy) {
         ReturnReceiptStatus st = safeParseStatus(status);
-        var page = st != null && reason != null
+        var page = createdBy != null
+                ? (st != null
+                        ? returnReceiptRepository.findByStatusAndCreatedBy(st, createdBy, pageable)
+                        : returnReceiptRepository.findByCreatedBy(createdBy, pageable))
+                : st != null && reason != null
                 ? returnReceiptRepository.findByStatusAndReason(st, reason, pageable)
                 : st != null
                     ? returnReceiptRepository.findByStatus(st, pageable)
@@ -158,6 +165,9 @@ public class ReturnReceiptService {
                 throw new InvalidRequestException(ErrorCode.RETURN_UNIT_ALREADY_RETURNED);
             }
         }
+
+        lockGuard.assertProductsActive(request.items().stream()
+                .map(ReturnItemRequest::productId).filter(Objects::nonNull).toList());
 
         ReturnReceipt receipt = ReturnReceipt.builder()
                 .receiptCode(receiptCode)

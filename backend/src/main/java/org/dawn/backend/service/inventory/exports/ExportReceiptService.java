@@ -5,11 +5,12 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dawn.backend.config.web.response.ResponsePage;
 import org.dawn.backend.constant.enums.catalog.UnitOfMeasure;
-import org.dawn.backend.constant.enums.inventory.exports.ExportReceiptStatus;
 import org.dawn.backend.constant.enums.inventory.exports.ExportReason;
+import org.dawn.backend.constant.enums.inventory.exports.ExportReceiptStatus;
 import org.dawn.backend.constant.enums.inventory.ProductUnitStatus;
 import org.dawn.backend.constant.shared.LogConstant;
 import org.dawn.backend.controller.inventory.request.ExportReceiptRequest;
+import org.dawn.backend.controller.inventory.request.ExportReceiptRequest.ExportItemRequest;
 import org.dawn.backend.controller.inventory.response.ExportReceiptResponse;
 import org.dawn.backend.controller.inventory.response.ProductUnitResponse;
 import org.dawn.backend.entity.auth.User;
@@ -63,16 +64,21 @@ private final org.dawn.backend.repository.catalog.SupplierRepository supplierRep
 private final LocationRepository locationRepository;
     private final UserRepository userRepository;
     private final SecurityPolicy securityPolicy;
+    private final org.dawn.backend.service.shared.LockGuard lockGuard;
 
     private static final List<String> BULK_UNITS = List.of(
             UnitOfMeasure.METER.name(),
             UnitOfMeasure.KG.name());
 
     @Transactional(readOnly = true)
-    public ResponsePage<ExportReceiptResponse> findAll(Pageable pageable, String status, Long customerId) {
+    public ResponsePage<ExportReceiptResponse> findAll(Pageable pageable, String status, Long customerId, Long createdBy) {
         ExportReceiptStatus s = safeParseExportStatus(status);
         Page<ExportReceipt> page;
-        if (customerId != null && s != null) {
+        if (createdBy != null) {
+            page = s != null
+                    ? exportReceiptRepository.findByStatusAndCreatedBy(s, createdBy, pageable)
+                    : exportReceiptRepository.findByCreatedBy(createdBy, pageable);
+        } else if (customerId != null && s != null) {
             page = exportReceiptRepository.findByCustomerIdAndStatus(customerId, s, pageable);
         } else if (customerId != null) {
             page = exportReceiptRepository.findByCustomerId(customerId, pageable);
@@ -119,33 +125,38 @@ private final LocationRepository locationRepository;
         if (request.items() == null || request.items().isEmpty()) {
             throw new InvalidRequestException(ErrorCode.AT_LEAST_ONE_ITEM_REQUIRED);
         }
-        if (request.reason() == null || request.reason().isBlank()) {
+        if (request.type() == null) {
             throw new InvalidRequestException(ErrorCode.EXPORT_REASON_REQUIRED);
         }
-        ExportReason reason;
-        try {
-            reason = ExportReason.valueOf(request.reason().toUpperCase());
-        } catch (IllegalArgumentException e) {
-            throw new InvalidRequestException(ErrorCode.INVALID_EXPORT_REASON.format( request.reason()));
+        ExportReason type = request.type();
+        String reason;
+        if (type == ExportReason.OTHER) {
+            if (request.reason() == null || request.reason().isBlank()) {
+                throw new InvalidRequestException(ErrorCode.EXPORT_OTHER_REASON_REQUIRED);
+            }
+            reason = request.reason().trim();
+        } else {
+            reason = type.name();
         }
-        if (reason == ExportReason.SALE && request.customerId() == null) {
+        if (type == ExportReason.SALE && request.customerId() == null) {
             throw new InvalidRequestException(ErrorCode.CUSTOMER_REQUIRED_FOR_SALE);
         }
-        if (reason == ExportReason.SALE && request.customerId() != null) {
+        if (type == ExportReason.SALE && request.customerId() != null) {
             Customer customer = customerRepository.findById(request.customerId())
                     .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.CUSTOMER_NOT_FOUND));
             if (!Boolean.TRUE.equals(customer.getIsActive())) {
                 throw new InvalidRequestException(ErrorCode.CUSTOMER_INACTIVE);
             }
         }
-        if ((reason == ExportReason.RETURN_SUPPLIER
-                || reason == ExportReason.WARRANTY_REPLACEMENT)
+        if ((type == ExportReason.RETURN_SUPPLIER || type == ExportReason.WARRANTY_REPLACEMENT)
                 && request.supplierId() == null) {
             throw new InvalidRequestException(ErrorCode.EXPORT_SUPPLIER_REQUIRED);
         }
         if (request.supplierId() != null && !supplierRepository.existsById(request.supplierId())) {
             throw new ResourceNotFoundException(ErrorCode.SUPPLIER_NOT_FOUND);
         }
+        lockGuard.assertSupplierActive(request.supplierId());
+        lockGuard.assertProductsActive(request.items().stream().map(ExportItemRequest::productId).toList());
 
         String receiptCode = generateReceiptCode();
         if (exportReceiptRepository.existsByReceiptCode(receiptCode)) {
@@ -154,7 +165,7 @@ private final LocationRepository locationRepository;
 
         ExportReceipt receipt = ExportReceipt.builder()
                 .receiptCode(receiptCode)
-                .reason(reason.name())
+                .reason(reason)
                 .customerId(request.customerId())
                 .supplierId(request.supplierId())
                 .status(ExportReceiptStatus.PENDING)
@@ -174,7 +185,7 @@ private final LocationRepository locationRepository;
             Product product = productRepository.findById(itemReq.productId())
                     .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.PRODUCT_NOT_FOUND));
 
-            BigDecimal inStock = getInStockQuantity(product, reason);
+            BigDecimal inStock = getInStockQuantity(product, type);
             BigDecimal committed = exportReceiptRepository.sumCommittedQuantityByProductIdAndStatusIn(
                     itemReq.productId(), List.of(ExportReceiptStatus.PENDING, ExportReceiptStatus.APPROVED));
             BigDecimal available = inStock.subtract(committed);
@@ -213,8 +224,8 @@ private final LocationRepository locationRepository;
         return toResponse(receipt);
     }
 
-    private BigDecimal getInStockQuantity(Product product, ExportReason reason) {
-        ProductUnitStatus status = reason == ExportReason.WARRANTY_REPLACEMENT
+    private BigDecimal getInStockQuantity(Product product, ExportReason type) {
+        ProductUnitStatus status = type == ExportReason.WARRANTY_REPLACEMENT
                 ? ProductUnitStatus.WAITING_RMA_EXPORT
                 : ProductUnitStatus.IN_STOCK;
         String unit = product.getUnit();

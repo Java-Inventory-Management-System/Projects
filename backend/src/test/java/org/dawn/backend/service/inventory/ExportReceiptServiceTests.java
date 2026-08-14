@@ -4,6 +4,7 @@ import org.dawn.backend.shared.statemachine.StateMachine;
 import org.dawn.backend.constant.enums.inventory.exports.ExportReason;
 import org.dawn.backend.constant.enums.inventory.exports.ExportReceiptStatus;
 import org.dawn.backend.constant.enums.inventory.ProductUnitStatus;
+import org.dawn.backend.constant.shared.ErrorCode;
 import org.dawn.backend.controller.inventory.request.ExportReceiptRequest;
 import org.dawn.backend.controller.inventory.request.ExportReceiptRequest.ExportItemRequest;
 import org.dawn.backend.entity.catalog.Product;
@@ -25,6 +26,7 @@ import org.dawn.backend.repository.inventory.ProductUnitRepository;
 import org.dawn.backend.repository.inventory.ProductUnitStatusLogRepository;
 import org.dawn.backend.service.inventory.exports.ExportReceiptService;
 import org.dawn.backend.service.inventory.exports.ExportWorkflowService;
+import org.dawn.backend.service.shared.LockGuard;
 import org.dawn.backend.shared.util.ReceiptCodeGenerator;
 import org.dawn.backend.shared.util.SecurityUtils;
 import org.dawn.backend.config.security.SecurityPolicy;
@@ -61,6 +63,7 @@ class ExportReceiptServiceTests {
     @Mock UserRepository userRepository;
     @Mock StateMachine<ExportReceiptStatus> exportReceiptStateMachine;
     @Mock SecurityPolicy securityPolicy;
+    @Mock LockGuard lockGuard;
     @Mock org.dawn.backend.repository.catalog.SupplierRepository supplierRepository;
     @Mock org.dawn.backend.repository.inventory.LocationRepository locationRepository;
     @Mock ExportReceiptService exportReceiptServiceMock;
@@ -84,7 +87,7 @@ class ExportReceiptServiceTests {
 
     @Test
     void cancel_success() {
-        ExportReceipt receipt = pendingReceipt(ExportReason.SALE.name(), 99L);
+        ExportReceipt receipt = pendingReceipt("SALE", 99L);
 
         when(exportReceiptRepository.findByIdForUpdate(receiptId)).thenReturn(Optional.of(receipt));
         when(securityPolicy.requireAuthenticated()).thenReturn(userId);
@@ -97,7 +100,7 @@ class ExportReceiptServiceTests {
 
     @Test
     void cancel_fail_alreadyCancelled() {
-        ExportReceipt receipt = pendingReceipt(ExportReason.SALE.name(), 99L);
+        ExportReceipt receipt = pendingReceipt("SALE", 99L);
         receipt.setStatus(ExportReceiptStatus.CANCELLED);
 
         when(exportReceiptRepository.findByIdForUpdate(receiptId)).thenReturn(Optional.of(receipt));
@@ -110,7 +113,7 @@ class ExportReceiptServiceTests {
 
     @Test
     void cancel_fail_notPendingApproval() {
-        ExportReceipt receipt = pendingReceipt(ExportReason.SALE.name(), 99L);
+        ExportReceipt receipt = pendingReceipt("SALE", 99L);
         receipt.setStatus(ExportReceiptStatus.COMPLETED);
 
         when(exportReceiptRepository.findByIdForUpdate(receiptId)).thenReturn(Optional.of(receipt));
@@ -140,7 +143,7 @@ class ExportReceiptServiceTests {
             gen.when(() -> ReceiptCodeGenerator.generate(eq("EXP-"), any())).thenReturn("EXP-001");
 
             exportReceiptService.create(new ExportReceiptRequest(
-                    ExportReason.WARRANTY_REPLACEMENT.name(), null, 1L, "note", null,
+                    ExportReason.WARRANTY_REPLACEMENT, "WARRANTY_REPLACEMENT", null, 1L, "note", null,
                     List.of(new ExportItemRequest(10L, BigDecimal.ONE, BigDecimal.ZERO))));
         }
 
@@ -171,7 +174,7 @@ class ExportReceiptServiceTests {
             gen.when(() -> ReceiptCodeGenerator.generate(eq("EXP-"), any())).thenReturn("EXP-001");
 
             exportReceiptService.create(new ExportReceiptRequest(
-                    ExportReason.SALE.name(), 99L, null, "note", null,
+                    ExportReason.SALE, "SALE", 99L, null, "note", null,
                     List.of(new ExportItemRequest(10L, BigDecimal.ONE, BigDecimal.ZERO))));
         }
 
@@ -184,11 +187,75 @@ class ExportReceiptServiceTests {
         when(securityPolicy.requireAuthenticated()).thenReturn(userId);
 
         ExportReceiptRequest request = new ExportReceiptRequest(
-                ExportReason.SALE.name(), 999L, null, "note", null,
+                ExportReason.SALE, "SALE", 999L, null, "note", null,
                 List.of(new ExportItemRequest(10L, BigDecimal.ONE, BigDecimal.ZERO)));
 
         assertThrows(ResourceNotFoundException.class, () -> exportReceiptService.create(request));
         verify(exportReceiptRepository, never()).save(any());
+    }
+
+    @Test
+    void create_otherReasonBlank_rejected() {
+        when(securityPolicy.requireAuthenticated()).thenReturn(userId);
+
+        ExportReceiptRequest request = new ExportReceiptRequest(
+                ExportReason.OTHER, null, null, null, "note", null,
+                List.of(new ExportItemRequest(10L, BigDecimal.ONE, BigDecimal.ZERO)));
+
+        assertThrows(InvalidRequestException.class, () -> exportReceiptService.create(request));
+        verify(exportReceiptRepository, never()).save(any());
+    }
+
+    @Test
+    void create_otherReason_savesCustomReason() {
+        Product prod = mock(Product.class);
+        when(prod.getId()).thenReturn(10L);
+        when(prod.getUnit()).thenReturn("PIECE");
+        when(productRepository.findById(10L)).thenReturn(Optional.of(prod));
+        when(exportReceiptRepository.existsByReceiptCode(anyString())).thenReturn(false);
+        when(exportReceiptRepository.sumCommittedQuantityByProductIdAndStatusIn(eq(10L), any())).thenReturn(BigDecimal.ZERO);
+        when(productUnitRepository.countByProductIdAndStatusAndBoxIdIsNull(10L, ProductUnitStatus.IN_STOCK))
+                .thenReturn(5L);
+        when(exportReceiptRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(exportReceiptItemRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(securityPolicy.requireAuthenticated()).thenReturn(userId);
+
+        try (MockedStatic<ReceiptCodeGenerator> gen = mockStatic(ReceiptCodeGenerator.class)) {
+            gen.when(() -> ReceiptCodeGenerator.generate(eq("EXP-"), any())).thenReturn("EXP-001");
+
+            exportReceiptService.create(new ExportReceiptRequest(
+                    ExportReason.OTHER, "Tr\u00e0 b\u00e0 b\u1ed9t xu\u1ea5t kh\u1ea9u", null, null, null, null,
+                    List.of(new ExportItemRequest(10L, BigDecimal.ONE, BigDecimal.ZERO))));
+        }
+
+        ArgumentCaptor<ExportReceipt> captor = ArgumentCaptor.forClass(ExportReceipt.class);
+        verify(exportReceiptRepository, times(2)).save(captor.capture());
+        assertEquals("Tr\u00e0 b\u00e0 b\u1ed9t xu\u1ea5t kh\u1ea9u",
+                captor.getAllValues().get(1).getReason());
+    }
+
+    @Test
+    void create_productInactive_rejected() {
+        when(securityPolicy.requireAuthenticated()).thenReturn(userId);
+        doThrow(new InvalidRequestException(ErrorCode.PRODUCT_INACTIVE))
+                .when(lockGuard).assertProductsActive(any());
+
+        assertThrows(InvalidRequestException.class, () -> exportReceiptService.create(
+                new ExportReceiptRequest(ExportReason.INTERNAL, "INTERNAL", null, null, null, null,
+                        List.of(new ExportItemRequest(10L, BigDecimal.ONE, BigDecimal.ZERO)))));
+        verify(exportReceiptRepository, never()).save(any());
+    }
+
+    @Test
+    void create_inactiveSupplier_rejected() {
+        when(securityPolicy.requireAuthenticated()).thenReturn(userId);
+        when(supplierRepository.existsById(1L)).thenReturn(true);
+        doThrow(new InvalidRequestException(ErrorCode.SUPPLIER_INACTIVE))
+                .when(lockGuard).assertSupplierActive(1L);
+
+        assertThrows(InvalidRequestException.class, () -> exportReceiptService.create(
+                new ExportReceiptRequest(ExportReason.RETURN_SUPPLIER, "RETURN_SUPPLIER", null, 1L, null, null,
+                        List.of(new ExportItemRequest(10L, BigDecimal.ONE, BigDecimal.ZERO)))));
     }
 
     private ExportReceipt pendingReceipt(String reason, Long createdBy) {

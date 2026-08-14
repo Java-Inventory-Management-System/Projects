@@ -21,6 +21,7 @@ import org.dawn.backend.aspect.AuditLog;
 import org.dawn.backend.config.web.response.ResponsePage;
 import org.dawn.backend.constant.enums.catalog.UnitOfMeasure;
 import org.dawn.backend.constant.enums.inventory.imports.ImportReceiptStatus;
+import org.dawn.backend.constant.enums.inventory.PurchaseOrderStatus;
 import org.dawn.backend.constant.enums.inventory.ProductUnitStatus;
 import org.dawn.backend.constant.shared.LogConstant;
 import org.dawn.backend.controller.inventory.request.ImportReceiptRequest;
@@ -64,6 +65,7 @@ public class ImportReceiptService {
     private final UserRepository userRepository;
     private final PurchaseOrderRepository purchaseOrderRepository;
     private final SecurityPolicy securityPolicy;
+    private final org.dawn.backend.service.shared.LockGuard lockGuard;
 
     private static final List<String> BULK_UNITS = List.of(
             UnitOfMeasure.METER.name(),
@@ -73,16 +75,18 @@ public class ImportReceiptService {
             UnitOfMeasure.BOX.name(),
             UnitOfMeasure.SET.name());
 
-    public ResponsePage<ImportReceiptResponse> findAll(Pageable pageable, String status) {
+    public ResponsePage<ImportReceiptResponse> findAll(Pageable pageable, String status, boolean unresolved) {
         ImportReceiptStatus s = safeParseImportStatus(status);
         Page<ImportReceipt> page = s != null
-                ? importReceiptRepository.findByStatus(s, pageable)
+                ? unresolved
+                    ? importReceiptRepository.findByStatusAndResolutionIsNull(s, pageable)
+                    : importReceiptRepository.findByStatus(s, pageable)
                 : status != null && !status.isBlank()
                     ? Page.empty(pageable)
                     : importReceiptRepository.findAll(pageable);
         List<ImportReceipt> receipts = page.getContent();
         if (receipts.isEmpty()) {
-            return ResponsePage.of(page.map(r -> ImportReceiptMappingHelper.map(r, null, null, null, null, List.of(), Map.of(), Map.of(), Map.of())));
+            return ResponsePage.of(page.map(r -> ImportReceiptMappingHelper.map(r, null, null, null, null, null, null, List.of(), Map.of(), Map.of(), Map.of())));
         }
         List<Long> receiptIds = page.getContent().stream().map(ImportReceipt::getId).toList();
         Map<Long, List<ImportReceiptItem>> itemsByReceipt = importReceiptItemRepository
@@ -98,20 +102,28 @@ public class ImportReceiptService {
             var items = itemsByReceipt.getOrDefault(r.getId(), List.of());
             var enrichment = enrichmentMap.get(r.getId());
             return ImportReceiptMappingHelper.map(r,
-                    enrichment.supplierName(), enrichment.createdByName(), enrichment.approvedByName(), enrichment.poCode(),
+                    enrichment.supplierName(), enrichment.createdByName(), enrichment.approvedByName(), enrichment.rejectedByName(), enrichment.resolvedByName(), enrichment.poCode(),
                     items, products, unitCounts, unitIds);
         }));
     }
 
-    public ImportReceiptResponse findOne(Long id) {
-        var receipt = importReceiptRepository.findById(id)
+    public List<ImportReceiptResponse> findByPurchaseOrderId(Long poId) {
+        if (!purchaseOrderRepository.existsById(poId)) {
+            throw new ResourceNotFoundException(ErrorCode.PO_NOT_FOUND);
+        }
+        return importReceiptRepository.findByPurchaseOrderId(poId).stream()
+                .map(r -> findOne(r.getId()))
+                .toList();
+    }
+
+    public ImportReceiptResponse findOne(Long id) {        var receipt = importReceiptRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.IMPORT_RECEIPT_NOT_FOUND));
         var items = importReceiptItemRepository.findByReceiptId(receipt.getId());
         var products = fetchProducts(items);
         var unitCounts = getUnitCounts(items);
         var unitIds = getUnitIds(items);
         var enrichment = fetchEnrichmentData(receipt);
-        return ImportReceiptMappingHelper.map(receipt, enrichment.supplierName(), enrichment.createdByName(), enrichment.approvedByName(), enrichment.poCode(), items, products, unitCounts, unitIds);
+        return ImportReceiptMappingHelper.map(receipt, enrichment.supplierName(), enrichment.createdByName(), enrichment.approvedByName(), enrichment.rejectedByName(), enrichment.resolvedByName(), enrichment.poCode(), items, products, unitCounts, unitIds);
     }
 
     @Transactional
@@ -125,7 +137,19 @@ public class ImportReceiptService {
         if (po.getSupplierId() != null && !po.getSupplierId().equals(request.supplierId())) {
             throw new InvalidRequestException(ErrorCode.PO_SUPPLIER_MISMATCH);
         }
-        if (importReceiptRepository.existsByPurchaseOrderIdAndStatusNot(request.purchaseOrderId(), ImportReceiptStatus.CANCELLED)) {
+        if (PurchaseOrderStatus.DRAFT == po.getStatus()) {
+            throw new InvalidRequestException(ErrorCode.PO_NOT_OPEN_FOR_IMPORT);
+        }
+        if (PurchaseOrderStatus.COMPLETED == po.getStatus()) {
+            throw new InvalidRequestException(ErrorCode.PO_COMPLETED_CANNOT_IMPORT);
+        }
+        lockGuard.assertSupplierActive(request.supplierId());
+        if (request.items() != null) {
+            lockGuard.assertProductsActive(request.items().stream().map(ImportReceiptRequest.ImportItemRequest::productId).toList());
+        }
+        // ponytail: 1 phiếu nháp/PO tại 1 thời điểm; sau khi RECEIVED được tạo phiếu mới (nhận nhiều đợt)
+        if (importReceiptRepository.existsByPurchaseOrderIdAndStatus(
+                request.purchaseOrderId(), ImportReceiptStatus.DRAFT)) {
             throw new InvalidRequestException(ErrorCode.PO_ALREADY_IMPORTED);
         }
 
@@ -179,7 +203,7 @@ public class ImportReceiptService {
         var unitCounts = getUnitCounts(savedItems);
         var unitIds = getUnitIds(savedItems);
         var enrichment = fetchEnrichmentData(receipt);
-        return ImportReceiptMappingHelper.map(receipt, enrichment.supplierName(), enrichment.createdByName(), enrichment.approvedByName(), enrichment.poCode(), savedItems, products, unitCounts, unitIds);
+        return ImportReceiptMappingHelper.map(receipt, enrichment.supplierName(), enrichment.createdByName(), enrichment.approvedByName(), enrichment.rejectedByName(), enrichment.resolvedByName(), enrichment.poCode(), savedItems, products, unitCounts, unitIds);
     }
 
     public List<ProductUnitResponse> getUnitsByReceipt(Long receiptId) {
@@ -211,7 +235,7 @@ public class ImportReceiptService {
         var unitCounts = getUnitCounts(items);
         var unitIds = getUnitIds(items);
         var enrichment = fetchEnrichmentData(receipt);
-        return ImportReceiptMappingHelper.map(receipt, enrichment.supplierName(), enrichment.createdByName(), enrichment.approvedByName(), enrichment.poCode(), items, products, unitCounts, unitIds);
+        return ImportReceiptMappingHelper.map(receipt, enrichment.supplierName(), enrichment.createdByName(), enrichment.approvedByName(), enrichment.rejectedByName(), enrichment.resolvedByName(), enrichment.poCode(), items, products, unitCounts, unitIds);
     }
 
     public List<BoxableImportResponse> getBoxableImports() {
@@ -278,15 +302,19 @@ public class ImportReceiptService {
                 .collect(Collectors.toMap(Product::getId, p -> p));
     }
 
-    private record ReceiptEnrichment(String supplierName, String createdByName, String approvedByName, String poCode) {}
+    private record ReceiptEnrichment(String supplierName, String createdByName, String approvedByName, String rejectedByName, String resolvedByName, String poCode) {}
 
     private Map<Long, ReceiptEnrichment> fetchEnrichmentDataFor(List<ImportReceipt> receipts) {
         List<Long> supplierIds = receipts.stream()
                 .map(ImportReceipt::getSupplierId).filter(java.util.Objects::nonNull).distinct().toList();
         List<Long> userIds = receipts.stream()
-                .flatMap(r -> r.getApprovedBy() != null
-                        ? java.util.stream.Stream.of(r.getCreatedBy(), r.getApprovedBy())
-                        : java.util.stream.Stream.of(r.getCreatedBy()))
+                .flatMap(r -> {
+                    var stream = java.util.stream.Stream.of(r.getCreatedBy());
+                    if (r.getApprovedBy() != null) stream = java.util.stream.Stream.concat(stream, java.util.stream.Stream.of(r.getApprovedBy()));
+                    if (r.getRejectedBy() != null) stream = java.util.stream.Stream.concat(stream, java.util.stream.Stream.of(r.getRejectedBy()));
+                    if (r.getResolvedBy() != null) stream = java.util.stream.Stream.concat(stream, java.util.stream.Stream.of(r.getResolvedBy()));
+                    return stream;
+                })
                 .distinct().toList();
         List<Long> poIds = receipts.stream()
                 .map(ImportReceipt::getPurchaseOrderId)
@@ -305,6 +333,8 @@ public class ImportReceiptService {
                         supplierNames.get(r.getSupplierId()),
                         userNames.get(r.getCreatedBy()),
                         r.getApprovedBy() != null ? userNames.get(r.getApprovedBy()) : null,
+                        r.getRejectedBy() != null ? userNames.get(r.getRejectedBy()) : null,
+                        r.getResolvedBy() != null ? userNames.get(r.getResolvedBy()) : null,
                         r.getPurchaseOrderId() != null ? poCodes.get(r.getPurchaseOrderId()) : null)) );
     }
 
