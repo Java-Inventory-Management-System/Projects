@@ -9,6 +9,8 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 
 public interface PriceAdjustmentRepository extends JpaRepository<PriceAdjustment, Long> {
@@ -26,4 +28,11 @@ public interface PriceAdjustmentRepository extends JpaRepository<PriceAdjustment
     @Query("UPDATE PriceAdjustment a SET a.status = :status, a.approvedBy = :approvedBy, a.approvalNote = :approvalNote WHERE a.id = :id AND a.status = 'PENDING'")
     int optimisticUpdateStatus(@Param("id") Long id, @Param("status") AdjustmentStatus status,
                                @Param("approvedBy") Long approvedBy, @Param("approvalNote") String approvalNote);
+
+    @Modifying(clearAutomatically = true)
+    @Query("UPDATE PriceAdjustment a SET a.status = 'APPROVED', a.approvedBy = :approvedBy, a.approvalNote = :approvalNote, a.approvedAt = :approvedAt WHERE a.id = :id AND a.status = 'PENDING'")
+    int optimisticApprove(@Param("id") Long id, @Param("approvedBy") Long approvedBy,
+                          @Param("approvalNote") String approvalNote, @Param("approvedAt") Instant approvedAt);
+
+    List<PriceAdjustment> findByImportReceiptItemIdIn(List<Long> importReceiptItemIds);
 }

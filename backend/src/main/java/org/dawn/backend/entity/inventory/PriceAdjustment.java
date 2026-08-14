@@ -6,6 +6,7 @@ import lombok.experimental.SuperBuilder;
 import org.dawn.backend.entity.base.AuditableEntity;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import org.dawn.backend.constant.enums.inventory.adjustments.AdjustmentStatus;
 
 @Entity
@@ -43,6 +44,9 @@ public class PriceAdjustment extends AuditableEntity {
 
     @Column(name = "approved_by")
     private Long approvedBy;
+
+    @Column(name = "approved_at")
+    private Instant approvedAt;
 
     @Column(name = "approval_note", columnDefinition = "TEXT")
     private String approvalNote;

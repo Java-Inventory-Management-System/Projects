@@ -58,3 +58,8 @@ export async function cancelPriceAdjustment(id: number): Promise<PriceAdjustment
 export async function getAvailableItemsByProduct(productId: number): Promise<AvailableItem[]> {
   return await http.get(`/price-adjustment/available-items/${productId}`) as AvailableItem[]
 }
+
+export async function getPriceAdjustmentHistory(productId: number): Promise<PriceAdjustment[]> {
+  const res = await http.get(`/price-adjustment/history/${productId}`)
+  return Array.isArray(res) ? res.map(mapPriceAdjustment) : []
+}

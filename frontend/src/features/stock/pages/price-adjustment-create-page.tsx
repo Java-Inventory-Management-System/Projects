@@ -17,6 +17,7 @@ import { ArrowLeft, ArrowRight, AlertTriangle, Search, Loader2, TrendingUp, Tren
 import { Badge } from "@/components/ui/badge"
 import { toast } from "@/utils/toast"
 import { FieldError } from "@/components/ui/field"
+import { PriceHistoryPanel } from "@/features/stock/components/price-history-panel"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -113,7 +114,7 @@ const [displayPrice, setDisplayPrice] = useState("")
   const products = (productsRes?.content ?? []).filter((p) => p.isActive)
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
+    <div className="mx-auto max-w-6xl space-y-6">
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="sm" onClick={() => {
           if (isDirty) setConfirmLeave(true)
@@ -124,6 +125,7 @@ const [displayPrice, setDisplayPrice] = useState("")
         <h1 className="text-xl font-semibold tracking-tight">{t("priceAdjCreate.title")}</h1>
       </div>
 
+      <div className="grid gap-6 items-start lg:grid-cols-[1fr_380px]">
       <form onSubmit={form.handleSubmit(handleCreate)} className="space-y-4">
         {/* Step 1: Search product */}
         <div className="space-y-2">
@@ -314,6 +316,14 @@ const [displayPrice, setDisplayPrice] = useState("")
         </Button>
       </div>
       </form>
+
+      <aside className="lg:sticky lg:top-20">
+        <PriceHistoryPanel
+          productId={selectedProductId}
+          productName={products.find((p) => p.id === selectedProductId)?.name}
+        />
+      </aside>
+      </div>
 
       <AlertDialog open={confirmLeave} onOpenChange={(v) => { if (!v) setConfirmLeave(false) }}>
         <AlertDialogContent>
