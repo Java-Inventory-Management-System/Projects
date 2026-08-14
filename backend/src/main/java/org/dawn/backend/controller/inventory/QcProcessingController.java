@@ -23,7 +23,7 @@ public class QcProcessingController {
     private final DisposeConfirmService disposeConfirmService;
 
     @GetMapping("")
-    @PreAuthorize(AuthorizationExpressions.CAN_OPERATE_STOCK)
+    @PreAuthorize(AuthorizationExpressions.CAN_VIEW_QC)
     public ResponseObject<List<QcUnitResponse>> listUnits(
             @RequestParam(required = false) String statuses) {
         List<ProductUnitStatus> statusList = statuses == null || statuses.isBlank()

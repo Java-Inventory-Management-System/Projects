@@ -15,6 +15,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog"
 import { DataTable, type Column } from "@/components/ui/data-table"
 import { toast } from "@/utils/toast"
+import { usePermission } from "@/hooks/use-permission"
+import { ROLES } from "@/utils/permissions"
 import { Boxes, ClipboardList, AlertTriangle } from "lucide-react"
 
 function fmt(d: string | null) {
@@ -26,6 +28,8 @@ export const BoxTab = () => {
   const { t } = useTranslation()
   const qc = useQueryClient()
   const navigate = useNavigate()
+  const perm = usePermission()
+  const canOperate = perm.hasRole(...ROLES.CAN_OPERATE_STOCK)
   const [status, setStatus] = useState<string>("all")
   const [page, setPage] = useState(0)
   const [pageSize, setPageSize] = useState(20)
@@ -144,9 +148,11 @@ export const BoxTab = () => {
 
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold tracking-tight">{t("box.title")}</h1>
-        <Button className="gap-1.5" onClick={() => navigate("/stock/units/box/new?tab=box")}>
-          <Boxes className="size-4" /> {t("box.seal")}
-        </Button>
+        {canOperate && (
+          <Button className="gap-1.5" onClick={() => navigate("/stock/units/box/new?tab=box")}>
+            <Boxes className="size-4" /> {t("box.seal")}
+          </Button>
+        )}
       </div>
 
       <div className="flex gap-2">
@@ -197,6 +203,9 @@ function BoxActions({ box, onUnseal, unsealPending, onMove, movePending, onDelet
   deletePending: boolean
 }) {
   const { t } = useTranslation()
+  const perm = usePermission()
+  const canOperate = perm.hasRole(...ROLES.CAN_OPERATE_STOCK)
+  if (!canOperate) return <PrintReceiptButton id={box.id} type="box" />
   return (
     <div className="flex justify-end gap-1">
       <PrintReceiptButton id={box.id} type="box" />

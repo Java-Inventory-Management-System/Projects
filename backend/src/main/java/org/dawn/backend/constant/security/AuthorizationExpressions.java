@@ -19,8 +19,11 @@ public class AuthorizationExpressions {
     /** Thao tác nghiệp vụ kho (nhập, kiểm kê, điều chỉnh) — MANAGER/STOCK */
     public static final String CAN_OPERATE_STOCK = "@securityPolicy.hasAnyRole('MANAGER', 'STOCK')";
 
-    /** Khởi tạo phiếu xuất/phiếu trả — SALES/STOCK/MANAGER (không ADMIN, 13.4) */
-    public static final String CAN_CREATE_TRANSACTION = "@securityPolicy.hasAnyRole('SALES', 'STOCK', 'MANAGER')";
+    /** Khởi tạo phiếu xuất/phiếu trả — SALES/MANAGER (không ADMIN, 13.4; STOCK chỉ thao tác kho) */
+    public static final String CAN_CREATE_TRANSACTION = "@securityPolicy.hasAnyRole('SALES', 'MANAGER')";
+
+    /** Khởi tạo phiếu điều chỉnh giá — MANAGER/ADMIN (SALES/STOCK không được tạo) */
+    public static final String CAN_CREATE_PRICE_ADJUSTMENT = "@securityPolicy.hasAnyRole('MANAGER', 'ADMIN')";
 
     /** Xem tồn kho, danh mục — MANAGER/ADMIN/STOCK */
     public static final String CAN_VIEW_INVENTORY = "@securityPolicy.hasAnyRole('MANAGER', 'ADMIN', 'STOCK')";
@@ -33,6 +36,9 @@ public class AuthorizationExpressions {
 
     /** Manage system — user management, audit, settings */
     public static final String CAN_MANAGE_SYSTEM = "@securityPolicy.hasRole('ADMIN')";
+
+    /** Xem trạm QC — MANAGER/STOCK/ADMIN (ADMIN read-only, POST vẫn chặn) */
+    public static final String CAN_VIEW_QC = "@securityPolicy.hasAnyRole('MANAGER', 'STOCK', 'ADMIN')";
 
     /** Kiểm tra quyền update user — hierarchy: chặn self, chỉ cấp cao hơn được phép */
     public static final String CAN_UPDATE_USER = "@roleSecurity.canUpdate(#id, authentication)";

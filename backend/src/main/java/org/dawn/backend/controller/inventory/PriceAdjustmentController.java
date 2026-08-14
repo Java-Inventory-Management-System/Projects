@@ -38,6 +38,12 @@ public class PriceAdjustmentController {
         return ResponseObject.success(priceAdjustmentService.findAll(pageable, status));
     }
 
+    @GetMapping("/history/{productId}")
+    @PreAuthorize(AuthorizationExpressions.CAN_VIEW_INVENTORY)
+    public ResponseObject<List<PriceAdjustmentResponse>> getHistory(@PathVariable Long productId) {
+        return ResponseObject.success(priceAdjustmentService.findHistoryByProduct(productId));
+    }
+
     @GetMapping("/{id}")
     @PreAuthorize(AuthorizationExpressions.CAN_VIEW_INVENTORY)
     public ResponseObject<PriceAdjustmentResponse> getOne(@PathVariable Long id) {
@@ -45,13 +51,13 @@ public class PriceAdjustmentController {
     }
 
     @GetMapping("/available-items/{productId}")
-    @PreAuthorize(AuthorizationExpressions.CAN_OPERATE_STOCK)
+    @PreAuthorize(AuthorizationExpressions.CAN_CREATE_PRICE_ADJUSTMENT)
     public ResponseObject<List<AvailableItemResponse>> getAvailableItems(@PathVariable Long productId) {
         return ResponseObject.success(priceAdjustmentService.findAvailableItemsByProduct(productId));
     }
 
     @PostMapping
-    @PreAuthorize(AuthorizationExpressions.CAN_OPERATE_STOCK)
+    @PreAuthorize(AuthorizationExpressions.CAN_CREATE_PRICE_ADJUSTMENT)
     public ResponseObject<PriceAdjustmentResponse> create(@RequestBody CreatePriceAdjustmentRequest request) {
         return ResponseObject.created(priceAdjustmentService.create(request));
     }
@@ -75,7 +81,7 @@ public class PriceAdjustmentController {
     }
 
     @PutMapping("/{id}/cancel")
-    @PreAuthorize(AuthorizationExpressions.CAN_OPERATE_STOCK)
+    @PreAuthorize(AuthorizationExpressions.CAN_CREATE_PRICE_ADJUSTMENT)
     public ResponseObject<PriceAdjustmentResponse> cancel(@PathVariable Long id) {
         return ResponseObject.success(priceAdjustmentService.cancel(id));
     }

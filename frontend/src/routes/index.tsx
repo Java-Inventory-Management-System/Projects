@@ -73,9 +73,11 @@ const ReturnCreatePage = lazyPage(() => import("@/features/stock/pages/return-cr
 const ReturnDetailPage = lazyPage(() => import("@/features/stock/pages/return-detail-page"), "ReturnDetailPage")
 const QcProcessingPage = lazyPage(() => import("@/features/stock/pages/qc-processing-page"), "QcProcessingPage")
 const POCreatePage = lazyPage(() => import("@/features/stock/pages/po-create-page"), "POCreatePage")
+const POEditPage = lazyPage(() => import("@/features/stock/pages/po-edit-page"), "POEditPage")
 const PODetailPage = lazyPage(() => import("@/features/stock/pages/po-detail-page"), "PODetailPage")
 const StockUnitsPage = lazyPage(() => import("@/features/stock/pages/stock-units-page"), "StockUnitsPage")
 const SealBoxPage = lazyPage(() => import("@/features/stock/pages/seal-box-page"), "SealBoxPage")
+const ProductUnitDetailPage = lazyPage(() => import("@/features/stock/pages/product-unit-detail-page"), "ProductUnitDetailPage")
 const UsersPage = lazyPage(() => import("@/features/admin/pages/users-page"), "UsersPage")
 const AuditPage = lazyPage(() => import("@/features/admin/pages/audit-page"), "AuditPage")
 function PageGuard({ roles, children }: { roles?: URole[]; children: ReactNode }) {
@@ -89,14 +91,6 @@ function PageGuard({ roles, children }: { roles?: URole[]; children: ReactNode }
 function RedirectTo({ to }: { to: string }) {
   const { id } = useParams()
   return <Navigate to={id ? `${to}/${id}` : to} replace />
-}
-
-function RootRedirect() {
-  const user = useAuthStore((s) => s.user)
-  if (!AUTH_ENABLED) return <DashboardPage />
-  if (user?.role === "STOCK") return <Navigate to="/stock/imports" replace />
-  if (user?.role === "SALES") return <Navigate to="/stock/exports" replace />
-  return <DashboardPage />
 }
 
 function Lazy({ children }: { children: ReactNode }) {
@@ -126,7 +120,7 @@ export const router = createBrowserRouter([
             index: true,
             element: (
               <Lazy>
-                <RootRedirect />
+                <DashboardPage />
               </Lazy>
             ),
           },
@@ -256,6 +250,16 @@ export const router = createBrowserRouter([
                   <Lazy>
                     <PageGuard roles={ROLES.MANAGER}>
                       <POCreatePage />
+                    </PageGuard>
+                  </Lazy>
+                ),
+              },
+              {
+                path: "purchase-orders/:id/edit",
+                element: (
+                  <Lazy>
+                    <PageGuard roles={ROLES.MANAGER}>
+                      <POEditPage />
                     </PageGuard>
                   </Lazy>
                 ),
@@ -403,7 +407,7 @@ export const router = createBrowserRouter([
                 path: "price-adjustments/new",
                 element: (
                   <Lazy>
-                    <PageGuard roles={ROLES.CAN_OPERATE_STOCK}>
+                    <PageGuard roles={ROLES.CAN_CREATE_PRICE_ADJUSTMENT}>
                       <PriceAdjustmentCreatePage />
                     </PageGuard>
                   </Lazy>
@@ -443,7 +447,7 @@ export const router = createBrowserRouter([
             path: "stock/price-adjustments/new",
             element: (
               <Lazy>
-                <PageGuard roles={ROLES.CAN_OPERATE_STOCK}>
+                <PageGuard roles={ROLES.CAN_CREATE_PRICE_ADJUSTMENT}>
                   <PriceAdjustmentCreatePage />
                 </PageGuard>
               </Lazy>
@@ -509,7 +513,7 @@ export const router = createBrowserRouter([
                 path: "qc",
                 element: (
                   <Lazy>
-                    <PageGuard roles={ROLES.CAN_OPERATE_STOCK}>
+                    <PageGuard roles={ROLES.CAN_VIEW_QC}>
                       <QcProcessingPage />
                     </PageGuard>
                   </Lazy>
@@ -546,6 +550,16 @@ export const router = createBrowserRouter([
                   <Lazy>
                 <PageGuard roles={ROLES.CAN_OPERATE_STOCK}>
                       <SealBoxPage />
+                    </PageGuard>
+                  </Lazy>
+                ),
+              },
+              {
+                path: ":id",
+                element: (
+                  <Lazy>
+                    <PageGuard roles={ROLES.CAN_OPERATE}>
+                      <ProductUnitDetailPage />
                     </PageGuard>
                   </Lazy>
                 ),

@@ -44,6 +44,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { toast } from "@/utils/toast"
 import { useTranslation } from "react-i18next"
+import { PriceHistoryPanel } from "@/features/stock/components/price-history-panel"
 
 export function PriceAdjustmentDetailPage() {
   const { t } = useTranslation()
@@ -142,14 +143,14 @@ export function PriceAdjustmentDetailPage() {
   const isManagerAdmin = perm.canApprove()
   const isOwn = adj.createdBy === perm.user?.id
   const canApprove = perm.canApprove(adj)
-  const canCancel = !isManagerAdmin && isOwn && adj.status === ADJUSTMENT_STATUS.PENDING
+  const canCancel = isOwn && adj.status === ADJUSTMENT_STATUS.PENDING
   const showSelfBlock = !canApprove && isManagerAdmin && isOwn && adj.status === ADJUSTMENT_STATUS.PENDING
   const priceDiff = adj.newPrice - adj.oldPrice
   const priceDiffPct = adj.oldPrice > 0 ? ((priceDiff / adj.oldPrice) * 100).toFixed(1) : "0.0"
 
   return (
     <TooltipProvider>
-    <div className="mx-auto max-w-2xl space-y-6">
+    <div className="mx-auto max-w-6xl space-y-6">
       <Breadcrumb>
         <BreadcrumbList>
           <BreadcrumbItem>
@@ -227,6 +228,8 @@ export function PriceAdjustmentDetailPage() {
         </Alert>
       )}
 
+      <div className="grid gap-6 items-start lg:grid-cols-[1fr_380px]">
+      <div className="space-y-6">
       <Card>
         <CardContent className="pt-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
@@ -289,6 +292,12 @@ export function PriceAdjustmentDetailPage() {
           </CardContent>
         </Card>
       )}
+      </div>
+
+      <aside className="lg:sticky lg:top-20">
+        <PriceHistoryPanel productId={adj.productId} productName={adj.productName} />
+      </aside>
+      </div>
 
       {/* Approve Dialog */}
       <AlertDialog

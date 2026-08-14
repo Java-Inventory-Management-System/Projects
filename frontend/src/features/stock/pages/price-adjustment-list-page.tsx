@@ -206,7 +206,7 @@ export function PriceAdjustmentListPage() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-semibold tracking-tight">{t("priceAdjList.title")}</h1>
-        {perm.hasRole(...ROLES.CAN_OPERATE_STOCK) && (
+        {perm.hasRole(...ROLES.CAN_CREATE_PRICE_ADJUSTMENT) && (
           <Button onClick={() => navigate("/stock/ops/price-adjustments/new")}>
             <Plus className="size-4 mr-1" /> {t("priceAdjList.create")}
           </Button>
@@ -285,7 +285,7 @@ export function PriceAdjustmentListPage() {
         </div>
       )}
 
-      {filtered.length === 0 && !isError && !isLoading && !searchTerm && !statusFilter && (
+      {filtered.length === 0 && !isError && !isLoading && !searchTerm && !statusFilter && perm.hasRole(...ROLES.CAN_CREATE_PRICE_ADJUSTMENT) && (
         <div className="text-center py-8">
           <p className="text-muted-foreground mb-3">{t("priceAdjList.empty")}</p>
           <Button onClick={() => navigate("/stock/ops/price-adjustments/new")}>

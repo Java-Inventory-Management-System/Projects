@@ -15,6 +15,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Input } from "@/components/ui/input"
 import { CheckCircle2, Search, Send, Trash2, Undo2 } from "lucide-react"
 import { toast } from "@/utils/toast"
+import { usePermission } from "@/hooks/use-permission"
+import { ROLES } from "@/utils/permissions"
 import { PRODUCT_UNIT_STATUS, type ProductUnitStatus, type QcUnit } from "@/utils/types"
 
 const QC_PASS_STATUSES: ProductUnitStatus[] = [
@@ -37,6 +39,8 @@ export const QcProcessingPage = () => {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const qc = useQueryClient()
+  const perm = usePermission()
+  const canOperate = perm.hasRole(...ROLES.CAN_OPERATE_STOCK)
 
   useEffect(() => {
     localStorage.setItem("qc-tab-visits", String(Number(localStorage.getItem("qc-tab-visits") ?? 0) + 1))
@@ -182,6 +186,7 @@ export const QcProcessingPage = () => {
                       <input
                         type="checkbox"
                         checked={checked}
+                        disabled={!canOperate}
                         onChange={() => toggle(selected, setSelected, unit.id)}
                         className="size-4"
                       />
@@ -276,15 +281,17 @@ export const QcProcessingPage = () => {
 
         <TabsContent value="pass" className="space-y-3 pt-2">
           {renderRows(passUnits.data, passSelected, setPassSelected, true)}
-          <div className="flex justify-end">
-            <Button
-              onClick={() => setPassConfirmOpen(true)}
-              disabled={passSelected.length === 0 || passMut.isPending}
-            >
-              <CheckCircle2 className="size-4 mr-1.5" />
-              {passMut.isPending ? t("common.processing") : t("qcPage.qcPass", { count: passSelected.length })}
-            </Button>
-          </div>
+          {canOperate && (
+            <div className="flex justify-end">
+              <Button
+                onClick={() => setPassConfirmOpen(true)}
+                disabled={passSelected.length === 0 || passMut.isPending}
+              >
+                <CheckCircle2 className="size-4 mr-1.5" />
+                {passMut.isPending ? t("common.processing") : t("qcPage.qcPass", { count: passSelected.length })}
+              </Button>
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="done" className="space-y-3 pt-2">
@@ -293,6 +300,7 @@ export const QcProcessingPage = () => {
 
         <TabsContent value="dispose" className="space-y-3 pt-2">
           {renderRows(disposeUnits.data, disposeSelected, setDisposeSelected, true)}
+          {canOperate && (
           <div className="flex justify-end gap-2">
             <Button
               variant="destructive"
@@ -367,6 +375,7 @@ export const QcProcessingPage = () => {
               {t(`qcPage.${returnTargetKey(disposeUnits.data, disposeSelected)}`, { count: disposeSelected.length })}
             </Button>
           </div>
+          )}
           <Card>
             <CardContent className="pt-4 text-sm text-muted-foreground space-y-2">
               <p className="flex items-center gap-2">
