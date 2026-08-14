@@ -31,9 +31,9 @@ import { toast } from "@/utils/toast"
 import { EXPORT_REASON } from "@/utils/types"
 
 interface ExportFormFields {
-  reason: string
+  type: ExportReason | ""
   customerId: string
-  note: string
+  customReason: string
   items: {
     tempId: number
     productId: number
@@ -52,6 +52,7 @@ export const ExportCreatePage = () => {
     { value: EXPORT_REASON.INTERNAL, label: t("exportReason.internal") },
     { value: EXPORT_REASON.RETURN_SUPPLIER, label: t("exportReason.returnSupplier") },
     { value: EXPORT_REASON.DISPOSE, label: t("exportReason.dispose") },
+    { value: EXPORT_REASON.OTHER, label: t("exportReason.other") },
   ]
   const qc = useQueryClient()
   const [customerName, setCustomerName] = useState("")
@@ -63,7 +64,7 @@ export const ExportCreatePage = () => {
   const products = useMemo(() => (productsRes?.content ?? []).filter((p) => p.isActive), [productsRes])
 
   const form = useForm<ExportFormFields>({
-    defaultValues: { reason: "", customerId: "", note: "", items: [] },
+    defaultValues: { type: "", customerId: "", customReason: "", items: [] },
   })
   const { fields, append, remove } = useFieldArray({ control: form.control, name: "items" })
 
@@ -76,7 +77,7 @@ export const ExportCreatePage = () => {
 
   const formValues = form.watch()
   const draftState = useMemo(
-    () => ({ reason: formValues.reason, customerId: formValues.customerId, customerName, note: formValues.note, items: formValues.items }),
+    () => ({ type: formValues.type, customerId: formValues.customerId, customerName, customReason: formValues.customReason, items: formValues.items }),
     [formValues, customerName],
   )
   const isDirty = fields.length > 0
@@ -87,9 +88,9 @@ export const ExportCreatePage = () => {
     (data) => {
       const d = data as typeof draftState
       form.reset({
-        reason: d.reason ?? "",
+        type: d.type ?? "",
         customerId: d.customerId ?? "",
-        note: d.note ?? "",
+        customReason: d.customReason ?? "",
         items: d.items ?? [],
       })
       setCustomerName(d.customerName ?? "")
@@ -104,7 +105,7 @@ export const ExportCreatePage = () => {
       setSerials({})
       return
     }
-    const statuses = exportSerialsStatuses(formValues.reason)
+    const statuses = exportSerialsStatuses(formValues.type)
     let cancelled = false
     const tempIds = fields.map((f) => f.tempId)
     Promise.all(fields.map((f) => getSerialsForExport(f.productId, f.quantity, statuses))).then((results) => {
@@ -116,7 +117,7 @@ export const ExportCreatePage = () => {
       setSerials(map)
     })
     return () => { cancelled = true }
-  }, [fields, formValues.reason])
+  }, [fields, formValues.type])
 
   const createMut = useMutation({
     mutationFn: createExportReceipt,
@@ -132,12 +133,12 @@ export const ExportCreatePage = () => {
   const openOverrideDialog = useCallback(async (tempId: number, productId: number) => {
     setOverrideDialog({ tempId, productId })
     setOverrideLoading(true)
-    const all = await getAllSerialsForProduct(productId, exportSerialsStatuses(formValues.reason))
+    const all = await getAllSerialsForProduct(productId, exportSerialsStatuses(formValues.type))
     setAllProductSerials(all)
     const current = overrideSerials[tempId] ?? serials[tempId] ?? []
     setOverrideSelectedIds(current.map((s) => s.id))
     setOverrideLoading(false)
-  }, [overrideSerials, serials, formValues.reason])
+  }, [overrideSerials, serials, formValues.type])
 
   const confirmOverride = useCallback(() => {
     if (!overrideDialog) return
@@ -162,14 +163,19 @@ export const ExportCreatePage = () => {
   }, [selectedProductId, products, append])
 
   const onSubmit = form.handleSubmit((values) => {
-    const raw: ExportFormData = { reason: values.reason, customerId: values.customerId, note: values.note, items: values.items }
+    const raw: ExportFormData = { type: values.type, customerId: values.customerId, customReason: values.customReason, items: values.items }
     const parsed = exportFormSchema.safeParse(raw)
     if (!parsed.success) {
       const first = parsed.error.issues[0]
       toast.error(t(first.message))
       return
     }
-    if (values.reason === EXPORT_REASON.SALE && !values.customerId) {
+    const isOther = values.type === EXPORT_REASON.OTHER
+    if (isOther && !values.customReason.trim()) {
+      toast.error(t("exportCreate.otherReasonRequired"))
+      return
+    }
+    if (values.type === EXPORT_REASON.SALE && !values.customerId) {
       toast.error(t("exportCreate.selectCustomerRequired"))
       return
     }
@@ -177,10 +183,11 @@ export const ExportCreatePage = () => {
       toast.error(t("exportCreate.invalidQuantity"))
       return
     }
+    const type = values.type as ExportReason
     createMut.mutate({
-      reason: values.reason as ExportReason,
+      type,
+      reason: isOther ? values.customReason.trim() : type,
       customerId: values.customerId ? Number(values.customerId) : null,
-      note: values.note || null,
       items: values.items.map((i) => {
         const overridden = overrideSerials[i.tempId]
         return {
@@ -201,7 +208,7 @@ export const ExportCreatePage = () => {
     })
   })
 
-  const watchedReason = form.watch("reason")
+  const watchedType = form.watch("type")
   const watchedCustomerId = form.watch("customerId")
   const hasSerials = useMemo(() => {
     const hasAuto = Object.values(serials).some((arr) => arr.length > 0)
@@ -223,7 +230,7 @@ export const ExportCreatePage = () => {
           <Label htmlFor="reason">{t("exportCreate.reason")}</Label>
           <Controller
             control={form.control}
-            name="reason"
+            name="type"
             render={({ field }) => (
               <Select value={field.value} onValueChange={field.onChange}>
                 <SelectTrigger id="reason">
@@ -240,7 +247,7 @@ export const ExportCreatePage = () => {
             )}
           />
         </div>
-        {watchedReason === EXPORT_REASON.SALE && (
+        {watchedType === EXPORT_REASON.SALE && (
           <div className="space-y-2">
             <Label htmlFor="customer">{t("exportCreate.customer")}</Label>
             <div className="flex gap-2">
@@ -404,12 +411,18 @@ export const ExportCreatePage = () => {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="note">{t("exportCreate.note")}</Label>
-        <Textarea
-          id="note"
-          placeholder={t("form.noteOptional")}
-          {...form.register("note")}
-        />
+        {watchedType === EXPORT_REASON.OTHER && (
+          <>
+            <Label htmlFor="customReason">
+              {t("exportCreate.otherReason")} <span className="text-destructive">*</span>
+            </Label>
+            <Textarea
+              id="customReason"
+              placeholder={t("exportCreate.otherReasonPlaceholder")}
+              {...form.register("customReason")}
+            />
+          </>
+        )}
       </div>
 
       <div className="flex gap-2 justify-end">
@@ -419,7 +432,7 @@ export const ExportCreatePage = () => {
         <Button
           onClick={onSubmit}
           disabled={
-            !watchedReason || fields.length === 0 || createMut.isPending || (watchedReason === EXPORT_REASON.SALE && !watchedCustomerId)
+            !watchedType || fields.length === 0 || createMut.isPending || (watchedType === EXPORT_REASON.SALE && !watchedCustomerId)
           }
         >
           {createMut.isPending ? t("common.processing") : t("exportCreate.submit")}

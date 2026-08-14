@@ -39,9 +39,9 @@ import { EXPORT_REASON, PRODUCT_UNIT_STATUS } from "@/utils/types"
 import type { ExportReason } from "@/utils/types"
 
 interface ProposalFormFields {
-  reason: string
+  type: ExportReason | ""
   customerId: string
-  note: string
+  customReason: string
   externalReference: string
   items: {
     tempId: number
@@ -62,6 +62,7 @@ export const ExportProposalPage = () => {
     { value: EXPORT_REASON.RETURN_SUPPLIER, label: t("exportReason.returnSupplier") },
     { value: EXPORT_REASON.DISPOSE, label: t("exportReason.dispose") },
     { value: EXPORT_REASON.WARRANTY_REPLACEMENT, label: t("exportReason.warrantyReplacement") },
+    { value: EXPORT_REASON.OTHER, label: t("exportReason.other") },
   ]
   const qc = useQueryClient()
   const [customerName, setCustomerName] = useState("")
@@ -110,13 +111,13 @@ export const ExportProposalPage = () => {
   }, [waitingRmaUnits])
 
   const form = useForm<ProposalFormFields>({
-    defaultValues: { reason: "", customerId: "", note: "", externalReference: "", items: [] },
+    defaultValues: { type: "", customerId: "", customReason: "", externalReference: "", items: [] },
   })
   const { fields, append, remove } = useFieldArray({ control: form.control, name: "items" })
 
   const formValues = form.watch()
   const draftState = useMemo(
-    () => ({ reason: formValues.reason, customerId: formValues.customerId, customerName, note: formValues.note, externalReference: formValues.externalReference, items: formValues.items }),
+    () => ({ type: formValues.type, customerId: formValues.customerId, customerName, customReason: formValues.customReason, externalReference: formValues.externalReference, items: formValues.items }),
     [formValues, customerName],
   )
   const isDirty = fields.length > 0
@@ -127,9 +128,9 @@ export const ExportProposalPage = () => {
     (data) => {
       const d = data as typeof draftState
       form.reset({
-        reason: d.reason ?? "",
+        type: d.type ?? "",
         customerId: d.customerId ?? "",
-        note: d.note ?? "",
+        customReason: d.customReason ?? "",
         externalReference: d.externalReference ?? "",
         items: d.items ?? [],
       })
@@ -168,10 +169,12 @@ export const ExportProposalPage = () => {
   }
 
   const onSubmit = form.handleSubmit((values) => {
-    if (!values.reason) { toast.error(t("exportProposal.reasonRequired")); return }
+    if (!values.type) { toast.error(t("exportProposal.reasonRequired")); return }
     if (values.items.length === 0) { toast.error(t("exportProposal.noItems")); return }
-    if (values.reason === EXPORT_REASON.SALE && !values.customerId) { toast.error(t("exportProposal.customerRequired")); return }
-    const needsSupplier = values.reason === EXPORT_REASON.RETURN_SUPPLIER || values.reason === EXPORT_REASON.WARRANTY_REPLACEMENT
+    const isOther = values.type === EXPORT_REASON.OTHER
+    if (isOther && !values.customReason.trim()) { toast.error(t("exportProposal.otherReasonRequired")); return }
+    if (values.type === EXPORT_REASON.SALE && !values.customerId) { toast.error(t("exportProposal.customerRequired")); return }
+    const needsSupplier = values.type === EXPORT_REASON.RETURN_SUPPLIER || values.type === EXPORT_REASON.WARRANTY_REPLACEMENT
     const supplierId = needsSupplier ? commonSupplierId(values.items) : null
     if (needsSupplier) {
       if (supplierId == null) {
@@ -190,11 +193,12 @@ export const ExportProposalPage = () => {
         return
       }
     }
+    const type = values.type as ExportReason
     createMut.mutate({
-      reason: values.reason as ExportReason,
+      type,
+      reason: isOther ? values.customReason.trim() : type,
       customerId: values.customerId ? Number(values.customerId) : null,
       supplierId,
-      note: values.note || null,
       externalReference: values.externalReference || null,
       items: values.items.map((i) => ({
         productId: i.productId,
@@ -204,11 +208,11 @@ export const ExportProposalPage = () => {
     })
   })
 
-  const watchedReason = form.watch("reason")
+  const watchedType = form.watch("type")
   const watchedCustomerId = form.watch("customerId")
 
   const availFor = (productId: number) =>
-    watchedReason === EXPORT_REASON.WARRANTY_REPLACEMENT
+    watchedType === EXPORT_REASON.WARRANTY_REPLACEMENT
       ? warrantyAvailMap.get(productId) ?? 0
       : invMap.get(productId) ?? 0
 
@@ -224,7 +228,7 @@ export const ExportProposalPage = () => {
       <div className="rounded-lg border p-4">
         <div className="space-y-2">
           <Label htmlFor="reason">{t("exportProposal.chooseReason")}</Label>
-          <Select value={watchedReason ?? ""} onValueChange={(v) => form.setValue("reason", v)}>
+          <Select value={watchedType ?? ""} onValueChange={(v) => form.setValue("type", v)}>
             <SelectTrigger id="reason">
               <SelectValue placeholder={t("exportProposal.reasonPlaceholder")} />
             </SelectTrigger>
@@ -239,16 +243,16 @@ export const ExportProposalPage = () => {
         </div>
       </div>
 
-      {watchedReason && (
+      {watchedType && (
       <>
       <div className="grid gap-4 sm:grid-cols-2">
-        {watchedReason === EXPORT_REASON.WARRANTY_REPLACEMENT && (
+        {watchedType === EXPORT_REASON.WARRANTY_REPLACEMENT && (
           <div className="space-y-2">
             <Label htmlFor="externalReference">{t("exportProposal.warrantyCode")}</Label>
             <Input id="externalReference" placeholder={t("exportProposal.warrantyPlaceholder")} {...form.register("externalReference")} />
           </div>
         )}
-        {watchedReason === EXPORT_REASON.SALE && (
+        {watchedType === EXPORT_REASON.SALE && (
         <div className="space-y-2">
           <Label htmlFor="customer">{t("exportProposal.customer")}</Label>
           <div className="flex gap-2">
@@ -369,7 +373,7 @@ export const ExportProposalPage = () => {
         </div>
       )}
 
-      {(watchedReason === EXPORT_REASON.RETURN_SUPPLIER || watchedReason === EXPORT_REASON.WARRANTY_REPLACEMENT) && formValues.items.length > 0 && (
+      {(watchedType === EXPORT_REASON.RETURN_SUPPLIER || watchedType === EXPORT_REASON.WARRANTY_REPLACEMENT) && formValues.items.length > 0 && (
         <div className="flex items-center gap-2 text-sm">
           <span className="text-muted-foreground">{t("exportProposal.supplier")}:</span>
           {commonSupplierId(formValues.items) != null ? (
@@ -387,13 +391,19 @@ export const ExportProposalPage = () => {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="note">{t("exportProposal.note")}</Label>
-        <Textarea id="note" placeholder={t("form.noteOptional")} {...form.register("note")} />
+        {watchedType === EXPORT_REASON.OTHER && (
+          <>
+            <Label htmlFor="customReason">
+              {t("exportProposal.otherReason")} <span className="text-destructive">*</span>
+            </Label>
+            <Textarea id="customReason" placeholder={t("exportProposal.otherReasonPlaceholder")} {...form.register("customReason")} />
+          </>
+        )}
       </div>
 
       <div className="flex gap-2 justify-end">
         <Button variant="outline" onClick={() => navigate("/stock/exports")}>{t("common.cancel")}</Button>
-        <Button onClick={onSubmit} disabled={!watchedReason || fields.length === 0 || createMut.isPending || (watchedReason === EXPORT_REASON.SALE && !watchedCustomerId)}>
+        <Button onClick={onSubmit} disabled={!watchedType || fields.length === 0 || createMut.isPending || (watchedType === EXPORT_REASON.SALE && !watchedCustomerId)}>
           {createMut.isPending ? t("common.processing") : t("exportProposal.submit")}
         </Button>
       </div>

@@ -43,6 +43,7 @@ export function ExportDetailPage() {
     RETURN_SUPPLIER: t("exportReason.returnSupplier"),
     DISPOSE: t("exportReason.dispose"),
     WARRANTY_REPLACEMENT: t("exportReason.warrantyReplacement"),
+    OTHER: t("exportReason.other"),
   }
   const historyStatusLabel: Record<string, string> = {
     NEW: t("exportStatus.new"),
@@ -153,6 +154,17 @@ export function ExportDetailPage() {
         <div className="rounded-md border bg-muted/20 px-3 py-2.5 text-sm">
           <span className="text-xs font-medium text-muted-foreground tracking-wide">{t("label.note")}</span>
           <p className="mt-1">{receipt.note}</p>
+        </div>
+      )}
+
+      {receipt.evidenceImages.length > 0 && (
+        <div className="space-y-2">
+          <span className="text-xs font-medium text-muted-foreground tracking-wide">{t("exportDetail.evidence")}</span>
+          <div className="flex flex-wrap gap-2">
+            {receipt.evidenceImages.map((url, idx) => (
+              <img key={idx} src={url} alt={t("exportDetail.evidence")} className="max-h-48 rounded-md border object-contain" />
+            ))}
+          </div>
         </div>
       )}
 

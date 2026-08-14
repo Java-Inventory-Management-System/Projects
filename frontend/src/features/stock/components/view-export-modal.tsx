@@ -41,6 +41,7 @@ export const ViewExportModal = ({
     RETURN_SUPPLIER: t("exportReason.returnSupplier"),
     DISPOSE: t("exportReason.dispose"),
     WARRANTY_REPLACEMENT: t("exportReason.warrantyReplacement"),
+    OTHER: t("exportReason.other"),
   }
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

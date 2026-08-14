@@ -10,9 +10,9 @@ export const exportLineItemSchema = z.object({
 })
 
 export const exportFormSchema = z.object({
-  reason: z.string().min(1, "exportSchema.requiredReason"),
+  type: z.string().min(1, "exportSchema.requiredReason"),
   customerId: z.string().optional(),
-  note: z.string().optional(),
+  customReason: z.string().optional(),
   items: z.array(exportLineItemSchema).min(1, "exportSchema.requiredItems"),
 })
 

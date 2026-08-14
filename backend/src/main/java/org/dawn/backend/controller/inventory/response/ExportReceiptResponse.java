@@ -28,6 +28,7 @@ public record ExportReceiptResponse(
         String externalReference,
         Instant rejectedAt,
         String rejectReason,
+        List<String> evidenceImages,
         List<ExportItemResponse> items,
         Instant createdAt,
         Instant updatedAt,

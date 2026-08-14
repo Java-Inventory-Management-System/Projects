@@ -1,7 +1,6 @@
 package org.dawn.backend.service.inventory;
 
 import org.dawn.backend.constant.enums.inventory.ProductUnitStatus;
-import org.dawn.backend.constant.enums.inventory.exports.ExportReason;
 import org.dawn.backend.constant.enums.inventory.exports.ExportReceiptStatus;
 import org.dawn.backend.controller.inventory.request.FulfillExportRequest;
 import org.dawn.backend.controller.inventory.request.FulfillExportRequest.FulfillItemRequest;
@@ -90,6 +89,12 @@ class ExportFulfillmentServiceTests {
         return it;
     }
 
+    private ExportReceiptItem itemWithId(Long id) {
+        ExportReceiptItem it = item();
+        it.setId(id);
+        return it;
+    }
+
     private Product product(String unit) {
         Product p = mock(Product.class);
         when(p.getId()).thenReturn(productId);
@@ -130,17 +135,28 @@ class ExportFulfillmentServiceTests {
     }
 
     @Test
+    void fulfill_missingNote_rejected() {
+        when(securityPolicy.requireAuthenticated()).thenReturn(userId);
+        when(exportReceiptRepository.findByIdForUpdate(receiptId)).thenReturn(Optional.of(receipt("SALE")));
+
+        FulfillExportRequest request = new FulfillExportRequest(null, List.of(), List.of());
+
+        assertThrows(InvalidRequestException.class, () -> service.fulfill(receiptId, request));
+    }
+
+    @Test
     void fulfill_warrantyReplacement_setsSentToManufacturer() {
         Product prod = product("PIECE");
         when(prod.getTrackingType()).thenReturn("SERIALIZED");
-        stubFulfillContext(ExportReason.WARRANTY_REPLACEMENT.name(), prod);
+        stubFulfillContext("WARRANTY_REPLACEMENT", prod);
         stubReceiptSave();
         ProductUnit pu = inStockUnit();
         stubUnitLookup(pu);
         stubUnitSave();
         when(securityPolicy.requireAuthenticated()).thenReturn(userId);
 
-        FulfillExportRequest request = new FulfillExportRequest(
+        FulfillExportRequest request = new FulfillExportRequest("note",
+                List.of("https://img/evidence.jpg"),
                 List.of(new FulfillItemRequest(itemId, List.of("SN-1"), null)));
 
         service.fulfill(receiptId, request);
@@ -157,14 +173,15 @@ class ExportFulfillmentServiceTests {
     void fulfill_warrantyReplacement_waitingRmaUnit_allowed() {
         Product prod = product("PIECE");
         when(prod.getTrackingType()).thenReturn("SERIALIZED");
-        stubFulfillContext(ExportReason.WARRANTY_REPLACEMENT.name(), prod);
+        stubFulfillContext("WARRANTY_REPLACEMENT", prod);
         stubReceiptSave();
         ProductUnit pu = waitingRmaUnit();
         stubUnitLookup(pu);
         stubUnitSave();
         when(securityPolicy.requireAuthenticated()).thenReturn(userId);
 
-        FulfillExportRequest request = new FulfillExportRequest(
+        FulfillExportRequest request = new FulfillExportRequest("note",
+                List.of("https://img/evidence.jpg"),
                 List.of(new FulfillItemRequest(itemId, List.of("SN-2"), null)));
 
         service.fulfill(receiptId, request);
@@ -177,12 +194,13 @@ class ExportFulfillmentServiceTests {
     void fulfill_nonWarrantyReason_waitingRmaUnit_rejected() {
         Product prod = product("PIECE");
         when(prod.getTrackingType()).thenReturn("SERIALIZED");
-        stubFulfillContext(ExportReason.RETURN_SUPPLIER.name(), prod);
+        stubFulfillContext("RETURN_SUPPLIER", prod);
         ProductUnit pu = waitingRmaUnit();
         stubUnitLookup(pu);
         when(securityPolicy.requireAuthenticated()).thenReturn(userId);
 
-        FulfillExportRequest request = new FulfillExportRequest(
+        FulfillExportRequest request = new FulfillExportRequest("note",
+                List.of("https://img/evidence.jpg"),
                 List.of(new FulfillItemRequest(itemId, List.of("SN-2"), null)));
 
         assertThrows(InvalidRequestException.class, () -> service.fulfill(receiptId, request));
@@ -193,7 +211,7 @@ class ExportFulfillmentServiceTests {
     void fulfill_dispose_qcZoneUnit_allowed() {
         Product prod = product("PIECE");
         when(prod.getTrackingType()).thenReturn("SERIALIZED");
-        stubFulfillContext(ExportReason.DISPOSE.name(), prod);
+        stubFulfillContext("DISPOSE", prod);
         stubReceiptSave();
         ProductUnit pu = ProductUnit.builder()
                 .id(3L)
@@ -207,7 +225,8 @@ class ExportFulfillmentServiceTests {
         stubUnitSave();
         when(securityPolicy.requireAuthenticated()).thenReturn(userId);
 
-        FulfillExportRequest request = new FulfillExportRequest(
+        FulfillExportRequest request = new FulfillExportRequest("note",
+                List.of("https://img/evidence.jpg"),
                 List.of(new FulfillItemRequest(itemId, List.of("SN-3"), null)));
 
         service.fulfill(receiptId, request);
@@ -220,7 +239,7 @@ class ExportFulfillmentServiceTests {
     void fulfill_warrantyReplacement_alreadySentUnit_rejected() {
         Product prod = product("PIECE");
         when(prod.getTrackingType()).thenReturn("SERIALIZED");
-        stubFulfillContext(ExportReason.WARRANTY_REPLACEMENT.name(), prod);
+        stubFulfillContext("WARRANTY_REPLACEMENT", prod);
         ProductUnit pu = ProductUnit.builder()
                 .id(4L)
                 .serialNumber("SN-4")
@@ -232,7 +251,8 @@ class ExportFulfillmentServiceTests {
         stubUnitLookup(pu);
         when(securityPolicy.requireAuthenticated()).thenReturn(userId);
 
-        FulfillExportRequest request = new FulfillExportRequest(
+        FulfillExportRequest request = new FulfillExportRequest("note",
+                List.of("https://img/evidence.jpg"),
                 List.of(new FulfillItemRequest(itemId, List.of("SN-4"), null)));
 
         assertThrows(InvalidRequestException.class, () -> service.fulfill(receiptId, request));
@@ -244,14 +264,15 @@ class ExportFulfillmentServiceTests {
     void fulfill_returnSupplier_setsReturnedToSupplier() {
         Product prod = product("PIECE");
         when(prod.getTrackingType()).thenReturn("SERIALIZED");
-        stubFulfillContext(ExportReason.RETURN_SUPPLIER.name(), prod);
+        stubFulfillContext("RETURN_SUPPLIER", prod);
         stubReceiptSave();
         ProductUnit pu = inStockUnit();
         stubUnitLookup(pu);
         stubUnitSave();
         when(securityPolicy.requireAuthenticated()).thenReturn(userId);
 
-        FulfillExportRequest request = new FulfillExportRequest(
+        FulfillExportRequest request = new FulfillExportRequest("note",
+                List.of("https://img/evidence.jpg"),
                 List.of(new FulfillItemRequest(itemId, List.of("SN-1"), null)));
 
         service.fulfill(receiptId, request);
@@ -261,10 +282,11 @@ class ExportFulfillmentServiceTests {
 
     @Test
     void fulfill_warrantyReplacement_bulk_fails() {
-        stubFulfillContext(ExportReason.WARRANTY_REPLACEMENT.name(), product("METER"));
+        stubFulfillContext("WARRANTY_REPLACEMENT", product("METER"));
         when(securityPolicy.requireAuthenticated()).thenReturn(userId);
 
-        FulfillExportRequest request = new FulfillExportRequest(
+        FulfillExportRequest request = new FulfillExportRequest("note",
+                List.of("https://img/evidence.jpg"),
                 List.of(new FulfillItemRequest(itemId, null, BigDecimal.ONE)));
 
         assertThrows(InvalidRequestException.class, () -> service.fulfill(receiptId, request));
@@ -286,11 +308,12 @@ class ExportFulfillmentServiceTests {
     }
     @Test
     void fulfill_serializedCountLessThanQuantity_throws() {
-        stubFulfillContext(ExportReason.SALE.name(), serializedProduct());
+        stubFulfillContext("SALE", serializedProduct());
         when(exportReceiptItemRepository.findByReceiptId(receiptId)).thenReturn(List.of(itemWithQty(2)));
         when(securityPolicy.requireAuthenticated()).thenReturn(userId);
 
-        FulfillExportRequest request = new FulfillExportRequest(
+        FulfillExportRequest request = new FulfillExportRequest("note",
+                List.of("https://img/evidence.jpg"),
                 List.of(new FulfillItemRequest(itemId, List.of("SN-1"), null)));
 
         assertThrows(InvalidRequestException.class, () -> service.fulfill(receiptId, request));
@@ -299,10 +322,11 @@ class ExportFulfillmentServiceTests {
 
     @Test
     void fulfill_serializedCountMoreThanQuantity_throws() {
-        stubFulfillContext(ExportReason.SALE.name(), serializedProduct());
+        stubFulfillContext("SALE", serializedProduct());
         when(securityPolicy.requireAuthenticated()).thenReturn(userId);
 
-        FulfillExportRequest request = new FulfillExportRequest(
+        FulfillExportRequest request = new FulfillExportRequest("note",
+                List.of("https://img/evidence.jpg"),
                 List.of(new FulfillItemRequest(itemId, List.of("SN-1", "SN-2"), null)));
 
         assertThrows(InvalidRequestException.class, () -> service.fulfill(receiptId, request));
@@ -312,11 +336,12 @@ class ExportFulfillmentServiceTests {
 
     @Test
     void fulfill_bulkQuantityMismatch_throws() {
-        stubFulfillContext(ExportReason.SALE.name(), bulkProduct());
+        stubFulfillContext("SALE", bulkProduct());
         when(exportReceiptItemRepository.findByReceiptId(receiptId)).thenReturn(List.of(itemWithQty(100)));
         when(securityPolicy.requireAuthenticated()).thenReturn(userId);
 
-        FulfillExportRequest request = new FulfillExportRequest(
+        FulfillExportRequest request = new FulfillExportRequest("note",
+                List.of("https://img/evidence.jpg"),
                 List.of(new FulfillItemRequest(itemId, null, new BigDecimal("60"))));
 
         assertThrows(InvalidRequestException.class, () -> service.fulfill(receiptId, request));
@@ -326,7 +351,7 @@ class ExportFulfillmentServiceTests {
 
     @Test
     void fulfill_bulkInsufficientStock_throws() {
-        stubFulfillContext(ExportReason.SALE.name(), bulkProduct());
+        stubFulfillContext("SALE", bulkProduct());
         when(exportReceiptItemRepository.findByReceiptId(receiptId)).thenReturn(List.of(itemWithQty(100)));
         when(productUnitRepository.findByProductIdAndStatusWithLock(productId)).thenReturn(List.of(
                 ProductUnit.builder()
@@ -340,10 +365,56 @@ class ExportFulfillmentServiceTests {
                 .thenReturn(List.of());
         when(securityPolicy.requireAuthenticated()).thenReturn(userId);
 
-        FulfillExportRequest request = new FulfillExportRequest(
+        FulfillExportRequest request = new FulfillExportRequest("note",
+                List.of("https://img/evidence.jpg"),
                 List.of(new FulfillItemRequest(itemId, null, new BigDecimal("100"))));
 
         assertThrows(InvalidRequestException.class, () -> service.fulfill(receiptId, request));
+        verify(exportReceiptRepository, never()).save(any());
+    }
+
+    // ─── Evidence + đủ/thiếu/trùng item ──────────────────────
+
+    @Test
+    void fulfill_evidenceMissing_rejected() {
+        when(securityPolicy.requireAuthenticated()).thenReturn(userId);
+        when(exportReceiptRepository.findByIdForUpdate(receiptId)).thenReturn(Optional.of(receipt("SALE")));
+
+        FulfillExportRequest request = new FulfillExportRequest("note", List.of(),
+                List.of(new FulfillItemRequest(itemId, List.of("SN-1"), null)));
+
+        assertThrows(InvalidRequestException.class, () -> service.fulfill(receiptId, request));
+        verify(exportReceiptRepository, never()).save(any());
+    }
+
+    @Test
+    void fulfill_missingItem_rejected() {
+        when(securityPolicy.requireAuthenticated()).thenReturn(userId);
+        when(exportReceiptRepository.findByIdForUpdate(receiptId)).thenReturn(Optional.of(receipt("SALE")));
+        when(exportReceiptItemRepository.findByReceiptId(receiptId)).thenReturn(
+                List.of(item(), itemWithId(71L)));
+
+        FulfillExportRequest request = new FulfillExportRequest("note",
+                List.of("https://img/evidence.jpg"),
+                List.of(new FulfillItemRequest(itemId, List.of("SN-1"), null)));
+
+        assertThrows(InvalidRequestException.class, () -> service.fulfill(receiptId, request));
+        verify(productUnitRepository, never()).findBySerialNumber(anyString());
+        verify(exportReceiptRepository, never()).save(any());
+    }
+
+    @Test
+    void fulfill_duplicateItem_rejected() {
+        when(securityPolicy.requireAuthenticated()).thenReturn(userId);
+        when(exportReceiptRepository.findByIdForUpdate(receiptId)).thenReturn(Optional.of(receipt("SALE")));
+
+        FulfillExportRequest request = new FulfillExportRequest("note",
+                List.of("https://img/evidence.jpg"),
+                List.of(new FulfillItemRequest(itemId, List.of("SN-1"), null),
+                        new FulfillItemRequest(itemId, List.of("SN-2"), null)));
+
+        assertThrows(InvalidRequestException.class, () -> service.fulfill(receiptId, request));
+        verify(productUnitRepository, never()).findBySerialNumber(anyString());
         verify(exportReceiptRepository, never()).save(any());
     }
 }

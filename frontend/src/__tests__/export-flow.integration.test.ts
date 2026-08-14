@@ -7,7 +7,7 @@ describe("Export Flow", () => {
     const { serialNumbers } = await ensureImport(1, 1)
 
     const createRes = await api.post("/export-receipt", {
-      reason: "SALE", customerId: 1, note: "E2E export",
+      type: "SALE", reason: "SALE", customerId: 1, note: "E2E export",
       items: [{ productId: 1, quantity: 1, unitPrice: 15000000 }],
     })
     expect(createRes.status).toBe(201)
@@ -15,6 +15,8 @@ describe("Export Flow", () => {
     const exportId = createRes.data.data.id
 
     const fulfillRes = await api.put(`/export-receipt/${exportId}/fulfill`, {
+      note: "E2E fulfill",
+      evidenceImages: ["https://cloudinary.example.com/e2e-evidence.jpg"],
       items: [{ itemId: createRes.data.data.items[0].id, serialNumbers }],
     })
     expect(fulfillRes.status).toBe(200)
@@ -25,7 +27,7 @@ describe("Export Flow", () => {
     await loginAsManager()
     await ensureImport()
     const createRes = await api.post("/export-receipt", {
-      reason: "INTERNAL", note: "Cancel test",
+      type: "INTERNAL", reason: "INTERNAL", note: "Cancel test",
       items: [{ productId: 1, quantity: 1, unitPrice: 50000 }],
     })
     const exportId = createRes.data.data.id

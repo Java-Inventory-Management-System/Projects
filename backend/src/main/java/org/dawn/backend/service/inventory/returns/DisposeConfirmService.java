@@ -7,7 +7,6 @@ import org.dawn.backend.config.security.SecurityPolicy;
 import org.dawn.backend.constant.enums.inventory.ProductUnitStatus;
 import org.dawn.backend.constant.enums.inventory.SourceType;
 import org.dawn.backend.constant.enums.inventory.exports.ExportReceiptStatus;
-import org.dawn.backend.constant.enums.inventory.exports.ExportReason;
 import org.dawn.backend.constant.shared.ErrorCode;
 import org.dawn.backend.constant.shared.LogConstant;
 import org.dawn.backend.controller.inventory.response.DisposeConfirmResponse;
@@ -121,10 +120,10 @@ public class DisposeConfirmService {
         }
 
         if (targetStatus == ProductUnitStatus.RETURNED_TO_SUPPLIER) {
-            ExportReceipt receipt = createAutoExport(units, userId, ExportReason.RETURN_SUPPLIER, supplierId);
+            ExportReceipt receipt = createAutoExport(units, userId, "RETURN_SUPPLIER", supplierId);
             return new DisposeConfirmResponse(receipt.getReceiptCode(), receipt.getId());
         } else if (targetStatus == ProductUnitStatus.SENT_TO_MANUFACTURER) {
-            ExportReceipt receipt = createAutoExport(units, userId, ExportReason.WARRANTY_REPLACEMENT, supplierId);
+            ExportReceipt receipt = createAutoExport(units, userId, "WARRANTY_REPLACEMENT", supplierId);
             return new DisposeConfirmResponse(receipt.getReceiptCode(), receipt.getId());
         }
         return new DisposeConfirmResponse(null, null);
@@ -145,7 +144,7 @@ public class DisposeConfirmService {
         return null;
     }
 
-    private ExportReceipt createAutoExport(List<ProductUnit> units, Long userId, ExportReason reason, Long supplierId) {
+    private ExportReceipt createAutoExport(List<ProductUnit> units, Long userId, String reason, Long supplierId) {
         var unitsByProduct = units.stream().collect(Collectors.groupingBy(ProductUnit::getProductId));
         var products = productRepository.findAllById(unitsByProduct.keySet()).stream()
                 .collect(Collectors.toMap(Product::getId, p -> p));
@@ -163,7 +162,7 @@ public class DisposeConfirmService {
 
         ExportReceipt receipt = ExportReceipt.builder()
                 .receiptCode(receiptCode)
-                .reason(reason.name())
+                .reason(reason)
                 .supplierId(effectiveSupplierId)
                 .totalAmount(BigDecimal.ZERO)
                 .status(ExportReceiptStatus.COMPLETED)

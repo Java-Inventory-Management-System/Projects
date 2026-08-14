@@ -42,6 +42,9 @@ public class ExportReceipt extends AuditableEntity {
     @Column(name = "note", columnDefinition = "TEXT")
     private String note;
 
+    @Column(name = "evidence_images", columnDefinition = "TEXT")
+    private String evidenceImages;
+
     @Column(name = "created_by", nullable = false)
     private Long createdBy;
 

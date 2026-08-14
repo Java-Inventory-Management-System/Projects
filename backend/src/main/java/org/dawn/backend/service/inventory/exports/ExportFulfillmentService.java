@@ -7,7 +7,6 @@ import org.dawn.backend.shared.statemachine.StateMachine;
 import org.dawn.backend.aspect.AuditLog;
 import org.dawn.backend.constant.enums.catalog.TrackingType;
 import org.dawn.backend.constant.enums.inventory.exports.ExportReceiptStatus;
-import org.dawn.backend.constant.enums.inventory.exports.ExportReason;
 import org.dawn.backend.constant.enums.inventory.ProductUnitStatus;
 import org.dawn.backend.constant.enums.inventory.SourceType;
 import org.dawn.backend.constant.enums.inventory.box.BoxStatus;
@@ -78,15 +77,29 @@ public class ExportFulfillmentService {
 
         exportReceiptStateMachine.validate(receipt.getStatus(), ExportReceiptStatus.COMPLETED);
 
+        if (request.note() == null || request.note().isBlank()) {
+            throw new InvalidRequestException(ErrorCode.EXPORT_NOTE_REQUIRED);
+        }
+        if (request.evidenceImages() == null || request.evidenceImages().isEmpty()) {
+            throw new InvalidRequestException(ErrorCode.EXPORT_EVIDENCE_REQUIRED);
+        }
+
         ExportReceiptStatus oldStatus = receipt.getStatus();
         var receiptItems = exportReceiptItemRepository.findByReceiptId(receipt.getId());
+        List<Long> requestedItemIds = request.items() == null
+                ? List.of()
+                : request.items().stream().map(FulfillExportRequest.FulfillItemRequest::itemId).sorted().toList();
+        List<Long> receiptItemIds = receiptItems.stream().map(ExportReceiptItem::getId).sorted().toList();
+        if (!requestedItemIds.equals(receiptItemIds)) {
+            throw new InvalidRequestException(ErrorCode.EXPORT_FULFILL_ITEMS_MISMATCH);
+        }
         var itemMap = receiptItems.stream().collect(Collectors.toMap(ExportReceiptItem::getId, i -> i));
         var productIds = receiptItems.stream().map(ExportReceiptItem::getProductId).toList();
         var products = productRepository.findAllById(productIds).stream()
                 .collect(Collectors.toMap(Product::getId, p -> p));
 
         BigDecimal totalCogs = BigDecimal.ZERO;
-        ExportReason reason = ExportReason.valueOf(receipt.getReason());
+        String reason = receipt.getReason();
 
         for (var fulfillItem : request.items()) {
             ExportReceiptItem item = itemMap.get(fulfillItem.itemId());
@@ -98,7 +111,7 @@ public class ExportFulfillmentService {
             String unit = product.getUnit();
             boolean isBulk = BULK_UNITS.contains(unit);
 
-            if (reason == ExportReason.WARRANTY_REPLACEMENT && isBulk) {
+            if ("WARRANTY_REPLACEMENT".equals(reason) && isBulk) {
                 throw new InvalidRequestException(ErrorCode.WARRANTY_BULK_NOT_ALLOWED);
             }
 
@@ -176,9 +189,9 @@ public class ExportFulfillmentService {
                         if (!pu.getProductId().equals(item.getProductId())) {
                             throw new InvalidRequestException(ErrorCode.EXPORT_SERIAL_WRONG_PRODUCT.format( sn, product.getName()));
                         }
-                        boolean qcHoldAllowed = reason == ExportReason.WARRANTY_REPLACEMENT
+                        boolean qcHoldAllowed = "WARRANTY_REPLACEMENT".equals(reason)
                                 && ProductUnitStatus.WAITING_RMA_EXPORT == pu.getStatus();
-                        boolean qcZoneDisposeAllowed = reason == ExportReason.DISPOSE
+                        boolean qcZoneDisposeAllowed = "DISPOSE".equals(reason)
                                 && (ProductUnitStatus.PENDING_QC == pu.getStatus()
                                         || ProductUnitStatus.RETURN_QC_HOLD == pu.getStatus());
                         if (ProductUnitStatus.IN_STOCK != pu.getStatus() && !qcHoldAllowed && !qcZoneDisposeAllowed) {
@@ -194,9 +207,9 @@ public class ExportFulfillmentService {
 
                         ProductUnitStatus oldUnitStatus = pu.getStatus();
                         ProductUnitStatus targetStatus = switch (reason) {
-                            case DISPOSE -> ProductUnitStatus.DISPOSED;
-                            case RETURN_SUPPLIER -> ProductUnitStatus.RETURNED_TO_SUPPLIER;
-                            case WARRANTY_REPLACEMENT -> ProductUnitStatus.SENT_TO_MANUFACTURER;
+                            case "DISPOSE" -> ProductUnitStatus.DISPOSED;
+                            case "RETURN_SUPPLIER" -> ProductUnitStatus.RETURNED_TO_SUPPLIER;
+                            case "WARRANTY_REPLACEMENT" -> ProductUnitStatus.SENT_TO_MANUFACTURER;
                             default -> ProductUnitStatus.EXPORTED;
                         };
 
@@ -206,7 +219,7 @@ public class ExportFulfillmentService {
                                 || ProductUnitStatus.DISPOSED == targetStatus) {
                             pu.setLocationId(null);
                         }
-                        if (reason == ExportReason.SALE) {
+                        if ("SALE".equals(reason)) {
                             Instant now = Instant.now();
                             pu.setWarrantyStartDate(now);
                             if (pu.getWarrantyMonths() != null) {
@@ -231,7 +244,7 @@ public class ExportFulfillmentService {
                                 .changedBy(userId)
                                 .build());
 
-                        if (reason == ExportReason.SALE || reason == ExportReason.INTERNAL) {
+                        if ("SALE".equals(reason) || "INTERNAL".equals(reason)) {
                             if (pu.getCostPrice() != null) {
                                 totalCogs = totalCogs.add(pu.getCostPrice());
                             }
@@ -244,6 +257,8 @@ public class ExportFulfillmentService {
         receipt.setStatus(ExportReceiptStatus.COMPLETED);
         receipt.setFulfilledBy(userId);
         receipt.setFulfilledAt(Instant.now());
+        receipt.setNote(request.note());
+        receipt.setEvidenceImages(String.join(",", request.evidenceImages()));
         receipt.setTotalCogs(totalCogs);
         receipt = exportReceiptRepository.save(receipt);
 

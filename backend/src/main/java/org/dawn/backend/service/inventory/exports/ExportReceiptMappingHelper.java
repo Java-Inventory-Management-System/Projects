@@ -31,8 +31,8 @@ public interface ExportReceiptMappingHelper {
                 .customerName(customerName)
                 .totalAmount(receipt.getTotalAmount())
                 .status(receipt.getStatus().name())
-                .note(receipt.getNote())
-                .createdBy(receipt.getCreatedBy())
+        .note(receipt.getNote())
+        .createdBy(receipt.getCreatedBy())
                 .createdByName(createdByName)
                 .approvedBy(receipt.getApprovedBy())
                 .approvedByName(approvedByName)
@@ -43,6 +43,9 @@ public interface ExportReceiptMappingHelper {
                 .rejectedByName(rejectedByName)
                 .rejectedAt(receipt.getRejectedAt())
                 .rejectReason(receipt.getRejectReason())
+                .evidenceImages(receipt.getEvidenceImages() == null ? List.of()
+                        : java.util.Arrays.stream(receipt.getEvidenceImages().split(","))
+                                .filter(s -> !s.isBlank()).toList())
                 .externalReference(receipt.getExternalReference())
                 .items(items.stream().map(item -> {
                     Product p = productMap.get(item.getProductId());
