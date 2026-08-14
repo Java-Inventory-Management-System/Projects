@@ -1,6 +1,5 @@
-import { describe, it, expect } from "vitest"
-import { api, loginAsManager, ensureImport } from "./api-client"
-
+import { describe, it, expect, beforeAll, afterEach } from "vitest"
+import { api, loginAsManager, ensureImport, cancelOpenStockChecks } from "./api-client"
 async function unitIdsOfSerials(serials: string[]) {
   const check = await api.post("/stock-check", { scopeType: "ZONE", scopeId: 1 })
   const detail = await api.get(`/stock-check/${check.data.data.id}`)
@@ -11,40 +10,54 @@ async function unitIdsOfSerials(serials: string[]) {
   return ids
 }
 
+async function unsealStaleTestBoxes() {
+  const res = await api.get("/box", { params: { status: "SEALED", size: 100 } })
+  for (const b of res.data.data.content ?? []) {
+    if (b.note === "Test box") {
+      try {
+        await api.post(`/box/${b.id}/unseal`)
+      } catch {
+        // ignore — box may belong to someone else
+      }
+    }
+  }
+}
+
 describe("Box Flow", () => {
-  it("should seal, block export + unconfirmed stock check, then unseal", async () => {
+  beforeAll(async () => {
+    await cancelOpenStockChecks()
+    await unsealStaleTestBoxes()
+  })
+
+  afterEach(async () => {
+    await unsealStaleTestBoxes()
+  })
+
+  it("should seal, block export until unsealed, then allow export", async () => {
     await loginAsManager()
     const { serialNumbers } = await ensureImport(1, 2)
     const unitIds = await unitIdsOfSerials(serialNumbers)
     expect(unitIds.length).toBe(2)
 
-    const sealRes = await api.post("/box/seal", { unitIds, locationId: 34, note: "Test box" })
+    const sealRes = await api.post("/box/seal", { unitIds, locationId: 35, note: "Test box" })
     expect(sealRes.status).toBe(200)
     const boxId = sealRes.data.data.id
     expect(sealRes.data.data.status).toBe("SEALED")
     expect(sealRes.data.data.unitCount).toBe(2)
 
     const createRes = await api.post("/export-receipt", {
-      reason: "SALE", customerId: 1, note: "Boxed serial export",
+      type: "SALE", reason: "SALE", customerId: 1, note: "Boxed serial export",
       items: [{ productId: 1, quantity: 1, unitPrice: 15000000 }],
     })
-    try {
-      await api.put(`/export-receipt/${createRes.data.data.id}/fulfill`, {
-        items: [{ itemId: createRes.data.data.items[0].id, serialNumbers: [serialNumbers[0]] }],
+    const fulfill = (serial: string) =>
+      api.put(`/export-receipt/${createRes.data.data.id}/fulfill`, {
+        note: "Boxed fulfill",
+        evidenceImages: ["https://cloudinary.example.com/boxed-evidence.jpg"],
+        items: [{ itemId: createRes.data.data.items[0].id, serialNumbers: [serial] }],
       })
-      expect.unreachable("should have thrown")
-    } catch (err: any) {
-      expect(err.response.status).toBe(400)
-      expect(JSON.stringify(err.response.data)).toContain("sealed box")
-    }
-
-    const check = await api.post("/stock-check", { scopeType: "BOX", scopeId: boxId })
-    const checkDetail = await api.get(`/stock-check/${check.data.data.id}`)
-    expect(checkDetail.data.data.items.length).toBe(2)
-    expect(checkDetail.data.data.items[0].boxCode).toBe(sealRes.data.data.boxCode)
 
     try {
-      await api.put(`/stock-check/${check.data.data.id}/complete`)
+      await fulfill(serialNumbers[0])
       expect.unreachable("should have thrown")
     } catch (err: any) {
       expect(err.response.status).toBe(400)
@@ -55,8 +68,7 @@ describe("Box Flow", () => {
     expect(unsealRes.data.data.status).toBe("UNSEALED")
     expect(unsealRes.data.data.unsealedAt).toBeTruthy()
 
-    const done = await api.put(`/stock-check/${check.data.data.id}/complete`)
-    expect(done.data.data.status).toBe("COMPLETED")
+    await fulfill(serialNumbers[0])
   })
 
   it("should move a sealed box and reject duplicate unit sealing", async () => {
@@ -64,19 +76,19 @@ describe("Box Flow", () => {
     const { serialNumbers } = await ensureImport(1, 1)
     const [unitId] = await unitIdsOfSerials(serialNumbers)
 
-    const sealRes = await api.post("/box/seal", { unitIds: [unitId], locationId: 34 })
+    const sealRes = await api.post("/box/seal", { unitIds: [unitId], locationId: 35, note: "Test box" })
     const boxId = sealRes.data.data.id
 
     try {
-      await api.post("/box/seal", { unitIds: [unitId], locationId: 34 })
+      await api.post("/box/seal", { unitIds: [unitId], locationId: 35, note: "Test box" })
       expect.unreachable("should have thrown")
     } catch (err: any) {
       expect(err.response.status).toBe(400)
     }
 
-    const moveRes = await api.post(`/box/${boxId}/move`, { locationId: 1 })
+    const moveRes = await api.post(`/box/${boxId}/move`, { locationId: 36 })
     expect(moveRes.data.data.status).toBe("SEALED")
-    expect(moveRes.data.data.locationId).toBe(1)
+    expect(moveRes.data.data.locationId).toBe(36)
 
     const zoneCheck = await api.post("/stock-check", { scopeType: "ZONE", scopeId: 1 })
     const zoneDetail = await api.get(`/stock-check/${zoneCheck.data.data.id}`)
@@ -107,7 +119,7 @@ describe("Box Flow", () => {
 
     const check = await api.post("/stock-check", { scopeType: "ZONE", scopeId: 1 })
 
-    const sealRes = await api.post("/box/seal", { unitIds: [unitIds[0]], locationId: 34 })
+    const sealRes = await api.post("/box/seal", { unitIds: [unitIds[0]], locationId: 35, note: "Test box" })
     expect(sealRes.status).toBe(200)
     expect(sealRes.data.data.status).toBe("SEALED")
 

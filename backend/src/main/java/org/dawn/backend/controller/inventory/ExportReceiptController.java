@@ -40,8 +40,9 @@ public class ExportReceiptController {
     @PreAuthorize(AuthorizationExpressions.CAN_OPERATE)
     public ResponseObject<ResponsePage<ExportReceiptResponse>> getAll(Pageable pageable,
                                                                       @RequestParam(required = false) String status,
-                                                                      @RequestParam(required = false) Long customerId) {
-        return ResponseObject.success(exportReceiptService.findAll(pageable, status, customerId));
+                                                                      @RequestParam(required = false) Long customerId,
+                                                                      @RequestParam(required = false) Long createdBy) {
+        return ResponseObject.success(exportReceiptService.findAll(pageable, status, customerId, createdBy));
     }
 
     @GetMapping("/export-receipt/{id}")

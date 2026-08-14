@@ -25,6 +25,17 @@ export function formatDateTime(value: string | Date): string {
   return new Date(value).toLocaleString(locale())
 }
 
+export function formatRelativeTime(value: string): string {
+  const d = new Date(value)
+  const now = new Date()
+  const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
+  const t = d.getTime()
+  const hm = d.toLocaleTimeString(locale(), { hour: "2-digit", minute: "2-digit" })
+  if (t >= startToday) return `${i18n.t("common.today")}, ${hm}`
+  if (t >= startToday - 86_400_000) return `${i18n.t("common.yesterday")}, ${hm}`
+  return formatDateVN(d)
+}
+
 const pad = (n: number) => String(n).padStart(2, "0")
 
 export function toLocalDateStr(d: Date): string {

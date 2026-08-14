@@ -1,5 +1,5 @@
 import http from "@/utils/http-client"
-import type { ResponsePage, ExportReceipt } from "@/utils/types"
+import type { ResponsePage, ExportReceipt, ExportReason } from "@/utils/types"
 import { mapResponsePage, mapExportReceipt } from "@/utils/mappers"
 
 export async function getExportReceipts(
@@ -8,9 +8,10 @@ export async function getExportReceipts(
   sort?: string,
   status?: string,
   customerId?: number,
+  createdBy?: number,
 ): Promise<ResponsePage<ExportReceipt>> {
   const res = await http.get("/export-receipt", {
-    params: { page, size, sort: sort ?? "createdAt,desc", ...(status && { status }), ...(customerId && { customerId }) },
+    params: { page, size, sort: sort ?? "createdAt,desc", ...(status && { status }), ...(customerId && { customerId }), ...(createdBy && { createdBy }) },
   })
   return mapResponsePage(res, mapExportReceipt)
 }
@@ -26,7 +27,8 @@ export async function getExportPrintHtml(id: number, lang: string): Promise<stri
 }
 
 export async function createExportReceipt(data: {
-  reason: string
+  type: ExportReason
+  reason?: string | null
   customerId?: number | null
   supplierId?: number | null
   note?: string | null
@@ -44,6 +46,8 @@ export async function createExportReceipt(data: {
 export async function fulfillExportReceipt(
   id: number,
   data: {
+    note: string
+    evidenceImages: string[]
     items: Array<{
       itemId: number
       serialNumbers?: string[]

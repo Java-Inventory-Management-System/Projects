@@ -1,7 +1,11 @@
-import { describe, it, expect } from "vitest"
-import { api, loginAsManager, loginAsAdmin, ensureImport } from "./api-client"
+import { describe, it, expect, beforeAll } from "vitest"
+import { api, loginAsManager, loginAsAdmin, ensureImport, cancelOpenStockChecks } from "./api-client"
 
 describe("Stock Check Flow", () => {
+  beforeAll(async () => {
+    await cancelOpenStockChecks()
+  })
+
   it("should reject stock check without scope", async () => {
     await loginAsManager()
     try {
@@ -26,11 +30,7 @@ describe("Stock Check Flow", () => {
     if (bulkItem) items.push({ productUnitId: bulkItem.productUnitId, actualStatus: "IN_STOCK", countedQuantity: 1 })
 
     await api.put(`/stock-check/${checkId}/items`, { items })
-    const sealedBoxIds = [...new Set(detail.data.data.items.map((i: any) => i.boxId).filter(Boolean))]
-    if (sealedBoxIds.length) {
-      await api.put(`/stock-check/${checkId}/confirm-boxes`, { boxIds: sealedBoxIds })
-    }
-    const done = await api.put(`/stock-check/${checkId}/complete`)
+    const done = await api.put(`/stock-check/${checkId}/complete`, null, { params: { confirmUntouched: true } })
     expect(done.data.data.status).toBe("COMPLETED")
 
     const report = await api.get("/report/stock-check-overview", {

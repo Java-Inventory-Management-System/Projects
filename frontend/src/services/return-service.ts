@@ -8,9 +8,10 @@ export async function getReturnReceipts(
   status?: string,
   reason?: string,
   search?: string,
+  createdBy?: number,
 ): Promise<ResponsePage<ReturnReceipt>> {
   const res = await http.get("/return-receipts", {
-    params: { page, size, sort: "createdAt,desc", ...(status && { status }), ...(reason && { reason }), ...(search && { search }) },
+    params: { page, size, sort: "createdAt,desc", ...(status && { status }), ...(reason && { reason }), ...(search && { search }), ...(createdBy && { createdBy }) },
   })
   return mapResponsePage(res, mapReturnReceipt)
 }

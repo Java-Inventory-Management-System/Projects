@@ -34,8 +34,9 @@ public class ReturnReceiptController {
     public ResponseObject<ResponsePage<ReturnReceiptResponse>> findAll(Pageable pageable,
                                                                         @RequestParam(required = false) String status,
                                                                         @RequestParam(required = false) String reason,
-                                                                        @RequestParam(required = false) String search) {
-        return ResponseObject.success(returnReceiptService.findAll(pageable, status, reason, search));
+                                                                        @RequestParam(required = false) String search,
+                                                                        @RequestParam(required = false) Long createdBy) {
+        return ResponseObject.success(returnReceiptService.findAll(pageable, status, reason, search, createdBy));
     }
 
     @GetMapping("/{id}")

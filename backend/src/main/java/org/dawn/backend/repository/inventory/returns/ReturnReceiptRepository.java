@@ -26,6 +26,8 @@ public interface ReturnReceiptRepository extends JpaRepository<ReturnReceipt, Lo
     List<ReturnReceipt> findByOriginalExportReceiptId(Long exportReceiptId);
     List<ReturnReceipt> findByCustomerId(Long customerId);
     Page<ReturnReceipt> findByStatus(ReturnReceiptStatus status, Pageable pageable);
+    Page<ReturnReceipt> findByCreatedBy(Long createdBy, Pageable pageable);
+    Page<ReturnReceipt> findByStatusAndCreatedBy(ReturnReceiptStatus status, Long createdBy, Pageable pageable);
     Page<ReturnReceipt> findByReason(String reason, Pageable pageable);
     Page<ReturnReceipt> findByStatusAndReason(ReturnReceiptStatus status, String reason, Pageable pageable);
     Page<ReturnReceipt> findByReceiptCodeContainingIgnoreCase(String receiptCode, Pageable pageable);

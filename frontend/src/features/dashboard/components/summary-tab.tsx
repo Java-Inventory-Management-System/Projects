@@ -1,6 +1,9 @@
 import { useCallback, useMemo } from "react"
 import { useTranslation } from "react-i18next"
 import { useInventorySummary, useInventoryByCategory, useStockValue } from "@/hooks/use-reports"
+import { useImportReceipts } from "@/hooks/use-import-receipts"
+import { usePermission } from "@/hooks/use-permission"
+import { ROLES } from "@/utils/permissions"
 import { formatCompactVND } from "@/utils/format"
 import {
   ChartContainer,
@@ -118,21 +121,17 @@ interface TreemapContentProps {
 }
 
 const CustomTreemapContent = (props: TreemapContentProps) => {
-  const { x = 0, y = 0, width = 0, height = 0, name, value, colors = [], index = 0 } = props
+  const { x = 0, y = 0, width = 0, height = 0, name, colors = [], index = 0 } = props
   if (width < 20 || height < 20) return null
-  const fontSize = width < 80 ? 9 : width < 140 ? 10 : 11
+  const showName = width >= 30 && height >= 14
+  const fontSize = width < 60 ? 9 : width < 120 ? 10.5 : 12
   return (
     <g>
       <rect x={x} y={y} width={width} height={height} fill={colors.length ? colors[index % colors.length] : undefined} stroke="var(--background)" strokeWidth={1} />
-      {width > 40 && height > 30 && (
-        <>
-          <text x={x + 4} y={y + 14} className="fill-white dark:fill-[oklch(0.15_0.01_210)]" fontSize={fontSize} fontWeight={600}>
-            {name}
-          </text>
-          <text x={x + 4} y={y + 28} className="fill-white/80 dark:fill-[oklch(0.15_0.01_210)]" fontSize={fontSize - 1}>
-            {formatCompactVND(value ?? 0)}
-          </text>
-        </>
+      {showName && (
+        <text x={x + 4} y={y + 14} fill="var(--treemap-text)" fontSize={fontSize} fontWeight={600}>
+          {name}
+        </text>
       )}
     </g>
   )
@@ -144,10 +143,15 @@ interface SummaryTabProps {
 
 export function SummaryTab({ onNavigate }: SummaryTabProps) {
   const { t } = useTranslation()
+  const perm = usePermission()
   const healthChartConfig = useHealthChartConfig(t)
   const { data: summary, isLoading } = useInventorySummary()
+  const { data: unresolvedImports } = useImportReceipts(0, 1, "createdAt,desc", "REJECTED", true)
   const { data: categories } = useInventoryByCategory()
   const { data: stockValue } = useStockValue()
+
+  const unresolvedRejectedCount = unresolvedImports?.pagination.totalElements ?? 0
+  const showTicketWidget = perm.hasRole(...ROLES.CAN_VIEW_REPORTS) && unresolvedRejectedCount > 0
 
   const handleTreemapClick = useCallback(
     (node: TreemapContentProps) => {
@@ -179,14 +183,15 @@ export function SummaryTab({ onNavigate }: SummaryTabProps) {
     ? (summary.totalUnits / categoryCount).toFixed(0)
     : undefined
 
-  const treemapData = useMemo(
-    () =>
-      categorized.map((c) => ({
-        name: c.categoryName!,
-        value: c.totalStockValue,
-      })),
-    [categorized],
-  )
+  const treemapData = useMemo(() => {
+    const total = categorized.reduce((s, c) => s + c.totalStockValue, 0)
+    return categorized.map((c) => ({
+      name: c.categoryName!,
+      value: c.totalStockValue,
+      productCount: c.productCount,
+      percent: total > 0 ? (c.totalStockValue / total) * 100 : 0,
+    }))
+  }, [categorized])
 
   const healthData = useMemo(
     () =>
@@ -219,7 +224,7 @@ export function SummaryTab({ onNavigate }: SummaryTabProps) {
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      <div className={`grid gap-4 sm:grid-cols-2 ${showTicketWidget ? "lg:grid-cols-6" : "lg:grid-cols-5"}`}>
         <StatCard
           label={t('summaryTab.products')}
           value={String(summary?.totalProducts ?? "—")}
@@ -284,6 +289,22 @@ export function SummaryTab({ onNavigate }: SummaryTabProps) {
           variant={summary?.outOfStockCount ? "danger" : "default"}
           isLoading={isLoading}
         />
+        {showTicketWidget && (
+          <StatCard
+            label={t('summaryTab.unresolvedRejectedImports')}
+            value={String(unresolvedRejectedCount)}
+            icon={<AlertTriangle className="size-4" />}
+            variant="danger"
+            isLoading={isLoading}
+            action={
+              <Button variant="link" size="sm" className="h-auto p-0 text-xs text-muted-foreground hover:text-foreground" asChild>
+                <a href="/stock/imports?status=REJECTED">
+                  {t('summaryTab.viewDetails')} →
+                </a>
+              </Button>
+            }
+          />
+        )}
       </div>
 
       {uncategorizedCount > 0 && (
@@ -309,15 +330,39 @@ export function SummaryTab({ onNavigate }: SummaryTabProps) {
               ) : treemapData.length === 0 ? (
                 <EmptyTitle>{t('summaryTab.noData')}</EmptyTitle>
               ) : (
-                <ChartContainer config={{}} className="aspect-auto h-72">
+                <ChartContainer config={{}} className="aspect-auto h-72 overflow-hidden">
                   <Treemap
                     data={treemapData}
                     dataKey="value"
                     nameKey="name"
                     stroke="#fff"
+                    isAnimationActive={false}
+                    isUpdateAnimationActive={false}
                     onClick={handleTreemapClick}
                     content={<CustomTreemapContent colors={CHART_COLORS} index={0} />}
-                  />
+                  >
+                    <ChartTooltip
+                      content={({ active, payload }) => {
+                        if (!active || !payload?.length) return null
+                        const d = payload[0]?.payload
+                        return (
+                          <div className="rounded-lg border border-border/50 bg-background px-2.5 py-1.5 shadow-xl text-xs space-y-1">
+                            <p className="font-medium">{d?.name}</p>
+                            <p className="tabular-nums">
+                              {formatCompactVND(d?.value ?? 0)}₫
+                            </p>
+                            <p className="text-muted-foreground">
+                              {t('summaryTab.percentOfTotal')}:{" "}
+                              <span className="tabular-nums text-foreground">{Number(d?.percent ?? 0).toFixed(1)}%</span>
+                            </p>
+                            <p className="text-muted-foreground">
+                              {t('summaryTab.products')}: <span className="tabular-nums text-foreground">{d?.productCount ?? 0}</span>
+                            </p>
+                          </div>
+                        )
+                      }}
+                    />
+                  </Treemap>
                 </ChartContainer>
               )}
             </CardContent>

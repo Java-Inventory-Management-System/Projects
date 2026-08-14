@@ -29,7 +29,7 @@ export interface NavSection {
 export const navSections: NavSection[] = [
   {
     items: [
-      { labelKey: "nav.dashboard", icon: LayoutDashboard, path: "/", roles: ROLES.CAN_VIEW_REPORTS },
+      { labelKey: "nav.dashboard", icon: LayoutDashboard, path: "/", roles: ROLES.CAN_OPERATE },
       { labelKey: "nav.products", icon: Package, path: "/products", roles: ROLES.CAN_VIEW_PRODUCTS },
       { labelKey: "nav.customers", icon: Contact, path: "/customers", roles: ROLES.CAN_OPERATE },
       { labelKey: "nav.inventory", icon: ScanBarcode, path: "/stock/units", roles: ROLES.CAN_OPERATE },

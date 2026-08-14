@@ -27,15 +27,19 @@ const DeadStockTab = lazy(() =>
 const StockCheckTab = lazy(() =>
   import("@/features/dashboard/tabs/stock-check-tab").then((m) => ({ default: m.StockCheckTab })),
 )
+const WorkQueueTab = lazy(() =>
+  import("@/features/work-queue/pages/work-queue-page").then((m) => ({ default: m.WorkQueueTab })),
+)
 
 const ALL_TABS = [
-  { key: "summary", labelKey: "dashboard.tab.overview", roles: ROLES.CAN_OPERATE },
+  { key: "summary", labelKey: "dashboard.tab.overview", roles: ROLES.CAN_VIEW_REPORTS },
   { key: "category", labelKey: "dashboard.tab.byCategory", roles: ROLES.CAN_VIEW_REPORTS },
-  { key: "low-stock", labelKey: "dashboard.tab.lowStock", roles: ROLES.CAN_VIEW_REPORTS },
+  { key: "low-stock", labelKey: "dashboard.tab.lowStock", roles: ROLES.CAN_VIEW_INVENTORY },
   { key: "stock-value", labelKey: "dashboard.tab.stockValue", roles: ROLES.CAN_VIEW_REPORTS },
   { key: "activity", labelKey: "dashboard.tab.activity", roles: ROLES.CAN_VIEW_REPORTS },
   { key: "dead-stock", labelKey: "dashboard.tab.deadStock", roles: ROLES.CAN_VIEW_REPORTS },
   { key: "stock-check", labelKey: "dashboard.tab.stockCheck", roles: ROLES.CAN_VIEW_REPORTS },
+  { key: "work-queue", labelKey: "nav.workQueue", roles: ROLES.CAN_OPERATE },
 ] as const
 
 type TabKey = (typeof ALL_TABS)[number]["key"]
@@ -50,6 +54,7 @@ const TAB_COMPONENTS: Record<TabKey, React.LazyExoticComponent<(p: TabProps) => 
   activity: ActivityTab,
   "dead-stock": DeadStockTab,
   "stock-check": StockCheckTab,
+  "work-queue": WorkQueueTab,
 }
 
 export const DashboardPage = () => {
@@ -57,7 +62,9 @@ export const DashboardPage = () => {
   const [searchParams, setSearchParams] = useSearchParams()
   const perm = usePermission()
   const visibleTabs = ALL_TABS.filter((tabDef) => perm.hasRole(...tabDef.roles))
-  const tab = (searchParams.get("tab") as TabKey | null) ?? "summary"
+  const role = perm.user?.role
+  const defaultTab: TabKey = role === "MANAGER" || role === "ADMIN" ? "summary" : "work-queue"
+  const tab = (searchParams.get("tab") as TabKey | null) ?? defaultTab
   const safeTab = visibleTabs.some((t) => t.key === tab) ? tab : (visibleTabs[0]?.key ?? "summary")
   const TabComponent = TAB_COMPONENTS[safeTab]
   const selectTab = (key: string) => setSearchParams((prev) => {
