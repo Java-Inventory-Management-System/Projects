@@ -98,7 +98,8 @@ public class ReceiptPrintService {
                      String product, String qty, String unitPrice, String subtotal, String warranty, String receivedQty,
                      String serial, String condition, String resultingAction, String expected, String actual, String difference,
                      String total, String note, String footer, String signCreator, String signStock, String signApprover,
-                     String stockCheckSummary, String importReceipt, String boxType) {}
+                     String stockCheckSummary, String importReceipt, String boxType,
+                     String stockCheckOk, String stockCheckSuspect, String stockCheckDamaged, String stockCheckLost) {}
 
     private L labels(String lang) {
         boolean en = "en".equalsIgnoreCase(lang);
@@ -140,9 +141,13 @@ public class ReceiptPrintService {
                 en ? "Prepared by" : "Người lập phiếu",
                 en ? "Stock keeper" : "Thủ kho",
                 en ? "Approved by" : "Người duyệt",
-                 en ? "Items: {0} | Match: {1} | Missing: {2} | Unexpected: {3} | Auto-filled: {4}" : "Mục: {0} | Khớp: {1} | Thiếu: {2} | Dư: {3} | Tự điền: {4}",
+                 en ? "Items: {0} | Match: {1} | Missing: {2} | Unexpected: {3}" : "Mục: {0} | Khớp: {1} | Thiếu: {2} | Dư: {3}",
                  en ? "Import receipt" : "Đơn nhập",
-                 en ? "Box type" : "Loại hộp");
+                 en ? "Box type" : "Loại hộp",
+                 en ? "OK" : "Có",
+                 en ? "Suspect seal" : "Nghi seal",
+                 en ? "Damaged packaging" : "Hư bao bì",
+                 en ? "Lost" : "Mất");
     }
 
     public String printImport(Long id, String lang) {
@@ -252,23 +257,38 @@ public class ReceiptPrintService {
         boolean en = "en".equalsIgnoreCase(lang);
         StringBuilder rows = new StringBuilder();
         int i = 1;
+        String lastBox = null;
         for (var it : r.items()) {
+            String boxCode = it.boxCode() == null ? null : it.boxCode();
+            if (boxCode != null && !boxCode.equals(lastBox)) {
+                rows.append("<tr class=\"boxrow\"><td colspan=\"7\">").append(esc(l.boxTitle)).append(": ")
+                        .append(esc(boxCode)).append("</td></tr>");
+                lastBox = boxCode;
+            }
             rows.append(tr(
                     num(i++),
                     esc(it.productName()) + sku(it.productSku()),
                     it.serialNumber() == null ? "-" : "<span class=\"mono\">" + esc(it.serialNumber()) + "</span>",
-                    it.expectedStatus() == null ? "-" : val(en ? STATUS_EN : STATUS_VI, it.expectedStatus()),
-                    it.actualStatus() == null ? "-" : val(en ? STATUS_EN : STATUS_VI, it.actualStatus()),
-                    val(en ? DIFF_EN : DIFF_VI, it.difference())));
+                    check(l.stockCheckOk, "IN_STOCK".equals(it.actualStatus())),
+                    check(l.stockCheckSuspect, Boolean.TRUE.equals(it.suspectSeal())),
+                    check(l.stockCheckDamaged, "DAMAGED_IN_STORAGE".equals(it.actualStatus())),
+                    check(l.stockCheckLost, "LOST".equals(it.actualStatus()))));
         }
-        String summary = "<div class=\"summary\">" + esc(fmtLabel(l.stockCheckSummary, r.totalItems(), r.matchCount(), r.missingCount(), r.unexpectedCount(), r.autoFilledCount())) + "</div>";
-        String meta = metaRow(l.date, fmt(r.createdAt()))
+        String summary = "<div class=\"summary\">" + esc(fmtLabel(l.stockCheckSummary, r.totalItems(), r.matchCount(), r.missingCount(), r.unexpectedCount())) + "</div>";
+        String scope = r.scopeName() == null ? "-" : r.scopeName()
+                + (r.binFrom() != null || r.binTo() != null ? " (" + (r.binFrom() == null ? "-" : r.binFrom()) + " – " + (r.binTo() == null ? "-" : r.binTo()) + ")" : "");
+        String meta = metaRow(l.location, esc(scope))
+                + metaRow(l.date, fmt(r.createdAt()))
                 + metaRow(l.creator, esc(r.createdByName()))
-                + metaRow(l.approver, esc(r.approvedByName()))
-                + metaRow(l.note, esc(r.note()));
+                + (r.checkedByName() == null ? "" : metaRow(l.signStock, esc(r.checkedByName())))
+                + (r.note() == null || r.note().isBlank() ? "" : metaRow(l.note, esc(r.note())));
         return page(l, l.stockCheckTitle, r.checkCode(), status(lang, r.status()), meta,
-                th(l.product, l.serial, l.expected, l.actual, l.difference), rows.toString(),
+                th(l.product, l.serial, l.stockCheckOk, l.stockCheckSuspect, l.stockCheckDamaged, l.stockCheckLost), rows.toString(),
                 null, summary, null);
+    }
+
+    private String check(String label, boolean marked) {
+        return "<span class=\"chk" + (marked ? " on" : "") + "\"></span><span class=\"chklabel\">" + esc(label) + "</span>";
     }
 
     public String printBox(Long id, String lang) {
@@ -363,6 +383,11 @@ public class ReceiptPrintService {
             .sign .box { flex: 1; text-align: center; font-size: 11px }
             .sign .box .line { margin-top: 42px; border-top: 1px solid #111; padding-top: 4px }
             .footer { text-align: center; margin-top: 24px; font-size: 10px; color: #888 }
+            .chk { display: inline-block; width: 12px; height: 12px; border: 1px solid #111; margin-right: 5px; vertical-align: -2px }
+            .chk.on { background: #111 }
+            .chk.on::after { content: "" }
+            .chklabel { font-size: 11px }
+            .boxrow td { background: #f0f0f0; font-weight: bold; font-size: 11px; border-top: 1px solid #999 }
             """;
 
     private static final String LABEL_CSS = """

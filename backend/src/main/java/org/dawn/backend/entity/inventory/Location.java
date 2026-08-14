@@ -6,6 +6,7 @@ import lombok.experimental.SuperBuilder;
 import org.dawn.backend.entity.base.AuditableEntity;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 
 @Entity
 @Table(name = "locations", uniqueConstraints = {
@@ -43,4 +44,7 @@ public class Location extends AuditableEntity {
     @Column(name = "is_active", nullable = false)
     @Builder.Default
     private Boolean isActive = true;
+
+    @Column(name = "last_checked_at")
+    private Instant lastCheckedAt;
 }

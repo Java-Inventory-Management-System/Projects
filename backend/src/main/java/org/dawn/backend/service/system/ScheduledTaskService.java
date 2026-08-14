@@ -35,13 +35,27 @@ public class ScheduledTaskService {
     private static final String LOW_STOCK_SUBJECT = "[Cảnh báo] Hàng sắp hết";
     private static final String DEAD_STOCK_SUBJECT = "[Cảnh báo] Hàng tồn lâu";
     private static final String RETURN_AUTO_CANCEL_SUBJECT = "[Hệ thống] Phiếu trả hàng đã bị tự hủy";
+    private static final String EXPORT_AUTO_CANCEL_SUBJECT = "[Hệ thống] Phiếu xuất kho đã bị tự hủy";
+    private static final int EXPORT_STALE_DAYS = 14;
 
     private final StockCheckRepository stockCheckRepository;
     private final ProductUnitRepository productUnitRepository;
     private final ProductRepository productRepository;
     private final ReturnReceiptRepository returnReceiptRepository;
+    private final org.dawn.backend.repository.inventory.exports.ExportReceiptRepository exportReceiptRepository;
+    private final org.dawn.backend.repository.inventory.exports.ExportReceiptStatusHistoryRepository exportStatusHistoryRepository;
     private final UserRepository userRepository;
     private final MailService mailService;
+    private final org.dawn.backend.service.inventory.stockcheck.StockCheckService stockCheckService;
+
+    @Scheduled(cron = "0 30 2 * * ?")
+    @Transactional
+    public void generateDueStockChecks() {
+        int created = stockCheckService.generateDueStockChecks();
+        if (created > 0) {
+            log.info("Auto-created {} PENDING stock check(s) from schedules", created);
+        }
+    }
 
     @Scheduled(cron = "0 0 2 * * ?")
     @Transactional
@@ -86,6 +100,34 @@ public class ScheduledTaskService {
         }
     }
 
+    @Scheduled(cron = "0 0 2 * * ?")
+    @Transactional
+    public void cancelStaleExportReceipts() {
+        Instant cutoff = Instant.now().minus(Duration.ofDays(EXPORT_STALE_DAYS));
+        var stale = exportReceiptRepository.findByStatusAndCreatedAtBefore(
+                org.dawn.backend.constant.enums.inventory.exports.ExportReceiptStatus.PENDING, cutoff);
+        for (var receipt : stale) {
+            exportReceiptRepository.findByIdForUpdate(receipt.getId())
+                    .filter(r -> org.dawn.backend.constant.enums.inventory.exports.ExportReceiptStatus.PENDING == r.getStatus())
+                    .ifPresent(r -> {
+                        r.setStatus(org.dawn.backend.constant.enums.inventory.exports.ExportReceiptStatus.CANCELLED);
+                        exportReceiptRepository.save(r);
+                        exportStatusHistoryRepository.save(org.dawn.backend.entity.inventory.ExportReceiptStatusHistory.builder()
+                                .receiptId(r.getId())
+                                .fromStatus(org.dawn.backend.constant.enums.inventory.exports.ExportReceiptStatus.PENDING.name())
+                                .toStatus(org.dawn.backend.constant.enums.inventory.exports.ExportReceiptStatus.CANCELLED.name())
+                                .changedBy(0L)
+                                .build());
+                        notifyExportAutoCancelled(r);
+                        log.warn("Export receipt {} auto-cancelled (created at {}, older than {} days)",
+                                r.getReceiptCode(), r.getCreatedAt(), EXPORT_STALE_DAYS);
+                    });
+        }
+        if (!stale.isEmpty()) {
+            log.info("Auto-cancelled {} stale export receipt(s)", stale.size());
+        }
+    }
+
     @Scheduled(cron = "0 0 6 * * ?")
     public void checkLowStock() {
         List<Product> activeProducts = productRepository.findByIsActiveTrue();
@@ -127,6 +169,18 @@ public class ScheduledTaskService {
                                 "lines", List.of(String.format(
                                         "Phiếu trả hàng %s đã bị hệ thống tự hủy vì chưa được duyệt trong 30 ngày.",
                                         receipt.getReceiptCode())))));
+    }
+
+    private void notifyExportAutoCancelled(org.dawn.backend.entity.inventory.ExportReceipt receipt) {
+        Long creatorId = receipt.getCreatedBy();
+        if (creatorId == null) return;
+        userRepository.findById(creatorId)
+                .filter(u -> u.getEmail() != null && !u.getEmail().isBlank())
+                .ifPresent(u -> mailService.sendHtmlMail(u.getEmail(), EXPORT_AUTO_CANCEL_SUBJECT, ALERT_TEMPLATE,
+                        Map.of("title", EXPORT_AUTO_CANCEL_SUBJECT,
+                                "lines", List.of(String.format(
+                                        "Phiếu xuất kho %s đã bị hệ thống tự hủy vì chưa được xử lý trong %d ngày.",
+                                        receipt.getReceiptCode(), EXPORT_STALE_DAYS)))));
     }
 
     private void sendAlertToManagers(String subject, List<String> lines) {

@@ -1,21 +1,24 @@
 import { useState, useCallback } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import { useTranslation } from "react-i18next"
+import { useQueryClient } from "@tanstack/react-query"
 import { usePermission } from "@/hooks/use-permission"
-import { useStockChecks, useMyStockChecks } from "@/hooks/use-stock-checks"
+import { useStockChecks, useMyStockChecks, useStockCheckZoneStatus, useStartStockCheck } from "@/hooks/use-stock-checks"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Plus, Eye } from "lucide-react"
+import { Plus, Eye, Play, AlertTriangle } from "lucide-react"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 import { DataTable, type Column } from "@/components/ui/data-table"
 import type { StockCheck } from "@/utils/types"
 import { STOCK_CHECK_STATUS } from "@/utils/types"
 import { ROLES } from "@/utils/permissions"
+import { toast } from "@/utils/toast"
 
 export const StockCheckListPage = () => {
   const { t } = useTranslation()
   const navigate = useNavigate()
+  const qc = useQueryClient()
   const perm = usePermission()
   const [searchParams, setSearchParams] = useSearchParams()
   const page = Number(searchParams.get("page") ?? "0")
@@ -69,6 +72,29 @@ export const StockCheckListPage = () => {
   const allChecks = useStockChecks(page, pageSize, sortStr, statusFilter || undefined)
   const { data, isLoading } = isStock ? myChecks : allChecks
 
+  const { data: zoneStatus } = useStockCheckZoneStatus()
+  const startMut = useStartStockCheck()
+
+  const dueCount = zoneStatus?.zones.reduce((acc, z) => acc + (z.dueClusterCount ?? 0), 0) ?? 0
+  const pendingChecks = zoneStatus?.pendingChecks ?? 0
+
+  const invalidateAll = () => {
+    qc.invalidateQueries({ queryKey: ["stock-checks"] })
+    qc.invalidateQueries({ queryKey: ["my-stock-checks"] })
+    qc.invalidateQueries({ queryKey: ["stock-check-zone-status"] })
+  }
+
+  const handleStart = (check: StockCheck) => {
+    startMut.mutate(check.id, {
+      onSuccess: () => {
+        invalidateAll()
+        toast.success(t("stockCheckList.startSuccess"))
+        navigate(`/stock/ops/checks/${check.id}`)
+      },
+      onError: (err: Error) => toast.error(err.message || t("stockCheckList.startError")),
+    })
+  }
+
   const columns: Column<StockCheck>[] = [
     {
       header: t("stockCheckList.checkCode"),
@@ -81,6 +107,19 @@ export const StockCheckListPage = () => {
         const s = statusLabel[r.status] ?? { label: r.status, variant: "secondary" as const }
         return <Badge variant={s.variant}>{s.label}</Badge>
       },
+    },
+    {
+      header: t("stockCheckList.scope"),
+      render: (r) => (
+        <div className="min-w-[120px]">
+          <span className="text-xs">{r.scopeName ?? `${r.scopeType} #${r.scopeId}`}</span>
+          {(r.binFrom || r.binTo) && (
+            <span className="block font-mono text-[10px] text-muted-foreground">
+              {r.binFrom ?? "—"} – {r.binTo ?? "—"}
+            </span>
+          )}
+        </div>
+      ),
     },
     { header: t("stockCheckList.creator"), render: (r) => <span className="text-muted-foreground">{r.createdByName}</span> },
     {
@@ -109,22 +148,49 @@ export const StockCheckListPage = () => {
     },
     {
       header: t("common.actions"),
-      className: "w-[80px]",
+      className: "w-[120px]",
       render: (r) => (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" onClick={() => navigate(`/stock/ops/checks/${r.id}`)}>
-              <Eye className="size-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>{t("common.viewDetail")}</TooltipContent>
-        </Tooltip>
+        <div className="flex items-center gap-1">
+          {r.status === STOCK_CHECK_STATUS.PENDING && perm.hasRole(...ROLES.CAN_OPERATE_STOCK) && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" disabled={startMut.isPending} onClick={() => handleStart(r)}>
+                  <Play className="size-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{t("stockCheckList.start")}</TooltipContent>
+            </Tooltip>
+          )}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" onClick={() => navigate(`/stock/ops/checks/${r.id}`)}>
+                <Eye className="size-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{t("common.viewDetail")}</TooltipContent>
+          </Tooltip>
+        </div>
       ),
     },
   ]
 
   return (
     <div className="space-y-4">
+      {dueCount > 0 && (
+        <div className="flex items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800 px-4 py-3 text-sm">
+          <AlertTriangle className="size-5 text-amber-600 shrink-0" />
+          <div className="flex-1">
+            <p className="font-medium text-amber-700 dark:text-amber-400">{t("stockCheckList.zoneDueTitle")}</p>
+            <p className="text-amber-600 dark:text-amber-300 mt-0.5">
+              {t("stockCheckList.zoneDueDesc", { zones: dueCount, pending: pendingChecks })}
+            </p>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => navigate("/stock/ops/checks/new")}>
+            <Plus className="size-3.5 mr-1" /> {t("stockCheckList.create")}
+          </Button>
+        </div>
+      )}
+
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-semibold tracking-tight">{t("nav.stockChecks")}</h1>
         <div className="flex items-center gap-2">

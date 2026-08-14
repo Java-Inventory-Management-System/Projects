@@ -21,6 +21,8 @@ public interface LocationRepository extends JpaRepository<Location, Long> {
     List<Location> findAllByOrderByZoneCodeAscShelfCodeAscBinCodeAsc();
     List<Location> findByZoneCode(String zoneCode);
 
+    List<Location> findByZoneCodeAndBinCodeBetween(String zoneCode, String binFrom, String binTo);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT l FROM Location l WHERE l.id = :id")
     Optional<Location> findByIdForUpdate(@Param("id") Long id);

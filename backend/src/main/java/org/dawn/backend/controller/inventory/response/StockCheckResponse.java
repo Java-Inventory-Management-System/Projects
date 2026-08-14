@@ -14,12 +14,18 @@ public record StockCheckResponse(
         String scopeType,
         Long scopeId,
         String scopeName,
+        String binFrom,
+        String binTo,
         String note,
         Long createdBy,
         String createdByName,
         Long approvedBy,
         String approvedByName,
         String approvalNote,
+        Long checkedBy,
+        String checkedByName,
+        Long enteredBy,
+        String enteredByName,
         List<StockCheckItemResponse> items,
         int totalItems,
         int matchCount,
@@ -46,6 +52,9 @@ public record StockCheckResponse(
             String difference,
             String note,
             String photo,
-            Boolean autoFilled
+            Boolean autoFilled,
+            Boolean suspectSeal,
+            Boolean damagedPackaging,
+            Instant touchedAt
     ) {}
 }

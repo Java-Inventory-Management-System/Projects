@@ -1,27 +1,26 @@
 import { useState, useMemo } from "react"
 import { useTranslation } from "react-i18next"
-import { useNavigate, useSearchParams } from "react-router-dom"
+import { useNavigate } from "react-router-dom"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { createStockCheck } from "@/services/stock-check-service"
+import { createStockCheck, countUnitsInScope } from "@/services/stock-check-service"
 import http from "@/utils/http-client"
 import { mapResponsePage } from "@/utils/mappers"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
+import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ArrowLeft, Info } from "lucide-react"
 import { toast } from "@/utils/toast"
-import type { StockCheckScopeType } from "@/utils/types"
-import { BOX_STATUS } from "@/utils/types"
 
 export const StockCheckCreatePage = () => {
   const { t } = useTranslation()
   const navigate = useNavigate()
-  const [params] = useSearchParams()
   const qc = useQueryClient()
-  const [scopeType, setScopeType] = useState<StockCheckScopeType | "">((params.get("scopeType") as StockCheckScopeType | null) ?? "")
-  const [scopeId, setScopeId] = useState<string>(params.get("scopeId") ?? "")
+  const [scopeId, setScopeId] = useState<string>("")
+  const [binFrom, setBinFrom] = useState("")
+  const [binTo, setBinTo] = useState("")
   const [note, setNote] = useState("")
 
   const { data: locations } = useQuery({
@@ -33,49 +32,46 @@ export const StockCheckCreatePage = () => {
         return o
       })
     },
-    enabled: scopeType === "ZONE",
   })
 
   const zones = useMemo(() => {
     if (!locations?.content) return []
     const seen = new Set<string>()
-    return locations.content.filter((l) => {
-      if (seen.has(l.zoneCode)) return false
-      seen.add(l.zoneCode)
-      return true
-    }).map((l) => ({
-      zoneCode: l.zoneCode,
-      locationId: l.id,
-      exampleFullCode: l.fullCode,
+    const zoneLocations = new Map<string, { locationId: number; binCodes: string[] }>()
+    for (const l of locations.content) {
+      if (seen.has(l.zoneCode)) {
+        zoneLocations.get(l.zoneCode)!.binCodes.push(l.fullCode)
+      } else {
+        seen.add(l.zoneCode)
+        zoneLocations.set(l.zoneCode, { locationId: l.id, binCodes: [l.fullCode] })
+      }
+    }
+    return [...zoneLocations.entries()].map(([zoneCode, v]) => ({
+      zoneCode,
+      locationId: v.locationId,
+      binCodes: [...new Set(v.binCodes)].sort(),
     }))
   }, [locations])
 
-  const { data: categories } = useQuery({
-    queryKey: ["categories"],
-    queryFn: async () => {
-      const res = await http.get("/catalog/category")
-      return mapResponsePage(res, (r: unknown) => {
-        const o = r as { id: number; name: string }
-        return o
-      })
-    },
-    enabled: scopeType === "CATEGORY",
-  })
+  const selectedZone = zones.find((z) => String(z.locationId) === scopeId)
 
-  const { data: boxes } = useQuery({
-    queryKey: ["boxes", "all"],
-    queryFn: async () => (await http.get("/box")) as unknown as Array<{ id: number; boxCode: string; locationCode: string | null; status: string }>,
-    enabled: scopeType === "BOX",
+  const { data: unitCount, isLoading: counting } = useQuery({
+    queryKey: ["stock-check-unit-count", scopeId, binFrom, binTo],
+    queryFn: () => countUnitsInScope("ZONE", Number(scopeId), binFrom || undefined, binTo || undefined),
+    enabled: !!scopeId,
+    staleTime: 30_000,
   })
 
   const handleSubmit = () => {
-    if (!scopeType || !scopeId) {
+    if (!scopeId) {
       toast.error(t("stockCheckCreate.requireScope"))
       return
     }
     createMut.mutate({
-      scopeType: scopeType as StockCheckScopeType,
+      scopeType: "ZONE",
       scopeId: Number(scopeId),
+      binFrom: binFrom || undefined,
+      binTo: binTo || undefined,
       note: note || undefined,
     })
   }
@@ -84,6 +80,7 @@ export const StockCheckCreatePage = () => {
     mutationFn: createStockCheck,
     onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: ["stock-checks"] })
+      qc.invalidateQueries({ queryKey: ["stock-check-zone-status"] })
       toast.success(t("stockCheckCreate.createSuccess"))
       navigate(`/stock/ops/checks/${res.id}`)
     },
@@ -103,88 +100,62 @@ export const StockCheckCreatePage = () => {
         <h2 className="text-sm font-medium">{t("stockCheckCreate.scope")}</h2>
 
         <div className="space-y-2">
-          <Label>{t("stockCheckCreate.scopeType")}</Label>
-          <Select value={scopeType} onValueChange={(v) => { setScopeType(v as StockCheckScopeType); setScopeId("") }}>
-            <SelectTrigger>
-              <SelectValue placeholder={t("stockCheckCreate.selectScopeType")} />
-            </SelectTrigger>
-            <SelectContent className="max-h-[50vh]">
-              <SelectItem value="ZONE">{t("stockCheckCreate.zone")}</SelectItem>
-              <SelectItem value="CATEGORY">{t("stockCheckCreate.category")}</SelectItem>
-              <SelectItem value="BOX">{t("stockCheckCreate.box")}</SelectItem>
-            </SelectContent>
-          </Select>
+          <Label>{t("stockCheckCreate.zone")}</Label>
+          {!locations ? (
+            <Skeleton className="h-10 w-full" />
+          ) : (
+            <Select value={scopeId} onValueChange={(v) => { setScopeId(v); setBinFrom(""); setBinTo("") }}>
+              <SelectTrigger>
+                <SelectValue placeholder={t("stockCheckCreate.selectZone")} />
+              </SelectTrigger>
+              <SelectContent className="max-h-[50vh]">
+                {zones.map((z) => (
+                  <SelectItem key={z.zoneCode} value={String(z.locationId)}>
+                    {t("stockCheckCreate.zonePrefix")} {z.zoneCode}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
         </div>
 
-        {scopeType === "ZONE" && (
-          <div className="space-y-2">
-            <Label>{t("stockCheckCreate.zone")}</Label>
-            {!locations ? (
-              <Skeleton className="h-10 w-full" />
-            ) : (
-              <Select value={scopeId} onValueChange={setScopeId}>
-                <SelectTrigger>
-                  <SelectValue placeholder={t("stockCheckCreate.selectZone")} />
-                </SelectTrigger>
-                <SelectContent className="max-h-[50vh]">
-                  {zones.map((z) => (
-                    <SelectItem key={z.zoneCode} value={String(z.locationId)}>
-                      {t("stockCheckCreate.zonePrefix")} {z.zoneCode}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-          </div>
-        )}
-
-        {scopeType === "CATEGORY" && (
-          <div className="space-y-2">
-            <Label>{t("stockCheckCreate.category")}</Label>
-            {!categories ? (
-              <Skeleton className="h-10 w-full" />
-            ) : (
-              <Select value={scopeId} onValueChange={setScopeId}>
-                <SelectTrigger>
-                  <SelectValue placeholder={t("stockCheckCreate.selectCategory")} />
-                </SelectTrigger>
-                <SelectContent className="max-h-[50vh]">
-                  {(categories.content ?? []).map((c) => (
-                    <SelectItem key={c.id} value={String(c.id)}>
-                      {c.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-          </div>
-        )}
-
-        {scopeType === "BOX" && (
-          <div className="space-y-2">
-            <Label>{t("stockCheckCreate.box")}</Label>
-            {!boxes ? (
-              <Skeleton className="h-10 w-full" />
-            ) : (
-              <Select value={scopeId} onValueChange={setScopeId}>
-                <SelectTrigger>
-                  <SelectValue placeholder={t("stockCheckCreate.selectBox")} />
-                </SelectTrigger>
-                <SelectContent className="max-h-[50vh]">
-                  {(boxes ?? []).filter((b) => b.status !== BOX_STATUS.SEALED).map((b) => (
-                    <SelectItem key={b.id} value={String(b.id)}>
-                      {b.boxCode} ({b.locationCode ?? "—"})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-          </div>
+        {selectedZone && (
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>{t("stockCheckCreate.binFrom")}</Label>
+                <Input
+                  list={`bins-${selectedZone.zoneCode}`}
+                  placeholder={selectedZone.binCodes[0] ?? "—"}
+                  value={binFrom}
+                  onChange={(e) => setBinFrom(e.target.value)}
+                />
+                <datalist id={`bins-${selectedZone.zoneCode}`}>
+                  {selectedZone.binCodes.map((b) => <option key={b} value={b} />)}
+                </datalist>
+              </div>
+              <div className="space-y-2">
+                <Label>{t("stockCheckCreate.binTo")}</Label>
+                <Input
+                  list={`bins-${selectedZone.zoneCode}`}
+                  placeholder={selectedZone.binCodes[selectedZone.binCodes.length - 1] ?? "—"}
+                  value={binTo}
+                  onChange={(e) => setBinTo(e.target.value)}
+                />
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">{t("stockCheckCreate.binHint")}</p>
+          </>
         )}
 
         {scopeId && (
           <p className="text-sm flex items-center gap-1.5 text-muted-foreground">
-            <Info className="size-3.5" /> {t("stockCheckCreate.scopeHint")}
+            <Info className="size-3.5" />
+            {counting
+              ? t("stockCheckCreate.counting")
+              : unitCount != null
+                ? t("stockCheckCreate.countPreview", { count: unitCount })
+                : t("stockCheckCreate.scopeHint")}
           </p>
         )}
       </div>
@@ -204,7 +175,7 @@ export const StockCheckCreatePage = () => {
         <Button variant="outline" onClick={() => navigate("/stock/ops/checks")}>
           {t("common.cancel")}
         </Button>
-        <Button onClick={handleSubmit} disabled={createMut.isPending || !scopeType || !scopeId}>
+        <Button onClick={handleSubmit} disabled={createMut.isPending || !scopeId}>
           {createMut.isPending ? t("stockCheckCreate.creating") : t("stockCheckCreate.start")}
         </Button>
       </div>

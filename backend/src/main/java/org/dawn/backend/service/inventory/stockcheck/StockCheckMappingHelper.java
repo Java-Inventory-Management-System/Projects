@@ -18,7 +18,7 @@ public interface StockCheckMappingHelper {
                                    List<StockCheckItem> items,
                                    Map<Long, ProductUnit> unitMap,
                                    Map<Long, Product> productMap) {
-        return map(sc, createdByName, approvedByName, items, unitMap, productMap, Map.of(), 0, null);
+        return map(sc, createdByName, approvedByName, null, null, items, unitMap, productMap, Map.of(), 0, null);
     }
 
     static StockCheckResponse map(StockCheck sc, String createdByName, String approvedByName,
@@ -26,7 +26,7 @@ public interface StockCheckMappingHelper {
                                    Map<Long, ProductUnit> unitMap,
                                    Map<Long, Product> productMap,
                                    Map<Long, String> boxCodeById) {
-        return map(sc, createdByName, approvedByName, items, unitMap, productMap, boxCodeById, 0, null);
+        return map(sc, createdByName, approvedByName, null, null, items, unitMap, productMap, boxCodeById, 0, null);
     }
 
     static StockCheckResponse map(StockCheck sc, String createdByName, String approvedByName,
@@ -34,7 +34,7 @@ public interface StockCheckMappingHelper {
                                    Map<Long, ProductUnit> unitMap,
                                    Map<Long, Product> productMap,
                                    int autoFilledCount) {
-        return map(sc, createdByName, approvedByName, items, unitMap, productMap, Map.of(), autoFilledCount, null);
+        return map(sc, createdByName, approvedByName, null, null, items, unitMap, productMap, Map.of(), autoFilledCount, null);
     }
 
     static StockCheckResponse map(StockCheck sc, String createdByName, String approvedByName,
@@ -43,10 +43,11 @@ public interface StockCheckMappingHelper {
                                    Map<Long, Product> productMap,
                                    Map<Long, String> boxCodeById,
                                    int autoFilledCount) {
-        return map(sc, createdByName, approvedByName, items, unitMap, productMap, boxCodeById, autoFilledCount, null);
+        return map(sc, createdByName, approvedByName, null, null, items, unitMap, productMap, boxCodeById, autoFilledCount, null);
     }
 
     static StockCheckResponse map(StockCheck sc, String createdByName, String approvedByName,
+                                   String checkedByName, String enteredByName,
                                    List<StockCheckItem> items,
                                    Map<Long, ProductUnit> unitMap,
                                    Map<Long, Product> productMap,
@@ -83,6 +84,9 @@ public interface StockCheckMappingHelper {
                     .note(item.getNote())
                     .photo(item.getPhoto())
                     .autoFilled(item.getAutoFilled())
+                    .suspectSeal(item.getSuspectSeal())
+                    .damagedPackaging(item.getDamagedPackaging())
+                    .touchedAt(item.getTouchedAt())
                     .build());
         }
 
@@ -93,12 +97,18 @@ public interface StockCheckMappingHelper {
                 .scopeType(sc.getScopeType())
                 .scopeId(sc.getScopeId())
                 .scopeName(scopeName)
+                .binFrom(sc.getBinFrom())
+                .binTo(sc.getBinTo())
                 .note(sc.getNote())
                 .createdBy(sc.getCreatedBy())
                 .createdByName(createdByName)
                 .approvedBy(sc.getApprovedBy())
                 .approvedByName(approvedByName)
                 .approvalNote(sc.getApprovalNote())
+                .checkedBy(sc.getCheckedBy())
+                .checkedByName(checkedByName)
+                .enteredBy(sc.getEnteredBy())
+                .enteredByName(enteredByName)
                 .items(itemResponses)
                 .totalItems(items.size())
                 .matchCount(matchCount)

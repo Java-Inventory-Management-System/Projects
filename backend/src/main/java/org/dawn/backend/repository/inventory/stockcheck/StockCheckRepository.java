@@ -31,4 +31,9 @@ public interface StockCheckRepository extends JpaRepository<StockCheck, Long> {
     List<StockCheck> findByStatusAndCreatedAtBetween(StockCheckStatus status, java.time.Instant from, java.time.Instant to);
 
     List<StockCheck> findByStatusInAndCreatedAtBefore(List<StockCheckStatus> statuses, java.time.Instant cutoff);
+
+    boolean existsByStatusInAndScopeTypeAndScopeIdAndBinFromAndBinTo(
+            List<StockCheckStatus> statuses, String scopeType, Long scopeId, String binFrom, String binTo);
+
+    long countByStatus(StockCheckStatus status);
 }
