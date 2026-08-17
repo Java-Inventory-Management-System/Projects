@@ -31,9 +31,9 @@ export async function getImportReceiptById(id: number): Promise<ImportReceipt> {
   return mapImportReceipt(res)
 }
 
-export async function getImportPrintHtml(id: number, lang: string): Promise<string> {
-  const res = await http.get(`/import-receipt/${id}/print`, { params: { lang }, responseType: "text" })
-  return res as unknown as string
+export async function getImportPrintFile(id: number, lang: string, format: "pdf" | "excel"): Promise<Blob> {
+  const res = await http.get(`/import-receipt/${id}/print`, { params: { lang, format }, responseType: "blob" })
+  return res as unknown as Blob
 }
 
 export async function createImportReceipt(data: {

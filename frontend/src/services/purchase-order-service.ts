@@ -24,9 +24,9 @@ export async function getPurchaseOrderReceipts(id: number): Promise<ImportReceip
   return (res as ImportReceipt[]).map(mapImportReceipt)
 }
 
-export async function getPurchaseOrderPrintHtml(id: number, lang: string): Promise<string> {
-  const res = await http.get(`/purchase-order/${id}/print`, { params: { lang }, responseType: "text" })
-  return res as unknown as string
+export async function getPurchaseOrderPrintFile(id: number, lang: string, format: "pdf" | "excel"): Promise<Blob> {
+  const res = await http.get(`/purchase-order/${id}/print`, { params: { lang, format }, responseType: "blob" })
+  return res as unknown as Blob
 }
 
 export async function createPurchaseOrder(data: CreatePurchaseOrderRequest): Promise<PurchaseOrder> {

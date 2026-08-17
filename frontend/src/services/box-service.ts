@@ -39,6 +39,6 @@ export async function moveBox(id: number, locationId: number): Promise<Box> {
   return (await http.post(`/box/${id}/move`, { locationId })) as unknown as Box
 }
 
-export async function getBoxPrintHtml(id: number, lang: string): Promise<string> {
-  return (await http.get(`/box/${id}/print`, { params: { lang }, responseType: "text" })) as string
+export async function getBoxPrintFile(id: number, lang: string, format: "pdf" | "excel"): Promise<Blob> {
+  return (await http.get(`/box/${id}/print`, { params: { lang, format }, responseType: "blob" })) as Blob
 }

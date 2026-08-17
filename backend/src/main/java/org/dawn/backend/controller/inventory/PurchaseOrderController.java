@@ -11,7 +11,9 @@ import org.dawn.backend.service.inventory.PurchaseOrderService;
 import org.dawn.backend.service.inventory.ReceiptPrintService;
 import org.dawn.backend.service.inventory.imports.ImportReceiptService;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -26,10 +28,17 @@ public class PurchaseOrderController {
     private final ImportReceiptService importReceiptService;
     private final ReceiptPrintService receiptPrintService;
 
-    @GetMapping(value = "/{id}/print", produces = MediaType.TEXT_HTML_VALUE)
+    @GetMapping(value = "/{id}/print")
     @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER)
-    public String print(@PathVariable Long id, @RequestParam(defaultValue = "vi") String lang) {
-        return receiptPrintService.printPo(id, lang);
+    public ResponseEntity<byte[]> print(@PathVariable Long id,
+            @RequestParam(defaultValue = "vi") String lang,
+            @RequestParam(defaultValue = "pdf") String format) {
+        ReceiptPrintService.PrintFile f = receiptPrintService.printPoFile(id, lang, format);
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(f.contentType()))
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        ("excel".equalsIgnoreCase(format) ? "attachment" : "inline") + "; filename=\"" + f.filename() + "\"")
+                .body(f.bytes());
     }
 
     @GetMapping

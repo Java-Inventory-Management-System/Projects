@@ -13,7 +13,9 @@ import org.dawn.backend.controller.inventory.response.StockCheckZoneStatusRespon
 import org.dawn.backend.service.inventory.stockcheck.StockCheckService;
 import org.dawn.backend.service.inventory.ReceiptPrintService;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -27,10 +29,17 @@ public class StockCheckController {
     private final StockCheckService stockCheckService;
     private final ReceiptPrintService receiptPrintService;
 
-    @GetMapping(value = "/stock-check/{id}/print", produces = MediaType.TEXT_HTML_VALUE)
+@GetMapping(value = "/stock-check/{id}/print")
     @PreAuthorize(AuthorizationExpressions.CAN_VIEW_INVENTORY)
-    public String print(@PathVariable Long id, @RequestParam(defaultValue = "vi") String lang) {
-        return receiptPrintService.printStockCheck(id, lang);
+    public ResponseEntity<byte[]> print(@PathVariable Long id,
+            @RequestParam(defaultValue = "vi") String lang,
+            @RequestParam(defaultValue = "pdf") String format) {
+        ReceiptPrintService.PrintFile f = receiptPrintService.printStockCheckFile(id, lang, format);
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(f.contentType()))
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        ("excel".equalsIgnoreCase(format) ? "attachment" : "inline") + "; filename=\"" + f.filename() + "\"")
+                .body(f.bytes());
     }
 
     @GetMapping("/stock-check/my")

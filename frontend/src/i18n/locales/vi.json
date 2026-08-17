@@ -1016,6 +1016,8 @@
   },
   "print": {
     "print": "In phiếu",
+    "printPdf": "In PDF",
+    "excel": "Tải Excel",
     "printFailed": "Không thể tạo phiếu in"
   },
   "stockCheck": {

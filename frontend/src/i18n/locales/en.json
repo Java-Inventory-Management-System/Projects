@@ -890,6 +890,8 @@
   },
   "print": {
     "print": "Print",
+    "printPdf": "Print PDF",
+    "excel": "Download Excel",
     "printFailed": "Could not generate print document"
   },
   "stockCheck": {

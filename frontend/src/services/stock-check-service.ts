@@ -25,9 +25,9 @@ export async function getStockCheckById(id: number): Promise<StockCheck> {
   return mapStockCheck(res)
 }
 
-export async function getStockCheckPrintHtml(id: number, lang: string): Promise<string> {
-  const res = await http.get(`/stock-check/${id}/print`, { params: { lang }, responseType: "text" })
-  return res as unknown as string
+export async function getStockCheckPrintFile(id: number, lang: string, format: "pdf" | "excel"): Promise<Blob> {
+  const res = await http.get(`/stock-check/${id}/print`, { params: { lang, format }, responseType: "blob" })
+  return res as unknown as Blob
 }
 
 export async function getStockCheckCount(): Promise<number> {

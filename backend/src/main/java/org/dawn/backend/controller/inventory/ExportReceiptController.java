@@ -13,7 +13,9 @@ import org.dawn.backend.service.inventory.exports.ExportReceiptService;
 import org.dawn.backend.service.inventory.exports.ExportWorkflowService;
 import org.dawn.backend.service.inventory.ReceiptPrintService;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RequestParam;
 
 import java.util.List;
@@ -30,10 +32,17 @@ public class ExportReceiptController {
     private final ExportFulfillmentService exportFulfillmentService;
     private final ReceiptPrintService receiptPrintService;
 
-    @GetMapping(value = "/export-receipt/{id}/print", produces = MediaType.TEXT_HTML_VALUE)
+    @GetMapping(value = "/export-receipt/{id}/print")
     @PreAuthorize(AuthorizationExpressions.CAN_OPERATE)
-    public String print(@PathVariable Long id, @RequestParam(defaultValue = "vi") String lang) {
-        return receiptPrintService.printExport(id, lang);
+    public ResponseEntity<byte[]> print(@PathVariable Long id,
+            @RequestParam(defaultValue = "vi") String lang,
+            @RequestParam(defaultValue = "pdf") String format) {
+        ReceiptPrintService.PrintFile f = receiptPrintService.printExportFile(id, lang, format);
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(f.contentType()))
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        ("excel".equalsIgnoreCase(format) ? "attachment" : "inline") + "; filename=\"" + f.filename() + "\"")
+                .body(f.bytes());
     }
 
     @GetMapping("/export-receipt")

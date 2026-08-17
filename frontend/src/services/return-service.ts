@@ -16,9 +16,9 @@ export async function getReturnReceipts(
   return mapResponsePage(res, mapReturnReceipt)
 }
 
-export async function getReturnPrintHtml(id: number, lang: string): Promise<string> {
-  const res = await http.get(`/return-receipts/${id}/print`, { params: { lang }, responseType: "text" })
-  return res as unknown as string
+export async function getReturnPrintFile(id: number, lang: string, format: "pdf" | "excel"): Promise<Blob> {
+  const res = await http.get(`/return-receipts/${id}/print`, { params: { lang, format }, responseType: "blob" })
+  return res as unknown as Blob
 }
 
 export async function getReturnReceiptById(id: number): Promise<ReturnReceipt> {

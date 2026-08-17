@@ -1,5 +1,7 @@
 package org.dawn.backend.service.inventory;
 
+import com.lowagie.text.DocumentException;
+import com.lowagie.text.pdf.BaseFont;
 import lombok.RequiredArgsConstructor;
 import org.dawn.backend.controller.inventory.response.ExportReceiptResponse;
 import org.dawn.backend.controller.inventory.response.ImportReceiptResponse;
@@ -14,13 +16,19 @@ import org.dawn.backend.service.inventory.imports.ImportReceiptService;
 import org.dawn.backend.service.inventory.returns.ReturnReceiptService;
 import org.dawn.backend.service.inventory.stockcheck.StockCheckService;
 import org.springframework.stereotype.Service;
+import org.xhtmlrenderer.pdf.ITextRenderer;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.math.BigDecimal;
 import java.text.DecimalFormat;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 @Service
@@ -34,6 +42,21 @@ public class ReceiptPrintService {
     private final PurchaseOrderService purchaseOrderService;
     private final StockCheckService stockCheckService;
     private final BoxService boxService;
+    private final ExcelPrintService excelPrintService;
+
+    static {
+        try (InputStream regular = ReceiptPrintService.class.getResourceAsStream("/fonts/DejaVuSans.ttf");
+             InputStream bold = ReceiptPrintService.class.getResourceAsStream("/fonts/DejaVuSans-Bold.ttf")) {
+            if (regular == null || bold == null) throw new IllegalStateException("Thiếu font DejaVu trong resources");
+        } catch (IOException e) {
+            throw new ExceptionInInitializerError(e);
+        }
+    }
+
+    private static final String PDF_TYPE = "application/pdf";
+    private static final String XLSX_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
+    public record PrintFile(String filename, String contentType, byte[] bytes) {}
 
     private static final ZoneId ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
     private static final DateTimeFormatter DT = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm").withZone(ZONE);
@@ -319,9 +342,165 @@ public class ReceiptPrintService {
                 th(l.no, l.product, l.serial, l.qty), rows.toString(), extra);
     }
 
+    // ---------- file export (PDF / Excel) ----------
+
+    public PrintFile printImportFile(Long id, String lang, String format) {
+        ImportReceiptResponse r = importReceiptService.findOne(id);
+        if (isExcel(format)) {
+            L l = labels(lang);
+            List<List<String>> rows = new ArrayList<>();
+            int i = 1;
+            for (var it : r.items()) {
+                rows.add(List.of(String.valueOf(i++), it.productName(),
+                        fmtNum(it.quantity()), fmtNum(it.unitPrice()),
+                        fmtNum(it.quantity().multiply(it.unitPrice() == null ? BigDecimal.ZERO : it.unitPrice())),
+                        it.warrantyMonths() == null ? "-" : it.warrantyMonths() + " th"));
+            }
+            rows.add(List.of("", "", "", "", l.total, moneyStr(r.totalAmount())));
+            return new PrintFile(safe(r.receiptCode()) + ".xlsx", XLSX_TYPE,
+                    excel(l.importTitle, List.of(l.no, l.product, l.qty, l.unitPrice, l.subtotal, l.warranty), rows));
+        }
+        return new PrintFile(safe(r.receiptCode()) + ".pdf", PDF_TYPE, pdf(printImport(id, lang)));
+    }
+
+    public PrintFile printExportFile(Long id, String lang, String format) {
+        ExportReceiptResponse r = exportReceiptService.findOne(id);
+        if (isExcel(format)) {
+            L l = labels(lang);
+            List<List<String>> rows = new ArrayList<>();
+            int i = 1;
+            for (var it : r.items()) {
+                rows.add(List.of(String.valueOf(i++), it.productName(),
+                        fmtNum(it.quantity()), fmtNum(it.unitPrice()),
+                        fmtNum(it.quantity().multiply(it.unitPrice() == null ? BigDecimal.ZERO : it.unitPrice()))));
+            }
+            rows.add(List.of("", "", "", l.total, moneyStr(r.totalAmount())));
+            return new PrintFile(safe(r.receiptCode()) + ".xlsx", XLSX_TYPE,
+                    excel(l.exportTitle, List.of(l.no, l.product, l.qty, l.unitPrice, l.subtotal), rows));
+        }
+        return new PrintFile(safe(r.receiptCode()) + ".pdf", PDF_TYPE, pdf(printExport(id, lang)));
+    }
+
+    public PrintFile printReturnFile(Long id, String lang, String format) {
+        ReturnReceiptResponse r = returnReceiptService.findOne(id);
+        if (isExcel(format)) {
+            L l = labels(lang);
+            boolean en = "en".equalsIgnoreCase(lang);
+            List<List<String>> rows = new ArrayList<>();
+            int i = 1;
+            for (var it : r.items()) {
+                rows.add(List.of(String.valueOf(i++), it.productName(),
+                        it.serialNumber() == null ? "-" : it.serialNumber(),
+                        fmtNum(it.quantity()),
+                        val(en ? COND_EN : COND_VI, it.condition()),
+                        val(en ? ACTION_EN : ACTION_VI, it.resultingAction())));
+            }
+            return new PrintFile(safe(r.receiptCode()) + ".xlsx", XLSX_TYPE,
+                    excel(l.returnTitle, List.of(l.no, l.product, l.serial, l.qty, l.condition, l.resultingAction), rows));
+        }
+        return new PrintFile(safe(r.receiptCode()) + ".pdf", PDF_TYPE, pdf(printReturn(id, lang)));
+    }
+
+    public PrintFile printPoFile(Long id, String lang, String format) {
+        PurchaseOrderResponse r = purchaseOrderService.findOne(id);
+        if (isExcel(format)) {
+            L l = labels(lang);
+            List<List<String>> rows = new ArrayList<>();
+            int i = 1;
+            for (var it : r.items()) {
+                rows.add(List.of(String.valueOf(i++), it.productName(),
+                        fmtNum(it.quantity()), fmtNum(it.unitPrice()),
+                        fmtNum(it.quantity().multiply(it.unitPrice() == null ? BigDecimal.ZERO : it.unitPrice())),
+                        fmtNum(it.receivedQuantity())));
+            }
+            rows.add(List.of("", "", "", l.total, moneyStr(r.totalAmount()), ""));
+            return new PrintFile(safe(r.poCode()) + ".xlsx", XLSX_TYPE,
+                    excel(l.poTitle, List.of(l.no, l.product, l.qty, l.unitPrice, l.subtotal, l.receivedQty), rows));
+        }
+        return new PrintFile(safe(r.poCode()) + ".pdf", PDF_TYPE, pdf(printPo(id, lang)));
+    }
+
+    public PrintFile printStockCheckFile(Long id, String lang, String format) {
+        StockCheckResponse r = stockCheckService.findOne(id);
+        if (isExcel(format)) {
+            L l = labels(lang);
+            List<List<String>> rows = new ArrayList<>();
+            int i = 1;
+            for (var it : r.items()) {
+                rows.add(List.of(String.valueOf(i++), it.productName(),
+                        it.serialNumber() == null ? "-" : it.serialNumber(),
+                        mark("IN_STOCK".equals(it.actualStatus())),
+                        mark(Boolean.TRUE.equals(it.suspectSeal())),
+                        mark("DAMAGED_IN_STORAGE".equals(it.actualStatus())),
+                        mark("LOST".equals(it.actualStatus()))));
+            }
+            rows.add(List.of(fmtLabel(l.stockCheckSummary, r.totalItems(), r.matchCount(), r.missingCount(), r.unexpectedCount())));
+            return new PrintFile(safe(r.checkCode()) + ".xlsx", XLSX_TYPE,
+                    excel(l.stockCheckTitle, List.of(l.no, l.product, l.serial,
+                            l.stockCheckOk, l.stockCheckSuspect, l.stockCheckDamaged, l.stockCheckLost), rows));
+        }
+        return new PrintFile(safe(r.checkCode()) + ".pdf", PDF_TYPE, pdf(printStockCheck(id, lang)));
+    }
+
+    public PrintFile printBoxFile(Long id, String lang, String format) {
+        BoxResponse r = boxService.findOne(id);
+        if (isExcel(format)) {
+            L l = labels(lang);
+            List<List<String>> rows = new ArrayList<>();
+            int i = 1;
+            for (var u : r.units()) {
+                rows.add(List.of(String.valueOf(i++), u.productName(),
+                        u.serialNumber() == null ? "-" : u.serialNumber(),
+                        fmtNum(u.quantity())));
+            }
+            return new PrintFile(safe(r.boxCode()) + ".xlsx", XLSX_TYPE,
+                    excel(l.boxTitle, List.of(l.no, l.product, l.serial, l.qty), rows));
+        }
+        return new PrintFile(safe(r.boxCode()) + ".pdf", PDF_TYPE, pdf(printBox(id, lang)));
+    }
+
+    private boolean isExcel(String format) {
+        return "excel".equalsIgnoreCase(format);
+    }
+
+    private String safe(String code) {
+        return code == null || code.isBlank() ? "N-A" : code;
+    }
+
+    private byte[] pdf(String xhtml) {
+        try (ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            ITextRenderer renderer = new ITextRenderer();
+            renderer.getFontResolver().addFont("/fonts/DejaVuSans.ttf", BaseFont.IDENTITY_H, true);
+            renderer.getFontResolver().addFont("/fonts/DejaVuSans-Bold.ttf", BaseFont.IDENTITY_H, true);
+            renderer.setDocumentFromString(xhtml);
+            renderer.layout();
+            renderer.createPDF(out);
+            return out.toByteArray();
+        } catch (DocumentException | IOException e) {
+            throw new IllegalStateException("Không thể tạo file PDF", e);
+        }
+    }
+
+    private byte[] excel(String sheetName, List<String> headers, List<List<String>> rows) {
+        return excelPrintService.build(sheetName, headers, rows);
+    }
+
+    private String fmtNum(Object v) {
+        return v == null ? "-" : NUM.format(v);
+    }
+
+    private String moneyStr(Object v) {
+        return fmtNum(v) + " ₫";
+    }
+
+    private String mark(boolean on) {
+        return on ? "x" : "";
+    }
+
     private String labelPage(String title, String code, String status, String meta, String head, String rows, String extra) {
         String extraHtml = extra == null ? "" : extra;
-        return "<!DOCTYPE html>\n<html><head><meta charset=\"utf-8\"><title>" + esc(code) + "</title><style>"
+        return "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Strict//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd\">\n"
+                + "<html xmlns=\"http://www.w3.org/1999/xhtml\"><head><meta charset=\"utf-8\"/><title>" + esc(code) + "</title><style>"
                 + LABEL_CSS
                 + "</style></head><body>"
                 + "<div class=\"label\">"
@@ -332,7 +511,6 @@ public class ReceiptPrintService {
                 + "<table class=\"items\"><thead>" + head + "</thead><tbody>" + rows + "</tbody></table>"
                 + extraHtml
                 + "</div>"
-                + "<script>window.onload = function() { window.print() } <\\/script>"
                 + "</body></html>";
     }
 
@@ -341,11 +519,12 @@ public class ReceiptPrintService {
     private String page(L l, String title, String code, String status, String meta, String head, String rows, String total, String note, String extra) {
         String noteHtml = (note == null || note.isBlank()) ? "" : "<div class=\"note\"><strong>" + esc(l.note) + ":</strong> " + note + "</div>";
         String totalHtml = total == null ? "" : "<div class=\"total\">" + esc(l.total) + " " + total + "</div>";
-        String signHtml = "<div class=\"sign\">"
+        String signHtml = "<table class=\"sign\"><tr>"
                 + signBox(l.signCreator) + signBox(l.signStock) + signBox(l.signApprover)
-                + "</div>";
+                + "</tr></table>";
         String extraHtml = extra == null ? "" : extra;
-        return "<!DOCTYPE html>\n<html><head><meta charset=\"utf-8\"><title>" + esc(code) + "</title><style>"
+        return "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Strict//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd\">\n"
+                + "<html xmlns=\"http://www.w3.org/1999/xhtml\"><head><meta charset=\"utf-8\"/><title>" + esc(code) + "</title><style>"
                 + CSS
                 + "</style></head><body>"
                 + "<h1>" + esc(title) + "</h1>"
@@ -358,14 +537,12 @@ public class ReceiptPrintService {
                 + extraHtml
                 + signHtml
                 + "<div class=\"footer\">" + esc(fmtLabel(l.footer, DT.format(Instant.now()))) + "</div>"
-                + "<script>window.onload = function() { window.print() } <\\/script>"
                 + "</body></html>";
     }
 
     private static final String CSS = """
-            @page { margin: 14mm }
-            * { box-sizing: border-box }
-            body { font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 12px; color: #111; margin: 0 }
+            @page { size: A4; margin: 14mm }
+            body { font-family: 'DejaVu Sans', sans-serif; font-size: 12px; color: #111; margin: 0 }
             h1 { text-align: center; font-size: 16px; letter-spacing: 3px; margin: 0 0 4px }
             .code { text-align: center; font-size: 13px; font-weight: bold; margin-bottom: 4px }
             .status { text-align: center; font-size: 11px; font-weight: bold; color: #1d4ed8; letter-spacing: 2px; margin-bottom: 14px }
@@ -382,9 +559,9 @@ public class ReceiptPrintService {
             .total { text-align: right; font-weight: bold; font-size: 14px; margin: 12px 0 }
             .summary { margin-top: 12px; padding: 8px 10px; border: 1px solid #999; font-weight: bold; font-size: 11px }
             .note { border-top: 1px solid #999; margin-top: 12px; padding-top: 8px; font-size: 11px }
-            .sign { display: flex; justify-content: space-between; margin-top: 44px; gap: 24px }
-            .sign .box { flex: 1; text-align: center; font-size: 11px }
-            .sign .box .line { margin-top: 42px; border-top: 1px solid #111; padding-top: 4px }
+            .sign { width: 100%; border-collapse: collapse; margin-top: 44px }
+            .sign td { width: 33%; text-align: center; font-size: 11px }
+            .sign .line { margin-top: 42px; border-top: 1px solid #111; padding-top: 4px }
             .footer { text-align: center; margin-top: 24px; font-size: 10px; color: #888 }
             .chk { display: inline-block; width: 12px; height: 12px; border: 1px solid #111; margin-right: 5px; vertical-align: -2px }
             .chk.on { background: #111 }
@@ -396,15 +573,15 @@ public class ReceiptPrintService {
     private static final String LABEL_CSS = """
             @page { size: A4; margin: 10mm }
             * { box-sizing: border-box }
-            body { font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 12px; color: #111; margin: 0 }
+            body { font-family: 'DejaVu Sans', sans-serif; font-size: 12px; color: #111; margin: 0 }
             .label { border: 2px solid #111; border-radius: 8px; padding: 18px 22px }
             .ltitle { text-align: center; font-size: 10px; letter-spacing: 4px; color: #555; margin-bottom: 2px }
-            .lcode { text-align: center; font-size: 34px; font-weight: 800; letter-spacing: 2px; margin: 4px 0 6px }
+            .lcode { text-align: center; font-size: 34px; font-weight: bold; letter-spacing: 2px; margin: 4px 0 6px }
             .lstatus { text-align: center; font-size: 12px; font-weight: bold; letter-spacing: 4px; padding: 4px 0; border-top: 1px solid #111; border-bottom: 1px solid #111; margin-bottom: 12px }
             .meta { width: 100%; border-collapse: collapse; margin-bottom: 12px }
             .meta td { padding: 2px 0; vertical-align: top }
             .meta td.k { width: 150px; color: #555 }
-            .meta td.v { font-weight: 600 }
+            .meta td.v { font-weight: bold }
             table.items { width: 100%; border-collapse: collapse }
             table.items th { border-top: 1px solid #111; border-bottom: 1px solid #111; padding: 4px 6px; text-align: left; font-size: 10px }
             table.items td { padding: 3px 6px; border-bottom: 1px solid #ddd; vertical-align: top; font-size: 11px }
@@ -439,7 +616,7 @@ public class ReceiptPrintService {
     }
 
     private String signBox(String label) {
-        return "<div class=\"box\"><div class=\"line\">" + esc(label) + "</div></div>";
+        return "<td><div class=\"line\">" + esc(label) + "</div></td>";
     }
 
     private String total(L l, BigDecimal amount) {

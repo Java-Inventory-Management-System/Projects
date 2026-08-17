@@ -8,7 +8,7 @@ import {
   reopenStockCheck,
   cancelStockCheck,
   addExtraStockCheckItem,
-  getStockCheckPrintHtml,
+  getStockCheckPrintFile,
 } from "@/services/stock-check-service"
 import { useStockCheck, useStartStockCheck } from "@/hooks/use-stock-checks"
 import { usePermission } from "@/hooks/use-permission"
@@ -29,7 +29,7 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
 import { Empty, EmptyTitle } from "@/components/ui/empty"
-import { AlertCircle, ClipboardCheck, RotateCcw, Ban, Play, Boxes, MoreHorizontal, Printer, CheckCircle2 } from "lucide-react"
+import { AlertCircle, ClipboardCheck, RotateCcw, Ban, Play, Boxes, MoreHorizontal, Printer, FileDown, CheckCircle2 } from "lucide-react"
 import { Progress } from "@/components/ui/progress"
 import { cn } from "@/utils/cn"
 import { toast } from "@/utils/toast"
@@ -186,13 +186,19 @@ export const StockCheckDetailPage = () => {
     })
   }
 
-  const handlePrint = async () => {
+  const handlePrint = async (format: "pdf" | "excel") => {
     try {
-      const html = await getStockCheckPrintHtml(Number(id!), i18n.language)
-      const w = window.open("", "_blank")
-      if (!w) return
-      w.document.write(html)
-      w.document.close()
+      const blob = await getStockCheckPrintFile(Number(id!), i18n.language, format)
+      const url = URL.createObjectURL(blob)
+      if (format === "pdf") {
+        window.open(url, "_blank")
+      } else {
+        const a = document.createElement("a")
+        a.href = url
+        a.download = `stock-check-${id}.xlsx`
+        a.click()
+      }
+      setTimeout(() => URL.revokeObjectURL(url), 60_000)
     } catch {
       toast.error(t("print.printFailed"))
     }
@@ -380,8 +386,11 @@ export const StockCheckDetailPage = () => {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuItem onClick={handlePrint}>
-                <Printer className="size-3.5" /> {t("print.print")}
+              <DropdownMenuItem onClick={() => handlePrint("pdf")}>
+                <Printer className="size-3.5" /> {t("print.printPdf")}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handlePrint("excel")}>
+                <FileDown className="size-3.5" /> {t("print.excel")}
               </DropdownMenuItem>
               {canCancel && (
                 <>
