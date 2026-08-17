@@ -79,7 +79,7 @@ export function BinAllocatorDialog({ open, onOpenChange, item, dispatch }: Props
         .map((s) => s.toLowerCase()),
     )
     const unassigned = item.serials.filter((s) => !inOtherRows.has(s.toLowerCase()))
-    return unassigned.length > 0 ? unassigned : item.serials
+    return unassigned
   }, [activeRow, rows, item.serials])
 
   return (
