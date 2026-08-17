@@ -5,9 +5,16 @@ import org.dawn.backend.entity.inventory.Location;
 import org.dawn.backend.entity.inventory.ProductUnit;
 import org.dawn.backend.exception.type.InvalidRequestException;
 import org.dawn.backend.config.security.SecurityPolicy;
+import org.dawn.backend.repository.catalog.ProductRepository;
 import org.dawn.backend.repository.inventory.LocationRepository;
 import org.dawn.backend.repository.inventory.ProductUnitRepository;
 import org.dawn.backend.repository.inventory.ProductUnitStatusLogRepository;
+import org.dawn.backend.repository.inventory.exports.ExportReceiptItemRepository;
+import org.dawn.backend.repository.inventory.exports.ExportReceiptItemUnitRepository;
+import org.dawn.backend.repository.inventory.exports.ExportReceiptRepository;
+import org.dawn.backend.repository.inventory.returns.ReturnReceiptItemRepository;
+import org.dawn.backend.repository.inventory.returns.ReturnReceiptRepository;
+import org.dawn.backend.repository.auth.UserRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -26,8 +33,15 @@ class QcPassServiceTests {
 
     @Mock ProductUnitRepository productUnitRepository;
     @Mock ProductUnitStatusLogRepository statusLogRepository;
+    @Mock ProductRepository productRepository;
     @Mock LocationRepository locationRepository;
+    @Mock ReturnReceiptItemRepository returnReceiptItemRepository;
+    @Mock ReturnReceiptRepository returnReceiptRepository;
+    @Mock ExportReceiptItemUnitRepository exportReceiptItemUnitRepository;
+    @Mock ExportReceiptItemRepository exportReceiptItemRepository;
+    @Mock ExportReceiptRepository exportReceiptRepository;
     @Mock SecurityPolicy securityPolicy;
+    @Mock UserRepository userRepository;
     @Mock org.dawn.backend.service.inventory.box.BoxCapacity boxCapacity;
 
     @InjectMocks QcPassService service;

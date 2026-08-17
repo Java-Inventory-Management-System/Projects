@@ -417,15 +417,22 @@ class ImportConfirmationServiceTests {
     }
 
     @Test
-    void confirm_serialCountLessThanQuantity_throws() {
+    void confirm_serialCountLessThanQuantity_acceptsShortfall() {
         ImportReceiptItem item = receiptItem(200L, 21L, BigDecimal.valueOf(3));
         stubConfirmContext(draftReceipt(), List.of(item), serializedProduct(21L));
 
         ConfirmImportRequest request = new ConfirmImportRequest(importReceiptId,
                 List.of(new SerialAssignment(200L, List.of("SN-1", "SN-2"), 10L, null)));
 
-        assertThrows(InvalidRequestException.class, () -> service.confirm(importReceiptId, request));
-        verify(productUnitRepository, never()).saveAll(anyList());
+        service.confirm(importReceiptId, request);
+
+        List<ProductUnit> saved = capturedSavedUnits();
+        assertEquals(2, saved.size());
+        assertEquals("SN-1", saved.get(0).getSerialNumber());
+        assertEquals("SN-2", saved.get(1).getSerialNumber());
+        verify(importReceiptRepository).save(argThat(r -> ImportReceiptStatus.RECEIVED.equals(r.getStatus())));
+        verify(importReceiptItemRepository).saveAll(argThat(items ->
+                BigDecimal.valueOf(2).compareTo(((ImportReceiptItem) ((List<?>) items).get(0)).getReceivedQuantity()) == 0));
     }
 
     @Test

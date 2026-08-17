@@ -13,6 +13,7 @@ import org.dawn.backend.repository.inventory.exports.ExportReceiptItemRepository
 import org.dawn.backend.repository.inventory.exports.ExportReceiptItemUnitRepository;
 import org.dawn.backend.repository.inventory.exports.ExportReceiptRepository;
 import org.dawn.backend.repository.inventory.exports.ExportReceiptStatusHistoryRepository;
+import org.dawn.backend.repository.inventory.returns.ReturnReceiptItemRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -30,6 +31,7 @@ class DisposeConfirmServiceTests {
 
     @Mock ProductUnitRepository productUnitRepository;
     @Mock ProductUnitStatusLogRepository statusLogRepository;
+    @Mock ReturnReceiptItemRepository returnReceiptItemRepository;
     @Mock ProductRepository productRepository;
     @Mock ExportReceiptRepository exportReceiptRepository;
     @Mock ExportReceiptItemRepository exportReceiptItemRepository;
