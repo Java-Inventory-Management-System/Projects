@@ -99,6 +99,26 @@ export function ExportFulfillPage() {
     setFulfilledQtys(initial)
   }, [receipt])
 
+  useEffect(() => {
+    if (!receipt) return
+    const toFill = receipt.items
+      .filter(isSerialized)
+      .filter((it) => !serialsPerItem[it.id]?.length)
+    if (toFill.length === 0) return
+    let cancelled = false
+    Promise.all(toFill.map((it) => getAllSerialsForProduct(it.productId, exportSerialsStatuses(receipt.reason)))).then(
+      (results) => {
+        if (cancelled) return
+        const auto: Record<number, string[]> = {}
+        results.forEach((serials, idx) => {
+          auto[toFill[idx].id] = serials.slice(0, toFill[idx].quantity).map((s) => s.serialNumber)
+        })
+        setSerialsPerItem((prev) => ({ ...auto, ...prev }))
+      },
+    )
+    return () => { cancelled = true }
+  }, [receipt, serialsPerItem])
+
   const openSerialPicker = async (item: typeof itemsWithTracking[0]) => {
     setSerialPicker({ exportItemId: item.id, productId: item.productId, productName: item.productName, quantity: item.quantity })
     setSerialsLoading(true)
@@ -191,10 +211,10 @@ export function ExportFulfillPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>{t("table.product")}</TableHead>
-                <TableHead className="w-16 text-right">{t("exportFulfill.requested")}</TableHead>
-                <TableHead className="w-20 text-right">{t("exportFulfill.type")}</TableHead>
-                <TableHead className="w-24 text-right">{t("exportFulfill.actual")}</TableHead>
+                <TableHead className="w-2/5">{t("table.product")}</TableHead>
+                <TableHead className="w-24 text-right">{t("exportFulfill.requested")}</TableHead>
+                <TableHead className="w-32 text-right">{t("exportFulfill.type")}</TableHead>
+                <TableHead className="w-36 text-right">{t("exportFulfill.actual")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -210,9 +230,17 @@ export function ExportFulfillPage() {
                   </TableCell>
                   <TableCell className="text-right">
                     {isSerialized(item) ? (
-                      <Button variant="outline" size="sm" onClick={() => openSerialPicker(item)}>
-                        {serialsPerItem[item.id]?.length ? t("exportFulfill.selectedSerial", { count: serialsPerItem[item.id].length }) : t("exportFulfill.selectSerial")}
-                      </Button>
+                      <div className="flex flex-col items-end gap-1">
+                        <Button variant="outline" size="sm" onClick={() => openSerialPicker(item)}>
+                          {serialsPerItem[item.id]?.length ? t("exportFulfill.selectedSerial", { count: serialsPerItem[item.id].length }) : t("exportFulfill.selectSerial")}
+                        </Button>
+                        {serialsPerItem[item.id]?.length > 0 && (
+                          <span className="font-mono text-[11px] text-muted-foreground text-right leading-tight">
+                            {serialsPerItem[item.id].slice(0, 3).join(", ")}
+                            {serialsPerItem[item.id].length > 3 ? `… (+${serialsPerItem[item.id].length - 3})` : ""}
+                          </span>
+                        )}
+                      </div>
                     ) : (
                       <Input
                         type="number"

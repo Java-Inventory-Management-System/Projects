@@ -2,6 +2,7 @@ import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useLowStock } from "@/hooks/use-reports"
 import { getLowStock } from "@/services/report-service"
+import { usePermission } from "@/hooks/use-permission"
 import { Button } from "@/components/ui/button"
 import { DataTable } from "@/components/ui/data-table"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -12,6 +13,7 @@ import { toast } from "@/utils/toast"
 
 export function LowStockTab() {
   const { t } = useTranslation()
+  const perm = usePermission()
   const [lowPage, setLowPage] = useState(0)
   const [exporting, setExporting] = useState(false)
   const lowPageSize = 20
@@ -63,11 +65,13 @@ export function LowStockTab() {
             const deficit = i.quantity - (i.minStock ?? 0)
             return <span className={`tabular-nums ${deficit < 0 ? "text-destructive" : "text-muted-foreground"}`}>{deficit > 0 ? "+" : ""}{deficit}</span>
           }},
-          { header: "", render: (i) => (
-            <Button variant="outline" size="sm" className="text-xs h-7 px-2" asChild>
-              <a href={`/stock/imports/create?ref=low-stock&productId=${i.productId}`}>{t('dashboard.lowStock.import')}</a>
-            </Button>
-          )},
+          { header: "", render: (i) =>
+            perm.hasRole("STOCK") ? null : (
+              <Button variant="outline" size="sm" className="text-xs h-7 px-2" asChild>
+                <a href={`/stock/imports/create?ref=low-stock&productId=${i.productId}`}>{t('dashboard.lowStock.import')}</a>
+              </Button>
+            )
+          },
         ]}
         data={data?.content ?? []}
         isLoading={false}

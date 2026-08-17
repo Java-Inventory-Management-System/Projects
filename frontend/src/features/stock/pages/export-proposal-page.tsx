@@ -363,7 +363,7 @@ export const ExportProposalPage = () => {
                       }} />
                   </TableCell>
                   <TableCell>
-                    <Input type="number" min={0} className="h-8 w-24 text-right"
+                    <Input type="number" min={0} className="h-8 w-24 text-right" readOnly
                       {...form.register(`items.${index}.unitPrice`, { valueAsNumber: true })} />
                   </TableCell>
                   <TableCell className="text-right tabular-nums">
