@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Search, Camera, Image, Loader2, ShieldAlert, PackageOpen, StickyNote, MoreHorizontal, PackagePlus, Check, AlertCircle } from "lucide-react"
+import { Search, Camera, Image, Loader2, ShieldAlert, PackageOpen, StickyNote, MoreHorizontal, PackagePlus, Check, AlertCircle, RotateCcw } from "lucide-react"
 import { cn } from "@/utils/cn"
 import { UNIT_LABELS } from "@/utils/labels"
 import { useFileUpload } from "@/hooks/use-file-upload"
@@ -29,12 +29,23 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 interface Props {
   items: StockCheckItem[]
   canEdit: boolean
   onUpdate: (itemId: number, field: string, value: unknown) => void
   onBulkSet: (status: string) => void
+  onResetAll: () => void
   searchQuery: string
   onSearchChange: (v: string) => void
   filter: "all" | "mismatch" | "untouched"
@@ -54,6 +65,7 @@ export function StockCheckItemsTable({
   canEdit,
   onUpdate,
   onBulkSet,
+  onResetAll,
   searchQuery,
   onSearchChange,
   filter,
@@ -67,6 +79,7 @@ export function StockCheckItemsTable({
   const { upload, uploadingItemId } = useFileUpload()
 
   const [extraOpen, setExtraOpen] = useState(false)
+  const [resetOpen, setResetOpen] = useState(false)
   const [extraSku, setExtraSku] = useState("")
   const [extraSerial, setExtraSerial] = useState("")
   const [extraQty, setExtraQty] = useState("")
@@ -166,6 +179,10 @@ export function StockCheckItemsTable({
               <DropdownMenuItem onClick={() => onBulkSet(PRODUCT_UNIT_STATUS.LOST)}>
                 <AlertCircle className="size-3.5" /> {t("common.allLost")}
               </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem className="text-destructive" onClick={() => setResetOpen(true)}>
+                <RotateCcw className="size-3.5" /> {t("stockCheckItems.resetAll")}
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         )}
@@ -217,7 +234,9 @@ export function StockCheckItemsTable({
                         ? "bg-violet-50/40 dark:bg-violet-950/10"
                         : diff === STOCK_CHECK_DIFF.UNEXPECTED || diff === STOCK_CHECK_DIFF.PARTIAL_SHORTAGE
                           ? "bg-blue-50/40 dark:bg-blue-950/10"
-                          : item.actualStatus == null
+                          : diff === STOCK_CHECK_DIFF.DAMAGED
+                            ? "bg-orange-50/40 dark:bg-orange-950/10"
+                            : item.actualStatus == null
                             ? "bg-amber-50/60 dark:bg-amber-950/20"
                             : diff === STOCK_CHECK_DIFF.MATCH
                               ? "text-muted-foreground"
@@ -391,6 +410,29 @@ export function StockCheckItemsTable({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={resetOpen} onOpenChange={setResetOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("stockCheckItems.resetAllConfirmTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("stockCheckItems.resetAllConfirmDesc")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-white hover:bg-destructive/90"
+              onClick={() => {
+                onResetAll()
+                setResetOpen(false)
+              }}
+            >
+              {t("stockCheckItems.resetAll")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
@@ -406,9 +448,8 @@ function WarningCell({
 }) {
   const { t } = useTranslation()
   const hasAny = Boolean(item.suspectSeal) || Boolean(item.damagedPackaging) ||
-    (item.actualStatus === PRODUCT_UNIT_STATUS.DAMAGED_IN_STORAGE && !item.photo)
+    item.actualStatus === PRODUCT_UNIT_STATUS.DAMAGED_IN_STORAGE
   if (!hasAny) return <span className="inline-flex size-6" />
-  const photoMissing = item.actualStatus === PRODUCT_UNIT_STATUS.DAMAGED_IN_STORAGE && !item.photo
   return (
     <Popover>
       <TooltipProvider delayDuration={200}>
@@ -417,12 +458,7 @@ function WarningCell({
             <TooltipTrigger asChild>
               <button
                 type="button"
-                className={cn(
-                  "inline-flex size-6 items-center justify-center rounded-md border transition-colors",
-                  photoMissing
-                    ? "border-red-300 bg-red-50 text-red-600 dark:border-red-800 dark:bg-red-950/30"
-                    : "border-amber-400 bg-amber-50 text-amber-600 dark:bg-amber-950/30",
-                )}
+                className="inline-flex size-6 items-center justify-center rounded-md border border-amber-400 bg-amber-50 text-amber-600 transition-colors dark:bg-amber-950/30"
               >
                 <AlertCircle className="size-4" />
               </button>
@@ -447,12 +483,19 @@ function WarningCell({
               onClick={() => onUpdate(item.id, "damagedPackaging", !item.damagedPackaging)}
             />
             {item.actualStatus === PRODUCT_UNIT_STATUS.DAMAGED_IN_STORAGE && (
-              <WarningToggle
-                active={Boolean(item.photo)}
-                icon={uploading ? <Loader2 className="size-4 animate-spin" /> : <Camera className="size-4" />}
-                label={t("stockCheckItems.photoRequired")}
-                onClick={onPickPhoto}
-              />
+              <>
+                <WarningToggle
+                  active={Boolean(item.photo)}
+                  icon={uploading ? <Loader2 className="size-4 animate-spin" /> : <Camera className="size-4" />}
+                  label={t("stockCheckItems.photoEvidence")}
+                  onClick={onPickPhoto}
+                />
+                {item.photo && (
+                  <a href={item.photo} target="_blank" rel="noreferrer" className="text-blue-600 dark:text-blue-400 flex items-center gap-1.5 text-xs">
+                    <Image className="size-3.5" /> {t("stockCheckItems.viewPhoto")}
+                  </a>
+                )}
+              </>
             )}
           </>
         )}
@@ -460,11 +503,18 @@ function WarningCell({
           <div className="space-y-1.5 text-xs">
             {item.suspectSeal && <p className="text-amber-600 dark:text-amber-400 flex items-center gap-1.5"><ShieldAlert className="size-3.5" /> {t("stockCheckItems.suspectSeal")}</p>}
             {item.damagedPackaging && <p className="text-amber-600 dark:text-amber-400 flex items-center gap-1.5"><PackageOpen className="size-3.5" /> {t("stockCheckItems.damagedPackaging")}</p>}
-            {photoMissing && <p className="text-red-600 dark:text-red-400 flex items-center gap-1.5"><Camera className="size-3.5" /> {t("stockCheckItems.photoMissing")}</p>}
-            {item.photo && item.actualStatus === PRODUCT_UNIT_STATUS.DAMAGED_IN_STORAGE && (
-              <a href={item.photo} target="_blank" rel="noreferrer" className="text-blue-600 dark:text-blue-400 flex items-center gap-1.5">
-                <Image className="size-3.5" /> {t("stockCheckItems.viewPhoto")}
-              </a>
+            {item.actualStatus === PRODUCT_UNIT_STATUS.DAMAGED_IN_STORAGE && (
+              <>
+                <p className="text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
+                  <Camera className="size-3.5" />
+                  {item.photo ? t("stockCheckItems.photoAttached") : t("stockCheckItems.photoNone")}
+                </p>
+                {item.photo && (
+                  <a href={item.photo} target="_blank" rel="noreferrer" className="text-blue-600 dark:text-blue-400 flex items-center gap-1.5">
+                    <Image className="size-3.5" /> {t("stockCheckItems.viewPhoto")}
+                  </a>
+                )}
+              </>
             )}
           </div>
         )}
@@ -554,6 +604,13 @@ function DiffBadge({ diff, t }: { diff: string | null; t: (k: string) => string 
     return (
       <Badge variant="outline" className="text-xs border-violet-300 text-violet-600 dark:border-violet-700 dark:text-violet-400">
         {t("stockCheckItems.diffSurplus")}
+      </Badge>
+    )
+  }
+  if (diff === STOCK_CHECK_DIFF.DAMAGED) {
+    return (
+      <Badge variant="outline" className="text-xs border-orange-300 text-orange-600 dark:border-orange-700 dark:text-orange-400">
+        {t("stockCheckItems.diffDamaged")}
       </Badge>
     )
   }

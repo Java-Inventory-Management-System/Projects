@@ -461,7 +461,7 @@ export interface ExportReceiptItem {
 
 export type StockCheckStatus = "PENDING" | "IN_PROGRESS" | "COMPLETED" | "APPROVED" | "CANCELLED" | "EXPIRED"
 export type StockCheckScopeType = "ZONE" | "CATEGORY" | "BOX"
-export type DifferenceType = "MATCH" | "MISSING" | "UNEXPECTED" | "PARTIAL_SHORTAGE" | "SURPLUS"
+export type DifferenceType = "MATCH" | "MISSING" | "DAMAGED" | "UNEXPECTED" | "PARTIAL_SHORTAGE" | "SURPLUS"
 
 export const UNVERIFIED_STATUS = "UNVERIFIED"
 
@@ -1029,12 +1029,13 @@ export const TRACKING_TYPE = {
 } as const
 
 export const STOCK_CHECK_DIFF = {
-  MATCH: "MATCH",
-  MISSING: "MISSING",
-  UNEXPECTED: "UNEXPECTED",
-  PARTIAL_SHORTAGE: "PARTIAL_SHORTAGE",
-  SURPLUS: "SURPLUS",
-} as const
+    MATCH: "MATCH",
+    MISSING: "MISSING",
+    DAMAGED: "DAMAGED",
+    UNEXPECTED: "UNEXPECTED",
+    PARTIAL_SHORTAGE: "PARTIAL_SHORTAGE",
+    SURPLUS: "SURPLUS",
+  } as const
 
 export const ADJUSTMENT_TYPE = {
   DAMAGED: "DAMAGED",

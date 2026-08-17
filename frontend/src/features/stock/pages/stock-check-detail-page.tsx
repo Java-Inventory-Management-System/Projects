@@ -98,6 +98,9 @@ export const StockCheckDetailPage = () => {
       if (i.expectedStatus === i.actualStatus) return { ...i, difference: STOCK_CHECK_DIFF.MATCH }
       const lostLike: readonly string[] = [PRODUCT_UNIT_STATUS.LOST, PRODUCT_UNIT_STATUS.REMOVED, PRODUCT_UNIT_STATUS.DISPOSED]
       if (lostLike.includes(i.actualStatus)) return { ...i, difference: STOCK_CHECK_DIFF.MISSING }
+      if (i.actualStatus === PRODUCT_UNIT_STATUS.DAMAGED_IN_STORAGE && i.expectedStatus === PRODUCT_UNIT_STATUS.IN_STOCK) {
+        return { ...i, difference: STOCK_CHECK_DIFF.DAMAGED }
+      }
       return { ...i, difference: STOCK_CHECK_DIFF.UNEXPECTED }
     }), [localItems])
 
@@ -224,6 +227,7 @@ export const StockCheckDetailPage = () => {
   const handleBulkSet = useCallback((status: string) => {
     setLocalItems((prev) =>
       prev.map((i) => {
+        if (i.actualStatus != null) return i
         if (i.difference === STOCK_CHECK_DIFF.SURPLUS) return i
         if (status === PRODUCT_UNIT_STATUS.LOST) {
           return { ...i, actualStatus: status, countedQuantity: 0 }
@@ -237,6 +241,23 @@ export const StockCheckDetailPage = () => {
               : i.countedQuantity ?? i.expectedQuantity ?? null,
         }
       }),
+    )
+  }, [])
+
+  const handleResetAll = useCallback(() => {
+    setLocalItems((prev) =>
+      prev.map((i) =>
+        i.difference === STOCK_CHECK_DIFF.SURPLUS ? i : {
+          ...i,
+          actualStatus: null,
+          countedQuantity: null,
+          photo: null,
+          difference: null,
+          suspectSeal: null,
+          damagedPackaging: null,
+          note: null,
+        },
+      ),
     )
   }, [])
 
@@ -287,6 +308,7 @@ export const StockCheckDetailPage = () => {
 
   const summary = {
     missing: localItems.filter((i) => i.difference === STOCK_CHECK_DIFF.MISSING).length,
+    damaged: localItems.filter((i) => i.difference === STOCK_CHECK_DIFF.DAMAGED).length,
     unexpected: localItems.filter((i) => i.difference === STOCK_CHECK_DIFF.UNEXPECTED || i.difference === STOCK_CHECK_DIFF.PARTIAL_SHORTAGE).length,
     surplus: surplusCount,
     suspectSeal: localItems.filter((i) => i.suspectSeal).length,
@@ -522,6 +544,7 @@ export const StockCheckDetailPage = () => {
                 canEdit={canEdit}
                 onUpdate={updateItem}
                 onBulkSet={handleBulkSet}
+                onResetAll={handleResetAll}
                 searchQuery={searchQuery}
                 onSearchChange={setSearchQuery}
                 filter={itemFilter}
@@ -557,6 +580,7 @@ export const StockCheckDetailPage = () => {
           <div className="grid grid-cols-3 gap-2 text-center">
             <SummaryCell label={t("stockCheckDetail.sumChecked")} value={checkedCount} className="text-foreground" />
             <SummaryCell label={t("stockCheckDetail.sumMissing")} value={summary.missing} className="text-red-600 dark:text-red-400" />
+            <SummaryCell label={t("stockCheckDetail.sumDamaged")} value={summary.damaged} className="text-orange-600 dark:text-orange-400" />
             <SummaryCell label={t("stockCheckDetail.sumUnexpected")} value={summary.unexpected} className="text-blue-600 dark:text-blue-400" />
             <SummaryCell label={t("stockCheckDetail.sumSurplus")} value={summary.surplus} className="text-violet-600 dark:text-violet-400" />
             <SummaryCell label={t("stockCheckDetail.sumSuspectSeal")} value={summary.suspectSeal} className="text-amber-600 dark:text-amber-400" />
