@@ -6,6 +6,7 @@ import org.dawn.backend.config.web.response.ResponsePage;
 import org.dawn.backend.constant.enums.catalog.TrackingType;
 import org.dawn.backend.constant.enums.inventory.ProductUnitStatus;
 import org.dawn.backend.constant.enums.inventory.adjustments.AdjustmentSourceType;
+import org.dawn.backend.constant.enums.inventory.adjustments.AdjustmentStatus;
 import org.dawn.backend.constant.enums.inventory.stockcheck.DifferenceType;
 import org.dawn.backend.constant.enums.inventory.stockcheck.StockCheckStatus;
 import org.dawn.backend.controller.report.response.*;
@@ -17,6 +18,7 @@ import org.dawn.backend.entity.inventory.ExportReceipt;
 import org.dawn.backend.entity.inventory.ImportReceipt;
 import org.dawn.backend.entity.inventory.ImportReceiptItem;
 import org.dawn.backend.entity.inventory.ProductUnit;
+import org.dawn.backend.entity.inventory.StockAdjustment;
 import org.dawn.backend.entity.inventory.StockCheck;
 import org.dawn.backend.entity.inventory.StockCheckItem;
 import org.dawn.backend.repository.catalog.CategoryRepository;
@@ -330,8 +332,14 @@ public class ReportService {
                         .month(e.getKey()).count(e.getValue()).build())
                 .toList();
 
-        var adjustments = stockAdjustmentRepository.findBySourceTypeAndCreatedAtBetween(
-                AdjustmentSourceType.STOCK_CHECK.name(), from, to);
+        var checkIds = checks.stream().map(StockCheck::getId).toList();
+        var adjustments = checkIds.isEmpty() ? List.<StockAdjustment>of()
+                : stockAdjustmentRepository
+                        .findBySourceTypeAndSourceIdIn(AdjustmentSourceType.STOCK_CHECK.name(), checkIds)
+                        .stream()
+                        .filter(a -> a.getStatus() != AdjustmentStatus.REJECTED
+                                && a.getStatus() != AdjustmentStatus.CANCELLED)
+                        .toList();
         Map<String, long[]> buckets = new TreeMap<>();
         for (var adj : adjustments) {
             long[] bucket = buckets.computeIfAbsent(fmt.format(adj.getCreatedAt()), k -> new long[3]);
@@ -358,7 +366,8 @@ public class ReportService {
                 .map(sc -> {
                     var items = itemsByCheck.getOrDefault(sc.getId(), List.of());
                     long missing = items.stream()
-                            .filter(i -> DifferenceType.MISSING.name().equals(i.getDifference())).count();
+                            .filter(i -> DifferenceType.MISSING.name().equals(i.getDifference())
+                                    || DifferenceType.DAMAGED.name().equals(i.getDifference())).count();
                     long unexpected = items.stream()
                             .filter(i -> DifferenceType.UNEXPECTED.name().equals(i.getDifference())).count();
                     return StockCheckOverviewResponse.StockCheckDiscrepancy.builder()

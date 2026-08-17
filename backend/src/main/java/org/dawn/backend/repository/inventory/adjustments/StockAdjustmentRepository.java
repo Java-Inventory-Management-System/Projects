@@ -39,6 +39,8 @@ public interface StockAdjustmentRepository extends JpaRepository<StockAdjustment
 
     java.util.List<StockAdjustment> findBySourceTypeAndSourceId(String sourceType, Long sourceId);
 
+    java.util.List<StockAdjustment> findBySourceTypeAndSourceIdIn(String sourceType, java.util.Collection<Long> sourceIds);
+
     boolean existsByProductUnitIdAndStatus(Long productUnitId, AdjustmentStatus status);
 
     java.util.List<StockAdjustment> findBySourceTypeAndCreatedAtBetween(String sourceType, java.time.Instant from, java.time.Instant to);
