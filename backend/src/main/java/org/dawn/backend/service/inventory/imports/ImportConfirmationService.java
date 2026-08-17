@@ -360,7 +360,7 @@ public class ImportConfirmationService {
                 if (serials.isEmpty()) {
                     throw new InvalidRequestException(ErrorCode.SERIAL_REQUIRED_FOR_SERIALIZED);
                 }
-                if (BigDecimal.valueOf(serials.size()).compareTo(item.getQuantity()) != 0) {
+                if (BigDecimal.valueOf(serials.size()).compareTo(item.getQuantity()) > 0) {
                     throw new InvalidRequestException(ErrorCode.SERIAL_COUNT_MUST_MATCH);
                 }
 

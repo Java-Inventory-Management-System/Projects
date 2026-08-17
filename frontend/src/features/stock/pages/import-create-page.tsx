@@ -17,7 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useTranslation } from "react-i18next"
-import { Ban, Check, ChevronLeft, LogOut, X } from "lucide-react"
+import { Ban, Check, X } from "lucide-react"
 import { ImportStepSerials } from "../components/import-create-step-serials"
 import { UnsavedChangesDialog } from "@/components/unsaved-changes-dialog"
 import { SerialModal } from "../components/serial-modal"
@@ -187,6 +187,11 @@ export const ImportCreatePage = () => {
 
   useEffect(() => {
     if (!receipt) return
+    if (receipt.purchaseOrderId && !selectedPoId) {
+      setSelectedPoId(receipt.purchaseOrderId)
+      return
+    }
+    if (receipt.purchaseOrderId && !poSerialsByProduct) return
     const plannedByProduct = new Map<number, string[]>()
     if (poSerialsByProduct) {
       for (const [productId, serials] of poSerialsByProduct) plannedByProduct.set(productId, [...serials])
@@ -215,7 +220,7 @@ export const ImportCreatePage = () => {
       }),
     })
     setNote(receipt.note ?? "")
-  }, [receipt, poSerialsByProduct])
+  }, [receipt, poSerialsByProduct, selectedPoId])
 
   useEffect(() => {
     if (locationMap === undefined || items.length === 0) return
@@ -864,22 +869,11 @@ export const ImportCreatePage = () => {
       {/* Navigation */}
       <div className="flex items-center justify-between border-t pt-4">
         <div>
-          {step > 1 && (!isResume || step > 2) ? (
-            <Button variant="outline" onClick={() => setStep(step - 1)}>
-              <ChevronLeft className="size-4 mr-1" /> {t("importCreate.back")}
-            </Button>
-          ) : (
-            <Button variant="outline" onClick={() => navigate("/stock/imports")}>
-              {t("importCreate.exit")}
-            </Button>
-          )}
+          <Button variant="outline" onClick={() => navigate("/stock/imports")}>
+            {t("importCreate.exit")}
+          </Button>
         </div>
         <div className="flex gap-2">
-          {step > 1 && (!isResume || step > 2) && (
-            <Button variant="ghost" onClick={() => navigate("/stock/imports")}>
-              <LogOut className="size-4 mr-1" /> {t("importCreate.exit")}
-            </Button>
-          )}
           {step > 1 && receiptId && (
             <Button variant="outline" className="text-destructive" onClick={() => setRejectOpen(true)} disabled={rejectMut.isPending}>
               <X className="size-4 mr-1" /> {t("importCreate.rejectReceipt")}
