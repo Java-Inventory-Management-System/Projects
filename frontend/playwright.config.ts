@@ -9,6 +9,7 @@ export default defineConfig({
   reporter: [["html", { outputFolder: "playwright-report" }]],
   use: {
     baseURL: process.env.BASE_URL ?? "http://localhost:80",
+    headless: process.env.HEADLESS !== "true",
     trace: "on-first-retry",
     screenshot: "only-on-failure",
   },
