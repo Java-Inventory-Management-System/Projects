@@ -30,7 +30,6 @@ export const BoxTab = () => {
   const qc = useQueryClient()
   const navigate = useNavigate()
   const perm = usePermission()
-  const canOperate = perm.hasRole(...ROLES.CAN_OPERATE_STOCK)
   const canSeal = perm.hasRole(...ROLES.SEAL_BOX)
   const [status, setStatus] = useState<string>("all")
   const [page, setPage] = useState(0)

@@ -51,7 +51,6 @@ export function PODetailPage() {
   const s = { label: t(`poStatus.${toKey(po.status)}`), variant: PO_STATUS_VARIANT[po.status] }
   const isManager = perm.hasRole(...ROLES.MANAGER)
   const isStock = perm.hasRole("STOCK")
-  const rejectedReceipts = receipts?.filter((r) => r.status === "REJECTED") ?? []
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">

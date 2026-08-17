@@ -57,7 +57,11 @@ export function BinAllocatorDialog({ open, onOpenChange, item, dispatch }: Props
     dispatch({
       type: "SAVE_ALLOCATIONS",
       tempId: item.tempId,
-      allocations: rows.map(({ tempKey: _k, ...a }) => ({ ...a, quantity: isBulk ? a.quantity : a.serials.length })),
+      allocations: rows.map((r) => ({
+        locationId: r.locationId,
+        serials: r.serials,
+        quantity: isBulk ? r.quantity : r.serials.length,
+      })),
     })
     onOpenChange(false)
   }

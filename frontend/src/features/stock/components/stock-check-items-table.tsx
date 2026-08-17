@@ -81,14 +81,6 @@ export function StockCheckItemsTable({
     [PRODUCT_UNIT_STATUS.DISPOSED]: t("stockCheckItems.statusDisposed"),
   }
 
-  const diffLabels: Record<string, string> = {
-    [STOCK_CHECK_DIFF.MATCH]: t("stockCheckItems.diffMatch"),
-    [STOCK_CHECK_DIFF.MISSING]: t("stockCheckItems.diffMissing"),
-    [STOCK_CHECK_DIFF.UNEXPECTED]: t("stockCheckItems.diffUnexpected"),
-    [STOCK_CHECK_DIFF.PARTIAL_SHORTAGE]: t("stockCheckItems.diffUnexpected"),
-    [STOCK_CHECK_DIFF.SURPLUS]: t("stockCheckItems.diffSurplus"),
-  }
-
   const counts = {
     total: items.length,
     mismatch: items.filter((i) => i.difference != null && i.difference !== STOCK_CHECK_DIFF.MATCH).length,
@@ -106,8 +98,6 @@ export function StockCheckItemsTable({
       (item.productSku ?? "").toLowerCase().includes(q)
     )
   })
-
-  const hasBulk = filtered.some((i) => i.trackingType === TRACKING_TYPE.BULK)
 
   const handleAddExtra = async () => {
     setExtraError(null)
@@ -218,8 +208,6 @@ export function StockCheckItemsTable({
               filtered.map((item) => {
                 const diff = item.difference
                 const isUnverified = item.actualStatus === UNVERIFIED_STATUS
-                const hasWarnings = Boolean(item.suspectSeal) || Boolean(item.damagedPackaging) ||
-                  (item.actualStatus === PRODUCT_UNIT_STATUS.DAMAGED_IN_STORAGE && !item.photo)
                 const rowClass =
                   isUnverified
                     ? "bg-muted/50"

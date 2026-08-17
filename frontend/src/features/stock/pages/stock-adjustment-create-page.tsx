@@ -29,7 +29,7 @@ import { ArrowLeft, Search, Info, ScanLine, CheckCircle2, Plus, List } from "luc
 import { Empty, EmptyTitle } from "@/components/ui/empty"
 import { toast } from "@/utils/toast"
 import { mapResponsePage, mapProductUnit } from "@/utils/mappers"
-import { ADJUSTMENT_STATUS, ADJUSTMENT_TYPE, PRODUCT_UNIT_STATUS, type ProductUnit } from "@/utils/types"
+import { ADJUSTMENT_STATUS, ADJUSTMENT_TYPE, type ProductUnit } from "@/utils/types"
 import { UNIT_STATUS_VARIANT } from "@/utils/labels"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
@@ -177,28 +177,6 @@ export const StockAdjustmentCreatePage = () => {
       form.setError("foundLocationId", { message: t("stockAdjCreate.requireLocation") }); valid = false
     }
     return valid
-  }
-
-  const buildSubmitData = () => {
-    const values = form.getValues()
-    const data: Parameters<typeof createStockAdjustment>[0] = {
-      type: values.type,
-      reason: values.reason.trim(),
-    }
-    if (values.type === ADJUSTMENT_TYPE.DAMAGED || values.type === ADJUSTMENT_TYPE.LOST) {
-      data.productUnitId = values.selectedUnitId!
-    }
-    if (values.type === ADJUSTMENT_TYPE.FOUND && foundMode === "new") {
-      data.productId = values.selectedProductId!
-      data.quantity = values.quantity
-      data.serialNumber = values.foundSerialNumber.trim()
-      data.locationId = Number(values.foundLocationId)
-    }
-    if (values.type === ADJUSTMENT_TYPE.FOUND && foundMode === "existing" && values.selectedUnitId) {
-      data.productUnitId = values.selectedUnitId
-    }
-    if (values.imageUrl.trim()) data.imageUrl = values.imageUrl.trim()
-    return data
   }
 
   const handleSubmit = () => {

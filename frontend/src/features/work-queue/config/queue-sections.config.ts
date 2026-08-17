@@ -124,7 +124,7 @@ export const QUEUE_SECTIONS: QueueSectionDef[] = [
     urgency: "normal",
     kind: "action",
     viewAllLink: "/stock/ops/checks?status=PENDING",
-    load: async (userId) => {
+    load: async () => {
       const [pending, inProgress] = await Promise.all([
         getMyStockChecks(0, 3, "createdAt,desc", STOCK_CHECK_STATUS.PENDING),
         getMyStockChecks(0, 3, "createdAt,desc", STOCK_CHECK_STATUS.IN_PROGRESS),
