@@ -29,7 +29,7 @@ public class PurchaseOrderController {
     private final ReceiptPrintService receiptPrintService;
 
     @GetMapping(value = "/{id}/print")
-    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER)
+    @PreAuthorize(AuthorizationExpressions.CAN_VIEW_INVENTORY)
     public ResponseEntity<byte[]> print(@PathVariable Long id,
             @RequestParam(defaultValue = "vi") String lang,
             @RequestParam(defaultValue = "pdf") String format) {
@@ -42,7 +42,7 @@ public class PurchaseOrderController {
     }
 
     @GetMapping
-    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER)
+    @PreAuthorize(AuthorizationExpressions.CAN_VIEW_INVENTORY)
     public ResponseObject<ResponsePage<PurchaseOrderResponse>> getAll(
             Pageable pageable,
             @RequestParam(required = false) String status) {
@@ -50,13 +50,13 @@ public class PurchaseOrderController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER)
+    @PreAuthorize(AuthorizationExpressions.CAN_VIEW_INVENTORY)
     public ResponseObject<PurchaseOrderResponse> getOne(@PathVariable Long id) {
         return ResponseObject.success(purchaseOrderService.findOne(id));
     }
 
     @GetMapping("/{id}/receipts")
-    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER)
+    @PreAuthorize(AuthorizationExpressions.CAN_VIEW_INVENTORY)
     public ResponseObject<List<org.dawn.backend.controller.inventory.response.ImportReceiptResponse>> getReceipts(@PathVariable Long id) {
         return ResponseObject.success(importReceiptService.findByPurchaseOrderId(id));
     }

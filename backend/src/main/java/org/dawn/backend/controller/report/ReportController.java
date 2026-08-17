@@ -25,7 +25,7 @@ public class ReportController {
     private final ReportService reportService;
 
     @GetMapping("/inventory-summary")
-    @PreAuthorize(AuthorizationExpressions.CAN_VIEW_REPORTS)
+    @PreAuthorize(AuthorizationExpressions.CAN_VIEW_INVENTORY)
     public ResponseObject<InventorySummaryResponse> getInventorySummary() {
         return ResponseObject.success(reportService.getInventorySummary());
     }

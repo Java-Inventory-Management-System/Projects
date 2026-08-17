@@ -51,7 +51,7 @@ public class StockCheckController {
     }
 
     @GetMapping("/stock-check")
-    @PreAuthorize(AuthorizationExpressions.CAN_VIEW_REPORTS)
+    @PreAuthorize(AuthorizationExpressions.CAN_VIEW_INVENTORY)
     public ResponseObject<ResponsePage<StockCheckResponse>> getAll(
             Pageable pageable,
             @RequestParam(required = false) String status) {

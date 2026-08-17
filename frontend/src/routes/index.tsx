@@ -289,7 +289,7 @@ export const router = createBrowserRouter([
                 path: "new",
                 element: (
                   <Lazy>
-                    <PageGuard roles={ROLES.MANAGER}>
+                    <PageGuard roles={ROLES.CAN_OPERATE_STOCK}>
                       <ImportCreatePage />
                     </PageGuard>
                   </Lazy>
@@ -468,7 +468,7 @@ export const router = createBrowserRouter([
                   <SectionTabsLayout
                     tabs={[
                       { path: "/returns-qc/returns", labelKey: "nav.returns" },
-                      { path: "/returns-qc/qc", labelKey: "nav.qcProcessing" },
+                      { path: "/returns-qc/qc", labelKey: "nav.qcProcessing", roles: ROLES.CAN_VIEW_QC },
                     ]}
                   />
                 </PageGuard>
