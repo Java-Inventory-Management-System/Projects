@@ -327,13 +327,8 @@ export const ExportCreatePage = () => {
                       {...form.register(`items.${index}.quantity`, { valueAsNumber: true })}
                     />
                   </TableCell>
-                  <TableCell>
-                    <Input
-                      type="number"
-                      min={0}
-                      className="h-8 w-24 text-right"
-                      {...form.register(`items.${index}.unitPrice`, { valueAsNumber: true })}
-                    />
+                  <TableCell className="text-right tabular-nums">
+                    {item.unitPrice.toLocaleString("vi-VN")}₫
                   </TableCell>
                   <TableCell className="text-right tabular-nums">
                     {(item.quantity * item.unitPrice).toLocaleString("vi-VN")}₫
