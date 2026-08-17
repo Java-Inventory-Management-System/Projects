@@ -19,8 +19,14 @@ public class AuthorizationExpressions {
     /** Thao tác nghiệp vụ kho (nhập, kiểm kê, điều chỉnh) — MANAGER/STOCK */
     public static final String CAN_OPERATE_STOCK = "@securityPolicy.hasAnyRole('MANAGER', 'STOCK')";
 
-    /** Khởi tạo phiếu xuất/phiếu trả — SALES/MANAGER (không ADMIN, 13.4; STOCK chỉ thao tác kho) */
-    public static final String CAN_CREATE_TRANSACTION = "@securityPolicy.hasAnyRole('SALES', 'MANAGER')";
+    /** Khởi tạo phiếu xuất/phiếu trả — chỉ SALES (không ADMIN, 13.4; STOCK chỉ thao tác kho) */
+    public static final String CAN_CREATE_TRANSACTION = "@securityPolicy.hasAnyRole('SALES')";
+
+    /** Seal box — chỉ STOCK (MANAGER chỉ xem/quản lý box đã seal) */
+    public static final String SEAL_BOX = "@securityPolicy.hasRole('STOCK')";
+
+    /** Quản lý vị trí kho (tạo/sửa/xóa/relocate) — STOCK/ADMIN (MANAGER chỉ xem map) */
+    public static final String MANAGE_LOCATION = "@securityPolicy.hasAnyRole('STOCK', 'ADMIN')";
 
     /** Khởi tạo phiếu điều chỉnh giá — MANAGER/ADMIN (SALES/STOCK không được tạo) */
     public static final String CAN_CREATE_PRICE_ADJUSTMENT = "@securityPolicy.hasAnyRole('MANAGER', 'ADMIN')";

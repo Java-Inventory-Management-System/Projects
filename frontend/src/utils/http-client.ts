@@ -2,6 +2,8 @@ import axios, { type AxiosError, type InternalAxiosRequestConfig } from "axios"
 import { t } from "i18next"
 import { toast } from "./toast"
 import { toApiError } from "./api-error"
+import { useAuthStore } from "@/store/auth-store"
+import { router } from "@/routes"
 
 const STORAGE_KEY_TOKEN = "accessToken"
 const BASE_URL = (import.meta.env.VITE_BASE_API_URL as string) ?? "http://localhost:8888/api/v1"
@@ -13,6 +15,7 @@ const http = axios.create({
 })
 
 let isRefreshing = false
+let isRedirecting = false
 let failedQueue: Array<{
   resolve: (token: string) => void
   reject: (err: unknown) => void
@@ -70,7 +73,13 @@ http.interceptors.response.use(
       } catch {
         localStorage.removeItem(STORAGE_KEY_TOKEN)
         processQueue(error, null)
+        if (isRedirecting) return Promise.reject(toApiError(error))
+        isRedirecting = true
         toast.error(t("error.sessionExpired"))
+        setTimeout(() => {
+          useAuthStore.getState().clearUser()
+          router.navigate("/login")
+        }, 1500)
       } finally {
         isRefreshing = false
       }

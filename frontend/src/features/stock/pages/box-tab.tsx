@@ -30,6 +30,7 @@ export const BoxTab = () => {
   const navigate = useNavigate()
   const perm = usePermission()
   const canOperate = perm.hasRole(...ROLES.CAN_OPERATE_STOCK)
+  const canSeal = perm.hasRole(...ROLES.SEAL_BOX)
   const [status, setStatus] = useState<string>("all")
   const [page, setPage] = useState(0)
   const [pageSize, setPageSize] = useState(20)
@@ -148,11 +149,11 @@ export const BoxTab = () => {
 
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold tracking-tight">{t("box.title")}</h1>
-        {canOperate && (
-          <Button className="gap-1.5" onClick={() => navigate("/stock/units/box/new?tab=box")}>
-            <Boxes className="size-4" /> {t("box.seal")}
-          </Button>
-        )}
+{canSeal && (
+<Button className="gap-1.5" onClick={() => navigate("/stock/units/box/new?tab=box")}>
+<Boxes className="size-4" /> {t("box.seal")}
+</Button>
+)}
       </div>
 
       <div className="flex gap-2">

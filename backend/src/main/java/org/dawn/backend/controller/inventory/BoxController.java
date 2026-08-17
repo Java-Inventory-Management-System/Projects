@@ -42,7 +42,7 @@ public class BoxController {
     }
 
     @PostMapping("/box/seal")
-    @PreAuthorize(AuthorizationExpressions.CAN_OPERATE_STOCK)
+    @PreAuthorize(AuthorizationExpressions.SEAL_BOX)
     public ResponseObject<BoxResponse> seal(@RequestBody SealBoxRequest request) {
         return ResponseObject.success(boxService.seal(request));
     }

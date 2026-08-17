@@ -538,7 +538,7 @@ export const router = createBrowserRouter([
                 path: "box/new",
                 element: (
                   <Lazy>
-                <PageGuard roles={ROLES.CAN_OPERATE_STOCK}>
+                <PageGuard roles={ROLES.SEAL_BOX}>
                       <SealBoxPage />
                     </PageGuard>
                   </Lazy>

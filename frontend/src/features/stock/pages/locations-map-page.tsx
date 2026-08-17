@@ -38,9 +38,13 @@ import { TRACKING_TYPE } from "@/utils/types"
 import { TrackingTypeBadge } from "@/components/tracking-type-badge"
 import { useLocationMapPage } from "@/features/stock/hooks/use-location-map-page"
 import { toast } from "@/utils/toast"
+import { usePermission } from "@/hooks/use-permission"
+import { ROLES } from "@/utils/permissions"
 
 export function LocationsMapPage() {
   const { t } = useTranslation()
+  const perm = usePermission()
+  const canManageLocation = perm.hasRole(...ROLES.MANAGE_LOCATION)
   const [expandedProducts, setExpandedProducts] = useState<Set<string>>(new Set())
   const {
     data,
@@ -185,10 +189,12 @@ export function LocationsMapPage() {
           )}
         </div>
         <div className="flex gap-2">
-          <Button size="sm" variant={managing ? "default" : "outline"} onClick={() => setManaging((m: boolean) => !m)}>
-            <Settings2 className="size-3.5 mr-1" />
-            {managing ? t("locMap.done") : t("locMap.manageLocations")}
-          </Button>
+{canManageLocation && (
+<Button size="sm" variant={managing ? "default" : "outline"} onClick={() => setManaging((m: boolean) => !m)}>
+<Settings2 className="size-3.5 mr-1" />
+{managing ? t("locMap.done") : t("locMap.manageLocations")}
+</Button>
+)}
           <Button variant="outline" size="sm" onClick={() => fetchMap()} disabled={loading || refreshing}>
             <RefreshCw className={`size-3.5 mr-1 ${refreshing ? "animate-spin" : ""}`} />
             {t("locMap.refresh")}

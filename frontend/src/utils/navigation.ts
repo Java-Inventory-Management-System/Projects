@@ -49,7 +49,7 @@ export const navSections: NavSection[] = [
         labelKey: "nav.catalogSettings",
         icon: SlidersHorizontal,
         path: "/catalog-settings",
-        roles: ROLES.CAN_OPERATE,
+        roles: ROLES.CAN_MANAGE_CATALOG,
       },
     ],
   },

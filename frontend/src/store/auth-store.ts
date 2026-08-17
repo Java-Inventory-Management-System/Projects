@@ -24,6 +24,7 @@ interface AuthState {
   isLoading: boolean
   login: (username: string, password: string) => Promise<void>
   logout: () => Promise<void>
+  clearUser: () => void
   hasRole: (roles: URole[]) => boolean
 }
 
@@ -69,6 +70,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ user: null })
     window.location.href = "/login"
   },
+
+  clearUser: () => set({ user: null }),
 
   hasRole: (roles: URole[]) => {
     const user = get().user

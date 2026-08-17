@@ -41,13 +41,13 @@ public class LocationController {
     }
 
     @PostMapping("")
-    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER)
+    @PreAuthorize(AuthorizationExpressions.MANAGE_LOCATION)
     public ResponseObject<LocationResponse> create(@Valid @RequestBody LocationRequest request) {
         return ResponseObject.created(locationService.create(request));
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER)
+    @PreAuthorize(AuthorizationExpressions.MANAGE_LOCATION)
     public ResponseObject<LocationResponse> update(@PathVariable Long id, @RequestBody LocationRequest request) {
         return ResponseObject.success(locationService.update(id, request));
     }
@@ -59,20 +59,20 @@ public class LocationController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER)
+    @PreAuthorize(AuthorizationExpressions.MANAGE_LOCATION)
     public ResponseObject<Void> delete(@PathVariable Long id) {
         locationService.delete(id);
         return ResponseObject.success(null);
     }
 
     @PutMapping("/{id}/toggle-active")
-    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER)
+    @PreAuthorize(AuthorizationExpressions.MANAGE_LOCATION)
     public ResponseObject<LocationResponse> toggleActive(@PathVariable Long id) {
         return ResponseObject.success(locationService.toggleActive(id));
     }
 
     @PostMapping("/relocate")
-    @PreAuthorize(AuthorizationExpressions.ROLE_MANAGER)
+    @PreAuthorize(AuthorizationExpressions.MANAGE_LOCATION)
     public ResponseObject<Void> relocate(@Valid @RequestBody RelocateRequest request) {
         locationService.relocate(request);
         return ResponseObject.success(null);

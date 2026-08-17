@@ -33,13 +33,13 @@ const WorkQueueTab = lazy(() =>
 
 const ALL_TABS = [
   { key: "summary", labelKey: "dashboard.tab.overview", roles: ROLES.CAN_VIEW_REPORTS },
+  { key: "work-queue", labelKey: "nav.workQueue", roles: ROLES.CAN_OPERATE },
   { key: "category", labelKey: "dashboard.tab.byCategory", roles: ROLES.CAN_VIEW_REPORTS },
   { key: "low-stock", labelKey: "dashboard.tab.lowStock", roles: ROLES.CAN_VIEW_INVENTORY },
   { key: "stock-value", labelKey: "dashboard.tab.stockValue", roles: ROLES.CAN_VIEW_REPORTS },
   { key: "activity", labelKey: "dashboard.tab.activity", roles: ROLES.CAN_VIEW_REPORTS },
   { key: "dead-stock", labelKey: "dashboard.tab.deadStock", roles: ROLES.CAN_VIEW_REPORTS },
   { key: "stock-check", labelKey: "dashboard.tab.stockCheck", roles: ROLES.CAN_VIEW_REPORTS },
-  { key: "work-queue", labelKey: "nav.workQueue", roles: ROLES.CAN_OPERATE },
 ] as const
 
 type TabKey = (typeof ALL_TABS)[number]["key"]

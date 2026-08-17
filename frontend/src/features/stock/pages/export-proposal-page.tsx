@@ -12,7 +12,6 @@ import { CustomerSelectModal } from "@/features/stock/components/customer-select
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import {
@@ -24,7 +23,7 @@ import {
   CommandList,
 } from "@/components/ui/command"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Trash2, Plus, Search } from "lucide-react"
+import { Trash2, Plus, Search, X } from "lucide-react"
 import { useFormDraft, clearDraft } from "@/hooks/use-form-draft"
 import {
   Dialog,
@@ -228,6 +227,14 @@ export const ExportProposalPage = () => {
       <div className="rounded-lg border p-4">
         <div className="space-y-2">
           <Label htmlFor="reason">{t("exportProposal.chooseReason")}</Label>
+          {watchedType === EXPORT_REASON.OTHER ? (
+            <div className="flex gap-2">
+              <Input id="reason" placeholder={t("exportProposal.otherReasonPlaceholder")} {...form.register("customReason")} />
+              <Button variant="outline" size="icon" onClick={() => form.setValue("type", "")} title={t("common.clear")}>
+                <X className="size-4" />
+              </Button>
+            </div>
+          ) : (
           <Select value={watchedType ?? ""} onValueChange={(v) => form.setValue("type", v)}>
             <SelectTrigger id="reason">
               <SelectValue placeholder={t("exportProposal.reasonPlaceholder")} />
@@ -240,6 +247,7 @@ export const ExportProposalPage = () => {
               ))}
             </SelectContent>
           </Select>
+          )}
         </div>
       </div>
 
@@ -388,17 +396,6 @@ export const ExportProposalPage = () => {
         <span className="text-sm font-semibold">
           {t("exportProposal.total")}: {fields.reduce((s, i) => s + i.quantity * i.unitPrice, 0).toLocaleString("vi-VN")}₫
         </span>
-      </div>
-
-      <div className="space-y-2">
-        {watchedType === EXPORT_REASON.OTHER && (
-          <>
-            <Label htmlFor="customReason">
-              {t("exportProposal.otherReason")} <span className="text-destructive">*</span>
-            </Label>
-            <Textarea id="customReason" placeholder={t("exportProposal.otherReasonPlaceholder")} {...form.register("customReason")} />
-          </>
-        )}
       </div>
 
       <div className="flex gap-2 justify-end">
