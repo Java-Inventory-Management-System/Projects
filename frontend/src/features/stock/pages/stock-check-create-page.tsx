@@ -231,11 +231,11 @@ export const StockCheckCreatePage = () => {
                         </span>
                         <span className="font-mono text-xs">{sh}</span>
                         {due ? (
-                          <span className="ml-auto rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-950/40 dark:text-amber-400">
+                          <span className="ml-auto rounded bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-950/40 dark:text-amber-400">
                             {t("stockCheckCreate.shelfDue")}
                           </span>
                         ) : last ? (
-                          <span className="ml-auto text-[10px] text-muted-foreground">
+                          <span className="ml-auto text-xs text-muted-foreground">
                             {t("stockCheckCreate.shelfCheckedAt", { date: fmtDate(last) })}
                           </span>
                         ) : null}

@@ -6,6 +6,7 @@ import { useDebounce } from "@/hooks/use-debounce"
 import { getProductUnits } from "@/services/product-unit-service"
 import { getProducts } from "@/services/product-service"
 import { PRODUCT_UNIT_STATUS } from "@/utils/types"
+import { unitStatusInfo } from "@/utils/labels"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
@@ -30,19 +31,6 @@ const getStatusOptions = (t: (key: string) => string) => [
   { value: PRODUCT_UNIT_STATUS.RETURNED_TO_SUPPLIER, label: t("unitStatus.returnedToSupplier") },
   { value: PRODUCT_UNIT_STATUS.DISPOSED, label: t("unitStatus.disposed") },
 ]
-
-const statusBadge: Record<string, { labelKey: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
-  [PRODUCT_UNIT_STATUS.IN_STOCK]: { labelKey: "unitStatus.inStock", variant: "default" },
-  [PRODUCT_UNIT_STATUS.SOLD]: { labelKey: "unitStatus.sold", variant: "secondary" },
-  [PRODUCT_UNIT_STATUS.DEFECTIVE]: { labelKey: "unitStatus.defective", variant: "destructive" },
-  [PRODUCT_UNIT_STATUS.DAMAGED_IN_STORAGE]: { labelKey: "unitStatus.damagedInStorage", variant: "destructive" },
-  [PRODUCT_UNIT_STATUS.LOST]: { labelKey: "unitStatus.lost", variant: "destructive" },
-  [PRODUCT_UNIT_STATUS.UNDER_REPAIR]: { labelKey: "unitStatus.underRepair", variant: "outline" },
-  [PRODUCT_UNIT_STATUS.SENT_TO_MANUFACTURER]: { labelKey: "unitStatus.sentToManufacturer", variant: "outline" },
-  [PRODUCT_UNIT_STATUS.RETURNED]: { labelKey: "unitStatus.returned", variant: "secondary" },
-  [PRODUCT_UNIT_STATUS.RETURNED_TO_SUPPLIER]: { labelKey: "unitStatus.returnedToSupplier", variant: "secondary" },
-  [PRODUCT_UNIT_STATUS.DISPOSED]: { labelKey: "unitStatus.disposed", variant: "destructive" },
-}
 
 function fmt(d: string | null) {
   if (!d) return "—"
@@ -126,8 +114,8 @@ export const ProductUnitListPage = () => {
     {
       header: t("table.status"),
       render: (u) => {
-        const s = statusBadge[u.status]
-        return <Badge variant={s?.variant ?? "secondary"}>{s ? t(s.labelKey) : u.status}</Badge>
+        const s = unitStatusInfo(u.status)
+        return <Badge variant={s.variant}>{t(s.labelKey)}</Badge>
       },
     },
     { header: t("table.location"), render: (u) => <LocationCodePopover code={u.locationCode} /> },

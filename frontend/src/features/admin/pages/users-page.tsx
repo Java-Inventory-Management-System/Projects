@@ -14,6 +14,7 @@ import {
 } from "@/services/user-service"
 import type { UserResponse, URole } from "@/utils/types"
 import { USER_STATUS } from "@/utils/types"
+import { USER_STATUS_VARIANT } from "@/utils/labels"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
@@ -44,12 +45,6 @@ import { toast } from "@/utils/toast"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 
 const roleOptions: URole[] = ["ADMIN", "MANAGER", "STOCK", "SALES"]
-
-const statusLabel: Record<string, { labelKey: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
-  [USER_STATUS.NEW]: { labelKey: "usersPage.statusNew", variant: "outline" },
-  [USER_STATUS.ACTIVE]: { labelKey: "usersPage.statusActive", variant: "default" },
-  [USER_STATUS.INACTIVE]: { labelKey: "usersPage.statusInactive", variant: "secondary" },
-}
 
 function fmt(d: string) {
   return new Date(d).toLocaleDateString("vi-VN")
@@ -203,7 +198,7 @@ export const UsersPage = () => {
     {
       header: t('usersPage.colStatus'),
       render: (u) => {
-        const st = statusLabel[u.status] ?? { labelKey: undefined, variant: "secondary" as const }
+        const st = { labelKey: `usersPage.status${u.status.charAt(0) + u.status.slice(1).toLowerCase()}`, variant: USER_STATUS_VARIANT[u.status] }
         return <Badge variant={st.variant}>{st.labelKey ? t(st.labelKey) : u.status}</Badge>
       },
     },

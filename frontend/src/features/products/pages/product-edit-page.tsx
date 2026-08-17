@@ -378,7 +378,7 @@ export function ProductEditPage() {
                     />
                   </AspectRatio>
                   {img.isPrimary && (
-                    <span className="absolute top-0.5 left-0.5 text-[10px] bg-primary text-primary-foreground px-1 rounded">
+                    <span className="absolute top-0.5 left-0.5 text-xs bg-primary text-primary-foreground px-1 rounded">
                       {t("productImages.primary")}
                     </span>
                   )}

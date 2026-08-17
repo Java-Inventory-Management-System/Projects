@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom"
 import { usePermission } from "@/hooks/use-permission"
 import { ROLES } from "@/utils/permissions"
 import { usePriceAdjustments, useMyPriceAdjustments } from "@/hooks/use-price-adjustments"
+import { toKey, ADJUSTMENT_STATUS_VARIANT } from "@/utils/labels"
 import { cancelPriceAdjustment } from "@/services/price-adjustment-service"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { Button } from "@/components/ui/button"
@@ -101,13 +102,6 @@ export function PriceAdjustmentListPage() {
     onError: (e: Error) => toast.error(e.message),
   })
 
-  const statusLabel: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
-    [ADJUSTMENT_STATUS.PENDING]: { label: t("priceAdjStatus.pending"), variant: "outline" },
-    [ADJUSTMENT_STATUS.APPROVED]: { label: t("priceAdjStatus.approved"), variant: "default" },
-    [ADJUSTMENT_STATUS.REJECTED]: { label: t("priceAdjStatus.rejected"), variant: "destructive" },
-    [ADJUSTMENT_STATUS.CANCELLED]: { label: t("priceAdjStatus.cancelled"), variant: "secondary" },
-  }
-
   const clearFilters = useCallback(() => {
     setSearchInput("")
     setSearchParams(new URLSearchParams())
@@ -147,7 +141,7 @@ export function PriceAdjustmentListPage() {
       header: t("table.status"),
       className: "w-28 text-center",
       render: (r) => {
-        const s = statusLabel[r.status] ?? { label: r.status, variant: "secondary" as const }
+        const s = { label: t(`priceAdjStatus.${toKey(r.status)}`), variant: ADJUSTMENT_STATUS_VARIANT[r.status] }
         return (
           <div className="flex items-center gap-1 justify-center">
             <Badge variant={s.variant}>{s.label}</Badge>

@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus, Eye, Play, AlertTriangle } from "lucide-react"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 import { DataTable, type Column } from "@/components/ui/data-table"
+import { toKey, STOCK_CHECK_STATUS_VARIANT } from "@/utils/labels"
 import type { StockCheck } from "@/utils/types"
 import { STOCK_CHECK_STATUS } from "@/utils/types"
 import { ROLES } from "@/utils/permissions"
@@ -26,15 +27,6 @@ export const StockCheckListPage = () => {
   const [pageSize, setPageSize] = useState(10)
   const [sort, setSort] = useState<{ key: string; dir: "asc" | "desc" } | undefined>(undefined)
   const sortStr = sort ? `${sort.key},${sort.dir}` : undefined
-
-  const statusLabel: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
-    PENDING: { label: t("stockCheckList.pending"), variant: "secondary" },
-    IN_PROGRESS: { label: t("stockCheckList.inProgress"), variant: "outline" },
-    COMPLETED: { label: t("stockCheckList.completed"), variant: "default" },
-    APPROVED: { label: t("stockCheckList.approved"), variant: "default" },
-    CANCELLED: { label: t("stockCheckList.cancelled"), variant: "destructive" },
-    EXPIRED: { label: t("stockCheckList.expired"), variant: "outline" },
-  }
 
   const statusOptions = [
     { value: "all", label: t("common.all") },
@@ -104,7 +96,7 @@ export const StockCheckListPage = () => {
     {
       header: t("common.status"),
       render: (r) => {
-        const s = statusLabel[r.status] ?? { label: r.status, variant: "secondary" as const }
+        const s = { label: t(`stockCheckList.${toKey(r.status)}`), variant: STOCK_CHECK_STATUS_VARIANT[r.status] }
         return <Badge variant={s.variant}>{s.label}</Badge>
       },
     },
@@ -114,7 +106,7 @@ export const StockCheckListPage = () => {
         <div className="min-w-[120px]">
           <span className="text-xs">{r.scopeName ?? `${r.scopeType} #${r.scopeId}`}</span>
           {(r.shelfCodes && r.shelfCodes.length > 0) && (
-            <span className="block font-mono text-[10px] text-muted-foreground">
+            <span className="block font-mono text-xs text-muted-foreground">
               {r.shelfCodes.join(", ")}
             </span>
           )}

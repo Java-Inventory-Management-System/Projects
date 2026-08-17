@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { useStockAdjustments, useMyStockAdjustments } from "@/hooks/use-stock-adjustments"
+import { toKey, ADJUSTMENT_STATUS_VARIANT } from "@/utils/labels"
 import { approveStockAdjustment, rejectStockAdjustment, cancelStockAdjustment } from "@/services/stock-adjustment-service"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -28,13 +29,6 @@ const typeColor: Record<string, "destructive" | "outline" | "default"> = {
   [ADJUSTMENT_TYPE.LOST]: "destructive",
   [ADJUSTMENT_TYPE.FOUND]: "default",
 }
-
-const getStatusLabel = (t: (k: string) => string) => ({
-  PENDING: { label: t("status.pending"), variant: "secondary" as const },
-  APPROVED: { label: t("status.approved"), variant: "default" as const },
-  REJECTED: { label: t("status.rejected"), variant: "destructive" as const },
-  CANCELLED: { label: t("status.cancelled"), variant: "outline" as const },
-})
 
 export const StockAdjustmentListPage = () => {
   const { t } = useTranslation()
@@ -111,7 +105,6 @@ export const StockAdjustmentListPage = () => {
   )
 
   const tl = getTypeLabel(t)
-  const sl = getStatusLabel(t)
 
   const columns: Column<StockAdjustment>[] = [
     {
@@ -136,7 +129,7 @@ export const StockAdjustmentListPage = () => {
     {
       header: t("table.status"),
       render: (r) => {
-        const st = sl[r.status] ?? { label: r.status, variant: "secondary" as const }
+        const st = { label: t(`status.${toKey(r.status)}`), variant: ADJUSTMENT_STATUS_VARIANT[r.status] }
         return <Badge variant={st.variant}>{st.label}</Badge>
       },
     },

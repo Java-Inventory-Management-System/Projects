@@ -11,6 +11,7 @@ import {
   getStockCheckPrintFile,
 } from "@/services/stock-check-service"
 import { useStockCheck, useStartStockCheck } from "@/hooks/use-stock-checks"
+import { toKey, STOCK_CHECK_STATUS_VARIANT } from "@/utils/labels"
 import { usePermission } from "@/hooks/use-permission"
 import { invalidateDashboard } from "@/hooks/use-reports"
 import { ROLES } from "@/utils/permissions"
@@ -63,14 +64,6 @@ import {
 export const StockCheckDetailPage = () => {
   const { t, i18n } = useTranslation()
   const { id } = useParams<{ id: string }>()
-  const statusLabel: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
-    PENDING: { label: t("status.pending"), variant: "secondary" },
-    IN_PROGRESS: { label: t("status.inProgress"), variant: "outline" },
-    COMPLETED: { label: t("status.completed"), variant: "default" },
-    APPROVED: { label: t("status.approved"), variant: "default" },
-    CANCELLED: { label: t("status.cancelled"), variant: "destructive" },
-    EXPIRED: { label: t("status.expired"), variant: "outline" },
-  }
   const navigate = useNavigate()
   const qc = useQueryClient()
   const perm = usePermission()
@@ -275,7 +268,7 @@ export const StockCheckDetailPage = () => {
     )
   }
 
-  const s = statusLabel[check.status] ?? { label: check.status, variant: "secondary" }
+  const s = { label: t(`status.${toKey(check.status)}`), variant: STOCK_CHECK_STATUS_VARIANT[check.status] }
   const canOperateStock = perm.hasRole(...ROLES.CAN_OPERATE_STOCK)
   const canEdit = canOperateStock && check.status === STOCK_CHECK_STATUS.IN_PROGRESS
   const canStart = canOperateStock && check.status === STOCK_CHECK_STATUS.PENDING
@@ -490,7 +483,7 @@ export const StockCheckDetailPage = () => {
                         <div className="flex items-center gap-3">
                           <Boxes className="size-4 text-muted-foreground shrink-0" />
                           <span className="font-mono text-xs">{g.boxCode}</span>
-                          <Badge variant="outline" className={cn("text-[10px]", done && "border-green-300 text-green-700 dark:border-green-700 dark:text-green-400")}>
+                          <Badge variant="outline" className={cn("text-xs", done && "border-green-300 text-green-700 dark:border-green-700 dark:text-green-400")}>
                             {done && <CheckCircle2 className="size-3 mr-0.5 inline" />}
                             {t("stockCheckDetail.checkedInBox", { checked: g.checked, total: g.items.length })}
                           </Badge>
@@ -609,7 +602,7 @@ function SummaryCell({ label, value, className }: { label: string; value: number
   return (
     <div className="rounded-lg border bg-muted/20 px-2 py-2">
       <p className={cn("text-lg font-semibold leading-none", className)}>{value}</p>
-      <p className="mt-1 text-[10px] leading-tight text-muted-foreground">{label}</p>
+      <p className="mt-1 text-xs leading-tight text-muted-foreground">{label}</p>
     </div>
   )
 }

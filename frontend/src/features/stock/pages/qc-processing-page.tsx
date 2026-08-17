@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { disposeConfirmUnits, getQcUnits, qcPassUnits } from "@/services/qc-processing-service"
 import { getSuppliers } from "@/services/supplier-service"
 import { invalidateDashboard } from "@/hooks/use-reports"
+import { unitStatusInfo } from "@/utils/labels"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
@@ -149,16 +150,8 @@ export const QcProcessingPage = () => {
   )
 
   const statusBadge = (status: ProductUnitStatus) => {
-    const map: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
-      RETURN_QC_HOLD: { label: t("unitStatus.returnQcHold"), variant: "outline" },
-      RMA_REPAIRED_RETURNED: { label: t("unitStatus.rmaRepairedReturned"), variant: "secondary" },
-      PENDING_DISPOSAL: { label: t("unitStatus.pendingDisposal"), variant: "destructive" },
-      RMA_UNREPAIRABLE: { label: t("unitStatus.rmaUnrepairable"), variant: "destructive" },
-      WAITING_RMA_EXPORT: { label: t("unitStatus.waitingRmaExport"), variant: "secondary" },
-      SENT_TO_MANUFACTURER: { label: t("unitStatus.sentToManufacturer"), variant: "secondary" },
-    }
-    const s = map[status] ?? { label: status, variant: "outline" as const }
-    return <Badge variant={s.variant}>{s.label}</Badge>
+    const s = unitStatusInfo(status)
+    return <Badge variant={s.variant}>{t(s.labelKey)}</Badge>
   }
 
   const disposeReturnTarget = (unit: QcUnit) =>

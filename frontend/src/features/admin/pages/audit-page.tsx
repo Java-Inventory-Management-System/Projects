@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query"
 import { searchAuditLogs } from "@/services/audit-service"
 import type { AuditLog } from "@/utils/types"
 import { AUDIT_STATUS, AUDIT_ACTION } from "@/utils/types"
+import { AUDIT_STATUS_VARIANT } from "@/utils/labels"
 import { computeDiffRows } from "@/utils/audit-diff"
 import { useUsers } from "@/hooks/use-users"
 import { localDayStartUtc, localDayEndUtc } from "@/utils/format"
@@ -22,22 +23,17 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { cn } from "@/utils/cn"
 import { DatePicker } from "@/components/ui/date-picker"
 
-const statusBadgeConfig: Record<string, { labelKey: string; variant: "default" | "destructive" | "secondary" }> = {
-  [AUDIT_STATUS.SUCCESS]: { labelKey: "auditPage.statusSuccess", variant: "default" },
-  [AUDIT_STATUS.FAILED]: { labelKey: "auditPage.statusFailed", variant: "destructive" },
-}
-
 function fmt(d: string) {
   return new Date(d).toLocaleString("vi-VN")
 }
 
 function LogSummary({ log }: { log: AuditLog }) {
   const { t } = useTranslation()
-  const st = statusBadgeConfig[log.status] ?? { labelKey: undefined, variant: "secondary" as const }
+  const st = { labelKey: `auditPage.status${log.status.charAt(0) + log.status.slice(1).toLowerCase()}`, variant: AUDIT_STATUS_VARIANT[log.status] }
   return (
     <div className="space-y-1.5">
       <div className="flex items-center gap-2 rounded-md bg-muted p-3">
-        <Badge variant={st.variant} className="text-[10px] shrink-0">
+        <Badge variant={st.variant} className="text-xs shrink-0">
           {st.labelKey ? t(st.labelKey) : log.status}
         </Badge>
         <span className="text-sm font-semibold">{log.message || "—"}</span>
@@ -191,8 +187,8 @@ export const AuditPage = () => {
   if (actionFilter !== "all") activeChips.push({ key: "action", label: `${t('auditPage.filterAction')}: ${actionFilter}`, onRemove: () => updateParams({ action: undefined }) })
   if (entityFilter) activeChips.push({ key: "entity", label: `${t('auditPage.filterEntity')}: ${entityFilter}`, onRemove: () => updateParams({ entity: undefined }) })
   if (statusFilter !== "all") {
-    const st = statusBadgeConfig[statusFilter]
-    activeChips.push({ key: "status", label: `${t('auditPage.filterStatus')}: ${st ? t(st.labelKey) : statusFilter}`, onRemove: () => updateParams({ status: undefined }) })
+    const st = { labelKey: `auditPage.status${statusFilter.charAt(0) + statusFilter.slice(1).toLowerCase()}`, variant: AUDIT_STATUS_VARIANT[statusFilter] }
+    activeChips.push({ key: "status", label: `${t('auditPage.filterStatus')}: ${t(st.labelKey)}`, onRemove: () => updateParams({ status: undefined }) })
   }
   if (fromDate) activeChips.push({ key: "from", label: `${t('auditPage.filterFrom')}: ${fromDate}`, onRemove: () => updateParams({ from: undefined }) })
   if (toDate) activeChips.push({ key: "to", label: `${t('auditPage.filterTo')}: ${toDate}`, onRemove: () => updateParams({ to: undefined }) })
@@ -224,10 +220,10 @@ export const AuditPage = () => {
     {
       header: t('auditPage.colStatus'),
       render: (log) => {
-        const st = statusBadgeConfig[log.status] ?? { labelKey: undefined, variant: "secondary" as const }
+        const st = { labelKey: `auditPage.status${log.status.charAt(0) + log.status.slice(1).toLowerCase()}`, variant: AUDIT_STATUS_VARIANT[log.status] }
         return (
-          <Badge variant={st.variant} className="text-[10px]">
-            {st.labelKey ? t(st.labelKey) : log.status}
+          <Badge variant={st.variant} className="text-xs">
+            {t(st.labelKey)}
           </Badge>
         )
       },

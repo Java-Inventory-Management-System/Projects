@@ -894,6 +894,8 @@
     "rmaRepairedReturned": "NSX trả về",
     "rmaUnrepairable": "Không sửa được",
     "rejectedReturn": "Từ chối trả",
+    "pendingQc": "Chờ QC",
+    "exported": "Đã xuất",
     "pendingDisposal": "Chờ hủy"
   },
   "qcPage": {

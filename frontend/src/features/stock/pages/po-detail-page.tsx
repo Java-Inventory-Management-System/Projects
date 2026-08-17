@@ -2,6 +2,7 @@ import { useState } from "react"
 import { useParams, useNavigate } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { usePurchaseOrderById, usePurchaseOrderReceipts, useCancelPurchaseOrder, useOpenPurchaseOrder } from "@/hooks/use-purchase-orders"
+import { toKey, PO_STATUS_VARIANT, IMPORT_STATUS_VARIANT } from "@/utils/labels"
 import { usePermission } from "@/hooks/use-permission"
 import { ROLES } from "@/utils/permissions"
 import { Button } from "@/components/ui/button"
@@ -38,14 +39,6 @@ export function PODetailPage() {
   const openMut = useOpenPurchaseOrder()
   const [asnCode, setAsnCode] = useState("")
 
-  const statusConfig: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
-    DRAFT: { label: t("poStatus.draft"), variant: "secondary" },
-    OPEN: { label: t("poStatus.open"), variant: "default" },
-    PARTIAL: { label: t("poStatus.partial"), variant: "default" },
-    COMPLETED: { label: t("poStatus.completed"), variant: "default" },
-    CANCELLED: { label: t("poStatus.cancelled"), variant: "destructive" },
-  }
-
   if (isLoading)
     return (
       <div className="space-y-4">
@@ -55,16 +48,10 @@ export function PODetailPage() {
     )
   if (!po) return <p className="text-sm text-muted-foreground">{t("poDetail.notFound")}</p>
 
-  const s = statusConfig[po.status] ?? { label: po.status, variant: "secondary" }
+  const s = { label: t(`poStatus.${toKey(po.status)}`), variant: PO_STATUS_VARIANT[po.status] }
   const isManager = perm.hasRole(...ROLES.MANAGER)
   const isStock = perm.hasRole("STOCK")
   const rejectedReceipts = receipts?.filter((r) => r.status === "REJECTED") ?? []
-  const receiptStatusConfig: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
-    DRAFT: { label: t("importStatus.draft"), variant: "secondary" },
-    RECEIVED: { label: t("importStatus.received"), variant: "default" },
-    REJECTED: { label: t("importStatus.rejected"), variant: "destructive" },
-    CANCELLED: { label: t("importStatus.cancelled"), variant: "outline" },
-  }
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
@@ -89,7 +76,7 @@ export function PODetailPage() {
           {(po.status === PURCHASE_ORDER_STATUS.DRAFT || po.status === PURCHASE_ORDER_STATUS.OPEN) &&
             !po.locked &&
             isManager && (
-              <Button variant="outline" onClick={() => navigate(`/stock/purchase-orders/${po.id}/edit`)}>
+              <Button variant="outline" onClick={() => navigate(`/stock/imports/purchase-orders/${po.id}/edit`)}>
                 <Pencil className="size-4 mr-1" /> {t("poDetail.edit")}
               </Button>
             )}
@@ -293,7 +280,7 @@ export function PODetailPage() {
               </TableHeader>
               <TableBody>
                 {receipts.map((r) => {
-                  const rs = receiptStatusConfig[r.status] ?? { label: r.status, variant: "secondary" }
+                  const rs = { label: t(`importStatus.${toKey(r.status)}`), variant: IMPORT_STATUS_VARIANT[r.status] }
                   return (
                     <TableRow key={r.id}>
                       <TableCell>

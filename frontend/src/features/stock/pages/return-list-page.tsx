@@ -2,6 +2,7 @@ import { useState, useCallback } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { useReturnReceipts } from "@/hooks/use-returns"
+import { toKey, RETURN_STATUS_VARIANT } from "@/utils/labels"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
@@ -71,12 +72,6 @@ export const ReturnListPage = () => {
     WARRANTY_CLAIM: t("returnReason.warrantyClaim"),
   }
 
-  const statusLabel: Record<string, { label: string; variant: "default" | "secondary" | "destructive" }> = {
-    PENDING_APPROVAL: { label: t("returnStatus.pendingApproval"), variant: "secondary" },
-    COMPLETED: { label: t("returnStatus.completed"), variant: "default" },
-    CANCELLED: { label: t("returnStatus.cancelled"), variant: "destructive" },
-  }
-
   const columns: Column<ReturnReceipt>[] = [
     {
       header: t("table.checkCode"),
@@ -92,7 +87,7 @@ export const ReturnListPage = () => {
     {
       header: t("table.status"),
       render: (r) => {
-        const st = statusLabel[r.status] ?? { label: r.status, variant: "secondary" as const }
+        const st = { label: t(`returnStatus.${toKey(r.status)}`), variant: RETURN_STATUS_VARIANT[r.status] }
         return <Badge variant={st.variant}>{st.label}</Badge>
       },
     },

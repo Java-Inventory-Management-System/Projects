@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query"
 import { useTranslation } from "react-i18next"
 import { getProductUnitById } from "@/services/product-unit-service"
 import { PRODUCT_UNIT_STATUS, TRACKING_TYPE } from "@/utils/types"
+import { unitStatusInfo } from "@/utils/labels"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -22,26 +23,6 @@ function fmt(d: string | null) {
 function fmtFull(d: string | null) {
   if (!d) return "-"
   return new Date(d).toLocaleString("vi-VN")
-}
-
-const statusLabel: Record<string, { labelKey: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
-  [PRODUCT_UNIT_STATUS.IN_STOCK]: { labelKey: "unitStatus.inStock", variant: "default" },
-  [PRODUCT_UNIT_STATUS.SOLD]: { labelKey: "unitStatus.sold", variant: "secondary" },
-  [PRODUCT_UNIT_STATUS.DEFECTIVE]: { labelKey: "unitStatus.defective", variant: "destructive" },
-  [PRODUCT_UNIT_STATUS.DAMAGED_IN_STORAGE]: { labelKey: "unitStatus.damagedInStorage", variant: "destructive" },
-  [PRODUCT_UNIT_STATUS.LOST]: { labelKey: "unitStatus.lost", variant: "destructive" },
-  [PRODUCT_UNIT_STATUS.UNDER_REPAIR]: { labelKey: "unitStatus.underRepair", variant: "outline" },
-  [PRODUCT_UNIT_STATUS.SENT_TO_MANUFACTURER]: { labelKey: "unitStatus.sentToManufacturer", variant: "outline" },
-  [PRODUCT_UNIT_STATUS.RETURNED]: { labelKey: "unitStatus.returned", variant: "secondary" },
-  [PRODUCT_UNIT_STATUS.RETURNED_TO_SUPPLIER]: { labelKey: "unitStatus.returnedToSupplier", variant: "secondary" },
-  [PRODUCT_UNIT_STATUS.REMOVED]: { labelKey: "unitStatus.removed", variant: "outline" },
-  [PRODUCT_UNIT_STATUS.DISPOSED]: { labelKey: "unitStatus.disposed", variant: "destructive" },
-  [PRODUCT_UNIT_STATUS.RETURN_QC_HOLD]: { labelKey: "unitStatus.returnQcHold", variant: "outline" },
-  [PRODUCT_UNIT_STATUS.WAITING_RMA_EXPORT]: { labelKey: "unitStatus.waitingRmaExport", variant: "outline" },
-  [PRODUCT_UNIT_STATUS.RMA_REPAIRED_RETURNED]: { labelKey: "unitStatus.rmaRepairedReturned", variant: "secondary" },
-  [PRODUCT_UNIT_STATUS.RMA_UNREPAIRABLE]: { labelKey: "unitStatus.rmaUnrepairable", variant: "destructive" },
-  [PRODUCT_UNIT_STATUS.REJECTED_RETURN]: { labelKey: "unitStatus.rejectedReturn", variant: "secondary" },
-  [PRODUCT_UNIT_STATUS.PENDING_DISPOSAL]: { labelKey: "unitStatus.pendingDisposal", variant: "destructive" },
 }
 
 export function ProductUnitDetailPage() {
@@ -76,7 +57,7 @@ export function ProductUnitDetailPage() {
       </Empty>
     )
 
-  const s = statusLabel[unit.status] ?? { labelKey: null as string | null, variant: "secondary" as const }
+  const s = unitStatusInfo(unit.status)
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
@@ -95,7 +76,7 @@ export function ProductUnitDetailPage() {
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-3">
           <h1 className="text-xl font-semibold tracking-tight font-mono">{unit.serialNumber || unit.productSku}</h1>
-          <Badge variant={s.variant}>{s.labelKey ? t(s.labelKey) : unit.status}</Badge>
+          <Badge variant={s.variant}>{t(s.labelKey)}</Badge>
         </div>
       </div>
 

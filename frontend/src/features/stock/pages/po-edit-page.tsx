@@ -63,7 +63,7 @@ export function POEditPage() {
     return (
       <div className="mx-auto max-w-4xl space-y-4">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" onClick={() => navigate(`/stock/purchase-orders/${po.id}`)}>
+          <Button variant="ghost" size="sm" onClick={() => navigate(`/stock/imports/purchase-orders/${po.id}`)}>
             &larr; {t("common.back")}
           </Button>
           <h1 className="text-xl font-semibold tracking-tight">{po.poCode}</h1>
@@ -95,7 +95,7 @@ export function POEditPage() {
         onSuccess: () => {
           navigatingAfterMut.current = true
           toast.success(t("poEdit.saveSuccess"))
-          navigate(`/stock/purchase-orders/${po.id}`)
+          navigate(`/stock/imports/purchase-orders/${po.id}`)
         },
         onError: (e: Error) => {
           toast.error(e.message || t("poEdit.saveError"))
@@ -107,7 +107,7 @@ export function POEditPage() {
   return (
     <div className="mx-auto max-w-4xl space-y-4">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="sm" onClick={() => navigate(`/stock/purchase-orders/${po.id}`)}>
+        <Button variant="ghost" size="sm" onClick={() => navigate(`/stock/imports/purchase-orders/${po.id}`)}>
           &larr; {t("common.back")}
         </Button>
         <h1 className="text-xl font-semibold tracking-tight">
@@ -173,7 +173,7 @@ export function POEditPage() {
       </div>
 
       <div className="flex gap-2 justify-end">
-        <Button variant="outline" onClick={() => navigate(`/stock/purchase-orders/${po.id}`)}>
+        <Button variant="outline" onClick={() => navigate(`/stock/imports/purchase-orders/${po.id}`)}>
           {t("common.cancel")}
         </Button>
         <Button onClick={onSubmit} disabled={updateMut.isPending}>

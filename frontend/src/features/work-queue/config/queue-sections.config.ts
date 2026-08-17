@@ -20,7 +20,7 @@ export type QueueUrgency = "high" | "normal"
 
 export interface QueueItemStatus {
   key: string
-  variant: "default" | "secondary" | "destructive" | "outline"
+  variant: "default" | "secondary" | "destructive" | "outline" | "success" | "warning" | "info"
 }
 
 export interface QueueItem {
@@ -83,7 +83,7 @@ export const QUEUE_SECTIONS: QueueSectionDef[] = [
       const r = await getExportReceipts(0, 3, "createdAt,desc", EXPORT_RECEIPT_STATUS.PENDING)
       return {
         count: r.pagination.totalElements,
-        items: r.content.map((x) => item(x.id, x.receiptCode, x.customerName ?? x.createdByName ?? "—", `/stock/exports/${x.id}`, x.createdAt, { key: "pendingApproval", variant: "secondary" })),
+        items: r.content.map((x) => item(x.id, x.receiptCode, x.customerName ?? x.createdByName ?? "—", `/stock/exports/${x.id}`, x.createdAt, { key: "pendingApproval", variant: "warning" })),
       }
     },
   },
@@ -98,7 +98,7 @@ export const QUEUE_SECTIONS: QueueSectionDef[] = [
       const units = await getQcUnits([])
       return {
         count: units.length,
-        items: units.map((u) => item(u.id, u.serialNumber ?? u.exportReceiptCode ?? "—", u.productName, "/returns-qc/qc", undefined, { key: "pendingQc", variant: "secondary" })),
+        items: units.map((u) => item(u.id, u.serialNumber ?? u.exportReceiptCode ?? "—", u.productName, "/returns-qc/qc", undefined, { key: "pendingQc", variant: "warning" })),
       }
     },
   },
@@ -132,7 +132,7 @@ export const QUEUE_SECTIONS: QueueSectionDef[] = [
       const merged = [...pending.content, ...inProgress.content].slice(0, 3)
       return {
         count: pending.pagination.totalElements + inProgress.pagination.totalElements,
-        items: merged.map((x) => item(x.id, x.checkCode, x.scopeName ?? x.createdByName ?? "—", `/stock/ops/checks/${x.id}`, x.createdAt, { key: "inProgress", variant: "secondary" })),
+        items: merged.map((x) => item(x.id, x.checkCode, x.scopeName ?? x.createdByName ?? "—", `/stock/ops/checks/${x.id}`, x.createdAt, { key: "inProgress", variant: "warning" })),
       }
     },
   },
@@ -162,7 +162,7 @@ export const QUEUE_SECTIONS: QueueSectionDef[] = [
       const r = await getExportReceipts(0, 3, "createdAt,desc", EXPORT_RECEIPT_STATUS.PENDING, undefined, userId)
       return {
         count: r.pagination.totalElements,
-        items: r.content.map((x) => item(x.id, x.receiptCode, x.customerName ?? "—", `/stock/exports/${x.id}`, x.createdAt, { key: "pendingApproval", variant: "secondary" })),
+        items: r.content.map((x) => item(x.id, x.receiptCode, x.customerName ?? "—", `/stock/exports/${x.id}`, x.createdAt, { key: "pendingApproval", variant: "warning" })),
       }
     },
   },
@@ -177,7 +177,7 @@ export const QUEUE_SECTIONS: QueueSectionDef[] = [
       const r = await getReturnReceipts(0, 3, RETURN_RECEIPT_STATUS.PENDING_APPROVAL, undefined, undefined, userId)
       return {
         count: r.pagination.totalElements,
-        items: r.content.map((x) => item(x.id, x.receiptCode, x.customerName ?? x.createdByName ?? "—", `/returns-qc/returns/${x.id}`, x.createdAt, { key: "pendingApproval", variant: "secondary" })),
+        items: r.content.map((x) => item(x.id, x.receiptCode, x.customerName ?? x.createdByName ?? "—", `/returns-qc/returns/${x.id}`, x.createdAt, { key: "pendingApproval", variant: "warning" })),
       }
     },
   },
@@ -192,7 +192,7 @@ export const QUEUE_SECTIONS: QueueSectionDef[] = [
       const r = await getReturnReceipts(0, 3, RETURN_RECEIPT_STATUS.PENDING_APPROVAL)
       return {
         count: r.pagination.totalElements,
-        items: r.content.map((x) => item(x.id, x.receiptCode, x.customerName ?? x.createdByName ?? "—", `/returns-qc/returns/${x.id}`, x.createdAt, { key: "pendingApproval", variant: "secondary" })),
+        items: r.content.map((x) => item(x.id, x.receiptCode, x.customerName ?? x.createdByName ?? "—", `/returns-qc/returns/${x.id}`, x.createdAt, { key: "pendingApproval", variant: "warning" })),
       }
     },
   },
@@ -207,7 +207,7 @@ export const QUEUE_SECTIONS: QueueSectionDef[] = [
       const r = await getStockAdjustments(0, 3, "createdAt,desc", undefined, ADJUSTMENT_STATUS.PENDING)
       return {
         count: r.pagination.totalElements,
-        items: r.content.map((x) => item(x.id, x.adjustCode, x.productName ?? x.serialNumber ?? "—", `/stock/ops/adjustments/${x.id}`, x.createdAt, { key: "pendingApproval", variant: "secondary" })),
+        items: r.content.map((x) => item(x.id, x.adjustCode, x.productName ?? x.serialNumber ?? "—", `/stock/ops/adjustments/${x.id}`, x.createdAt, { key: "pendingApproval", variant: "warning" })),
       }
     },
   },
@@ -222,7 +222,7 @@ export const QUEUE_SECTIONS: QueueSectionDef[] = [
       const r = await getPriceAdjustments(0, 3, "createdAt,desc", ADJUSTMENT_STATUS.PENDING)
       return {
         count: r.pagination.totalElements,
-        items: r.content.map((x) => item(x.id, x.adjustCode, x.productName ?? "—", `/stock/ops/price-adjustments/${x.id}`, x.createdAt, { key: "pendingApproval", variant: "secondary" })),
+        items: r.content.map((x) => item(x.id, x.adjustCode, x.productName ?? "—", `/stock/ops/price-adjustments/${x.id}`, x.createdAt, { key: "pendingApproval", variant: "warning" })),
       }
     },
   },
@@ -237,7 +237,7 @@ export const QUEUE_SECTIONS: QueueSectionDef[] = [
       const r = await getStockChecks(0, 3, "createdAt,desc", STOCK_CHECK_STATUS.COMPLETED)
       return {
         count: r.pagination.totalElements,
-        items: r.content.map((x) => item(x.id, x.checkCode, x.scopeName ?? x.createdByName ?? "—", `/stock/ops/checks/${x.id}`, x.createdAt, { key: "completed", variant: "secondary" })),
+        items: r.content.map((x) => item(x.id, x.checkCode, x.scopeName ?? x.createdByName ?? "—", `/stock/ops/checks/${x.id}`, x.createdAt, { key: "completed", variant: "success" })),
       }
     },
   },

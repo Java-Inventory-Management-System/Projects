@@ -517,7 +517,7 @@ export const ImportCreatePage = () => {
                         <span className="block">
                           <span className="flex items-center gap-2">
                             <span className="font-medium">{e.receiptCode}</span>
-                            <span className="text-[10px] uppercase text-muted-foreground">
+                            <span className="text-xs uppercase text-muted-foreground">
                               {e.reason === EXPORT_REASON.RETURN_SUPPLIER
                                 ? t("importWarranty.badgeReturnSupplier")
                                 : t("importWarranty.badgeWarranty")}

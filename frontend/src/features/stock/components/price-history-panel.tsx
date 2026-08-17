@@ -72,11 +72,11 @@ export function PriceHistoryPanel({ productId, productName }: { productId: numbe
                         {(adj.oldPrice ?? 0).toLocaleString("vi-VN")}₫ → {(adj.newPrice ?? 0).toLocaleString("vi-VN")}₫
                       </span>
                       {isCurrent ? (
-                        <Badge className="text-[10px]">{t("priceHistory.current")}</Badge>
+                        <Badge className="text-xs">{t("priceHistory.current")}</Badge>
                       ) : adj.status === "APPROVED" ? (
-                        <Badge variant="secondary" className="text-[10px]">{t("priceHistory.approved")}</Badge>
+                        <Badge variant="secondary" className="text-xs">{t("priceHistory.approved")}</Badge>
                       ) : (
-                        <Badge variant="outline" className="text-[10px]">{t("priceHistory.pending")}</Badge>
+                        <Badge variant="outline" className="text-xs">{t("priceHistory.pending")}</Badge>
                       )}
                     </div>
                     {adj.status === "APPROVED" && (

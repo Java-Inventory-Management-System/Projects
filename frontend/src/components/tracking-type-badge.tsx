@@ -4,17 +4,10 @@ import { TRACKING_TYPE } from "@/utils/types"
 
 export function TrackingTypeBadge({ type }: { type?: string | null }) {
   const { t } = useTranslation()
-  if (type === TRACKING_TYPE.SERIALIZED) {
+  if (type === TRACKING_TYPE.SERIALIZED || type === TRACKING_TYPE.BULK) {
     return (
-      <Badge variant="outline" className="shrink-0 border-blue-300 bg-blue-50 px-1.5 py-0 text-[10px] font-medium text-blue-600 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-400">
-        {t("trackingType.serialized")}
-      </Badge>
-    )
-  }
-  if (type === TRACKING_TYPE.BULK) {
-    return (
-      <Badge variant="outline" className="shrink-0 border-amber-300 bg-amber-50 px-1.5 py-0 text-[10px] font-medium text-amber-600 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-400">
-        {t("trackingType.bulk")}
+      <Badge variant="outline" className="shrink-0 px-1.5 py-0 text-xs font-medium text-muted-foreground">
+        {type === TRACKING_TYPE.SERIALIZED ? t("trackingType.serialized") : t("trackingType.bulk")}
       </Badge>
     )
   }

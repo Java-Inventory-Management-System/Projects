@@ -8,6 +8,7 @@ import { PrintReceiptButton } from "../components/print-receipt"
 import { LocationPicker } from "../components/location-picker"
 import { LocationCodePopover } from "../components/location-code-popover"
 import { BOX_STATUS, TRACKING_TYPE, type Box } from "@/utils/types"
+import { toKey, BOX_STATUS_VARIANT } from "@/utils/labels"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
@@ -98,8 +99,8 @@ export const BoxTab = () => {
     {
       header: <BoxHeader i18nKey="box.status" />,
       render: (b) => (
-        <Badge variant={b.status === BOX_STATUS.SEALED ? "default" : "secondary"}>
-          {b.status === BOX_STATUS.SEALED ? t("box.sealed") : t("box.unsealed")}
+        <Badge variant={BOX_STATUS_VARIANT[b.status]}>
+          {t(`box.${toKey(b.status)}`)}
         </Badge>
       ),
     },

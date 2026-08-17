@@ -80,7 +80,7 @@ export function StockOverviewTab() {
                     <p className="truncate font-medium">{item.productName}</p>
                     <p className="text-muted-foreground truncate">{item.productSku}</p>
                   </div>
-                  <span className="text-[10px] shrink-0 ml-2 font-mono tabular-nums text-destructive">
+                  <span className="text-xs shrink-0 ml-2 font-mono tabular-nums text-destructive">
                     {item.quantity}/{item.minStock}
                   </span>
                 </div>
@@ -101,13 +101,13 @@ export function StockOverviewTab() {
               {recentImports.map((receipt) => (
                 <div key={receipt.id} className="text-[11px] py-0.5">
                   <div className="flex items-center justify-between">
-                    <span className="font-mono text-[10px] text-muted-foreground">{receipt.receiptCode}</span>
-                    <span className="text-[10px] text-muted-foreground">
+                    <span className="font-mono text-xs text-muted-foreground">{receipt.receiptCode}</span>
+                    <span className="text-xs text-muted-foreground">
                       {new Date(receipt.createdAt).toLocaleDateString("vi-VN")}
                     </span>
                   </div>
                   <p className="truncate text-muted-foreground">{receipt.supplierName}</p>
-                  <p className="text-[10px] text-muted-foreground">
+                  <p className="text-xs text-muted-foreground">
                     {t("overview.items", { count: receipt.items.length })} &middot;{" "}
                     {t("overview.qty", { count: receipt.items.reduce((s: number, i) => s + i.quantity, 0) })}
                   </p>
@@ -129,15 +129,15 @@ export function StockOverviewTab() {
               {recentExports.map((receipt) => (
                 <div key={receipt.id} className="text-[11px] py-0.5">
                   <div className="flex items-center justify-between">
-                    <span className="font-mono text-[10px] text-muted-foreground">{receipt.receiptCode}</span>
-                    <span className="text-[10px] text-muted-foreground">
+                    <span className="font-mono text-xs text-muted-foreground">{receipt.receiptCode}</span>
+                    <span className="text-xs text-muted-foreground">
                       {new Date(receipt.createdAt).toLocaleDateString("vi-VN")}
                     </span>
                   </div>
                   <p className="truncate text-muted-foreground">
                     {receipt.customerName ?? exportReasonLabel[receipt.reason] ?? receipt.reason}
                   </p>
-                  <p className="text-[10px] text-muted-foreground">
+                  <p className="text-xs text-muted-foreground">
                     {t("overview.items", { count: receipt.items.length })} &middot;{" "}
                     {t("overview.qty", { count: receipt.items.reduce((s: number, i) => s + i.quantity, 0) })}
                   </p>

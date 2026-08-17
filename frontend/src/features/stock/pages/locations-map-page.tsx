@@ -32,10 +32,11 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog"
 import type { FilterMode } from "@/features/stock/utils/location-map-utils"
-import { LEVELS, FILTERS, binColor } from "@/features/stock/utils/location-map-utils"
+import { LEVELS, FILTERS, binColor, capacityBarColor } from "@/features/stock/utils/location-map-utils"
 import type { LocationMapBinProduct } from "@/utils/types"
 import { TRACKING_TYPE } from "@/utils/types"
 import { TrackingTypeBadge } from "@/components/tracking-type-badge"
+import { BoxCountChip } from "../components/box-count-chip"
 import { useLocationMapPage } from "@/features/stock/hooks/use-location-map-page"
 import { toast } from "@/utils/toast"
 import { usePermission } from "@/hooks/use-permission"
@@ -262,10 +263,10 @@ export function LocationsMapPage() {
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-muted-foreground">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
         {LEVELS.map((c, i) => (
           <span key={i} className="inline-flex items-center gap-1.5 whitespace-nowrap">
-            <span className={`inline-block size-3 rounded-sm ${c.bg} ${c.border} border`} />
+            <span className={`inline-block size-4 rounded-sm ${c.bg} ${c.border}`} />
             {t(`locMap.level${c.key.charAt(0).toUpperCase() + c.key.slice(1)}`)}
           </span>
         ))}
@@ -281,7 +282,7 @@ export function LocationsMapPage() {
               <h2 className="text-sm font-semibold">
                 {t("locMap.zoomedHeader", { zone: zoomedShelf.zoneCode, shelf: zoomedShelf.shelfCode })}
               </h2>
-              <span className="text-[10px] text-muted-foreground tabular-nums">
+              <span className="text-xs text-muted-foreground tabular-nums">
                 {t("locMap.binCount", { count: zoomedShelfData.bins.length })}
               </span>
             </div>
@@ -312,23 +313,24 @@ export function LocationsMapPage() {
                                 id={"bin-" + bin.id}
                                 onClick={() => { if (dragSource) handleDrop(detail); else openDetail(detail) }}
                                 className={
-                                  "flex flex-col items-center justify-center rounded-lg border transition-all hover:shadow-md hover:ring-1 hover:ring-ring " +
+                                  "flex flex-col items-center justify-center rounded-lg transition-all hover:shadow-md hover:ring-1 hover:ring-ring " +
                                   color.bg + " " + color.border +
                                   (active ? "" : " opacity-40 saturate-0 ring-1 ring-destructive/40 border-destructive/60") +
                                   (isDragSource ? " ring-2 ring-primary opacity-60" : "") +
-                                  (highlightBinId === bin.id ? " ring-2 ring-amber-400" : "") +
+                                  (highlightBinId === bin.id ? " ring-2 ring-blue-400" : "") +
                                   (dropDisabled ? " cursor-not-allowed opacity-40" : "")
                                 }
                               style={{ minWidth: "5.5rem", minHeight: "4rem" }}
                             >
                               <span className="text-sm font-mono font-semibold leading-tight">{bin.binCode}
                           {bin.boxCount > 0 && (
-                            <span className="ml-1 rounded-sm bg-amber-100 px-1 text-[8px] font-semibold leading-3 align-middle text-amber-700 dark:bg-amber-900/60 dark:text-amber-300" title={bin.boxCodes.join(", ")}>
-                              {bin.boxCount}
-                            </span>
+                            <BoxCountChip count={bin.boxCount} codes={bin.boxCodes} />
                           )}
                         </span>
-                              <span className={"text-sm leading-tight " + color.text}>{bin.productCount}{bin.maxCapacity != null ? ` (${Math.round((bin.productCount / bin.maxCapacity) * 100)}%)` : ""}</span>
+                              <span className={"text-sm leading-tight " + color.text}>{bin.productCount}</span>
+{bin.maxCapacity != null && (
+  <span className={"text-xs leading-tight " + color.text}>{Math.round((bin.productCount / bin.maxCapacity) * 100)}%</span>
+)}
                             </button>
                           </TooltipTrigger>
                           <TooltipContent side="top" className="text-[11px]">
@@ -422,21 +424,22 @@ export function LocationsMapPage() {
                             id={"bin-" + bin.id}
                             onClick={() => openDetail(detail)}
                             className={
-                              "flex flex-col items-center justify-center rounded-lg border transition-all hover:shadow-md hover:ring-1 hover:ring-ring cursor-pointer " +
+                              "flex flex-col items-center justify-center rounded-lg transition-all hover:shadow-md hover:ring-1 hover:ring-ring cursor-pointer " +
                               color.bg + " " + color.border +
                               (active ? "" : " opacity-40 saturate-0 ring-1 ring-destructive/40 border-destructive/60") +
-                              (highlightBinId === bin.id ? " ring-2 ring-amber-400" : "")
+                              (highlightBinId === bin.id ? " ring-2 ring-blue-400" : "")
                             }
                             style={{ minWidth: "5.5rem", minHeight: "4rem" }}
                           >
                             <span className="text-sm font-mono font-semibold leading-tight">{bin.binCode}
                           {bin.boxCount > 0 && (
-                            <span className="ml-1 rounded-sm bg-amber-100 px-1 text-[8px] font-semibold leading-3 align-middle text-amber-700 dark:bg-amber-900/60 dark:text-amber-300" title={bin.boxCodes.join(", ")}>
-                              {bin.boxCount}
-                            </span>
+                            <BoxCountChip count={bin.boxCount} codes={bin.boxCodes} />
                           )}
                         </span>
-                            <span className={"text-sm leading-tight " + color.text}>{bin.productCount}{bin.maxCapacity != null ? ` (${Math.round((bin.productCount / bin.maxCapacity) * 100)}%)` : ""}</span>
+                            <span className={"text-sm leading-tight " + color.text}>{bin.productCount}</span>
+{bin.maxCapacity != null && (
+  <span className={"text-xs leading-tight " + color.text}>{Math.round((bin.productCount / bin.maxCapacity) * 100)}%</span>
+)}
                           </button>
                         </TooltipTrigger>
                         <TooltipContent side="top" className="text-[11px]">
@@ -532,23 +535,24 @@ export function LocationsMapPage() {
                                       id={"bin-" + bin.id}
                                       onClick={() => { if (dragSource) handleDrop(detail); else openDetail(detail) }}
                                       className={
-                                        "flex flex-col items-center justify-center rounded-lg border transition-all hover:shadow-sm hover:ring-1 hover:ring-ring " +
+                                        "flex flex-col items-center justify-center rounded-lg transition-all hover:shadow-sm hover:ring-1 hover:ring-ring " +
                                         color.bg + " " + color.border +
                                         (active ? "" : " opacity-40 saturate-0 ring-1 ring-destructive/40 border-destructive/60") +
                                         (isDragSource ? " ring-2 ring-primary opacity-60" : "") +
-                                        (highlightBinId === bin.id ? " ring-2 ring-amber-400" : "") +
+                                        (highlightBinId === bin.id ? " ring-2 ring-blue-400" : "") +
                                         (dropDisabled ? " cursor-not-allowed opacity-40" : "")
                                       }
                                       style={{ minWidth: "6rem", minHeight: "4.5rem" }}
                                     >
                                       <span className="text-sm font-mono font-semibold leading-tight">{bin.binCode}
                           {bin.boxCount > 0 && (
-                            <span className="ml-1 rounded-sm bg-amber-100 px-1 text-[8px] font-semibold leading-3 align-middle text-amber-700 dark:bg-amber-900/60 dark:text-amber-300" title={bin.boxCodes.join(", ")}>
-                              {bin.boxCount}
-                            </span>
+                            <BoxCountChip count={bin.boxCount} codes={bin.boxCodes} />
                           )}
                         </span>
-                                      <span className={"text-sm leading-tight " + color.text}>{bin.productCount}{bin.maxCapacity != null ? ` (${Math.round((bin.productCount / bin.maxCapacity) * 100)}%)` : ""}</span>
+                                      <span className={"text-sm leading-tight " + color.text}>{bin.productCount}</span>
+{bin.maxCapacity != null && (
+  <span className={"text-xs leading-tight " + color.text}>{Math.round((bin.productCount / bin.maxCapacity) * 100)}%</span>
+)}
                                     </button>
                                   </TooltipTrigger>
                                   <TooltipContent side="top" className="text-[11px]">
@@ -685,21 +689,22 @@ export function LocationsMapPage() {
                                     id={"bin-" + bin.id}
                                     onClick={() => openDetail(detail)}
                                     className={
-                                      "flex flex-col items-center justify-center rounded-lg border transition-all hover:shadow-sm hover:ring-1 hover:ring-ring " +
+                                      "flex flex-col items-center justify-center rounded-lg transition-all hover:shadow-sm hover:ring-1 hover:ring-ring " +
                                       color.bg + " " + color.border +
                                       (active ? "" : " opacity-40 saturate-0 ring-1 ring-destructive/40 border-destructive/60") +
-                                      (highlightBinId === bin.id ? " ring-2 ring-amber-400" : "")
+                                      (highlightBinId === bin.id ? " ring-2 ring-blue-400" : "")
                                     }
                                     style={{ minWidth: "6rem", minHeight: "4.5rem" }}
                                   >
                                     <span className="text-sm font-mono font-semibold leading-tight">{bin.binCode}
                           {bin.boxCount > 0 && (
-                            <span className="ml-1 rounded-sm bg-amber-100 px-1 text-[8px] font-semibold leading-3 align-middle text-amber-700 dark:bg-amber-900/60 dark:text-amber-300" title={bin.boxCodes.join(", ")}>
-                              {bin.boxCount}
-                            </span>
+                            <BoxCountChip count={bin.boxCount} codes={bin.boxCodes} />
                           )}
                         </span>
-                                    <span className={"text-sm leading-tight " + color.text}>{bin.productCount}{bin.maxCapacity != null ? ` (${Math.round((bin.productCount / bin.maxCapacity) * 100)}%)` : ""}</span>
+                                    <span className={"text-sm leading-tight " + color.text}>{bin.productCount}</span>
+{bin.maxCapacity != null && (
+  <span className={"text-xs leading-tight " + color.text}>{Math.round((bin.productCount / bin.maxCapacity) * 100)}%</span>
+)}
                                   </button>
                                 </TooltipTrigger>
                                 <TooltipContent side="top" className="text-[11px]">
@@ -730,12 +735,12 @@ export function LocationsMapPage() {
                       )}
                     </div>
                     <div className="pt-1">
-                      <div className="flex items-center justify-between text-[10px] text-muted-foreground mb-1">
+                      <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
                         <span>{t("locMap.occupiedBins", { count: occ, total: shelf.bins.length })}</span>
                         <span>{pct}%</span>
                       </div>
                       <div className="w-full h-1 rounded-full bg-muted-foreground/15 overflow-hidden">
-                        <div className={"h-full rounded-full transition-all " + (pct >= 90 ? "bg-destructive" : pct >= 70 ? "bg-amber-500" : "bg-primary")} style={{ width: pct + "%" }}></div>
+                        <div className={"h-full rounded-full transition-all " + capacityBarColor(pct)} style={{ width: pct + "%" }}></div>
                       </div>
                     </div>
                     {managing && (
@@ -797,7 +802,7 @@ export function LocationsMapPage() {
             <div className="w-10 shrink-0 bg-muted/20 border-r border-dashed border-muted-foreground/20 flex flex-col items-center gap-2 py-4 select-none">
               <DoorOpen className="size-4 text-muted-foreground/40" />
               <span
-                className="text-[10px] text-muted-foreground/40 font-medium"
+                className="text-xs text-muted-foreground/40 font-medium"
                 style={{ writingMode: "vertical-lr", textOrientation: "mixed", transform: "rotate(180deg)", whiteSpace: "nowrap" }}
               >
                 {t("locMap.entrance")}
@@ -895,7 +900,7 @@ export function LocationsMapPage() {
                         )}
                       </>
                     )}
-                    <span className="text-[10px] text-muted-foreground tabular-nums">
+                    <span className="text-xs text-muted-foreground tabular-nums">
                       {t("locMap.zoneOccupied", { occupied, total: allBins.length })}{full > 0 ? ` · ${t("locMap.zoneFull", { count: full })}` : ""}
                     </span>
                   </div>
@@ -907,7 +912,7 @@ export function LocationsMapPage() {
                       <button
                         type="button"
                         onClick={() => openZoom({ zoneCode: zone.zoneCode, shelfCode: shelf.shelfCode })}
-                        className="text-[10px] text-muted-foreground mb-1 hover:text-foreground transition-colors text-left cursor-pointer"
+                        className="text-xs text-muted-foreground mb-1 hover:text-foreground transition-colors text-left cursor-pointer"
                       >
                       {t("locMap.shelfLabel", { code: shelf.shelfCode })}
                         <span className="text-muted-foreground/50 ml-1">{t("locMap.binCountCompact", { count: shelf.bins.length })}</span>
@@ -953,20 +958,23 @@ export function LocationsMapPage() {
                                         type="button"
                                         id={"bin-" + bin.id}
                                         onClick={() => { if (dragSource) handleDrop(detail); else openDetail(detail) }}
-                                        className={`flex flex-col items-center justify-center rounded border px-1.5 py-1 cursor-pointer transition-all hover:shadow-sm ${color.bg} ${color.border} hover:ring-1 hover:ring-ring ${!active ? "opacity-40 saturate-0 ring-1 ring-destructive/40 border-destructive/60" : ""} ${isDragSource ? "ring-2 ring-primary opacity-60" : ""} ${highlightBinId === bin.id ? "ring-2 ring-amber-400" : ""} ${dropDisabled ? "cursor-not-allowed opacity-40" : ""}`}
+                                        className={`flex flex-col items-center justify-center rounded px-1.5 py-1 cursor-pointer transition-all hover:shadow-sm ${color.bg} ${color.border} hover:ring-1 hover:ring-ring ${!active ? "opacity-40 saturate-0 ring-1 ring-destructive/40 border-destructive/60" : ""} ${isDragSource ? "ring-2 ring-primary opacity-60" : ""} ${highlightBinId === bin.id ? "ring-2 ring-blue-400" : ""} ${dropDisabled ? "cursor-not-allowed opacity-40" : ""}`}
                                         style={{ minWidth: "4rem", minHeight: "2.75rem" }}
                                       >
-<span className="text-[10px] font-mono font-semibold leading-tight">
+<span className="text-xs font-mono font-semibold leading-tight">
   {bin.binCode}
   {bin.boxCount > 0 && (
-    <span className="ml-1 rounded-sm bg-amber-100 px-1 text-[8px] font-semibold leading-3 align-middle text-amber-700 dark:bg-amber-900/60 dark:text-amber-300" title={bin.boxCodes.join(", ")}>
-      {bin.boxCount}
-    </span>
+    <BoxCountChip count={bin.boxCount} codes={bin.boxCodes} />
   )}
 </span>
-                                        <span className={`text-[10px] leading-tight ${color.text}`}>
-                                          {bin.productCount}{bin.maxCapacity != null ? ` (${Math.round((bin.productCount / bin.maxCapacity) * 100)}%)` : ""}
+                                        <span className={`text-xs leading-tight ${color.text}`}>
+                                          {bin.productCount}
                                         </span>
+                                        {bin.maxCapacity != null && (
+                                          <span className={`text-xs leading-tight ${color.text}`}>
+                                            {Math.round((bin.productCount / bin.maxCapacity) * 100)}%
+                                          </span>
+                                        )}
                                       </button>
                                     </TooltipTrigger>
                                     <TooltipContent side="top" className="text-[11px]">
@@ -1102,20 +1110,23 @@ export function LocationsMapPage() {
                                         type="button"
                                         id={"bin-" + bin.id}
                                         onClick={() => openDetail(detail)}
-                                        className={`flex flex-col items-center justify-center rounded border px-1.5 py-1 cursor-pointer transition-shadow hover:shadow-sm ${color.bg} ${color.border} hover:ring-1 hover:ring-ring ${highlightBinId === bin.id ? "ring-2 ring-amber-400" : ""}`}
+                                        className={`flex flex-col items-center justify-center rounded px-1.5 py-1 cursor-pointer transition-shadow hover:shadow-sm ${color.bg} ${color.border} hover:ring-1 hover:ring-ring ${highlightBinId === bin.id ? "ring-2 ring-blue-400" : ""}`}
                                         style={{ minWidth: "4rem", minHeight: "2.75rem" }}
                                       >
-<span className="text-[10px] font-mono font-semibold leading-tight">
+<span className="text-xs font-mono font-semibold leading-tight">
   {bin.binCode}
   {bin.boxCount > 0 && (
-    <span className="ml-1 rounded-sm bg-amber-100 px-1 text-[8px] font-semibold leading-3 align-middle text-amber-700 dark:bg-amber-900/60 dark:text-amber-300" title={bin.boxCodes.join(", ")}>
-      {bin.boxCount}
-    </span>
+    <BoxCountChip count={bin.boxCount} codes={bin.boxCodes} />
   )}
 </span>
-                                        <span className={`text-[10px] leading-tight ${color.text}`}>
-                                          {bin.productCount}{bin.maxCapacity != null ? ` (${Math.round((bin.productCount / bin.maxCapacity) * 100)}%)` : ""}
+                                        <span className={`text-xs leading-tight ${color.text}`}>
+                                          {bin.productCount}
                                         </span>
+                                        {bin.maxCapacity != null && (
+                                          <span className={`text-xs leading-tight ${color.text}`}>
+                                            {Math.round((bin.productCount / bin.maxCapacity) * 100)}%
+                                          </span>
+                                        )}
                                       </button>
                                   </TooltipTrigger>
                                   <TooltipContent side="top" className="text-[11px]">
@@ -1187,7 +1198,7 @@ export function LocationsMapPage() {
                             <div className="w-full border-t border-dashed border-muted-foreground/20" />
                           </div>
                           <div className="relative flex justify-center">
-                            <span className="bg-card px-2 text-[10px] text-muted-foreground/40 font-medium tracking-wider uppercase">{t("locMap.aisle")}</span>
+                            <span className="bg-card px-2 text-xs text-muted-foreground/40 font-medium tracking-wider uppercase">{t("locMap.aisle")}</span>
                           </div>
                         </div>
                       )}
@@ -1220,17 +1231,16 @@ export function LocationsMapPage() {
                   </span>
                 </div>
                 {selectedBin.maxCapacity != null && selectedBin.maxCapacity > 0 && (
-                  <div className="w-full h-1.5 rounded-full bg-muted-foreground/20 overflow-hidden">
-                    <div
-                      className={`h-full rounded-full transition-all ${
-                        selectedBin.productCount >= selectedBin.maxCapacity
-                          ? "bg-destructive"
-                          : selectedBin.productCount / selectedBin.maxCapacity >= 0.8
-                            ? "bg-amber-500"
-                            : "bg-primary"
-                      }`}
-                      style={{ width: `${Math.min(100, (selectedBin.productCount / selectedBin.maxCapacity) * 100)}%` }}
-                    />
+                  <div className="flex items-center gap-2">
+                    <div className="w-full h-1.5 rounded-full bg-muted-foreground/20 overflow-hidden">
+                      <div
+                        className={"h-full rounded-full transition-all " + capacityBarColor(Math.min(100, (selectedBin.productCount / selectedBin.maxCapacity) * 100))}
+                        style={{ width: `${Math.min(100, (selectedBin.productCount / selectedBin.maxCapacity) * 100)}%` }}
+                      />
+                    </div>
+                    <span className="text-xs text-muted-foreground tabular-nums shrink-0">
+                      {Math.round((selectedBin.productCount / selectedBin.maxCapacity) * 100)}%
+                    </span>
                   </div>
                 )}
                 <div className="flex justify-between items-center gap-2">
@@ -1296,12 +1306,12 @@ export function LocationsMapPage() {
                                 )}
                                 <span className="font-mono font-semibold">{g.boxCode}</span>
                                 {g.boxType && (
-                                  <span className="rounded bg-muted px-1 py-0.5 text-[10px] text-muted-foreground">
+                                  <span className="rounded bg-muted px-1 py-0.5 text-xs text-muted-foreground">
                                     {t(`box.boxTypes.${g.boxType}`)}
                                   </span>
                                 )}
                               </span>
-                              <span className="rounded bg-amber-100 px-1.5 py-0.5 font-medium tabular-nums text-amber-700 dark:bg-amber-900/60 dark:text-amber-300">
+                              <span className="rounded bg-blue-100 px-1.5 py-0.5 font-medium tabular-nums text-blue-700 dark:bg-blue-900/60 dark:text-blue-300">
                                 {g.total}
                               </span>
                             </button>
@@ -1335,7 +1345,7 @@ export function LocationsMapPage() {
                     </span>
                     <ul className="mt-1 space-y-0.5">
                       {(selectedBin.boxCodes ?? []).map((code) => (
-                        <li key={code} className="text-xs font-mono text-amber-700 dark:text-amber-300">
+                        <li key={code} className="text-xs font-mono text-blue-700 dark:text-blue-300">
                           {code}
                         </li>
                       ))}
@@ -1406,7 +1416,7 @@ export function LocationsMapPage() {
                 </button>
                 <button
                   onClick={() => setRelocateQuantity(relocateTarget?.source.productCount ?? 0)}
-                  className="text-[10px] px-1.5 py-0.5 rounded border hover:bg-accent transition-colors cursor-pointer text-muted-foreground"
+                  className="text-xs px-1.5 py-0.5 rounded border hover:bg-accent transition-colors cursor-pointer text-muted-foreground"
                 >
                   {t("locMap.max")}
                 </button>

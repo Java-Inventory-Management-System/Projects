@@ -510,7 +510,7 @@ export const ExportCreatePage = () => {
                     />
                     <div className="flex-1 min-w-0">
                       <p className="font-mono text-xs font-medium truncate">{s.serialNumber}</p>
-                      <p className="text-[10px] text-muted-foreground">
+                      <p className="text-xs text-muted-foreground">
                         <LocationCodePopover code={s.locationCode} /> · {new Date(s.importedAt).toLocaleDateString("vi-VN")}
                       </p>
                     </div>

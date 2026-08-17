@@ -97,7 +97,7 @@ export function POListPage() {
         <div className="flex items-center gap-1">
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" onClick={() => navigate(`/stock/purchase-orders/${p.id}`)}>
+              <Button variant="ghost" size="icon" onClick={() => navigate(`/stock/imports/purchase-orders/${p.id}`)}>
                 <Eye className="size-4" />
               </Button>
             </TooltipTrigger>
@@ -108,7 +108,7 @@ export function POListPage() {
             !p.locked && (
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" onClick={() => navigate(`/stock/purchase-orders/${p.id}/edit`)}>
+                  <Button variant="ghost" size="icon" onClick={() => navigate(`/stock/imports/purchase-orders/${p.id}/edit`)}>
                     <Pencil className="size-4" />
                   </Button>
                 </TooltipTrigger>

@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next"
 import { binColor } from "@/features/stock/utils/location-map-utils"
 import { cn } from "@/utils/cn"
+import { BoxCountChip } from "./box-count-chip"
 import type { LocationMapData } from "@/utils/types"
 
 interface LocationMapGridProps {
@@ -34,7 +35,7 @@ export function LocationMapGrid({ data, highlightBinId = null, onSelect }: Locat
                       const inner = (
                         <span
                           className={cn(
-                            "flex items-center justify-center gap-0.5 rounded border px-1.5 py-0.5 text-[10px] font-mono min-w-[2rem]",
+                            "flex items-center justify-center gap-0.5 rounded px-1.5 py-0.5 text-xs font-mono min-w-[2rem]",
                             color.bg,
                             color.border,
                             isSelected && "ring-2 ring-primary",
@@ -49,12 +50,7 @@ export function LocationMapGrid({ data, highlightBinId = null, onSelect }: Locat
                             </span>
                           )}
                           {bin.boxCount > 0 && (
-                            <span
-                              className="rounded-sm bg-amber-100 px-1 text-[8px] font-semibold leading-3 text-amber-700 dark:bg-amber-900/60 dark:text-amber-300"
-                              title={`${bin.boxCodes.join(", ")}`}
-                            >
-                              {bin.boxCount}
-                            </span>
+                            <BoxCountChip count={bin.boxCount} codes={bin.boxCodes} />
                           )}
                         </span>
                       )

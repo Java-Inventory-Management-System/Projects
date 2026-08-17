@@ -30,6 +30,7 @@ import { Empty, EmptyTitle } from "@/components/ui/empty"
 import { toast } from "@/utils/toast"
 import { mapResponsePage, mapProductUnit } from "@/utils/mappers"
 import { ADJUSTMENT_STATUS, ADJUSTMENT_TYPE, PRODUCT_UNIT_STATUS, type ProductUnit } from "@/utils/types"
+import { UNIT_STATUS_VARIANT } from "@/utils/labels"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 const getPresetReasons = (t: (key: string) => string): Record<string, string[]> => ({
@@ -419,7 +420,7 @@ export const StockAdjustmentCreatePage = () => {
                               <span className="text-xs text-muted-foreground ml-1">{u.productSku}</span>
                             </td>
                             <td className="px-2 py-1">
-                              <Badge variant={u.status === PRODUCT_UNIT_STATUS.IN_STOCK ? "default" : "secondary"} className="text-[10px]">
+                              <Badge variant={UNIT_STATUS_VARIANT[u.status]} className="text-xs">
                                 {u.status}
                               </Badge>
                             </td>

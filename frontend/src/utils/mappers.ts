@@ -522,6 +522,7 @@ export function mapPurchaseOrder(raw: unknown): PurchaseOrder {
     supplierName: r.supplierName ?? "-",
     status: r.status as PurchaseOrder["status"],
     locked: r.locked ?? false,
+    rejectedReceiptCount: r.rejectedReceiptCount ?? 0,
     expectedDate: r.expectedDate,
     note: r.note ?? null,
     invoiceCode: r.invoiceCode ?? null,

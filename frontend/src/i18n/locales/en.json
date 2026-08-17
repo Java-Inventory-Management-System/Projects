@@ -770,6 +770,8 @@
     "rmaRepairedReturned": "Repaired by Supplier",
     "rmaUnrepairable": "Unrepairable",
     "rejectedReturn": "Rejected Return",
+    "pendingQc": "Pending QC",
+    "exported": "Exported",
     "pendingDisposal": "Pending Disposal"
   },
   "qcPage": {
