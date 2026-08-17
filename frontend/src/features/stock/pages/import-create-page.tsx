@@ -8,6 +8,7 @@ import { useLocationMap } from "@/hooks/use-location-map"
 import { type DiscrepancyNote, type QcRecord } from "@/utils/types"
 import { EXPORT_RECEIPT_STATUS, EXPORT_REASON, PURCHASE_ORDER_STATUS } from "@/utils/types"
 import { toast } from "@/utils/toast"
+import { formatMoney } from "@/utils/format"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Card, CardContent } from "@/components/ui/card"
@@ -714,7 +715,7 @@ export const ImportCreatePage = () => {
                       </div>
                       <div>
                         <span className="text-muted-foreground text-xs">{t("importCreate.totalAmount")}</span>
-                        <p className="font-medium">{Number(po.totalAmount).toLocaleString("vi-VN")}đ</p>
+                        <p className="font-medium">{formatMoney(Number(po.totalAmount))}</p>
                       </div>
                     </div>
                   </CardContent>
@@ -740,10 +741,10 @@ export const ImportCreatePage = () => {
                           <TableCell className="font-mono text-xs">{item.productSku ?? "—"}</TableCell>
                           <TableCell className="text-right tabular-nums">{item.quantity}</TableCell>
                           <TableCell className="text-right tabular-nums">
-                            {Number(item.unitPrice).toLocaleString("vi-VN")}đ
+                            {formatMoney(Number(item.unitPrice))}
                           </TableCell>
                           <TableCell className="text-right tabular-nums font-medium">
-                            {Number(item.unitPrice * item.quantity).toLocaleString("vi-VN")}đ
+                            {formatMoney(Number(item.unitPrice * item.quantity))}
                           </TableCell>
                         </TableRow>
                       ))}

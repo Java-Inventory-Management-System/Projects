@@ -2224,5 +2224,8 @@
     "RESOURCE_NOT_FOUND": "Không tìm thấy dữ liệu",
     "RESOURCE_ALREADY_EXISTED": "Dữ liệu đã tồn tại",
     "INVALID_REQUEST": "Dữ liệu không hợp lệ"
+  },
+  "auditDiff": {
+    "items": "mục"
   }
 }

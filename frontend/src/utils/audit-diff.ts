@@ -1,3 +1,5 @@
+import i18n from "@/i18n"
+
 export interface DiffRow {
   key: string
   label: string
@@ -58,7 +60,7 @@ function isDateLike(key: string) {
 
 function formatValue(key: string, v: unknown): string {
   if (v === null || v === undefined) return ""
-  if (Array.isArray(v)) return v.length === 0 ? "" : `${v.length} mục`
+  if (Array.isArray(v)) return v.length === 0 ? "" : `${v.length} ${i18n.t("auditDiff.items")}`
   if (typeof v === "object") {
     const obj = v as Record<string, unknown>
     for (const f of ["name", "code", "title"]) {
