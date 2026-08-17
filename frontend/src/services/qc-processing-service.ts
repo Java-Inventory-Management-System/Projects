@@ -9,8 +9,14 @@ export async function getQcUnits(statuses: ProductUnitStatus[]): Promise<QcUnit[
   return (res as unknown as unknown[]).map(mapQcUnit)
 }
 
-export async function qcPassUnits(unitIds: number[]): Promise<void> {
-  await http.post("/qc-processing/qc-pass", { unitIds })
+export async function getQcProcessedUnits(): Promise<QcUnit[]> {
+  const res = await http.get("/qc-processing/history")
+  return (res as unknown as unknown[]).map(mapQcUnit)
+}
+
+export async function qcPassUnits(unitIds: number[]): Promise<QcUnit[]> {
+  const res = await http.post("/qc-processing/qc-pass", { unitIds })
+  return (res as unknown as unknown[]).map(mapQcUnit)
 }
 
 export async function disposeConfirmUnits(

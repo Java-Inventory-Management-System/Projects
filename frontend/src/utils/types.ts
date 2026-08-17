@@ -295,6 +295,7 @@ export interface QcUnit {
   processedAt: string | null
   processedByName: string | null
   exportReceiptCode: string | null
+  sourceReceiptCode: string | null
 }
 
 // ============ Import Receipt ============
@@ -439,6 +440,7 @@ export interface ExportReceiptStatusHistory {
   toStatus: string
   createdAt: string
   changedBy: number
+  changedByName: string | null
 }
 
 export type ExportReason = "SALE" | "INTERNAL" | "RETURN_SUPPLIER" | "DISPOSE" | "WARRANTY_REPLACEMENT" | "OTHER"
@@ -452,6 +454,7 @@ export interface ExportReceiptItem {
   quantity: number
   unitPrice: number
   trackingType?: string
+  serialNumbers?: string[]
 }
 
 // ============ Stock Check ============

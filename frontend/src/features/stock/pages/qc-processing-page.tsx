@@ -1,8 +1,8 @@
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect } from "react"
 import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router-dom"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { disposeConfirmUnits, getQcUnits, qcPassUnits } from "@/services/qc-processing-service"
+import { disposeConfirmUnits, getQcProcessedUnits, getQcUnits, qcPassUnits } from "@/services/qc-processing-service"
 import { getSuppliers } from "@/services/supplier-service"
 import { invalidateDashboard } from "@/hooks/use-reports"
 import { unitStatusInfo } from "@/utils/labels"
@@ -35,11 +35,6 @@ const DISPOSE_STATUSES: ProductUnitStatus[] = [
   PRODUCT_UNIT_STATUS.RMA_UNREPAIRABLE,
   PRODUCT_UNIT_STATUS.WAITING_RMA_EXPORT,
   PRODUCT_UNIT_STATUS.REJECTED_RETURN,
-]
-const DONE_STATUSES: ProductUnitStatus[] = [
-  PRODUCT_UNIT_STATUS.DISPOSED,
-  PRODUCT_UNIT_STATUS.RETURNED_TO_SUPPLIER,
-  PRODUCT_UNIT_STATUS.SENT_TO_MANUFACTURER,
 ]
 
 export const QcProcessingPage = () => {
@@ -78,8 +73,8 @@ export const QcProcessingPage = () => {
     queryFn: () => getQcUnits(DISPOSE_STATUSES),
   })
   const doneUnits = useQuery({
-    queryKey: ["qc-processing", DONE_STATUSES.join(",")],
-    queryFn: () => getQcUnits(DONE_STATUSES),
+    queryKey: ["qc-processing", "processed"],
+    queryFn: getQcProcessedUnits,
   })
 
   const invalidate = () => {
@@ -211,6 +206,7 @@ export const QcProcessingPage = () => {
               <th className="px-3 py-2 font-medium">{t("table.location")}</th>
               {!selectable && (
                 <>
+                  <th className="px-3 py-2 font-medium">{t("qcPage.sourceCode")}</th>
                   <th className="px-3 py-2 font-medium">{t("qcPage.exportCode")}</th>
                   <th className="px-3 py-2 font-medium">{t("qcPage.rejectReason")}</th>
                   <th className="px-3 py-2 font-medium">{t("qcPage.processedBy")}</th>
@@ -245,6 +241,9 @@ export const QcProcessingPage = () => {
                   <td className="px-3 py-2 text-muted-foreground">{unit.locationFullCode ?? "—"}</td>
                   {!selectable && (
                     <>
+                      <td className="px-3 py-2 font-mono text-xs text-muted-foreground">
+                        {unit.sourceReceiptCode ?? "—"}
+                      </td>
                       <td className="px-3 py-2 font-mono text-xs text-muted-foreground">
                         {unit.exportReceiptCode ?? "—"}
                       </td>
@@ -357,8 +356,8 @@ export const QcProcessingPage = () => {
               </span>
             )}
           </TabsTrigger>
-          <TabsTrigger value="done">
-            {t("qcPage.tabDone")}
+          <TabsTrigger value="processed">
+            {t("qcPage.tabProcessed")}
             {!!doneUnits.data?.length && (
               <span className="ml-1.5 rounded-full bg-muted px-1.5 py-0.5 text-xs font-semibold text-muted-foreground">
                 {doneUnits.data.length}
@@ -382,7 +381,7 @@ export const QcProcessingPage = () => {
           )}
         </TabsContent>
 
-        <TabsContent value="done" className="space-y-3 pt-2">
+        <TabsContent value="processed" className="space-y-3 pt-2">
           {doneUnits.isPending ? <TableSkeleton /> : doneUnits.isError ? loadErrorBox(doneUnits.refetch) : renderRows(doneUnits.data, [], () => {}, false)}
         </TabsContent>
 

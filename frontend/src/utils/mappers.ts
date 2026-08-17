@@ -552,5 +552,6 @@ export function mapQcUnit(raw: unknown): QcUnit {
     processedAt: r.processedAt ?? null,
     processedByName: r.processedByName ?? null,
     exportReceiptCode: r.exportReceiptCode ?? null,
+    sourceReceiptCode: r.sourceReceiptCode ?? null,
   }
 }

@@ -16,5 +16,6 @@ public record QcUnitResponse(
         String evidenceImage,
         Instant processedAt,
         String processedByName,
-        String exportReceiptCode) {
+        String exportReceiptCode,
+        String sourceReceiptCode) {
 }

@@ -12,4 +12,5 @@ public interface ProductUnitStatusLogRepository extends JpaRepository<ProductUni
     List<ProductUnitStatusLog> findByProductUnitIdOrderByCreatedAtDesc(Long productUnitId);
     List<ProductUnitStatusLog> findByProductUnitIdInOrderByCreatedAtDesc(Collection<Long> productUnitIds);
     List<ProductUnitStatusLog> findBySourceTypeAndSourceId(String sourceType, Long sourceId);
+    List<ProductUnitStatusLog> findBySourceTypeOrderByCreatedAtDesc(String sourceType);
 }

@@ -46,9 +46,14 @@ public class QcProcessingController {
 
     @PostMapping("/qc-pass")
     @PreAuthorize(AuthorizationExpressions.CAN_OPERATE_STOCK)
-    public ResponseObject<Void> qcPass(@RequestBody QcPassRequest request) {
-        qcPassService.confirm(request.unitIds());
-        return ResponseObject.success(null);
+    public ResponseObject<List<QcUnitResponse>> qcPass(@RequestBody QcPassRequest request) {
+        return ResponseObject.success(qcPassService.confirm(request.unitIds()));
+    }
+
+    @GetMapping("/history")
+    @PreAuthorize(AuthorizationExpressions.CAN_VIEW_QC)
+    public ResponseObject<List<QcUnitResponse>> processedHistory() {
+        return ResponseObject.success(qcPassService.listProcessedUnits());
     }
 
     @PostMapping("/dispose-confirm")

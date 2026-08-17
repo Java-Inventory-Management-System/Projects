@@ -19,6 +19,7 @@ import org.dawn.backend.entity.inventory.ExportReceiptStatusHistory;
 import org.dawn.backend.entity.inventory.Location;
 import org.dawn.backend.entity.inventory.ProductUnit;
 import org.dawn.backend.entity.inventory.ProductUnitStatusLog;
+import org.dawn.backend.entity.inventory.ReturnReceiptItem;
 import org.dawn.backend.exception.type.InvalidRequestException;
 import org.dawn.backend.exception.type.ResourceNotFoundException;
 import org.dawn.backend.repository.catalog.ProductRepository;
@@ -71,6 +72,7 @@ public class DisposeConfirmService {
 
     private final ProductUnitRepository productUnitRepository;
     private final ProductUnitStatusLogRepository statusLogRepository;
+    private final org.dawn.backend.repository.inventory.returns.ReturnReceiptItemRepository returnReceiptItemRepository;
     private final ProductRepository productRepository;
     private final org.dawn.backend.repository.inventory.LocationRepository locationRepository;
     private final ExportReceiptRepository exportReceiptRepository;
@@ -99,6 +101,9 @@ public class DisposeConfirmService {
         }
 
         var units = productUnitRepository.findByIdsForUpdate(unitIds);
+        var returnMap = returnReceiptItemRepository.findByProductUnitIdIn(unitIds).stream()
+                .collect(Collectors.toMap(ReturnReceiptItem::getProductUnitId,
+                        ReturnReceiptItem::getReturnReceiptId, (a, b) -> a));
         for (var unit : units) {
             Set<ProductUnitStatus> allowed = ALLOWED_ACTIONS.getOrDefault(unit.getStatus(), Set.of());
             if (!allowed.contains(targetStatus)) {
@@ -114,7 +119,7 @@ public class DisposeConfirmService {
                     .fromStatus(oldStatus.name())
                     .toStatus(targetStatus.name())
                     .sourceType(SourceType.QC_PROCESSING.name())
-                    .sourceId(null)
+                    .sourceId(returnMap.get(unit.getId()))
                     .note(note != null && !note.isBlank() ? note.trim() : null)
                     .changedBy(userId)
                     .build());
