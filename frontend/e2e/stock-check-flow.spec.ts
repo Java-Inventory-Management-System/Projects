@@ -1,14 +1,11 @@
 import { test, expect } from "@playwright/test"
 import { loginAsStock, loginAsManager } from "./helpers/auth"
 import { navigateTo } from "./helpers/nav"
-import { initTokens, getToken, ensureImport, API_URL } from "./helpers/api"
-import { approveDialog } from "./helpers/approve"
+import { initTokens, getToken, API_URL } from "./helpers/api"
 
 test.describe("Stock Check Flow (Kiểm kê) — SOP §4", () => {
 
-  // ponytail: skipped — BE CreateStockCheckRequest expects scopeType+scopeId, not productUnitIds.
-  // Test was written for an earlier API format; rewriting would need zone/category scope knowledge.
-  test.skip("MANAGER creates stock check → STOCK records → MANAGER approves", async ({ browser }) => {
+  test("STOCK creates+records+completes stock check → MANAGER sees COMPLETED", async ({ browser }) => {
     const mgrCtx = await browser.newContext()
     const stockCtx = await browser.newContext()
     const mgr = await mgrCtx.newPage()
@@ -21,42 +18,56 @@ test.describe("Stock Check Flow (Kiểm kê) — SOP §4", () => {
     const managerToken = await getToken("manager", mgr)
     const stockToken = await getToken("stock", stock)
 
-    const { productUnitIds } = await ensureImport(stock)
-    test.skip(productUnitIds.length === 0, "No product units")
-
-    // STOCK creates stock check via API_URL (creator ≠ approver)
+    // STOCK creates stock check scoped to ZONE (location 1)
     const createRes = await stock.request.post(`${API_URL}/stock-check`, {
-      data: { note: "E2E stock check", productUnitIds },
+      data: { scopeType: "ZONE", scopeId: 1, note: "E2E stock check" },
       headers: { Authorization: `Bearer ${stockToken}` },
     })
     expect(createRes.ok()).toBeTruthy()
     const checkId: number = (await createRes.json()).data.id
 
-    // STOCK records count via API_URL (UI form complex)
+    // STOCK starts (snapshots units in scope)
+    const startRes = await stock.request.put(`${API_URL}/stock-check/${checkId}/start`, {
+      headers: { Authorization: `Bearer ${stockToken}` },
+    })
+    expect(startRes.ok()).toBeTruthy()
+
+    // Fetch snapshotted items
+    const detail = await stock.request.get(`${API_URL}/stock-check/${checkId}`, {
+      headers: { Authorization: `Bearer ${stockToken}` },
+    })
+    const items = ((await detail.json()) as { data: { items: Array<{ productUnitId: number; expectedStatus: string }> } }).data.items
+    expect(items.length).toBeGreaterThan(0)
+
+    // STOCK records all items as matching (IN_STOCK, qty 1)
     const recordRes = await stock.request.put(`${API_URL}/stock-check/${checkId}/items`, {
       data: {
-        items: productUnitIds.map((id) => ({
-          productUnitId: id, actualStatus: "IN_STOCK", countedQuantity: 1, note: "E2E ok",
+        items: items.map((it) => ({
+          productUnitId: it.productUnitId,
+          actualStatus: it.expectedStatus || "IN_STOCK",
+          countedQuantity: 1,
+          note: "E2E ok",
         })),
       },
       headers: { Authorization: `Bearer ${stockToken}` },
     })
     expect(recordRes.ok()).toBeTruthy()
 
-    // STOCK completes via API_URL
-    await stock.request.put(`${API_URL}/stock-check/${checkId}/complete`, {
+    // STOCK completes
+    const completeRes = await stock.request.put(`${API_URL}/stock-check/${checkId}/complete`, {
       headers: { Authorization: `Bearer ${stockToken}` },
     })
+    expect(completeRes.ok()).toBeTruthy()
 
-    // MANAGER approves via UI detail page
-    await navigateTo(mgr, `/stock/checks/${checkId}`)
-    await approveDialog(mgr, checkId, "Approve", "Confirm Approve")
+    // MANAGER views detail via UI
+    await navigateTo(mgr, `/stock/ops/checks/${checkId}`)
+    await expect(mgr.locator("body")).toContainText("Hoàn tất", { timeout: 10000 })
 
-    // Verify APPROVED
-    const detail = await mgr.request.get(`${API_URL}/stock-check/${checkId}`, {
+    // Verify COMPLETED via API
+    const verify = await mgr.request.get(`${API_URL}/stock-check/${checkId}`, {
       headers: { Authorization: `Bearer ${managerToken}` },
     })
-    expect(((await detail.json()) as { data: { status: string } }).data.status).toBe("APPROVED")
+    expect(((await verify.json()) as { data: { status: string } }).data.status).toBe("COMPLETED")
 
     await mgrCtx.close()
     await stockCtx.close()

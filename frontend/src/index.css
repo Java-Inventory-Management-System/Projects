@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -51,7 +53,7 @@
   --secondary-foreground: oklch(0.08 0.005 210);
   --muted: oklch(0.945 0.003 210);
   --muted-foreground: oklch(0.4 0.005 210);
-  --accent: oklch(0.92 0.005 210);
+  --accent: oklch(0.88 0.005 210);
   --accent-foreground: oklch(0.08 0.005 210);
   --destructive: oklch(0.5 0.18 30);
   --destructive-foreground: oklch(1 0 0);
@@ -61,7 +63,7 @@
   --radius: 0.5rem;
   --sidebar: oklch(0.97 0.003 215);
   --sidebar-foreground: oklch(0.08 0.005 210);
-  --sidebar-accent: oklch(0.92 0.005 210);
+  --sidebar-accent: oklch(0.88 0.005 210);
   --sidebar-accent-foreground: oklch(0.5 0.14 215);
   --sidebar-border: oklch(0.9 0.003 210);
   --chart-1: 221 83% 53%;
@@ -71,40 +73,42 @@
   --chart-5: 340 82% 52%;
   --chart-6: 199 89% 48%;
   --chart-7: 24 95% 53%;
+  --treemap-text: #fff;
 }
 
 .dark {
   --background: oklch(0.12 0.005 210);
-  --foreground: oklch(0.92 0.005 210);
+  --foreground: oklch(0.88 0.005 210);
   --card: oklch(0.16 0.005 210);
-  --card-foreground: oklch(0.92 0.005 210);
+  --card-foreground: oklch(0.88 0.005 210);
   --popover: oklch(0.16 0.005 210);
-  --popover-foreground: oklch(0.92 0.005 210);
+  --popover-foreground: oklch(0.88 0.005 210);
   --primary: oklch(0.55 0.14 215);
   --primary-foreground: oklch(0.98 0 0);
   --secondary: oklch(0.22 0.005 210);
-  --secondary-foreground: oklch(0.92 0.005 210);
+  --secondary-foreground: oklch(0.88 0.005 210);
   --muted: oklch(0.22 0.005 210);
-  --muted-foreground: oklch(0.6 0.005 210);
+  --muted-foreground: oklch(0.55 0.005 210);
   --accent: oklch(0.25 0.005 210);
-  --accent-foreground: oklch(0.92 0.005 210);
+  --accent-foreground: oklch(0.88 0.005 210);
   --destructive: oklch(0.6 0.18 30);
   --destructive-foreground: oklch(1 0 0);
   --border: oklch(0.28 0.005 210);
   --input: oklch(0.28 0.005 210);
   --ring: oklch(0.55 0.14 215);
   --sidebar: oklch(0.14 0.005 215);
-  --sidebar-foreground: oklch(0.92 0.005 210);
+  --sidebar-foreground: oklch(0.88 0.005 210);
   --sidebar-accent: oklch(0.22 0.005 210);
   --sidebar-accent-foreground: oklch(0.55 0.14 215);
   --sidebar-border: oklch(0.28 0.005 210);
-  --chart-1: 221 70% 65%;
-  --chart-2: 142 60% 55%;
-  --chart-3: 48 90% 63%;
-  --chart-4: 271 70% 68%;
-  --chart-5: 340 70% 62%;
-  --chart-6: 199 75% 60%;
-  --chart-7: 24 85% 63%;
+  --chart-1: 221 83% 53%;
+  --chart-2: 142 71% 45%;
+  --chart-3: 48 95% 55%;
+  --chart-4: 271 81% 56%;
+  --chart-5: 340 82% 52%;
+  --chart-6: 199 89% 48%;
+  --chart-7: 24 95% 53%;
+  --treemap-text: #fff;
 }
 
 @layer base {
@@ -118,5 +122,16 @@
     font-family: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+  }
+
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  [role="option"],
+  [role="checkbox"]:not(:disabled),
+  [role="radio"]:not(:disabled),
+  [role="switch"]:not(:disabled),
+  [role="menuitem"],
+  summary {
+    cursor: pointer;
   }
 }

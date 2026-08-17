@@ -25,7 +25,7 @@ public class ReportController {
     private final ReportService reportService;
 
     @GetMapping("/inventory-summary")
-    @PreAuthorize(AuthorizationExpressions.CAN_VIEW_REPORTS)
+    @PreAuthorize(AuthorizationExpressions.CAN_VIEW_INVENTORY)
     public ResponseObject<InventorySummaryResponse> getInventorySummary() {
         return ResponseObject.success(reportService.getInventorySummary());
     }
@@ -54,6 +54,14 @@ public class ReportController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to) {
         return ResponseObject.success(reportService.getActivity(from, to));
+    }
+
+    @GetMapping("/stock-check-overview")
+    @PreAuthorize(AuthorizationExpressions.CAN_VIEW_REPORTS)
+    public ResponseObject<StockCheckOverviewResponse> getStockCheckOverview(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to) {
+        return ResponseObject.success(reportService.getStockCheckOverview(from, to));
     }
 
     @GetMapping("/dead-stock")

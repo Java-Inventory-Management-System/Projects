@@ -7,8 +7,8 @@ public class AuthorizationExpressions {
     /** Single ADMIN role — full system access */
     public static final String ROLE_ADMIN = "@securityPolicy.hasRole('ADMIN')";
 
-    /** Single MANAGER role */
-    public static final String ROLE_MANAGER = "@securityPolicy.hasAnyRole('MANAGER')";
+    /** Single MANAGER role - also granted to ADMIN (13.1) */
+    public static final String ROLE_MANAGER = "@securityPolicy.hasAnyRole('MANAGER', 'ADMIN')";
 
     /** Xem báo cáo, audit log, dashboard — MANAGER/ADMIN */
     public static final String CAN_VIEW_REPORTS = "@securityPolicy.hasAnyRole('MANAGER', 'ADMIN')";
@@ -19,19 +19,40 @@ public class AuthorizationExpressions {
     /** Thao tác nghiệp vụ kho (nhập, kiểm kê, điều chỉnh) — MANAGER/STOCK */
     public static final String CAN_OPERATE_STOCK = "@securityPolicy.hasAnyRole('MANAGER', 'STOCK')";
 
+    /** Khởi tạo phiếu xuất/phiếu trả — chỉ SALES (không ADMIN, 13.4; STOCK chỉ thao tác kho) */
+    public static final String CAN_CREATE_TRANSACTION = "@securityPolicy.hasAnyRole('SALES')";
+
+    /** Seal box — chỉ STOCK (MANAGER chỉ xem/quản lý box đã seal) */
+    public static final String SEAL_BOX = "@securityPolicy.hasRole('STOCK')";
+
+    /** Quản lý vị trí kho (tạo/sửa/xóa/relocate) — STOCK/ADMIN (MANAGER chỉ xem map) */
+    public static final String MANAGE_LOCATION = "@securityPolicy.hasAnyRole('STOCK', 'ADMIN')";
+
+    /** Khởi tạo phiếu điều chỉnh giá — MANAGER/ADMIN (SALES/STOCK không được tạo) */
+    public static final String CAN_CREATE_PRICE_ADJUSTMENT = "@securityPolicy.hasAnyRole('MANAGER', 'ADMIN')";
+
     /** Xem tồn kho, danh mục — MANAGER/ADMIN/STOCK */
     public static final String CAN_VIEW_INVENTORY = "@securityPolicy.hasAnyRole('MANAGER', 'ADMIN', 'STOCK')";
 
     /** Thao tác bán hàng (xuất kho, bảo hành, trả hàng) — ADMIN/SALES/STOCK/MANAGER */
     public static final String CAN_OPERATE = "@securityPolicy.hasAnyRole('ADMIN', 'SALES', 'STOCK', 'MANAGER')";
 
-    /** Manage catalog — CRUD sản phẩm, danh mục, NCC, brand */
-    public static final String CAN_MANAGE_CATALOG = "@securityPolicy.hasAnyRole('MANAGER')";
+    /** Manage catalog — CRUD sản phẩm, danh mục, NCC, brand — MANAGER/ADMIN (13.1) */
+    public static final String CAN_MANAGE_CATALOG = "@securityPolicy.hasAnyRole('MANAGER', 'ADMIN')";
+
+    /** Xác nhận đổi 1:1 bảo hành tại quầy — quản lý ca trở lên (Phần 4) */
+    public static final String CONFIRM_WARRANTY_EXCHANGE = "@securityPolicy.hasAnyRole('MANAGER', 'ADMIN')";
 
     /** Manage system — user management, audit, settings */
     public static final String CAN_MANAGE_SYSTEM = "@securityPolicy.hasRole('ADMIN')";
 
-    /** Kiểm tra quyền update user */
-    public static final String CAN_UPDATE_USER = "@securityPolicy.canUpdate(#id, authentication)";
+    /** Xem trạm QC — MANAGER/STOCK/ADMIN (ADMIN read-only, POST vẫn chặn) */
+    public static final String CAN_VIEW_QC = "@securityPolicy.hasAnyRole('MANAGER', 'STOCK', 'ADMIN')";
+
+    /** Kiểm tra quyền update user — hierarchy: chặn self, chỉ cấp cao hơn được phép */
+    public static final String CAN_UPDATE_USER = "@roleSecurity.canUpdate(#id, authentication)";
+
+    /** User đang đăng nhập — ai cũng được */
+    public static final String IS_AUTHENTICATED = "isAuthenticated()";
 
 }

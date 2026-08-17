@@ -13,8 +13,9 @@ public record LocationResponse(
         String binCode,
         String fullCode,
         String description,
-        Boolean isActive,
-        BigDecimal maxCapacity,
-        Instant createdAt,
+Boolean isActive,
+    BigDecimal maxCapacity,
+    Instant lastCheckedAt,
+    Instant createdAt,
         Instant updatedAt
 ) {}

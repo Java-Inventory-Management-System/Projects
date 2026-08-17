@@ -7,13 +7,9 @@ import {
   ArrowDownToLine,
   ArrowUpFromLine,
   ClipboardCheck,
-  ClipboardList,
-  Building2,
-  Tags,
-  Truck,
   Contact,
-  FileText,
   Undo2,
+  SlidersHorizontal,
 } from "lucide-react"
 import type { ComponentType } from "react"
 import type { URole } from "@/utils/types"
@@ -33,26 +29,28 @@ export interface NavSection {
 export const navSections: NavSection[] = [
   {
     items: [
-      { labelKey: "nav.dashboard", icon: LayoutDashboard, path: "/", roles: ROLES.CAN_VIEW_REPORTS },
-      { labelKey: "nav.products", icon: Package, path: "/products", roles: ROLES.CAN_VIEW_INVENTORY },
-      { labelKey: "nav.brands", icon: Building2, path: "/brands", roles: ROLES.CAN_VIEW_INVENTORY },
-      { labelKey: "nav.categories", icon: Tags, path: "/categories", roles: ROLES.CAN_VIEW_INVENTORY },
-      { labelKey: "nav.suppliers", icon: Truck, path: "/suppliers", roles: ROLES.CAN_VIEW_INVENTORY },
+      { labelKey: "nav.dashboard", icon: LayoutDashboard, path: "/", roles: ROLES.CAN_OPERATE },
+      { labelKey: "nav.products", icon: Package, path: "/products", roles: ROLES.CAN_VIEW_PRODUCTS },
       { labelKey: "nav.customers", icon: Contact, path: "/customers", roles: ROLES.CAN_OPERATE },
       { labelKey: "nav.inventory", icon: ScanBarcode, path: "/stock/units", roles: ROLES.CAN_OPERATE },
     ],
   },
   {
-    items: [{ labelKey: "nav.purchaseOrders", icon: FileText, path: "/stock/purchase-orders", roles: ROLES.MANAGER }],
-  },
-  {
     items: [
       { labelKey: "nav.imports", icon: ArrowDownToLine, path: "/stock/imports", roles: ROLES.CAN_VIEW_INVENTORY },
       { labelKey: "nav.exports", icon: ArrowUpFromLine, path: "/stock/exports", roles: ROLES.CAN_OPERATE },
-      { labelKey: "nav.stockChecks", icon: ClipboardCheck, path: "/stock/checks", roles: ROLES.CAN_VIEW_INVENTORY },
-      { labelKey: "nav.adjustments", icon: ClipboardCheck, path: "/stock/adjustments", roles: ROLES.CAN_VIEW_INVENTORY },
-      { labelKey: "nav.returns", icon: Undo2, path: "/returns", roles: ROLES.CAN_OPERATE },
-      { labelKey: "nav.priceAdj", icon: ClipboardList, path: "/stock/price-adjustments", roles: ROLES.CAN_VIEW_INVENTORY },
+      { labelKey: "nav.stockOps", icon: ClipboardCheck, path: "/stock/ops", roles: ROLES.CAN_VIEW_INVENTORY },
+      { labelKey: "nav.returnsQc", icon: Undo2, path: "/returns-qc", roles: ROLES.CAN_OPERATE },
+    ],
+  },
+  {
+    items: [
+      {
+        labelKey: "nav.catalogSettings",
+        icon: SlidersHorizontal,
+        path: "/catalog-settings",
+        roles: ROLES.CAN_MANAGE_CATALOG,
+      },
     ],
   },
   {

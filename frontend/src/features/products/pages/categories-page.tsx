@@ -14,6 +14,7 @@ export function CategoriesPage() {
       createItem={createCategory}
       updateItem={updateCategory}
       toggleItem={toggleCategoryActive}
+      deactivateWarning
     />
   )
 }

@@ -15,6 +15,15 @@ public record ReturnReceiptRequest(
             Long productId,
             BigDecimal quantity,
             String condition,
-            String resultingAction
-    ) {}
+            String resultingAction,
+            String description,
+            String evidenceImage,
+            Long defectCategoryId
+    ) {
+        public ReturnItemRequest(Long productUnitId, Long productId, BigDecimal quantity,
+                                 String condition, String resultingAction,
+                                 String description, String evidenceImage) {
+            this(productUnitId, productId, quantity, condition, resultingAction, description, evidenceImage, null);
+        }
+    }
 }

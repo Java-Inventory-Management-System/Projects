@@ -1,10 +1,10 @@
-import { useMemo, useState, useEffect, useCallback, useRef } from "react"
+import { useMemo, useState, useEffect, useRef } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useLocationMap } from "@/hooks/use-location-map"
 import type { LocationMapData } from "@/utils/types"
 import type { DetailBin, FilterMode } from "@/features/stock/utils/location-map-utils"
 import { nextCode } from "@/features/stock/utils/location-map-utils"
-import { createLocation, deleteLocation, relocateProductUnits } from "@/services/location-service"
+import { createLocation, deleteLocation, relocateProductUnits, updateLocation } from "@/services/location-service"
 import { t } from "i18next"
 import { toast } from "@/utils/toast"
 
@@ -27,12 +27,16 @@ export function useLocationMapPage() {
   const [filter, setFilter] = useState<FilterMode>("all")
   const [selectedBin, setSelectedBin] = useState<DetailBin | null>(null)
   const [sheetOpen, setSheetOpen] = useState(false)
+  const [capacityDraft, setCapacityDraft] = useState("")
+  const [capacitySaving, setCapacitySaving] = useState(false)
   const [managing, setManaging] = useState(false)
   const [confirmBinId, setConfirmBinId] = useState<number | null>(null)
   const [confirmZoneCode, setConfirmZoneCode] = useState<string | null>(null)
   const [deactivatedIds, setDeactivatedIds] = useState<Record<number, true>>({})
   const [zoomedShelf, _setZoomedShelf] = useState<{ zoneCode: string; shelfCode: string | null } | null>(null)
   const [zoomStage, setZoomStage] = useState<"idle" | "entering" | "visible" | "exiting">("idle")
+  const [viewMode, setViewMode] = useState<"overview" | "zone">("zone")
+  const zoneAutoOpened = useRef(false)
   const [dragSource, setDragSource] = useState<{ bin: DetailBin; zoneCode: string } | null>(null)
   const [relocateTarget, setRelocateTarget] = useState<{ source: DetailBin; dest: DetailBin } | null>(null)
   const [relocateCountdown, setRelocateCountdown] = useState(0)
@@ -67,6 +71,22 @@ export function useLocationMapPage() {
     }
   }
 
+  function switchView(mode: "overview" | "zone") {
+    setViewMode(mode)
+    if (mode === "overview") {
+      openZoom(null)
+    } else if (zoomStage === "idle" && data && data.zones.length > 0) {
+      openZoom({ zoneCode: data.zones[0].zoneCode, shelfCode: null })
+    }
+  }
+
+  useEffect(() => {
+    if (viewMode !== "zone" || zoomStage !== "idle" || zoneAutoOpened.current) return
+    if (!data || data.zones.length === 0) return
+    zoneAutoOpened.current = true
+    openZoom({ zoneCode: data.zones[0].zoneCode, shelfCode: null })
+  }, [viewMode, zoomStage, data])
+
   useEffect(() => {
     if (zoomStage !== "visible") return
     const handler = (e: KeyboardEvent) => {
@@ -92,6 +112,16 @@ export function useLocationMapPage() {
     return () => document.removeEventListener("keydown", handler)
   }, [dragSource, relocateTarget])
 
+  function matchesSearch(bin: DetailBin, q: string) {
+    if (bin.fullCode.toLowerCase().includes(q)) return true
+    if ((bin.productSkuList ?? []).some((s) => s.toLowerCase().includes(q))) return true
+    return (bin.products ?? []).some(
+      (p) =>
+        p.productName.toLowerCase().includes(q) ||
+        (p.serials ?? []).some((s) => s.toLowerCase().includes(q)),
+    )
+  }
+
   const filteredZones = useMemo(() => {
     if (!data) return []
     return data.zones
@@ -107,9 +137,7 @@ export function useLocationMapPage() {
             const bins = shelf.bins.filter((bin) => {
               if (search) {
                 const q = search.toLowerCase()
-                const matchesFullCode = bin.fullCode.toLowerCase().includes(q)
-                const matchesSku = (bin.productSkuList ?? []).some((s) => s.toLowerCase().includes(q))
-                if (!matchesFullCode && !matchesSku) return false
+                if (!matchesSearch(bin, q)) return false
               }
               if (filter === "empty") return bin.productCount === 0
               if (filter === "stocked") return bin.productCount > 0
@@ -136,9 +164,7 @@ export function useLocationMapPage() {
     for (const zone of data?.zones ?? []) {
       for (const shelf of zone.shelves) {
         for (const bin of shelf.bins) {
-          const matchesFullCode = bin.fullCode.toLowerCase().includes(q)
-          const matchesSku = (bin.productSkuList ?? []).some((s) => s.toLowerCase().includes(q))
-          if (matchesFullCode || matchesSku) return bin.id
+          if (matchesSearch(bin, q)) return bin.id
         }
       }
     }
@@ -159,7 +185,49 @@ export function useLocationMapPage() {
 
   function openDetail(bin: DetailBin) {
     setSelectedBin(bin)
+    setCapacityDraft(bin.maxCapacity != null ? String(bin.maxCapacity) : "")
     setSheetOpen(true)
+  }
+
+  async function handleUpdateCapacity() {
+    const bin = selectedBin
+    if (!bin) return
+    const trimmed = capacityDraft.trim()
+    let value: number | null
+    if (trimmed === "") {
+      value = null
+    } else {
+      value = Number(trimmed)
+      if (!Number.isFinite(value) || value <= 0) {
+        toast.error(t("locMap.capacityInvalid"))
+        return
+      }
+    }
+    setCapacitySaving(true)
+    try {
+      await updateLocation(bin.id, {
+        zoneCode: bin.zoneCode,
+        shelfCode: bin.fullCode.split("-")[1] ?? "",
+        binCode: bin.binCode,
+        maxCapacity: value,
+      })
+      patchZones((prev) => ({
+        ...prev,
+        zones: prev.zones.map((z) => ({
+          ...z,
+          shelves: z.shelves.map((s) => ({
+            ...s,
+            bins: s.bins.map((b) => (b.id === bin.id ? { ...b, maxCapacity: value } : b)),
+          })),
+        })),
+      }))
+      setSelectedBin((prev) => (prev ? { ...prev, maxCapacity: value } : prev))
+      toast.success(t("locMap.capacitySaved"))
+    } catch (err) {
+      toast.error((err as Error).message || (err as { response?: { data?: { message?: string } } })?.response?.data?.message || t("locMap.capacityError"))
+    } finally {
+      setCapacitySaving(false)
+    }
   }
 
   function handleDeactivateBin(bin: DetailBin) {
@@ -188,6 +256,10 @@ export function useLocationMapPage() {
       productCount: 0,
       maxCapacity: null,
       productSkuList: [],
+      boxCount: 0,
+      boxCodes: [],
+      products: [],
+      isActive: true,
     }
     patchZones((prev) => ({ ...prev, zones: [...prev.zones, { zoneCode, shelves: [{ shelfCode, bins: [newBin] }] }] }))
     createLocation({ zoneCode, shelfCode, binCode })
@@ -263,6 +335,10 @@ export function useLocationMapPage() {
       productCount: 0,
       maxCapacity: null,
       productSkuList: [],
+      boxCount: 0,
+      boxCodes: [],
+      products: [],
+      isActive: true,
     }
     patchZones((prev) => ({
       ...prev,
@@ -322,6 +398,10 @@ export function useLocationMapPage() {
       productCount: 0,
       maxCapacity: null,
       productSkuList: [],
+      boxCount: 0,
+      boxCodes: [],
+      products: [],
+      isActive: true,
     }
     patchZones((prev) => ({
       ...prev,
@@ -457,6 +537,10 @@ export function useLocationMapPage() {
     selectedBin,
     sheetOpen,
     setSheetOpen,
+    capacityDraft,
+    setCapacityDraft,
+    capacitySaving,
+    handleUpdateCapacity,
     managing,
     setManaging,
     confirmBinId,
@@ -477,10 +561,13 @@ export function useLocationMapPage() {
     zoomedShelf,
     openZoom,
     zoomStage,
+    viewMode,
+    switchView,
     isZoneZoomed,
     zoomedZone,
     zoomedShelfData,
     dragSource,
+    setDragSource,
     handleDragStart,
     handleDrop,
     relocateTarget,

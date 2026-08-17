@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react"
+import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Search, Plus, CheckCircle, UserPlus, ArrowLeft, Phone, Mail, MapPin, Loader2 } from "lucide-react"
 import { Input } from "@/components/ui/input"
@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/pagination"
 import { createCustomer } from "@/services/customer-service"
 import { useCustomers } from "@/hooks/use-customers"
+import { useDebounce } from "@/hooks/use-debounce"
 
 import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "@/utils/toast"
@@ -30,15 +31,11 @@ export const CustomerSelectModal = ({ open, onOpenChange, onSelect, selectedCust
   const { t } = useTranslation()
   const [view, setView] = useState<"select" | "create">("select")
   const [search, setSearch] = useState("")
-  const [debouncedSearch, setDebouncedSearch] = useState("")
   const [page, setPage] = useState(0)
   const [selectedId, setSelectedId] = useState<number | null>(selectedCustomerId ?? null)
-  const searchTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const debouncedSearch = useDebounce(search, 300)
 
-  const [newName, setNewName] = useState("")
-  const [newPhone, setNewPhone] = useState("")
-  const [newEmail, setNewEmail] = useState("")
-  const [newAddress, setNewAddress] = useState("")
+  const [newCustomer, setNewCustomer] = useState({ name: "", phone: "", email: "", address: "" })
   const [creating, setCreating] = useState(false)
 
   const { data, isLoading: loading } = useCustomers(page, 10, debouncedSearch || undefined)
@@ -47,23 +44,11 @@ export const CustomerSelectModal = ({ open, onOpenChange, onSelect, selectedCust
     if (open) {
       setView("select")
       setSearch("")
-      setDebouncedSearch("")
       setPage(0)
       setSelectedId(selectedCustomerId ?? null)
-      setNewName("")
-      setNewPhone("")
-      setNewEmail("")
-      setNewAddress("")
+      setNewCustomer({ name: "", phone: "", email: "", address: "" })
     }
   }, [open, selectedCustomerId])
-
-  useEffect(() => {
-    if (searchTimer.current) clearTimeout(searchTimer.current)
-    searchTimer.current = setTimeout(() => setDebouncedSearch(search), 300)
-    return () => {
-      if (searchTimer.current) clearTimeout(searchTimer.current)
-    }
-  }, [search])
 
   const handleSelect = () => {
     if (!selectedId) return
@@ -75,17 +60,17 @@ export const CustomerSelectModal = ({ open, onOpenChange, onSelect, selectedCust
   }
 
   const handleCreateCustomer = async () => {
-    if (!newName.trim()) {
+    if (!newCustomer.name.trim()) {
       toast.error(t("customerSelect.requireName"))
       return
     }
     setCreating(true)
     try {
       const created = await createCustomer({
-        name: newName.trim(),
-        phone: newPhone.trim() || null,
-        email: newEmail.trim() || null,
-        address: newAddress.trim() || null,
+        name: newCustomer.name.trim(),
+        phone: newCustomer.phone.trim() || null,
+        email: newCustomer.email.trim() || null,
+        address: newCustomer.address.trim() || null,
         note: null,
       })
       toast.success(t("customerSelect.created", { name: created.name }))
@@ -279,8 +264,8 @@ export const CustomerSelectModal = ({ open, onOpenChange, onSelect, selectedCust
               <Input
                 id="new-name"
                 required
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
+                value={newCustomer.name}
+                onChange={(e) => setNewCustomer((c) => ({ ...c, name: e.target.value }))}
                 placeholder={t("customerSelect.namePlaceholder")}
                 autoFocus
               />
@@ -289,8 +274,8 @@ export const CustomerSelectModal = ({ open, onOpenChange, onSelect, selectedCust
               <Label htmlFor="new-phone">{t("customerSelect.phone")}</Label>
               <Input
                 id="new-phone"
-                value={newPhone}
-                onChange={(e) => setNewPhone(e.target.value.replace(/[^0-9]/g, "").slice(0, 11))}
+                value={newCustomer.phone}
+                onChange={(e) => setNewCustomer((c) => ({ ...c, phone: e.target.value.replace(/[^0-9]/g, "").slice(0, 11) }))}
                 placeholder={t("customerSelect.phonePlaceholder")}
                 inputMode="numeric"
               />
@@ -300,8 +285,8 @@ export const CustomerSelectModal = ({ open, onOpenChange, onSelect, selectedCust
               <Input
                 id="new-email"
                 type="email"
-                value={newEmail}
-                onChange={(e) => setNewEmail(e.target.value)}
+                value={newCustomer.email}
+                onChange={(e) => setNewCustomer((c) => ({ ...c, email: e.target.value }))}
                 placeholder={t("customerSelect.emailPlaceholder")}
               />
             </div>
@@ -309,8 +294,8 @@ export const CustomerSelectModal = ({ open, onOpenChange, onSelect, selectedCust
               <Label htmlFor="new-address">{t("customerSelect.address")}</Label>
               <Input
                 id="new-address"
-                value={newAddress}
-                onChange={(e) => setNewAddress(e.target.value)}
+                value={newCustomer.address}
+                onChange={(e) => setNewCustomer((c) => ({ ...c, address: e.target.value }))}
                 placeholder={t("customerSelect.addressPlaceholder")}
               />
             </div>

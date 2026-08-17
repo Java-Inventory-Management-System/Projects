@@ -49,6 +49,7 @@ export interface UserResponse {
   gender: number | null
   dob: string | null
   phoneNumber: string | null
+  lastLogin: string | null
   isPasswordReset: boolean
   isDeleted: boolean
   createdAt: string
@@ -67,6 +68,16 @@ export interface CatalogResponse {
 
 export type BrandResponse = CatalogResponse
 export type CategoryResponse = CatalogResponse
+
+export interface DefectCategory {
+  id: number
+  code: string
+  name: string
+  description: string | null
+  isRepairable: boolean
+  isReplaceable: boolean
+  isActive: boolean
+}
 
 export interface CreateCatalogRequest {
   name: string
@@ -88,6 +99,7 @@ export interface CreateProductRequest {
   minStock?: number
   description?: string
   image?: string
+  supplierIds?: number[]
 }
 
 export interface ProductResponse {
@@ -104,6 +116,7 @@ export interface ProductResponse {
   trackingType: string
   minStock: number
   isActive: boolean
+  supplierIds: number[]
   description: string | null
   createdAt: string
   updatedAt: string
@@ -137,11 +150,24 @@ export interface CustomerResponse {
   address: string | null
   note: string | null
   isActive: boolean
+  exportCount?: number
   createdAt: string
   updatedAt: string
 }
 
 // ============ Location ============
+
+export interface LocationMapBinProduct {
+  productId: number
+  productName: string | null
+  productSku: string | null
+  trackingType: string
+  quantity: number
+  serials: string[]
+  boxId: number | null
+  boxCode: string | null
+  boxType: string | null
+}
 
 export interface LocationMapBin {
   id: number
@@ -149,7 +175,11 @@ export interface LocationMapBin {
   fullCode: string
   productCount: number
   maxCapacity: number | null
+  isActive: boolean
   productSkuList: string[]
+  boxCount: number
+  boxCodes: string[]
+  products: LocationMapBinProduct[]
 }
 
 export interface LocationMapShelf {
@@ -175,6 +205,7 @@ export interface LocationResponse {
   description: string | null
   isActive: boolean
   maxCapacity: number | null
+  lastCheckedAt: string | null
   createdAt: string
   updatedAt: string
 }
@@ -193,6 +224,8 @@ export interface ProductUnit {
   importReceiptItemId: number
   locationId: number | null
   locationCode: string | null
+  boxId: number | null
+  boxCode: string | null
   status: ProductUnitStatus
   importedAt: string
   warrantyMonths: number
@@ -202,16 +235,38 @@ export interface ProductUnit {
   updatedAt: string
 }
 
+export interface ProductUnitImportInfo {
+  importReceiptItemId: number | null
+  receiptCode: string | null
+  receiptDate: string | null
+  importedAt: string | null
+}
+
+export interface ProductUnitHistoryEvent {
+  id: number
+  fromStatus: string | null
+  toStatus: string
+  sourceType: string
+  sourceId: number | null
+  sourceCode: string | null
+  note: string | null
+  changedByName: string | null
+  createdAt: string
+}
+
+export interface ProductUnitHistory {
+  importInfo: ProductUnitImportInfo | null
+  events: ProductUnitHistoryEvent[]
+}
+
 export type ProductUnitStatus =
+  | "PENDING_QC"
   | "IN_STOCK"
   | "SOLD"
   | "RESERVED"
-  | "QUARANTINED"
+  | "EXPORTED"
   | "RETURNED"
   | "DISPOSED"
-  | "WARRANTY"
-  | "WARRANTY_DONE"
-  | "WARRANTY_REPLACED"
   | "DEFECTIVE"
   | "DAMAGED_IN_STORAGE"
   | "LOST"
@@ -219,6 +274,29 @@ export type ProductUnitStatus =
   | "SENT_TO_MANUFACTURER"
   | "RETURNED_TO_SUPPLIER"
   | "REMOVED"
+  | "RETURN_QC_HOLD"
+  | "WAITING_RMA_EXPORT"
+  | "RMA_REPAIRED_RETURNED"
+  | "RMA_UNREPAIRABLE"
+  | "REJECTED_RETURN"
+  | "PENDING_DISPOSAL"
+
+export interface QcUnit {
+  id: number
+  serialNumber: string | null
+  productId: number
+  productName: string
+  status: ProductUnitStatus
+  locationFullCode: string | null
+  initialQuantity: number | null
+  remainingQuantity: number | null
+  description: string | null
+  evidenceImage: string | null
+  processedAt: string | null
+  processedByName: string | null
+  exportReceiptCode: string | null
+  sourceReceiptCode: string | null
+}
 
 // ============ Import Receipt ============
 
@@ -232,11 +310,21 @@ export interface ImportReceipt {
   totalAmount: number
   purchaseOrderId: number | null
   poCode: string | null
+  originalWarrantyExportId: number | null
   createdBy: number | null
   createdByName: string | null
   approvedBy: number | null
   approvedByName: string | null
+  rejectedBy: number | null
+  rejectedByName: string | null
+  rejectedAt: string | null
   rejectReason: string | null
+  evidenceImage: string | null
+  resolution: string | null
+  resolutionNote: string | null
+  resolvedBy: number | null
+  resolvedByName: string | null
+  resolvedAt: string | null
   createdAt: string
   updatedAt: string
   items: ImportReceiptItem[]
@@ -250,7 +338,7 @@ export interface DiscrepancyNote {
   reportedAt: string
 }
 
-export type ImportReceiptStatus = "DRAFT" | "PENDING" | "PENDING_APPROVAL" | "COMPLETED" | "CANCELLED"
+export type ImportReceiptStatus = "DRAFT" | "RECEIVED" | "REJECTED" | "CANCELLED"
 
 export interface ImportReceiptItem {
   id: number
@@ -271,23 +359,30 @@ export interface ImportReceiptItem {
 
 // ============ Purchase Order ============
 
-export type PurchaseOrderStatus = "DRAFT" | "PARTIAL" | "COMPLETED" | "CANCELLED"
+export type PurchaseOrderStatus = "DRAFT" | "OPEN" | "PARTIAL" | "COMPLETED" | "CANCELLED"
 
 export interface PurchaseOrderItem {
   id: number
   productId: number
   productName: string
   productSku: string | null
+  trackingType: string | null
   quantity: number
   unitPrice: number
   receivedQuantity: number
+  serials: string[]
 }
 
 export interface CreatePurchaseOrderRequest {
   supplierId: number
   expectedDate: string
   note: string | null
-  items: Array<{ productId: number; quantity: number; unitPrice: number }>
+  invoiceCode: string | null
+  items: Array<{ productId: number; quantity: number; unitPrice: number; serials?: string[] }>
+}
+
+export interface UpdatePurchaseOrderRequest {
+  items: Array<{ productId: number; quantity: number; unitPrice: number; serials?: string[] }>
 }
 
 export interface PurchaseOrder {
@@ -298,8 +393,12 @@ export interface PurchaseOrder {
   items: PurchaseOrderItem[]
   totalAmount: number
   status: PurchaseOrderStatus
+  locked: boolean
+  rejectedReceiptCount: number
   expectedDate: string
   note: string | null
+  invoiceCode: string | null
+  asnCode: string | null
   createdBy: number | null
   createdByName: string
   createdAt: string
@@ -329,12 +428,22 @@ export interface ExportReceipt {
   rejectedByName: string | null
   rejectedAt: string | null
   rejectReason: string | null
+  evidenceImages: string[]
   createdAt: string
   updatedAt: string
   items: ExportReceiptItem[]
+  statusHistory: ExportReceiptStatusHistory[]
 }
 
-export type ExportReason = "SALE" | "INTERNAL" | "RETURN_SUPPLIER" | "DISPOSE" | "WARRANTY_REPLACEMENT"
+export interface ExportReceiptStatusHistory {
+  fromStatus: string
+  toStatus: string
+  createdAt: string
+  changedBy: number
+  changedByName: string | null
+}
+
+export type ExportReason = "SALE" | "INTERNAL" | "RETURN_SUPPLIER" | "DISPOSE" | "WARRANTY_REPLACEMENT" | "OTHER"
 export type ExportReceiptStatus = "PENDING" | "APPROVED" | "COMPLETED" | "CANCELLED"
 
 export interface ExportReceiptItem {
@@ -345,13 +454,16 @@ export interface ExportReceiptItem {
   quantity: number
   unitPrice: number
   trackingType?: string
+  serialNumbers?: string[]
 }
 
 // ============ Stock Check ============
 
-export type StockCheckStatus = "PENDING" | "IN_PROGRESS" | "COMPLETED" | "APPROVED"
-export type StockCheckScopeType = "ZONE" | "CATEGORY"
-export type DifferenceType = "MATCH" | "MISSING" | "UNEXPECTED" | "PARTIAL_SHORTAGE"
+export type StockCheckStatus = "PENDING" | "IN_PROGRESS" | "COMPLETED" | "APPROVED" | "CANCELLED" | "EXPIRED"
+export type StockCheckScopeType = "ZONE" | "CATEGORY" | "BOX"
+export type DifferenceType = "MATCH" | "MISSING" | "DAMAGED" | "UNEXPECTED" | "PARTIAL_SHORTAGE" | "SURPLUS"
+
+export const UNVERIFIED_STATUS = "UNVERIFIED"
 
 export interface StockCheckItem {
   id: number
@@ -360,14 +472,22 @@ export interface StockCheckItem {
   productId: number
   productName: string
   productSku: string | null
+  unit: string | null
   trackingType: "SERIALIZED" | "BULK" | null
+  boxId: number | null
+  boxCode: string | null
   expectedStatus: string | null
   actualStatus: string | null
   countedQuantity: number | null
+  expectedQuantity: number | null
   difference: DifferenceType | null
   note: string | null
   photo: string | null
   autoFilled: boolean
+  suspectSeal: boolean | null
+  damagedPackaging: boolean | null
+  touchedAt: string | null
+  localOnly?: boolean
 }
 
 export interface StockCheck {
@@ -376,12 +496,18 @@ export interface StockCheck {
   status: StockCheckStatus
   scopeType: StockCheckScopeType | null
   scopeId: number | null
+  scopeName: string | null
+  shelfCodes: string[] | null
   note: string | null
   createdBy: number | null
   createdByName: string | null
   approvedBy: number | null
   approvedByName: string | null
   approvalNote: string | null
+  checkedBy: number | null
+  checkedByName: string | null
+  enteredBy: number | null
+  enteredByName: string | null
   items: StockCheckItem[]
   totalItems: number
   matchCount: number
@@ -390,6 +516,85 @@ export interface StockCheck {
   autoFilledCount: number
   createdAt: string
   updatedAt: string
+}
+
+export interface StockCheckZoneStatus {
+  pendingChecks: number
+  zones: Array<{
+    zoneCode: string
+    clusterCount: number
+    dueClusterCount: number
+  }>
+}
+
+export interface StockCheckSchedule {
+  id: number
+  zoneCode: string
+  shelfFrom: string | null
+  shelfTo: string | null
+  frequencyDays: number
+  isActive: boolean
+  defaultAssigneeId: number | null
+  defaultAssigneeName: string | null
+  note: string | null
+}
+
+// ============ Box ============
+
+export type BoxStatus = "SEALED" | "UNSEALED"
+
+export const BOX_STATUS = {
+  SEALED: "SEALED",
+  UNSEALED: "UNSEALED",
+} as const
+
+export type BoxType = "SMALL" | "MEDIUM" | "LARGE"
+
+// ponytail: FE hiển thị N theo loại hộp — backend là nguồn sự thật (app.box.max-units)
+export const BOX_TYPE_MAX: Record<BoxType, number> = { SMALL: 20, MEDIUM: 50, LARGE: 100 }
+
+export const BOX_TYPES: BoxType[] = ["SMALL", "MEDIUM", "LARGE"]
+
+export interface BoxUnit {
+  productUnitId: number
+  serialNumber: string | null
+  productId: number
+  productName: string | null
+  productSku: string | null
+  trackingType: "SERIALIZED" | "BULK" | null
+  quantity: number
+}
+
+export interface BoxableImport {
+  receiptId: number
+  receiptCode: string
+  supplierName: string | null
+  importedAt: string | null
+  boxableUnits: number
+}
+
+export interface Box {
+  id: number
+  boxCode: string
+  importReceiptId: number | null
+  importReceiptCode: string | null
+  boxType: BoxType | null
+  locationId: number
+  locationCode: string | null
+  status: BoxStatus
+  sealedQuantity: number
+  sealedBy: number | null
+  sealedByName: string | null
+  sealedAt: string | null
+  unsealedBy: number | null
+  unsealedByName: string | null
+  unsealedAt: string | null
+  note: string | null
+  createdBy: number | null
+  createdByName: string | null
+  createdAt: string
+  unitCount: number
+  units: BoxUnit[]
 }
 
 // ============ Stock Adjustment ============
@@ -420,6 +625,7 @@ export interface StockAdjustment {
   approvedByName: string | null
   approvalNote: string | null
   createdAt: string
+  approvedAt: string | null
   updatedAt: string
 }
 
@@ -429,8 +635,11 @@ export interface PriceAdjustment {
   id: number
   adjustCode: string
   importReceiptItemId: number
+  productId: number | null
   productName: string | null
   productSku: string | null
+  receiptCode: string | null
+  receiptDate: string | null
   oldPrice: number
   newPrice: number
   reason: string
@@ -527,6 +736,34 @@ export interface DeadStockItem {
   costPrice: number
 }
 
+// ============ Stock Check Overview ============
+
+export interface StockCheckMonthCount {
+  month: string
+  count: number
+}
+
+export interface AdjustmentMonthCount {
+  month: string
+  lost: number
+  found: number
+  damaged: number
+}
+
+export interface StockCheckDiscrepancy {
+  id: number
+  checkCode: string
+  createdAt: string
+  missingCount: number
+  unexpectedCount: number
+}
+
+export interface StockCheckOverview {
+  checksPerMonth: StockCheckMonthCount[]
+  adjustmentsPerMonth: AdjustmentMonthCount[]
+  recentDiscrepancies: StockCheckDiscrepancy[]
+}
+
 // ============ Return Receipt ============
 
 export interface ReturnReceiptItem {
@@ -539,6 +776,7 @@ export interface ReturnReceiptItem {
   quantity: number
   condition: string
   resultingAction: string
+  defectCategoryId: number | null
 }
 
 export interface ReturnReceipt {
@@ -577,6 +815,7 @@ export interface ProductImage {
 export interface AuditLog {
   userId: number | null
   username: string | null
+  roleSnapshot: string | null
   ipAddress: string | null
   requestId: string | null
   action: string
@@ -586,6 +825,8 @@ export interface AuditLog {
   newValue: string | null
   status: string
   errorMsg: string | null
+  message: string | null
+  messageFields: string[]
   createdAt: string
 }
 
@@ -597,13 +838,21 @@ export interface LineItem {
   productName: string
   productSku: string
   categoryId: number | null
+  trackingType: string | null
   quantity: number
   unitPrice: number
   warrantyMonths: number
   serials: string[]
   locationId: string
+  allocations: LocationAllocation[]
   itemStatus: "NORMAL" | "NOT_RECEIVED"
   notReceivedReason: string
+}
+
+export interface LocationAllocation {
+  locationId: string
+  quantity: number
+  serials: string[]
 }
 
 export interface QcRecord {
@@ -617,8 +866,8 @@ export interface QcRecord {
 
 export const IMPORT_RECEIPT_STATUS = {
   DRAFT: "DRAFT",
-  PENDING_APPROVAL: "PENDING_APPROVAL",
-  COMPLETED: "COMPLETED",
+  RECEIVED: "RECEIVED",
+  REJECTED: "REJECTED",
   CANCELLED: "CANCELLED",
 } as const
 
@@ -641,10 +890,12 @@ export const EXPORT_REASON = {
   RETURN_SUPPLIER: "RETURN_SUPPLIER",
   DISPOSE: "DISPOSE",
   WARRANTY_REPLACEMENT: "WARRANTY_REPLACEMENT",
+  OTHER: "OTHER",
 } as const
 
 export const PURCHASE_ORDER_STATUS = {
   DRAFT: "DRAFT",
+  OPEN: "OPEN",
   PARTIAL: "PARTIAL",
   COMPLETED: "COMPLETED",
   CANCELLED: "CANCELLED",
@@ -655,6 +906,8 @@ export const STOCK_CHECK_STATUS = {
   IN_PROGRESS: "IN_PROGRESS",
   COMPLETED: "COMPLETED",
   APPROVED: "APPROVED",
+  CANCELLED: "CANCELLED",
+  EXPIRED: "EXPIRED",
 } as const
 
 export const ADJUSTMENT_STATUS = {
@@ -666,11 +919,12 @@ export const ADJUSTMENT_STATUS = {
 
 export const PRODUCT_UNIT_STATUS = {
   IN_STOCK: "IN_STOCK",
+  PENDING_QC: "PENDING_QC",
   SOLD: "SOLD",
   RESERVED: "RESERVED",
-  QUARANTINED: "QUARANTINED",
   RETURNED: "RETURNED",
   DISPOSED: "DISPOSED",
+  EXPORTED: "EXPORTED",
   DEFECTIVE: "DEFECTIVE",
   DAMAGED_IN_STORAGE: "DAMAGED_IN_STORAGE",
   LOST: "LOST",
@@ -678,6 +932,12 @@ export const PRODUCT_UNIT_STATUS = {
   SENT_TO_MANUFACTURER: "SENT_TO_MANUFACTURER",
   RETURNED_TO_SUPPLIER: "RETURNED_TO_SUPPLIER",
   REMOVED: "REMOVED",
+  RETURN_QC_HOLD: "RETURN_QC_HOLD",
+  WAITING_RMA_EXPORT: "WAITING_RMA_EXPORT",
+  RMA_REPAIRED_RETURNED: "RMA_REPAIRED_RETURNED",
+  RMA_UNREPAIRABLE: "RMA_UNREPAIRABLE",
+  REJECTED_RETURN: "REJECTED_RETURN",
+  PENDING_DISPOSAL: "PENDING_DISPOSAL",
 } as const
 
 export const USER_STATUS = {
@@ -692,17 +952,66 @@ export const AUDIT_STATUS = {
 } as const
 
 export const AUDIT_ACTION = {
-  LOGIN: "LOGIN",
+  LOGIN_SUCCESS: "LOGIN_SUCCESS",
+  LOGIN_FAILED: "LOGIN_FAILED",
   LOGOUT: "LOGOUT",
-  CREATE: "CREATE",
-  UPDATE: "UPDATE",
-  DELETE: "DELETE",
-  APPROVE: "APPROVE",
-  REJECT: "REJECT",
-  CANCEL: "CANCEL",
+  CREATE_USER: "CREATE_USER",
+  UPDATE_USER_INFO: "UPDATE_USER_INFO",
+  UPDATE_USER_STATUS: "UPDATE_USER_STATUS",
+  UPDATE_USER_ROLE: "UPDATE_USER_ROLE",
+  CHANGE_PASSWORD: "CHANGE_PASSWORD",
   RESET_PASSWORD: "RESET_PASSWORD",
-  IMPORT: "IMPORT",
-  EXPORT: "EXPORT",
+  CREATE_BRAND: "CREATE_BRAND",
+  UPDATE_BRAND: "UPDATE_BRAND",
+  TOGGLE_BRAND: "TOGGLE_BRAND",
+  CREATE_CATEGORY: "CREATE_CATEGORY",
+  UPDATE_CATEGORY: "UPDATE_CATEGORY",
+  TOGGLE_CATEGORY: "TOGGLE_CATEGORY",
+  CREATE_SUPPLIER: "CREATE_SUPPLIER",
+  UPDATE_SUPPLIER: "UPDATE_SUPPLIER",
+  TOGGLE_SUPPLIER: "TOGGLE_SUPPLIER",
+  CREATE_PRODUCT: "CREATE_PRODUCT",
+  UPDATE_PRODUCT: "UPDATE_PRODUCT",
+  TOGGLE_PRODUCT: "TOGGLE_PRODUCT",
+  CREATE_IMPORT: "CREATE_IMPORT",
+  CONFIRM_IMPORT: "CONFIRM_IMPORT",
+  APPROVE_IMPORT: "APPROVE_IMPORT",
+  CANCEL_IMPORT: "CANCEL_IMPORT",
+  CREATE_LOCATION: "CREATE_LOCATION",
+  UPDATE_LOCATION: "UPDATE_LOCATION",
+  DELETE_LOCATION: "DELETE_LOCATION",
+  TOGGLE_LOCATION: "TOGGLE_LOCATION",
+  RELOCATE_LOCATION: "RELOCATE_LOCATION",
+  CREATE_CUSTOMER: "CREATE_CUSTOMER",
+  UPDATE_CUSTOMER: "UPDATE_CUSTOMER",
+  TOGGLE_CUSTOMER: "TOGGLE_CUSTOMER",
+  CREATE_EXPORT: "CREATE_EXPORT",
+  FULFILL_EXPORT: "FULFILL_EXPORT",
+  CANCEL_EXPORT: "CANCEL_EXPORT",
+  CREATE_STOCK_CHECK: "CREATE_STOCK_CHECK",
+  START_STOCK_CHECK: "START_STOCK_CHECK",
+  COMPLETE_STOCK_CHECK: "COMPLETE_STOCK_CHECK",
+  CANCEL_STOCK_CHECK: "CANCEL_STOCK_CHECK",
+  SEAL_BOX: "SEAL_BOX",
+  UNSEAL_BOX: "UNSEAL_BOX",
+  MOVE_BOX: "MOVE_BOX",
+  CREATE_ADJUSTMENT: "CREATE_ADJUSTMENT",
+  APPROVE_ADJUSTMENT: "APPROVE_ADJUSTMENT",
+  REJECT_ADJUSTMENT: "REJECT_ADJUSTMENT",
+  CREATE_PURCHASE_ORDER: "CREATE_PURCHASE_ORDER",
+  CANCEL_PURCHASE_ORDER: "CANCEL_PURCHASE_ORDER",
+  RECORD_STOCK_CHECK: "RECORD_STOCK_CHECK",
+  CREATE_PRODUCT_IMAGE: "CREATE_PRODUCT_IMAGE",
+  DELETE_PRODUCT_IMAGE: "DELETE_PRODUCT_IMAGE",
+  CREATE_RETURN: "CREATE_RETURN",
+  APPROVE_RETURN: "APPROVE_RETURN",
+  CANCEL_RETURN: "CANCEL_RETURN",
+  QC_PASS: "QC_PASS",
+  DISPOSE_CONFIRM: "DISPOSE_CONFIRM",
+  CREATE_PRICE_ADJUSTMENT: "CREATE_PRICE_ADJUSTMENT",
+  APPROVE_PRICE_ADJUSTMENT: "APPROVE_PRICE_ADJUSTMENT",
+  REJECT_PRICE_ADJUSTMENT: "REJECT_PRICE_ADJUSTMENT",
+  CANCEL_PRICE_ADJUSTMENT: "CANCEL_PRICE_ADJUSTMENT",
 } as const
 
 export const PRODUCT_UNIT_TYPE = {
@@ -711,6 +1020,7 @@ export const PRODUCT_UNIT_TYPE = {
   SET: "SET",
   METER: "METER",
   KG: "KG",
+  TUBE: "TUBE",
 } as const
 
 export const TRACKING_TYPE = {
@@ -719,11 +1029,13 @@ export const TRACKING_TYPE = {
 } as const
 
 export const STOCK_CHECK_DIFF = {
-  MATCH: "MATCH",
-  MISSING: "MISSING",
-  UNEXPECTED: "UNEXPECTED",
-  PARTIAL_SHORTAGE: "PARTIAL_SHORTAGE",
-} as const
+    MATCH: "MATCH",
+    MISSING: "MISSING",
+    DAMAGED: "DAMAGED",
+    UNEXPECTED: "UNEXPECTED",
+    PARTIAL_SHORTAGE: "PARTIAL_SHORTAGE",
+    SURPLUS: "SURPLUS",
+  } as const
 
 export const ADJUSTMENT_TYPE = {
   DAMAGED: "DAMAGED",
@@ -737,6 +1049,8 @@ export const RETURN_REASON = {
   WRONG_ITEM: "WRONG_ITEM",
   WARRANTY_CLAIM: "WARRANTY_CLAIM",
 } as const
+
+export type ReturnReason = (typeof RETURN_REASON)[keyof typeof RETURN_REASON]
 
 export const RETURN_ITEM_CONDITION = {
   GOOD: "GOOD",

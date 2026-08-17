@@ -1,12 +1,13 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useTranslation } from "react-i18next"
 import { useForm, Controller } from "react-hook-form"
-import { useParams, useNavigate } from "react-router-dom"
+import { useParams, useNavigate, useBlocker } from "react-router-dom"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { getProductById, updateProduct, toggleProductActive } from "@/services/product-service"
 import { getProductImages, createProductImage, deleteProductImage } from "@/services/product-image-service"
 import { useBrands } from "@/hooks/use-brands"
 import { useCategories } from "@/hooks/use-categories"
+import { useSuppliers } from "@/hooks/use-suppliers"
 import type { ProductImage } from "@/utils/types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -14,6 +15,8 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Empty, EmptyTitle } from "@/components/ui/empty"
 import { Skeleton } from "@/components/ui/skeleton"
+import { FieldError } from "@/components/ui/field"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
   AlertDialog,
@@ -27,7 +30,8 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Upload, X } from "lucide-react"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Switch } from "@/components/ui/switch"
+import { ToggleActiveButton } from "@/components/toggle-active-button"
+import { UnsavedChangesDialog } from "@/components/unsaved-changes-dialog"
 import { AspectRatio } from "@/components/ui/aspect-ratio"
 import { ButtonGroup } from "@/components/ui/button-group"
 import {
@@ -41,6 +45,7 @@ import {
 import { Card, CardContent } from "@/components/ui/card"
 import { toast } from "@/utils/toast"
 import { PRODUCT_UNIT_TYPE, TRACKING_TYPE } from "@/utils/types"
+import { UNIT_LABELS } from "@/utils/labels"
 
 const UNITS = [
   PRODUCT_UNIT_TYPE.PIECE,
@@ -48,6 +53,7 @@ const UNITS = [
   PRODUCT_UNIT_TYPE.SET,
   PRODUCT_UNIT_TYPE.METER,
   PRODUCT_UNIT_TYPE.KG,
+  PRODUCT_UNIT_TYPE.TUBE,
 ]
 const TRACKING_TYPES = [TRACKING_TYPE.SERIALIZED, TRACKING_TYPE.BULK]
 
@@ -62,6 +68,7 @@ interface FormData {
   sellPrice: string
   minStock: string
   description: string
+  supplierIds: number[]
 }
 
 export function ProductEditPage() {
@@ -71,6 +78,7 @@ export function ProductEditPage() {
   const qc = useQueryClient()
   const { data: brands } = useBrands()
   const { data: categories } = useCategories()
+  const { data: suppliers = [] } = useSuppliers()
   const productId = Number(id)
 
   const [loading, setLoading] = useState(true)
@@ -78,8 +86,8 @@ export function ProductEditPage() {
   const [images, setImages] = useState<ProductImage[]>([])
   const [showDeleteImgDialog, setShowDeleteImgDialog] = useState<number | null>(null)
 
-  const { register, handleSubmit, control, reset, watch, formState: { errors } } = useForm<FormData>({
-    defaultValues: { name: "", sku: "", barcode: "", brandId: "", categoryId: "", unit: "", trackingType: "", sellPrice: "", minStock: "0", description: "" },
+  const { register, handleSubmit, control, reset, watch, formState: { errors, isDirty } } = useForm<FormData>({
+    defaultValues: { name: "", sku: "", barcode: "", brandId: "", categoryId: "", unit: "", trackingType: "", sellPrice: "", minStock: "0", description: "", supplierIds: [] },
   })
 
   useEffect(() => {
@@ -97,12 +105,13 @@ export function ProductEditPage() {
           sellPrice: product.sellPrice ? String(product.sellPrice) : "",
           minStock: product.minStock ? String(product.minStock) : "0",
           description: product.description ?? "",
+          supplierIds: product.supplierIds ?? [],
         })
         setIsActive(product.isActive)
         setImages(imgs)
       })
       .finally(() => setLoading(false))
-  }, [id])
+  }, [id, productId, reset])
 
   const save = useMutation({
     mutationFn: (values: FormData) => {
@@ -117,16 +126,24 @@ export function ProductEditPage() {
         trackingType: values.trackingType || null,
         minStock: values.minStock ? Number(values.minStock) : undefined,
         description: values.description || undefined,
+        supplierIds: values.supplierIds || [],
       }
       return updateProduct(productId, payload)
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["products"] })
       toast.success(t("productForm.updateSuccess"))
+      navigatingAfterMut.current = true
       navigate("/products")
     },
     onError: (e: Error) => toast.error(e.message),
   })
+
+  const navigatingAfterMut = useRef(false)
+  const blocker = useBlocker(
+    ({ currentLocation, nextLocation }) =>
+      !navigatingAfterMut.current && isDirty && currentLocation.pathname !== nextLocation.pathname,
+  )
 
   const toggleActive = useMutation({
     mutationFn: () => toggleProductActive(productId),
@@ -193,7 +210,13 @@ export function ProductEditPage() {
           </Breadcrumb>
           <h1 className="text-xl font-semibold tracking-tight">{t("common.edit")} {t("productForm.product")}</h1>
         </div>
-        <Switch checked={isActive} onCheckedChange={() => toggleActive.mutate()} disabled={toggleActive.isPending} />
+        <ToggleActiveButton
+          active={isActive}
+          name={watch("name")}
+          pending={toggleActive.isPending}
+          onToggle={() => toggleActive.mutate()}
+          confirmDescription={isActive ? t("common.deactivateWarning") : undefined}
+        />
       </div>
 
       <form onSubmit={onSubmit}>
@@ -253,11 +276,37 @@ export function ProductEditPage() {
                     <Select value={field.value} onValueChange={field.onChange}>
                       <SelectTrigger id="unit"><SelectValue placeholder={t("productForm.unitPlaceholder")} /></SelectTrigger>
                       <SelectContent>
-                        {UNITS.map((u) => (<SelectItem key={u} value={u}>{u}</SelectItem>))}
+                        {UNITS.map((u) => (<SelectItem key={u} value={u}>{t(UNIT_LABELS[u] ?? u)}</SelectItem>))}
                       </SelectContent>
                     </Select>
                   )}
                 />
+              </div>
+              <div className="space-y-2 sm:col-span-2">
+                <Label>{t("productForm.suppliers")} <span className="text-destructive">*</span></Label>
+                <Controller
+                  control={control}
+                  name="supplierIds"
+                  rules={{ validate: (v) => v.length > 0 || t("productForm.suppliersRequired") }}
+                  render={({ field }) => (
+                    <div className="grid gap-2 sm:grid-cols-2 rounded-lg border p-3">
+                      {suppliers.map((s) => (
+                        <label key={s.id} className="flex items-center gap-2 text-sm">
+                          <Checkbox
+                            checked={field.value.includes(s.id)}
+                            onCheckedChange={(checked) =>
+                              field.onChange(
+                                checked ? [...field.value, s.id] : field.value.filter((id) => id !== s.id),
+                              )
+                            }
+                          />
+                          {s.name}
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                />
+                <FieldError errors={errors.supplierIds ? [{ message: errors.supplierIds.message }] : undefined} />
               </div>
               <div className="space-y-2 sm:col-span-2">
                 <Label>{t("productForm.trackingType")}</Label>
@@ -329,7 +378,7 @@ export function ProductEditPage() {
                     />
                   </AspectRatio>
                   {img.isPrimary && (
-                    <span className="absolute top-0.5 left-0.5 text-[10px] bg-primary text-primary-foreground px-1 rounded">
+                    <span className="absolute top-0.5 left-0.5 text-xs bg-primary text-primary-foreground px-1 rounded">
                       {t("productImages.primary")}
                     </span>
                   )}
@@ -349,7 +398,7 @@ export function ProductEditPage() {
       <div className="flex justify-end">
         <ButtonGroup>
           <Button variant="outline" onClick={() => navigate("/products")}>{t("common.cancel")}</Button>
-          <Button onClick={() => onSubmit()} disabled={!watch("name").trim() || save.isPending}>
+          <Button onClick={() => onSubmit()} disabled={!watch("name").trim() || watch("supplierIds").length === 0 || save.isPending}>
             {save.isPending ? t("common.saving") : t("common.save")}
           </Button>
         </ButtonGroup>
@@ -378,6 +427,12 @@ export function ProductEditPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <UnsavedChangesDialog
+        open={blocker.state === "blocked"}
+        onStay={() => blocker.state === "blocked" && blocker.reset()}
+        onLeave={() => blocker.state === "blocked" && blocker.proceed()}
+      />
     </div>
   )
 }

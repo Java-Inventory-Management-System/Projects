@@ -59,7 +59,7 @@ export function ImportCreateSidebar() {
                   <p className="truncate font-medium">{p.productName}</p>
                   <p className="text-muted-foreground truncate">{p.productSku}</p>
                 </div>
-                <span className="text-[10px] shrink-0 ml-2 font-mono tabular-nums text-muted-foreground">
+                <span className="text-xs shrink-0 ml-2 font-mono tabular-nums text-muted-foreground">
                   SL: {p.quantity}
                 </span>
               </div>
@@ -83,7 +83,7 @@ export function ImportCreateSidebar() {
                   <p className="truncate font-medium">{item.productName}</p>
                   <p className="text-muted-foreground truncate">{item.productSku}</p>
                 </div>
-                <span className="text-[10px] shrink-0 ml-2 font-mono tabular-nums text-destructive">
+                <span className="text-xs shrink-0 ml-2 font-mono tabular-nums text-destructive">
                   {item.quantity}/{item.minStock}
                 </span>
               </div>

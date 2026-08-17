@@ -19,6 +19,22 @@ public record LocationMapResponse(
         String fullCode,
         long productCount,
         Long maxCapacity,
-        List<String> productSkuList
+        Boolean isActive,
+        List<String> productSkuList,
+        long boxCount,
+        List<String> boxCodes,
+        List<BinProduct> products
+    ) {}
+
+    public record BinProduct(
+        Long productId,
+        String productName,
+        String productSku,
+        String trackingType,
+        long quantity,
+        List<String> serials,
+        Long boxId,
+        String boxCode,
+        String boxType
     ) {}
 }

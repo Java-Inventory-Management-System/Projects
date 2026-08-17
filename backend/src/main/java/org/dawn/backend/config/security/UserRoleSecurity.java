@@ -1,7 +1,7 @@
 package org.dawn.backend.config.security;
+import org.dawn.backend.constant.shared.ErrorCode;
 
 import lombok.RequiredArgsConstructor;
-import org.dawn.backend.constant.shared.Message;
 import org.dawn.backend.entity.auth.User;
 import org.dawn.backend.entity.auth.UserDetailsImpl;
 import org.dawn.backend.exception.type.PermissionDeniedException;
@@ -18,17 +18,16 @@ public class UserRoleSecurity {
 
     public boolean canUpdate(Long userId, Authentication auth) {
         UserDetailsImpl currentUser = (UserDetailsImpl) auth.getPrincipal();
-        //  Can not update youself
         if (currentUser.getId().equals(userId)) {
-            throw new PermissionDeniedException(Message.Auth.FORBIDDEN);
+            throw new PermissionDeniedException(ErrorCode.FORBIDDEN);
         }
         User targetUser = userRepository
                 .findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException(Message.User.USER_NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.USER_NOT_FOUND));
         int currentUserRole = currentUser.getRole().getLevel();
         int targetUserRole = targetUser.getRole().getName().getLevel();
         if (currentUserRole >= targetUserRole) {
-            throw new PermissionDeniedException(Message.Auth.FORBIDDEN);
+            throw new PermissionDeniedException(ErrorCode.FORBIDDEN);
         }
         return true;
     }

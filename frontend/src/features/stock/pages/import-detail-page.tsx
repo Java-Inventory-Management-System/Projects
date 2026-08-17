@@ -2,14 +2,17 @@ import { useState } from "react"
 import { useParams, useNavigate } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { getImportReceiptById, approveImportReceipt, cancelImportReceipt } from "@/services/import-service"
+import { getImportReceiptById, cancelImportReceipt, rejectImportReceipt, resolveImportReceipt } from "@/services/import-service"
 import { usePermission } from "@/hooks/use-permission"
+import { invalidateDashboard } from "@/hooks/use-reports"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Empty, EmptyTitle } from "@/components/ui/empty"
-import { ButtonGroup } from "@/components/ui/button-group"
-import { Check, X, ScanLine, FileDown } from "lucide-react"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import { ImageUpload } from "@/components/ui/image-upload"
+import { X, ScanLine, FileDown } from "lucide-react"
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -35,18 +38,30 @@ import { downloadCsv } from "@/utils/download-csv"
 import { IMPORT_RECEIPT_STATUS } from "@/utils/types"
 import { PrintReceiptButton } from "../components/print-receipt"
 
+function resolutionLabel(t: (k: string) => string, resolution: string) {
+  return resolution === "RETURNED_TO_SUPPLIER"
+    ? t("importDetail.resolveReturned")
+    : t("importDetail.resolveResending")
+}
+
 export function ImportDetailPage() {
   const { t } = useTranslation()
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const qc = useQueryClient()
   const perm = usePermission()
-  const [confirmAction, setConfirmAction] = useState<"approve" | "cancel" | null>(null)
+  const [confirmCancel, setConfirmCancel] = useState(false)
+  const [rejectOpen, setRejectOpen] = useState(false)
+  const [rejectReason, setRejectReason] = useState("")
+  const [evidenceImage, setEvidenceImage] = useState("")
+  const [resolveOpen, setResolveOpen] = useState(false)
+  const [resolveChoice, setResolveChoice] = useState("RETURNED_TO_SUPPLIER")
+  const [resolveNote, setResolveNote] = useState("")
 
   const statusLabel: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
     DRAFT: { label: t("importStatus.draft"), variant: "secondary" },
-    PENDING_APPROVAL: { label: t("importStatus.pendingApproval"), variant: "outline" },
-    COMPLETED: { label: t("importStatus.completed"), variant: "default" },
+    RECEIVED: { label: t("importStatus.received"), variant: "default" },
+    REJECTED: { label: t("importStatus.rejected"), variant: "destructive" },
     CANCELLED: { label: t("importStatus.cancelled"), variant: "destructive" },
   }
 
@@ -56,24 +71,58 @@ export function ImportDetailPage() {
     enabled: !!id,
   })
 
-  const action = useMutation({
-    mutationFn: async (action: "approve" | "cancel") => {
-      if (action === "approve") return approveImportReceipt(Number(id))
-      return cancelImportReceipt(Number(id))
-    },
+  const invalidateAll = () => {
+    qc.invalidateQueries({ queryKey: ["import-receipt", id] })
+    qc.invalidateQueries({ queryKey: ["import-receipts"] })
+    qc.invalidateQueries({ queryKey: ["inventory"] })
+    invalidateDashboard(qc)
+    qc.invalidateQueries({ queryKey: ["import-pending-count"] })
+  }
+
+  const cancelMut = useMutation({
+    mutationFn: () => cancelImportReceipt(Number(id)),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["import-receipt", id] })
-      qc.invalidateQueries({ queryKey: ["import-receipts"] })
-      qc.invalidateQueries({ queryKey: ["inventory"] })
-      qc.invalidateQueries({ queryKey: ["inventory-summary"] })
-      qc.invalidateQueries({ queryKey: ["low-stock"] })
-      toast.success(t("importDetail.actionSuccess"))
-      setConfirmAction(null)
+      invalidateAll()
+      toast.success(t("importDetail.cancelled"))
+      setConfirmCancel(false)
     },
-    onError: (e: Error) => {
-      toast.error(e.message)
-      setConfirmAction(null)
+    onError: (e: Error) => toast.error(e.message),
+  })
+
+  const rejectMut = useMutation({
+    mutationFn: () =>
+      rejectImportReceipt(Number(id), {
+        reason: rejectReason.trim(),
+        evidenceImageUrl: evidenceImage.split(",")[0] ?? "",
+      }),
+    onSuccess: () => {
+      invalidateAll()
+      toast.success(t("importDetail.rejected"))
+      setRejectOpen(false)
     },
+    onError: (e: Error) => toast.error(e.message),
+  })
+
+  const handleReject = () => {
+    if (!rejectReason.trim()) {
+      toast.error(t("importDetail.rejectReasonRequired"))
+      return
+    }
+    if (!evidenceImage) {
+      toast.error(t("importDetail.rejectEvidenceRequired"))
+      return
+    }
+    rejectMut.mutate()
+  }
+
+  const resolveMut = useMutation({
+    mutationFn: () => resolveImportReceipt(Number(id), { resolution: resolveChoice, note: resolveNote.trim() || undefined }),
+    onSuccess: () => {
+      invalidateAll()
+      toast.success(t("importDetail.resolveSuccess"))
+      setResolveOpen(false)
+    },
+    onError: (e: Error) => toast.error(e.message),
   })
 
   if (isLoading)
@@ -91,6 +140,7 @@ export function ImportDetailPage() {
     )
 
   const s = statusLabel[receipt.status] ?? { label: receipt.status, variant: "secondary" }
+  const isStock = perm.hasRole("STOCK")
 
   const handleDownloadCsv = () => {
     downloadCsv(
@@ -127,40 +177,30 @@ export function ImportDetailPage() {
           <Badge variant={s.variant}>{s.label}</Badge>
         </div>
         <div className="flex items-center gap-2">
-          {receipt.status === IMPORT_RECEIPT_STATUS.PENDING_APPROVAL && perm.canApprove() && (
-            <ButtonGroup>
-              <Button variant="outline" className="text-destructive" onClick={() => setConfirmAction("cancel")}>
-                <X className="size-4 mr-1" /> {t("importDetail.reject")}
+          {receipt.status === IMPORT_RECEIPT_STATUS.DRAFT && isStock && (
+            <>
+              <Button
+                variant="outline"
+                className="text-destructive"
+                onClick={() => setConfirmCancel(true)}
+                disabled={cancelMut.isPending}
+              >
+                <X className="size-4 mr-1" /> {t("importDetail.cancelReceipt")}
               </Button>
-              <Button onClick={() => setConfirmAction("approve")}>
-                <Check className="size-4 mr-1" /> {t("importDetail.approve")}
+              <Button variant="outline" className="text-destructive" onClick={() => setRejectOpen(true)}>
+                <X className="size-4 mr-1" /> {t("importDetail.rejectReceipt")}
               </Button>
-            </ButtonGroup>
+              <Button variant="secondary" onClick={() => navigate(`/stock/imports/new?id=${receipt.id}`)}>
+                <ScanLine className="size-4 mr-1" /> {t("importDetail.enterSerials")}
+              </Button>
+            </>
           )}
-          {perm.canCancel() && receipt.status === IMPORT_RECEIPT_STATUS.DRAFT && (
-            <Button variant="outline" className="text-destructive" onClick={() => setConfirmAction("cancel")}>
-              <X className="size-4 mr-1" /> {t("importDetail.cancelReceipt")}
+          {receipt.status === IMPORT_RECEIPT_STATUS.REJECTED && perm.hasRole("MANAGER") && (
+            <Button variant="secondary" onClick={() => setResolveOpen(true)}>
+              <ScanLine className="size-4 mr-1" /> {t("importDetail.resolveAction")}
             </Button>
           )}
-          {receipt.status === IMPORT_RECEIPT_STATUS.DRAFT && (
-            <Button variant="secondary" onClick={() => navigate(`/stock/imports/new?id=${receipt.id}`)}>
-              <ScanLine className="size-4 mr-1" /> {t("importDetail.enterSerials")}
-            </Button>
-          )}
-          <PrintReceiptButton
-            receipt={{
-              code: receipt.receiptCode,
-              type: "import",
-              status: receipt.status,
-              createdAt: receipt.createdAt,
-              createdByName: receipt.createdByName ?? "",
-              approvedByName: receipt.approvedByName,
-              note: receipt.note,
-              totalAmount: receipt.totalAmount,
-              items: receipt.items.map((item) => ({ ...item, productSku: item.productSku ?? "" })),
-            }}
-            type="import"
-          />
+          <PrintReceiptButton id={receipt.id} type="import" />
           <Button variant="outline" size="sm" className="gap-1.5" onClick={handleDownloadCsv}>
             <FileDown className="size-4" />
             CSV
@@ -176,17 +216,27 @@ export function ImportDetailPage() {
               <p className="font-medium">{receipt.supplierName || "—"}</p>
             </div>
             <div>
-              <span className="text-muted-foreground">{t("label.createdDate")}</span>
-              <p className="font-medium">{new Date(receipt.createdAt).toLocaleString("vi-VN")}</p>
+              <span className="text-muted-foreground">{t("importDetail.taskReceivedTime")}</span>
+              <p className="font-medium">{new Date(receipt.updatedAt).toLocaleString("vi-VN")}</p>
             </div>
             <div>
               <span className="text-muted-foreground">{t("label.creator")}</span>
               <p className="font-medium">{receipt.createdByName || "—"}</p>
             </div>
-            <div>
-              <span className="text-muted-foreground">{t("label.approver")}</span>
-              <p className="font-medium">{receipt.approvedByName ?? "—"}</p>
-            </div>
+            {receipt.status === IMPORT_RECEIPT_STATUS.REJECTED ? (
+              <div>
+                <span className="text-muted-foreground">{t("importDetail.rejectedBy")}</span>
+                <p className="font-medium">
+                  {receipt.rejectedByName ?? "—"}
+                  {receipt.rejectedAt ? ` — ${new Date(receipt.rejectedAt).toLocaleString("vi-VN")}` : ""}
+                </p>
+              </div>
+            ) : (
+              <div>
+                <span className="text-muted-foreground">{t("label.approver")}</span>
+                <p className="font-medium">{receipt.approvedByName ?? "—"}</p>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -198,6 +248,37 @@ export function ImportDetailPage() {
         </div>
       )}
 
+      {receipt.status === IMPORT_RECEIPT_STATUS.REJECTED && (
+        <div className="rounded-md border border-destructive/20 bg-destructive/5 px-3 py-2.5 text-sm space-y-2">
+          <div>
+            <span className="text-xs font-medium text-destructive tracking-wide">{t("importDetail.rejectReason")}</span>
+            <p className="mt-1 leading-relaxed">{receipt.rejectReason ?? "—"}</p>
+          </div>
+          {receipt.evidenceImage && (
+            <img
+              src={receipt.evidenceImage}
+              alt={t("importDetail.evidence")}
+              className="max-h-64 rounded-md border object-contain"
+            />
+          )}
+        </div>
+      )}
+
+      {receipt.status === IMPORT_RECEIPT_STATUS.REJECTED && receipt.resolution && (
+        <div className="rounded-md border bg-primary/5 px-3 py-2.5 text-sm space-y-1.5">
+          <div className="flex items-center gap-2">
+            <Badge variant="outline">{resolutionLabel(t, receipt.resolution)}</Badge>
+            {receipt.resolvedByName && (
+              <span className="text-xs text-muted-foreground">
+                {t("importDetail.resolvedBy")}: {receipt.resolvedByName}
+                {receipt.resolvedAt ? ` — ${new Date(receipt.resolvedAt).toLocaleString("vi-VN")}` : ""}
+              </span>
+            )}
+          </div>
+          {receipt.resolutionNote && <p className="leading-relaxed">{receipt.resolutionNote}</p>}
+        </div>
+      )}
+
       <Card>
         <CardContent className="p-0">
           <Table>
@@ -205,6 +286,7 @@ export function ImportDetailPage() {
               <TableRow>
                 <TableHead>{t("table.product")}</TableHead>
                 <TableHead className="w-16 text-right">{t("table.qty")}</TableHead>
+                <TableHead className="w-16 text-right">{t("importDetail.received")}</TableHead>
                 <TableHead className="w-24 text-right">{t("table.unitPrice")}</TableHead>
                 <TableHead className="w-14 text-center">{t("table.warranty")}</TableHead>
                 <TableHead className="w-24 text-right">{t("table.total")}</TableHead>
@@ -218,6 +300,9 @@ export function ImportDetailPage() {
                     <span className="text-xs text-muted-foreground ml-2">{item.productSku}</span>
                   </TableCell>
                   <TableCell className="text-right tabular-nums">{item.quantity}</TableCell>
+                  <TableCell className="text-right tabular-nums text-green-700 dark:text-green-400">
+                    {item.receivedQuantity ?? 0}
+                  </TableCell>
                   <TableCell className="text-right tabular-nums">
                     {(item.unitPrice ?? 0).toLocaleString("vi-VN")}₫
                   </TableCell>
@@ -238,30 +323,104 @@ export function ImportDetailPage() {
         <span className="text-lg font-semibold">{t("importDetail.total")}: {(receipt.totalAmount ?? 0).toLocaleString("vi-VN")}₫</span>
       </div>
 
-      <AlertDialog
-        open={!!confirmAction}
-        onOpenChange={(v) => {
-          if (!v) setConfirmAction(null)
-        }}
-      >
+      <AlertDialog open={confirmCancel} onOpenChange={setConfirmCancel}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>
-              {confirmAction === "approve" ? t("importDetail.approveConfirmTitle") : t("importDetail.cancelConfirmTitle")}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {confirmAction === "approve"
-                ? t("importDetail.approveConfirmDescription")
-                : t("importDetail.cancelConfirmDescription")}
-            </AlertDialogDescription>
+            <AlertDialogTitle>{t("importDetail.cancelConfirmTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>{t("importDetail.cancelConfirmDescription")}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>{t("dialog.no")}</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => confirmAction && action.mutate(confirmAction)}
-              disabled={action.isPending}
-            >
-              {action.isPending ? t("dialog.processing") : t("dialog.confirm")}
+            <AlertDialogAction onClick={() => cancelMut.mutate()} disabled={cancelMut.isPending}>
+              {cancelMut.isPending ? t("dialog.processing") : t("dialog.confirm")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={rejectOpen} onOpenChange={setRejectOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("importDetail.rejectDialogTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>{t("importDetail.rejectDialogDesc")}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="reject-reason">
+                {t("importDetail.rejectReasonLabel")} <span className="text-destructive">*</span>
+              </Label>
+              <Textarea
+                id="reject-reason"
+                rows={3}
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                placeholder={t("importDetail.rejectReasonPlaceholder")}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>
+                {t("importDetail.evidenceLabel")} <span className="text-destructive">*</span>
+              </Label>
+              <ImageUpload value={evidenceImage} onChange={setEvidenceImage} />
+            </div>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("dialog.no")}</AlertDialogCancel>
+            <AlertDialogAction onClick={handleReject} disabled={rejectMut.isPending}>
+              {rejectMut.isPending ? t("dialog.processing") : t("importDetail.confirmReject")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <AlertDialog open={resolveOpen} onOpenChange={setResolveOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("importDetail.resolveDialogTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>{t("importDetail.resolveDialogDesc")}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setResolveChoice("RETURNED_TO_SUPPLIER")}
+                  className={`rounded-md border px-3 py-2.5 text-left text-sm font-medium transition-colors ${
+                    resolveChoice === "RETURNED_TO_SUPPLIER"
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "hover:bg-muted"
+                  }`}
+                >
+                  {t("importDetail.resolveReturned")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setResolveChoice("SUPPLIER_RESENDING")}
+                  className={`rounded-md border px-3 py-2.5 text-left text-sm font-medium transition-colors ${
+                    resolveChoice === "SUPPLIER_RESENDING"
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "hover:bg-muted"
+                  }`}
+                >
+                  {t("importDetail.resolveResending")}
+                </button>
+              </div>
+              <p className="text-xs text-muted-foreground">{t("importDetail.resolveHint")}</p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="resolve-note">{t("importDetail.resolveNoteLabel")}</Label>
+              <Textarea
+                id="resolve-note"
+                rows={2}
+                value={resolveNote}
+                onChange={(e) => setResolveNote(e.target.value)}
+                placeholder={t("importDetail.resolveNotePlaceholder")}
+              />
+            </div>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("dialog.no")}</AlertDialogCancel>
+            <AlertDialogAction onClick={() => resolveMut.mutate()} disabled={resolveMut.isPending}>
+              {resolveMut.isPending ? t("dialog.processing") : t("dialog.confirm")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

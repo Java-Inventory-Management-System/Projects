@@ -7,6 +7,7 @@ let stockToken = ""
 let managerToken = ""
 let adminToken = ""
 let salesToken = ""
+let e2eLocationId: number | null = null
 
 export async function initTokens(page: Page) {
   const stockRes = await page.request.post(`${API}/auth/login`, {
@@ -20,18 +21,82 @@ export async function initTokens(page: Page) {
   managerToken = (await mgrRes.json()).data.accessToken
 }
 
+// Dedicated location per test run so E2E never fills shared bins
+// (ponytail: single shared location; per-test locations if runs must be parallel-safe)
+export async function getE2ELocationId(page: Page): Promise<number> {
+  if (e2eLocationId) return e2eLocationId
+  if (!stockToken || !managerToken) await initTokens(page)
+  const res = await page.request.post(`${API}/location`, {
+    data: {
+      zoneCode: "E2E",
+      shelfCode: "T",
+      binCode: `B${Date.now().toString().slice(-6)}`,
+      description: "E2E test location",
+      maxCapacity: 500,
+    },
+    headers: { Authorization: `Bearer ${stockToken}` },
+  })
+  if (!res.ok()) throw new Error(`E2E location create failed: ${await res.text()}`)
+  e2eLocationId = (await res.json()).data.id as number
+  return e2eLocationId
+}
+
 function randomSerial(prefix = "SN") {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`
 }
 
+export async function updatePurchaseOrder(
+  page: Page,
+  id: number,
+  items: Array<{ productId: number; quantity: number; unitPrice: number; serials?: string[] }>,
+): Promise<void> {
+  if (!stockToken || !managerToken) await initTokens(page)
+  const res = await page.request.put(`${API}/purchase-order/${id}`, {
+    data: { items },
+    headers: { Authorization: `Bearer ${managerToken}` },
+  })
+  if (!res.ok()) throw new Error(`PO update failed: ${await res.text()}`)
+}
+
+export async function createPurchaseOrder(page: Page): Promise<number> {
+  if (!stockToken || !managerToken) await initTokens(page)
+  const res = await page.request.post(`${API}/purchase-order`, {
+    data: {
+      supplierId: 1,
+      expectedDate: "2026-12-31",
+      note: "E2E setup PO",
+      items: [{ productId: 1, quantity: 10, unitPrice: 10000000 }],
+    },
+    headers: { Authorization: `Bearer ${managerToken}` },
+  })
+  if (!res.ok()) throw new Error(`PO create failed: ${await res.text()}`)
+  const id = (await res.json()).data.id as number
+  await updatePurchaseOrder(page, id, [
+    {
+      productId: 1,
+      quantity: 10,
+      unitPrice: 10000000,
+      serials: Array.from({ length: 10 }, () => randomSerial("PO")),
+    },
+  ])
+  const openRes = await page.request.put(`${API}/purchase-order/${id}/open`, {
+    headers: { Authorization: `Bearer ${managerToken}` },
+  })
+  if (!openRes.ok()) throw new Error(`PO open failed: ${await openRes.text()}`)
+  return id
+}
+
 export async function ensureImport(page: Page): Promise<{ importReceiptId: number; productUnitIds: number[] }> {
   if (!stockToken || !managerToken) await initTokens(page)
+  const locationId = await getE2ELocationId(page)
 
   const serials = Array.from({ length: 2 }, () => randomSerial("SN"))
+  const purchaseOrderId = await createPurchaseOrder(page)
 
   const createRes = await page.request.post(`${API}/import-receipt`, {
     data: {
       supplierId: 1,
+      purchaseOrderId,
       note: "E2E setup import",
       items: [
         {
@@ -40,30 +105,28 @@ export async function ensureImport(page: Page): Promise<{ importReceiptId: numbe
           unitPrice: 10000000,
           warrantyMonths: 12,
           serialNumbers: serials,
-          locationId: 1,
+          locationId,
         },
       ],
     },
     headers: { Authorization: `Bearer ${stockToken}` },
   })
+  if (!createRes.ok()) throw new Error(`Import create failed: ${await createRes.text()}`)
   const createData = (await createRes.json()).data
   const id: number = createData.id
   const createdItems = createData.items as Array<{ id: number }>
 
-  await page.request.put(`${API}/import-receipt/${id}/confirm`, {
+  const confirmRes = await page.request.put(`${API}/import-receipt/${id}/confirm`, {
     data: {
       serials: createdItems.map((item) => ({
         itemId: item.id,
         serialNumbers: serials,
-        locationId: 1,
+        locationId,
       })),
     },
     headers: { Authorization: `Bearer ${stockToken}` },
   })
-
-  await page.request.put(`${API}/import-receipt/${id}/approve`, {
-    headers: { Authorization: `Bearer ${managerToken}` },
-  })
+  if (!confirmRes.ok()) throw new Error(`Import confirm failed: ${await confirmRes.text()}`)
 
   const unitsRes = await page.request.get(`${API}/import-receipt/${id}/units`, {
     headers: { Authorization: `Bearer ${stockToken}` },
@@ -75,11 +138,11 @@ export async function ensureImport(page: Page): Promise<{ importReceiptId: numbe
 
 export async function ensureExport(page: Page): Promise<number> {
   if (!stockToken || !managerToken) await initTokens(page)
-  const { productUnitIds } = await ensureImport(page)
+  await ensureImport(page)
 
   const createRes = await page.request.post(`${API}/export-receipt`, {
     data: {
-      reason: "SALE",
+      type: "SALE",
       customerId: 1,
       note: "E2E setup export",
       items: [
@@ -89,9 +152,8 @@ export async function ensureExport(page: Page): Promise<number> {
           unitPrice: 15000000,
         },
       ],
-      productUnitIds: [productUnitIds[0]],
     },
-    headers: { Authorization: `Bearer ${stockToken}` },
+    headers: { Authorization: `Bearer ${salesToken}` },
   })
   const id: number = (await createRes.json()).data.id
 

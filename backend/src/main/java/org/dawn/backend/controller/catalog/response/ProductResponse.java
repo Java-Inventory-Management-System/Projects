@@ -4,6 +4,7 @@ import lombok.Builder;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.List;
 
 @Builder
 public record ProductResponse(
@@ -21,6 +22,7 @@ public record ProductResponse(
         BigDecimal sellPrice,
         Integer minStock,
         Boolean isActive,
+        List<Long> supplierIds,
         Instant createdAt,
         Instant updatedAt
 ) {

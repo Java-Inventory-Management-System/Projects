@@ -1,15 +1,16 @@
 package org.dawn.backend.service.inventory.exports;
+import org.dawn.backend.constant.shared.ErrorCode;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dawn.backend.config.web.response.ResponsePage;
 import org.dawn.backend.constant.enums.catalog.UnitOfMeasure;
-import org.dawn.backend.constant.enums.inventory.exports.ExportReceiptStatus;
 import org.dawn.backend.constant.enums.inventory.exports.ExportReason;
+import org.dawn.backend.constant.enums.inventory.exports.ExportReceiptStatus;
 import org.dawn.backend.constant.enums.inventory.ProductUnitStatus;
 import org.dawn.backend.constant.shared.LogConstant;
-import org.dawn.backend.constant.shared.Message;
 import org.dawn.backend.controller.inventory.request.ExportReceiptRequest;
+import org.dawn.backend.controller.inventory.request.ExportReceiptRequest.ExportItemRequest;
 import org.dawn.backend.controller.inventory.response.ExportReceiptResponse;
 import org.dawn.backend.controller.inventory.response.ProductUnitResponse;
 import org.dawn.backend.entity.auth.User;
@@ -17,6 +18,7 @@ import org.dawn.backend.entity.catalog.Product;
 import org.dawn.backend.entity.inventory.Customer;
 import org.dawn.backend.entity.inventory.ExportReceipt;
 import org.dawn.backend.entity.inventory.ExportReceiptItem;
+import org.dawn.backend.entity.inventory.ExportReceiptItemUnit;
 import org.dawn.backend.entity.inventory.ExportReceiptStatusHistory;
 import org.dawn.backend.entity.inventory.Location;
 import org.dawn.backend.entity.inventory.ProductUnit;
@@ -58,20 +60,26 @@ public class ExportReceiptService {
     private final ExportReceiptStatusHistoryRepository statusHistoryRepository;
     private final ProductUnitRepository productUnitRepository;
     private final ProductRepository productRepository;
-    private final CustomerRepository customerRepository;
-    private final LocationRepository locationRepository;
+private final CustomerRepository customerRepository;
+private final org.dawn.backend.repository.catalog.SupplierRepository supplierRepository;
+private final LocationRepository locationRepository;
     private final UserRepository userRepository;
     private final SecurityPolicy securityPolicy;
+    private final org.dawn.backend.service.shared.LockGuard lockGuard;
 
     private static final List<String> BULK_UNITS = List.of(
             UnitOfMeasure.METER.name(),
             UnitOfMeasure.KG.name());
 
     @Transactional(readOnly = true)
-    public ResponsePage<ExportReceiptResponse> findAll(Pageable pageable, String status, Long customerId) {
+    public ResponsePage<ExportReceiptResponse> findAll(Pageable pageable, String status, Long customerId, Long createdBy) {
         ExportReceiptStatus s = safeParseExportStatus(status);
         Page<ExportReceipt> page;
-        if (customerId != null && s != null) {
+        if (createdBy != null) {
+            page = s != null
+                    ? exportReceiptRepository.findByStatusAndCreatedBy(s, createdBy, pageable)
+                    : exportReceiptRepository.findByCreatedBy(createdBy, pageable);
+        } else if (customerId != null && s != null) {
             page = exportReceiptRepository.findByCustomerIdAndStatus(customerId, s, pageable);
         } else if (customerId != null) {
             page = exportReceiptRepository.findByCustomerId(customerId, pageable);
@@ -96,13 +104,17 @@ public class ExportReceiptService {
         }).distinct().toList();
         var userNameMap = userRepository.findAllById(userIds).stream()
                 .collect(Collectors.toMap(User::getId, User::getFullName));
-        return ResponsePage.of(page.map(r -> toResponse(r, customers, userNameMap)));
+        var receiptIds = page.getContent().stream().map(ExportReceipt::getId).toList();
+        var historyByReceipt = statusHistoryRepository.findByReceiptIdInOrderByCreatedAtAsc(receiptIds).stream()
+                .collect(Collectors.groupingBy(ExportReceiptStatusHistory::getReceiptId));
+        return ResponsePage.of(page.map(r -> toResponse(r, customers, userNameMap,
+                historyByReceipt.getOrDefault(r.getId(), List.of()))));
     }
 
     @Transactional(readOnly = true)
     public ExportReceiptResponse findOne(Long id) {
         var receipt = exportReceiptRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.EXPORT_RECEIPT_NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.EXPORT_RECEIPT_NOT_FOUND));
         return toResponse(receipt);
     }
 
@@ -112,31 +124,51 @@ public class ExportReceiptService {
         Long userId = securityPolicy.requireAuthenticated();
 
         if (request.items() == null || request.items().isEmpty()) {
-            throw new InvalidRequestException(Message.Inventory.AT_LEAST_ONE_ITEM_REQUIRED);
+            throw new InvalidRequestException(ErrorCode.AT_LEAST_ONE_ITEM_REQUIRED);
         }
-        if (request.reason() == null || request.reason().isBlank()) {
-            throw new InvalidRequestException(Message.Inventory.EXPORT_REASON_REQUIRED);
+        if (request.type() == null) {
+            throw new InvalidRequestException(ErrorCode.EXPORT_REASON_REQUIRED);
         }
-        if (ExportReason.SALE.name().equalsIgnoreCase(request.reason()) && request.customerId() == null) {
-            throw new InvalidRequestException(Message.Inventory.CUSTOMER_REQUIRED_FOR_SALE);
+        ExportReason type = request.type();
+        String reason;
+        if (type == ExportReason.OTHER) {
+            if (request.reason() == null || request.reason().isBlank()) {
+                throw new InvalidRequestException(ErrorCode.EXPORT_OTHER_REASON_REQUIRED);
+            }
+            reason = request.reason().trim();
+        } else {
+            reason = type.name();
         }
-
-        String reason = request.reason().toUpperCase();
-        try {
-            ExportReason.valueOf(reason);
-        } catch (IllegalArgumentException e) {
-            throw new InvalidRequestException(Message.format(Message.Inventory.INVALID_EXPORT_REASON, request.reason()));
+        if (type == ExportReason.SALE && request.customerId() == null) {
+            throw new InvalidRequestException(ErrorCode.CUSTOMER_REQUIRED_FOR_SALE);
         }
+        if (type == ExportReason.SALE && request.customerId() != null) {
+            Customer customer = customerRepository.findById(request.customerId())
+                    .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.CUSTOMER_NOT_FOUND));
+            if (!Boolean.TRUE.equals(customer.getIsActive())) {
+                throw new InvalidRequestException(ErrorCode.CUSTOMER_INACTIVE);
+            }
+        }
+        if ((type == ExportReason.RETURN_SUPPLIER || type == ExportReason.WARRANTY_REPLACEMENT)
+                && request.supplierId() == null) {
+            throw new InvalidRequestException(ErrorCode.EXPORT_SUPPLIER_REQUIRED);
+        }
+        if (request.supplierId() != null && !supplierRepository.existsById(request.supplierId())) {
+            throw new ResourceNotFoundException(ErrorCode.SUPPLIER_NOT_FOUND);
+        }
+        lockGuard.assertSupplierActive(request.supplierId());
+        lockGuard.assertProductsActive(request.items().stream().map(ExportItemRequest::productId).toList());
 
         String receiptCode = generateReceiptCode();
         if (exportReceiptRepository.existsByReceiptCode(receiptCode)) {
-            throw new ResourceAlreadyExistedException(Message.Inventory.RECEIPT_CODE_EXISTS);
+            throw new ResourceAlreadyExistedException(ErrorCode.RECEIPT_CODE_EXISTS);
         }
 
         ExportReceipt receipt = ExportReceipt.builder()
                 .receiptCode(receiptCode)
                 .reason(reason)
                 .customerId(request.customerId())
+                .supplierId(request.supplierId())
                 .status(ExportReceiptStatus.PENDING)
                 .note(request.note())
                 .externalReference(request.externalReference())
@@ -148,17 +180,20 @@ public class ExportReceiptService {
         BigDecimal totalAmount = BigDecimal.ZERO;
 
         for (var itemReq : request.items()) {
+            if (itemReq.quantity() == null || itemReq.quantity().compareTo(java.math.BigDecimal.ZERO) <= 0) {
+                throw new InvalidRequestException(ErrorCode.INVALID_QUANTITY.format(itemReq.quantity()));
+            }
             Product product = productRepository.findById(itemReq.productId())
-                    .orElseThrow(() -> new ResourceNotFoundException(Message.Catalog.PRODUCT_NOT_FOUND));
+                    .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.PRODUCT_NOT_FOUND));
 
-            BigDecimal inStock = getInStockQuantity(product);
+            BigDecimal inStock = getInStockQuantity(product, type);
             BigDecimal committed = exportReceiptRepository.sumCommittedQuantityByProductIdAndStatusIn(
                     itemReq.productId(), List.of(ExportReceiptStatus.PENDING, ExportReceiptStatus.APPROVED));
             BigDecimal available = inStock.subtract(committed);
 
             if (available.compareTo(itemReq.quantity()) < 0) {
                 throw new InvalidRequestException(
-                        Message.format(Message.Inventory.INSUFFICIENT_STOCK, product.getName(), available, itemReq.quantity()));
+                        ErrorCode.INSUFFICIENT_STOCK.format( product.getName(), available, itemReq.quantity()));
             }
 
             BigDecimal totalPrice = itemReq.unitPrice() != null
@@ -190,24 +225,26 @@ public class ExportReceiptService {
         return toResponse(receipt);
     }
 
-    private BigDecimal getInStockQuantity(Product product) {
+    private BigDecimal getInStockQuantity(Product product, ExportReason type) {
+        ProductUnitStatus status = type == ExportReason.WARRANTY_REPLACEMENT
+                ? ProductUnitStatus.WAITING_RMA_EXPORT
+                : ProductUnitStatus.IN_STOCK;
         String unit = product.getUnit();
         boolean isBulk = BULK_UNITS.contains(unit);
         if (isBulk) {
-            var units = productUnitRepository.findByProductIdAndStatus(product.getId(), ProductUnitStatus.IN_STOCK);
-            return units.stream().map(ProductUnit::getRemainingQuantity)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            return productUnitRepository.sumQuantityByProductIdAndStatusAndBoxIdIsNull(product.getId(), status);
         }
-        return BigDecimal.valueOf(productUnitRepository.countByProductIdAndStatus(
-                product.getId(), ProductUnitStatus.IN_STOCK));
+        return BigDecimal.valueOf(productUnitRepository.countByProductIdAndStatusAndBoxIdIsNull(
+                product.getId(), status));
     }
 
     @Transactional(readOnly = true)
     public List<ProductUnitResponse> getUnitsByReceipt(Long receiptId, Long productId) {
         var unitIds = exportReceiptItemUnitRepository.findProductUnitIdsByReceiptId(receiptId);
         if (unitIds.isEmpty()) return List.of();
+        ProductUnitStatus expectedStatus = expectedUnitStatus(receiptId);
         var allUnits = productUnitRepository.findAllById(unitIds).stream()
-                .filter(u -> ProductUnitStatus.EXPORTED == u.getStatus())
+                .filter(u -> expectedStatus == u.getStatus())
                 .toList();
         if (productId != null) {
             allUnits = allUnits.stream().filter(u -> productId.equals(u.getProductId())).toList();
@@ -230,6 +267,17 @@ public class ExportReceiptService {
         return result;
     }
 
+    private ProductUnitStatus expectedUnitStatus(Long receiptId) {
+        String reason = exportReceiptRepository.findById(receiptId)
+                .map(ExportReceipt::getReason)
+                .orElse("");
+        return switch (reason) {
+            case "WARRANTY_REPLACEMENT" -> ProductUnitStatus.SENT_TO_MANUFACTURER;
+            case "RETURN_SUPPLIER" -> ProductUnitStatus.RETURNED_TO_SUPPLIER;
+            default -> ProductUnitStatus.EXPORTED;
+        };
+    }
+
     public ExportReceiptResponse toResponse(ExportReceipt receipt) {
         var items = exportReceiptItemRepository.findByReceiptId(receipt.getId());
         var productIds = items.stream().map(ExportReceiptItem::getProductId).toList();
@@ -244,22 +292,26 @@ public class ExportReceiptService {
                     .map(Customer::getName).orElse(null);
         }
 
-        var createdByName = userRepository.findById(receipt.getCreatedBy())
-                .map(User::getFullName).orElse(null);
-        var approvedByName = receipt.getApprovedBy() != null
-                ? userRepository.findById(receipt.getApprovedBy()).map(User::getFullName).orElse(null)
-                : null;
-        var fulfilledByName = receipt.getFulfilledBy() != null
-                ? userRepository.findById(receipt.getFulfilledBy()).map(User::getFullName).orElse(null)
-                : null;
-        var rejectedByName = receipt.getRejectedBy() != null
-                ? userRepository.findById(receipt.getRejectedBy()).map(User::getFullName).orElse(null)
-                : null;
-        return ExportReceiptMappingHelper.map(receipt, customerName, createdByName, approvedByName,
-                fulfilledByName, rejectedByName, items, products, trackingTypeMap);
+        var history = statusHistoryRepository.findByReceiptIdOrderByCreatedAtAsc(receipt.getId());
+        var userIds = new java.util.ArrayList<Long>();
+        userIds.add(receipt.getCreatedBy());
+        if (receipt.getApprovedBy() != null) userIds.add(receipt.getApprovedBy());
+        if (receipt.getFulfilledBy() != null) userIds.add(receipt.getFulfilledBy());
+        if (receipt.getRejectedBy() != null) userIds.add(receipt.getRejectedBy());
+        history.stream().map(ExportReceiptStatusHistory::getChangedBy).filter(java.util.Objects::nonNull)
+                .forEach(userIds::add);
+        var userNames = userRepository.findAllById(userIds.stream().distinct().toList()).stream()
+                .collect(Collectors.toMap(User::getId, User::getFullName));
+        return ExportReceiptMappingHelper.map(receipt, customerName,
+                userNames.get(receipt.getCreatedBy()),
+                receipt.getApprovedBy() != null ? userNames.get(receipt.getApprovedBy()) : null,
+                receipt.getFulfilledBy() != null ? userNames.get(receipt.getFulfilledBy()) : null,
+                receipt.getRejectedBy() != null ? userNames.get(receipt.getRejectedBy()) : null,
+                items, products, trackingTypeMap, history, userNames, fetchSerials(items));
     }
 
-    private ExportReceiptResponse toResponse(ExportReceipt receipt, Map<Long, String> customers, Map<Long, String> users) {
+    private ExportReceiptResponse toResponse(ExportReceipt receipt, Map<Long, String> customers, Map<Long, String> users,
+                                             List<ExportReceiptStatusHistory> history) {
         var items = exportReceiptItemRepository.findByReceiptId(receipt.getId());
         var productIds = items.stream().map(ExportReceiptItem::getProductId).toList();
         var products = productRepository.findAllById(productIds).stream()
@@ -272,7 +324,21 @@ public class ExportReceiptService {
                 receipt.getApprovedBy() != null ? users.get(receipt.getApprovedBy()) : null,
                 receipt.getFulfilledBy() != null ? users.get(receipt.getFulfilledBy()) : null,
                 receipt.getRejectedBy() != null ? users.get(receipt.getRejectedBy()) : null,
-                items, products, trackingTypeMap);
+                items, products, trackingTypeMap, history, users, fetchSerials(items));
+    }
+
+    private Map<Long, List<String>> fetchSerials(List<ExportReceiptItem> items) {
+        var itemIds = items.stream().map(ExportReceiptItem::getId).toList();
+        if (itemIds.isEmpty()) return Map.of();
+        var links = exportReceiptItemUnitRepository.findByExportReceiptItemIdIn(itemIds);
+        var unitIds = links.stream().map(ExportReceiptItemUnit::getProductUnitId).distinct().toList();
+        var serials = unitIds.isEmpty() ? Map.<Long, String>of()
+                : productUnitRepository.findAllById(unitIds).stream()
+                        .filter(u -> u.getSerialNumber() != null)
+                        .collect(Collectors.toMap(ProductUnit::getId, ProductUnit::getSerialNumber));
+        return links.stream().collect(Collectors.groupingBy(
+                ExportReceiptItemUnit::getExportReceiptItemId,
+                Collectors.mapping(l -> serials.getOrDefault(l.getProductUnitId(), ""), Collectors.toList())));
     }
 
     private String generateReceiptCode() {

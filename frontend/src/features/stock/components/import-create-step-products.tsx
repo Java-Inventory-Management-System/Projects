@@ -171,7 +171,10 @@ export function ImportStepProducts({ items, dispatch, products, isManager }: Pro
                         min={1}
                         className="h-9 w-16 text-right"
                         value={item.quantity}
-                        onChange={(e) => updateItem(item.tempId, "quantity", Number(e.target.value))}
+                        onChange={(e) => {
+                          const v = Number(e.target.value)
+                          updateItem(item.tempId, "quantity", !Number.isFinite(v) || v < 1 ? 1 : v)
+                        }}
                       />
                     </TableCell>
                     {isManager && (

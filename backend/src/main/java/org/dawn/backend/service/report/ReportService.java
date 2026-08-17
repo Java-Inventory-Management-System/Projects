@@ -5,6 +5,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.dawn.backend.config.web.response.ResponsePage;
 import org.dawn.backend.constant.enums.catalog.TrackingType;
 import org.dawn.backend.constant.enums.inventory.ProductUnitStatus;
+import org.dawn.backend.constant.enums.inventory.adjustments.AdjustmentSourceType;
+import org.dawn.backend.constant.enums.inventory.adjustments.AdjustmentStatus;
+import org.dawn.backend.constant.enums.inventory.stockcheck.DifferenceType;
+import org.dawn.backend.constant.enums.inventory.stockcheck.StockCheckStatus;
 import org.dawn.backend.controller.report.response.*;
 import org.dawn.backend.entity.catalog.Category;
 import org.dawn.backend.entity.catalog.Product;
@@ -14,14 +18,22 @@ import org.dawn.backend.entity.inventory.ExportReceipt;
 import org.dawn.backend.entity.inventory.ImportReceipt;
 import org.dawn.backend.entity.inventory.ImportReceiptItem;
 import org.dawn.backend.entity.inventory.ProductUnit;
+import org.dawn.backend.entity.inventory.StockAdjustment;
+import org.dawn.backend.entity.inventory.StockCheck;
+import org.dawn.backend.entity.inventory.StockCheckItem;
 import org.dawn.backend.repository.catalog.CategoryRepository;
 import org.dawn.backend.repository.catalog.ProductRepository;
 import org.dawn.backend.repository.catalog.SupplierRepository;
 import org.dawn.backend.repository.inventory.CustomerRepository;
+import org.dawn.backend.repository.inventory.exports.ExportReceiptItemRepository;
+import org.dawn.backend.repository.inventory.exports.ExportReceiptItemUnitRepository;
 import org.dawn.backend.repository.inventory.exports.ExportReceiptRepository;
 import org.dawn.backend.repository.inventory.imports.ImportReceiptItemRepository;
 import org.dawn.backend.repository.inventory.imports.ImportReceiptRepository;
 import org.dawn.backend.repository.inventory.ProductUnitRepository;
+import org.dawn.backend.repository.inventory.adjustments.StockAdjustmentRepository;
+import org.dawn.backend.repository.inventory.stockcheck.StockCheckItemRepository;
+import org.dawn.backend.repository.inventory.stockcheck.StockCheckRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -30,6 +42,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -46,6 +60,11 @@ public class ReportService {
     private final SupplierRepository supplierRepository;
     private final CustomerRepository customerRepository;
     private final ImportReceiptItemRepository importReceiptItemRepository;
+    private final ExportReceiptItemRepository exportReceiptItemRepository;
+    private final ExportReceiptItemUnitRepository exportReceiptItemUnitRepository;
+    private final StockCheckRepository stockCheckRepository;
+    private final StockCheckItemRepository stockCheckItemRepository;
+    private final StockAdjustmentRepository stockAdjustmentRepository;
 
     @Transactional(readOnly = true)
     public InventorySummaryResponse getInventorySummary() {
@@ -59,10 +78,11 @@ public class ReportService {
         for (var row : aggregates) {
             long qty = ((Number) row[1]).longValue();
             int minStock = row[2] != null ? ((Number) row[2]).intValue() : 0;
-            BigDecimal sellPrice = row[3] != null ? BigDecimal.valueOf(((Number) row[3]).doubleValue()) : BigDecimal.ZERO;
+            BigDecimal costValue = row[4] != null
+                    ? BigDecimal.valueOf(((Number) row[4]).doubleValue()) : BigDecimal.ZERO;
 
             totalUnits += qty;
-            totalValue = totalValue.add(sellPrice.multiply(BigDecimal.valueOf(qty)));
+            totalValue = totalValue.add(costValue);
 
             if (qty <= minStock && qty > 0) {
                 lowStockCount++;
@@ -74,8 +94,8 @@ public class ReportService {
         Instant now = Instant.now();
         Instant monthAgo = now.minus(java.time.Duration.ofDays(30));
         BigDecimal importTotal = importReceiptRepository.sumTotalAmountByStatusAndCreatedAtBetween(monthAgo, now);
-        BigDecimal exportTotal = exportReceiptRepository.sumTotalAmountByStatusAndCreatedAtBetween(monthAgo, now);
-        BigDecimal previousValue = totalValue.subtract(importTotal).add(exportTotal);
+        BigDecimal exportCost = exportReceiptItemUnitRepository.sumCostPriceOfCompletedExports(monthAgo, now);
+        BigDecimal previousValue = totalValue.subtract(importTotal).add(exportCost);
         if (previousValue.compareTo(BigDecimal.ZERO) < 0) previousValue = BigDecimal.ZERO;
 
         BigDecimal trendPercent = BigDecimal.ZERO;
@@ -207,13 +227,14 @@ public class ReportService {
             String name = receipt.getCustomerId() != null
                     ? customerNames.getOrDefault(receipt.getCustomerId(), "Unknown")
                     : "Unknown";
+            int lineItems = exportReceiptItemRepository.findByReceiptId(receipt.getId()).size();
 
             result.add(ActivityResponse.builder()
                     .type("EXPORT")
                     .receiptCode(receipt.getReceiptCode())
                     .date(receipt.getCreatedAt())
                     .counterpartyName(name)
-                    .lineItems(0)
+                    .lineItems(lineItems)
                     .totalAmount(receipt.getTotalAmount() != null ? receipt.getTotalAmount() : BigDecimal.ZERO)
                     .build());
         }
@@ -271,7 +292,7 @@ public class ReportService {
         List<Long> productIds = productPage.getContent().stream().map(Product::getId).toList();
 
         Map<Long, List<ProductUnit>> unitsByProduct = productUnitRepository
-                .findByProductIdInAndStatus(productIds, ProductUnitStatus.IN_STOCK)
+                .findByProductIdInAndStatusNotInStockCheck(productIds, ProductUnitStatus.IN_STOCK)
                 .stream()
                 .collect(Collectors.groupingBy(ProductUnit::getProductId));
 
@@ -297,5 +318,72 @@ public class ReportService {
                     .minStock(minStock)
                     .build();
         }));
+    }
+
+    @Transactional(readOnly = true)
+    public StockCheckOverviewResponse getStockCheckOverview(Instant from, Instant to) {
+        var checks = stockCheckRepository.findByStatusAndCreatedAtBetween(StockCheckStatus.COMPLETED, from, to);
+        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyy-MM").withZone(ZoneId.systemDefault());
+
+        var checksPerMonth = checks.stream()
+                .collect(Collectors.groupingBy(sc -> fmt.format(sc.getCreatedAt()), TreeMap::new, Collectors.counting()))
+                .entrySet().stream()
+                .map(e -> StockCheckOverviewResponse.StockCheckMonthCount.builder()
+                        .month(e.getKey()).count(e.getValue()).build())
+                .toList();
+
+        var checkIds = checks.stream().map(StockCheck::getId).toList();
+        var adjustments = checkIds.isEmpty() ? List.<StockAdjustment>of()
+                : stockAdjustmentRepository
+                        .findBySourceTypeAndSourceIdIn(AdjustmentSourceType.STOCK_CHECK.name(), checkIds)
+                        .stream()
+                        .filter(a -> a.getStatus() != AdjustmentStatus.REJECTED
+                                && a.getStatus() != AdjustmentStatus.CANCELLED)
+                        .toList();
+        Map<String, long[]> buckets = new TreeMap<>();
+        for (var adj : adjustments) {
+            long[] bucket = buckets.computeIfAbsent(fmt.format(adj.getCreatedAt()), k -> new long[3]);
+            switch (adj.getType()) {
+                case "LOST" -> bucket[0]++;
+                case "FOUND" -> bucket[1]++;
+                case "DAMAGED" -> bucket[2]++;
+                default -> { }
+            }
+        }
+        var adjustmentsPerMonth = buckets.entrySet().stream()
+                .map(e -> StockCheckOverviewResponse.AdjustmentMonthCount.builder()
+                        .month(e.getKey()).lost(e.getValue()[0]).found(e.getValue()[1]).damaged(e.getValue()[2]).build())
+                .toList();
+
+        var recent = checks.stream()
+                .sorted(Comparator.comparing(StockCheck::getCreatedAt).reversed())
+                .limit(10)
+                .toList();
+        var itemsByCheck = stockCheckItemRepository.findByStockCheckIdIn(recent.stream().map(StockCheck::getId).toList())
+                .stream()
+                .collect(Collectors.groupingBy(StockCheckItem::getStockCheckId));
+        var recentDiscrepancies = recent.stream()
+                .map(sc -> {
+                    var items = itemsByCheck.getOrDefault(sc.getId(), List.of());
+                    long missing = items.stream()
+                            .filter(i -> DifferenceType.MISSING.name().equals(i.getDifference())
+                                    || DifferenceType.DAMAGED.name().equals(i.getDifference())).count();
+                    long unexpected = items.stream()
+                            .filter(i -> DifferenceType.UNEXPECTED.name().equals(i.getDifference())).count();
+                    return StockCheckOverviewResponse.StockCheckDiscrepancy.builder()
+                            .id(sc.getId())
+                            .checkCode(sc.getCheckCode())
+                            .createdAt(sc.getCreatedAt())
+                            .missingCount(missing)
+                            .unexpectedCount(unexpected)
+                            .build();
+                })
+                .toList();
+
+        return StockCheckOverviewResponse.builder()
+                .checksPerMonth(checksPerMonth)
+                .adjustmentsPerMonth(adjustmentsPerMonth)
+                .recentDiscrepancies(recentDiscrepancies)
+                .build();
     }
 }

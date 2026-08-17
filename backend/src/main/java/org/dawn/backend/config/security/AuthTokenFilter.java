@@ -7,7 +7,10 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dawn.backend.constant.enums.auth.URole;
+import org.dawn.backend.constant.enums.shared.ActiveStatus;
+import org.dawn.backend.entity.auth.User;
 import org.dawn.backend.entity.auth.UserDetailsImpl;
+import org.dawn.backend.repository.auth.UserRepository;
 import org.dawn.backend.shared.util.JWTUtils;
 import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -26,6 +29,7 @@ import java.util.List;
 public class AuthTokenFilter extends OncePerRequestFilter {
 
     private final JWTUtils jwtUtils;
+    private final UserRepository userRepository;
 
     @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request,
@@ -48,6 +52,13 @@ public class AuthTokenFilter extends OncePerRequestFilter {
         Long userId = jwtUtils.getUserIdFromToken(token);
         String username = jwtUtils.getUserNameFromToken(token);
         String role = jwtUtils.getRoleFromToken(token);
+
+        User user = userRepository.findById(userId).orElse(null);
+        if (user == null || Boolean.TRUE.equals(user.getIsDeleted())
+                || ActiveStatus.INACTIVE == user.getStatus()) {
+            chain.doFilter(request, response);
+            return;
+        }
 
         URole userRole;
         try {

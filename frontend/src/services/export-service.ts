@@ -1,5 +1,5 @@
 import http from "@/utils/http-client"
-import type { ResponsePage, ExportReceipt } from "@/utils/types"
+import type { ResponsePage, ExportReceipt, ExportReason } from "@/utils/types"
 import { mapResponsePage, mapExportReceipt } from "@/utils/mappers"
 
 export async function getExportReceipts(
@@ -8,9 +8,10 @@ export async function getExportReceipts(
   sort?: string,
   status?: string,
   customerId?: number,
+  createdBy?: number,
 ): Promise<ResponsePage<ExportReceipt>> {
   const res = await http.get("/export-receipt", {
-    params: { page, size, sort: sort ?? "createdAt,desc", ...(status && { status }), ...(customerId && { customerId }) },
+    params: { page, size, sort: sort ?? "createdAt,desc", ...(status && { status }), ...(customerId && { customerId }), ...(createdBy && { createdBy }) },
   })
   return mapResponsePage(res, mapExportReceipt)
 }
@@ -20,10 +21,18 @@ export async function getExportReceiptById(id: number): Promise<ExportReceipt> {
   return mapExportReceipt(res)
 }
 
+export async function getExportPrintFile(id: number, lang: string, format: "pdf" | "excel"): Promise<Blob> {
+  const res = await http.get(`/export-receipt/${id}/print`, { params: { lang, format }, responseType: "blob" })
+  return res as unknown as Blob
+}
+
 export async function createExportReceipt(data: {
-  reason: string
+  type: ExportReason
+  reason?: string | null
   customerId?: number | null
+  supplierId?: number | null
   note?: string | null
+  externalReference?: string | null
   items: Array<{
     productId: number
     quantity: number
@@ -34,19 +43,11 @@ export async function createExportReceipt(data: {
   return mapExportReceipt(res)
 }
 
-export async function approveExportReceipt(id: number): Promise<ExportReceipt> {
-  const res = await http.put(`/export-receipt/${id}/approve`)
-  return mapExportReceipt(res)
-}
-
-export async function rejectExportReceipt(id: number, data: { rejectReason: string }): Promise<ExportReceipt> {
-  const res = await http.put(`/export-receipt/${id}/reject`, data)
-  return mapExportReceipt(res)
-}
-
 export async function fulfillExportReceipt(
   id: number,
   data: {
+    note: string
+    evidenceImages: string[]
     items: Array<{
       itemId: number
       serialNumbers?: string[]
@@ -75,5 +76,5 @@ export interface ExportUnit {
 
 export async function getExportUnits(id: number, productId?: number): Promise<ExportUnit[]> {
   const res = await http.get(`/export-receipt/${id}/units`, { params: { productId } })
-  return res as ExportUnit[]
+  return res as unknown as ExportUnit[]
 }

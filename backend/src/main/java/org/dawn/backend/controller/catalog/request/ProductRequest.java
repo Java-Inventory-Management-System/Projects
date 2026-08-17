@@ -1,6 +1,7 @@
 package org.dawn.backend.controller.catalog.request;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 public record ProductRequest(
         String name,
@@ -12,6 +13,7 @@ public record ProductRequest(
         String unit,
         String trackingType,
         BigDecimal sellPrice,
-        Integer minStock
+        Integer minStock,
+        List<Long> supplierIds
 ) {
 }

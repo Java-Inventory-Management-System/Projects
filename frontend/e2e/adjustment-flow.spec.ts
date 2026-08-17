@@ -31,7 +31,7 @@ test.describe("Stock Adjustment Flow (Điều chỉnh tồn) — SOP §5", () =>
     const adjId: number = (await createRes.json()).data.id
 
     // MANAGER approves via UI detail page
-    await navigateTo(mgr, `/stock/adjustments/${adjId}`)
+    await navigateTo(mgr, `/stock/ops/adjustments/${adjId}`)
     await approveDialog(mgr, adjId)
 
     // Verify APPROVED

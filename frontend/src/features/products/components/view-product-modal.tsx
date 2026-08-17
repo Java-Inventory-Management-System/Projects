@@ -2,6 +2,8 @@ import { useTranslation } from "react-i18next"
 import type { ProductResponse } from "@/utils/types"
 import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { TrackingTypeBadge } from "@/components/tracking-type-badge"
+import { UNIT_LABELS } from "@/utils/labels"
 
 export const ViewProductModal = ({
   product,
@@ -40,11 +42,11 @@ export const ViewProductModal = ({
             </div>
             <div>
               <span className="text-muted-foreground">{t("productView.unit")}</span>
-              <p>{product.unit ?? "—"}</p>
+              <p>{product.unit ? t(UNIT_LABELS[product.unit] ?? product.unit) : "—"}</p>
             </div>
             <div>
               <span className="text-muted-foreground">{t("productView.tracking")}</span>
-              <p>{product.trackingType ?? "—"}</p>
+              <TrackingTypeBadge type={product.trackingType} />
             </div>
             <div>
               <span className="text-muted-foreground">{t("productView.sellPrice")}</span>

@@ -1,5 +1,6 @@
 package org.dawn.backend.aspect;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.EntityManager;
 import jakarta.servlet.http.HttpServletRequest;
@@ -19,8 +20,11 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
+import java.net.InetAddress;
+import java.util.Collection;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Aspect
 @Component
@@ -31,6 +35,8 @@ public class AuditLogAspect {
     private final AuditLogService auditLogService;
     private final EntityManager entityManager;
     private final ObjectMapper objectMapper;
+    private final AuditMessageBuilder messageBuilder;
+    private final AuditSnapshotMapperRegistry mapperRegistry;
 
     @Around("@annotation(auditLog)")
     public Object logExecution(ProceedingJoinPoint joinPoint, AuditLog auditLog) throws Throwable {
@@ -38,7 +44,7 @@ public class AuditLogAspect {
         String ip = getClientIp();
         String requestId = UUID.randomUUID().toString().replace("-", "");
 
-        String oldValue = captureOldValue(auditLog.entityClass(), joinPoint);
+        String oldValue = messageBuilder.sanitize(captureOldValue(auditLog.entityClass(), joinPoint));
         String entityId = resolveParamId(joinPoint);
 
         try {
@@ -46,8 +52,11 @@ public class AuditLogAspect {
             if (entityId == null || entityId.isEmpty()) {
                 entityId = resolveResultId(result);
             }
-            String newValue = serializeResult(result);
+            String newValue = messageBuilder.sanitize(serializeResult(result));
             String finalEntityId = entityId;
+            AuditMessageBuilder.MessageResult mr = messageBuilder.build(user != null ? user.getUsername() : null,
+                    auditLog.action(), auditLog.entity(), finalEntityId, oldValue, newValue,
+                    LogConstant.Status.SUCCESS, null);
             if (TransactionSynchronizationManager.isActualTransactionActive()) {
                 TransactionSynchronizationManager.registerSynchronization(
                         new TransactionSynchronization() {
@@ -56,7 +65,7 @@ public class AuditLogAspect {
                                 try {
                                     auditLogService.save(auditLog.action(), auditLog.entity(), finalEntityId,
                                             user, ip, requestId, LogConstant.Status.SUCCESS, null,
-                                            oldValue, newValue);
+                                            oldValue, newValue, mr.message(), toJson(mr.messageFields()));
                                 } catch (Exception ex) {
                                     log.error("Audit log afterCommit failed: {}", ex.getMessage());
                                 }
@@ -65,31 +74,40 @@ public class AuditLogAspect {
             } else {
                 auditLogService.save(auditLog.action(), auditLog.entity(), finalEntityId,
                         user, ip, requestId, LogConstant.Status.SUCCESS, null,
-                        oldValue, newValue);
+                        oldValue, newValue, mr.message(), toJson(mr.messageFields()));
             }
             return result;
         } catch (Throwable e) {
-            if (entityId == null || entityId.isEmpty()) {
-                entityId = resolveResultId(null);
-            }
             String finalEntityId = entityId;
+            AuditMessageBuilder.MessageResult mr = messageBuilder.build(user != null ? user.getUsername() : null,
+                    auditLog.action(), auditLog.entity(), finalEntityId, oldValue, null,
+                    LogConstant.Status.FAILED, e.getMessage());
             auditLogService.save(auditLog.action(), auditLog.entity(), finalEntityId,
                     user, ip, requestId, LogConstant.Status.FAILED, e.getMessage(),
-                    oldValue, null);
+                    oldValue, null, mr.message(), toJson(mr.messageFields()));
             throw e;
+        }
+    }
+
+    private String toJson(Object value) {
+        if (value == null) return null;
+        try {
+            return objectMapper.writeValueAsString(value);
+        } catch (JsonProcessingException e) {
+            return null;
         }
     }
 
     private String captureOldValue(Class<?> entityClass, ProceedingJoinPoint joinPoint) {
         if (entityClass == void.class) return null;
 
-        Object idValue = findParamValue("id", joinPoint);
-        if (idValue == null) return null;
+        Object idValue = findIdParam(joinPoint);
+        if (idValue == null || idValue instanceof Collection) return null;
 
         try {
             Object entity = entityManager.find(entityClass, idValue);
             if (entity == null) return null;
-            return objectMapper.writeValueAsString(entity);
+            return objectMapper.writeValueAsString(mapperRegistry.map(entityClass, entity));
         } catch (Exception e) {
             log.warn("Failed to capture old value for {}: {}", entityClass.getSimpleName(), e.getMessage());
             return null;
@@ -123,13 +141,36 @@ public class AuditLogAspect {
         return null;
     }
 
-    private String resolveParamId(ProceedingJoinPoint joinPoint) {
-        Object idValue = findParamValue("id", joinPoint);
-        if (idValue != null) return idValue.toString();
+    private Object findIdParam(ProceedingJoinPoint joinPoint) {
+        MethodSignature signature = (MethodSignature) joinPoint.getSignature();
+        String[] paramNames = signature.getParameterNames();
+        Object[] args = joinPoint.getArgs();
+        if (paramNames != null) {
+            for (int i = 0; i < paramNames.length; i++) {
+                String name = paramNames[i].toLowerCase();
+                if (name.endsWith("id") || name.endsWith("ids")) return args[i];
+            }
+        }
+        return null;
+    }
 
-        Long currentUserId = SecurityUtils.getCurrentUserId();
-        if (currentUserId != null) return currentUserId.toString();
-        return "";
+    private String toIdString(Object value) {
+        if (value == null) return null;
+        if (value instanceof Collection<?> collection) {
+            return collection.stream().map(String::valueOf).collect(Collectors.joining(","));
+        }
+        return value.toString();
+    }
+
+    private String resolveParamId(ProceedingJoinPoint joinPoint) {
+        String idValue = toIdString(findIdParam(joinPoint));
+        if (idValue != null) return idValue;
+        for (Object arg : joinPoint.getArgs()) {
+            if (arg == null) continue;
+            Optional<Long> id = tryExtractId(arg, "getId");
+            if (id.isPresent()) return id.get().toString();
+        }
+        return null;
     }
 
     private String resolveResultId(Object result) {
@@ -161,10 +202,21 @@ public class AuditLogAspect {
         try {
             HttpServletRequest request = ((ServletRequestAttributes) RequestContextHolder.currentRequestAttributes()).getRequest();
             String ip = request.getHeader("X-Forwarded-For");
-            if (ip == null || ip.isBlank()) ip = request.getRemoteAddr();
-            return ip;
+            if (ip != null && !ip.isBlank()) {
+                String first = ip.split(",")[0].trim();
+                if (isValidIp(first)) return first;
+            }
+            return request.getRemoteAddr();
         } catch (Exception e) {
             return "";
+        }
+    }
+
+    private boolean isValidIp(String ip) {
+        try {
+            return InetAddress.getByName(ip).getHostAddress().equals(ip);
+        } catch (Exception e) {
+            return false;
         }
     }
 }

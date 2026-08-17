@@ -1,4 +1,10 @@
 package org.dawn.backend.service.inventory.adjustments;
+import org.dawn.backend.constant.shared.ErrorCode;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -10,7 +16,6 @@ import org.dawn.backend.constant.enums.inventory.adjustments.AdjustmentStatus;
 import org.dawn.backend.constant.enums.inventory.adjustments.AdjustmentType;
 import org.dawn.backend.constant.enums.inventory.SourceType;
 import org.dawn.backend.constant.shared.LogConstant;
-import org.dawn.backend.constant.shared.Message;
 import org.dawn.backend.controller.inventory.request.ApproveAdjustmentRequest;
 import org.dawn.backend.controller.inventory.request.CreateStockAdjustmentRequest;
 import org.dawn.backend.controller.inventory.response.StockAdjustmentResponse;
@@ -30,6 +35,9 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.time.Instant;
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -38,6 +46,7 @@ public class StockAdjustmentService {
     private final StockAdjustmentRepository adjustmentRepository;
     private final ProductUnitRepository productUnitRepository;
     private final ProductRepository productRepository;
+    private final org.dawn.backend.repository.inventory.LocationRepository locationRepository;
     private final UserRepository userRepository;
     private final AdjustmentUnitService adjustmentUnitService;
     private final StateMachine<AdjustmentStatus> adjustmentStateMachine;
@@ -45,6 +54,9 @@ public class StockAdjustmentService {
 
     @Transactional(readOnly = true)
     public ResponsePage<StockAdjustmentResponse> findAll(Pageable pageable, String type, String status) {
+        if (isInvalidStatusFilter(status)) {
+            return ResponsePage.of(org.springframework.data.domain.Page.empty(pageable));
+        }
         String t = normalize(type);
         AdjustmentStatus s = parseAdjustmentStatus(status);
         org.springframework.data.domain.Page<StockAdjustment> page;
@@ -52,19 +64,22 @@ public class StockAdjustmentService {
         else if (t != null) page = adjustmentRepository.findByType(t, pageable);
         else if (s != null) page = adjustmentRepository.findByStatus(s, pageable);
         else page = adjustmentRepository.findAll(pageable);
-        return ResponsePage.of(page.map(this::enrich));
+        return enrichPage(page);
     }
 
     @Transactional(readOnly = true)
     public StockAdjustmentResponse findOne(Long id) {
         var adj = adjustmentRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.ADJUSTMENT_NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.ADJUSTMENT_NOT_FOUND));
         return enrich(adj);
     }
 
     @Transactional(readOnly = true)
     public ResponsePage<StockAdjustmentResponse> findMyAdjustments(Pageable pageable, String type, String status) {
         Long userId = securityPolicy.requireAuthenticated();
+        if (isInvalidStatusFilter(status)) {
+            return ResponsePage.of(org.springframework.data.domain.Page.empty(pageable));
+        }
         String t = normalize(type);
         AdjustmentStatus s = parseAdjustmentStatus(status);
         org.springframework.data.domain.Page<StockAdjustment> page;
@@ -72,13 +87,13 @@ public class StockAdjustmentService {
         else if (t != null) page = adjustmentRepository.findByCreatedByAndType(userId, t, pageable);
         else if (s != null) page = adjustmentRepository.findByCreatedByAndStatus(userId, s, pageable);
         else page = adjustmentRepository.findByCreatedBy(userId, pageable);
-        return ResponsePage.of(page.map(this::enrich));
+        return enrichPage(page);
     }
 
     @Transactional(readOnly = true)
     public ResponsePage<StockAdjustmentResponse> findByProductUnitId(Long productUnitId, Pageable pageable) {
         var page = adjustmentRepository.findByProductUnitIdOrderByCreatedAtDesc(productUnitId, pageable);
-        return ResponsePage.of(page.map(this::enrich));
+        return enrichPage(page);
     }
 
     private String normalize(String value) {
@@ -91,61 +106,102 @@ public class StockAdjustmentService {
         catch (IllegalArgumentException e) { return null; }
     }
 
+    private boolean isInvalidStatusFilter(String status) {
+        return status != null && !status.isBlank() && parseAdjustmentStatus(status) == null;
+    }
+
     @Transactional
     @AuditLog(action = LogConstant.Action.CREATE_ADJUSTMENT, entity = LogConstant.Entity.STOCK_ADJUSTMENT)
     public StockAdjustmentResponse create(CreateStockAdjustmentRequest request) {
         Long userId = securityPolicy.requireAuthenticated();
 
         if (request.type() == null || request.type().isBlank()) {
-            throw new InvalidRequestException(Message.Inventory.ADJUSTMENT_TYPE_REQUIRED);
+            throw new InvalidRequestException(ErrorCode.ADJUSTMENT_TYPE_REQUIRED);
         }
-        String type = request.type().toUpperCase();
+        AdjustmentType type;
         try {
-            AdjustmentType.valueOf(type);
+            type = AdjustmentType.valueOf(request.type().toUpperCase());
         } catch (IllegalArgumentException e) {
-            throw new InvalidRequestException(Message.format(Message.Inventory.INVALID_ADJUSTMENT_TYPE, type));
+            throw new InvalidRequestException(ErrorCode.INVALID_ADJUSTMENT_TYPE, request.type());
         }
 
         if (request.reason() == null || request.reason().isBlank()) {
-            throw new InvalidRequestException(Message.Inventory.ADJUSTMENT_REASON_REQUIRED);
+            throw new InvalidRequestException(ErrorCode.ADJUSTMENT_REASON_REQUIRED);
         }
 
-        if (AdjustmentType.DAMAGED.name().equals(type) || AdjustmentType.LOST.name().equals(type)) {
+        if (request.quantity() != null && request.quantity().signum() <= 0) {
+            throw new InvalidRequestException(ErrorCode.INVALID_QUANTITY, request.quantity());
+        }
+
+        ProductUnit unit = null;
+        if (request.productUnitId() != null) {
+            unit = productUnitRepository.findById(request.productUnitId())
+                    .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.PRODUCT_UNIT_NOT_FOUND));
+            if (adjustmentRepository.existsByProductUnitIdAndStatus(request.productUnitId(), AdjustmentStatus.PENDING)) {
+                throw new InvalidRequestException(ErrorCode.ADJUSTMENT_PENDING_EXISTS, request.productUnitId());
+            }
+        }
+
+        if (type == AdjustmentType.DAMAGED || type == AdjustmentType.LOST) {
             if (request.productUnitId() == null) {
                 throw new InvalidRequestException(
-                        Message.format(Message.Inventory.ADJUSTMENT_UNIT_REQUIRED, type.toLowerCase()));
+                        ErrorCode.ADJUSTMENT_UNIT_REQUIRED, type.name().toLowerCase());
             }
-            if (AdjustmentType.DAMAGED.name().equals(type) && (request.imageUrl() == null || request.imageUrl().isBlank())) {
-                throw new InvalidRequestException(Message.Inventory.ADJUSTMENT_PHOTO_REQUIRED_DAMAGED);
+            if (type == AdjustmentType.DAMAGED && (request.imageUrl() == null || request.imageUrl().isBlank())) {
+                throw new InvalidRequestException(ErrorCode.ADJUSTMENT_PHOTO_REQUIRED_DAMAGED);
             }
+            adjustmentUnitService.assertManualAdjustable(unit, type.name().toLowerCase());
         }
 
-        if (AdjustmentType.FOUND.name().equals(type) && request.productUnitId() == null) {
-            if (request.productId() == null) {
-                throw new InvalidRequestException(Message.Inventory.ADJUSTMENT_PRODUCT_REQUIRED);
-            }
-            if (request.serialNumber() == null || request.serialNumber().isBlank()) {
-                throw new InvalidRequestException(Message.Inventory.ADJUSTMENT_SERIAL_REQUIRED_FOUND);
-            }
-            if (request.locationId() == null) {
-                throw new InvalidRequestException(Message.Inventory.ADJUSTMENT_LOCATION_REQUIRED_FOUND);
+        if (type == AdjustmentType.FOUND) {
+            if (request.productUnitId() != null) {
+                adjustmentUnitService.assertRestorable(unit);
+                adjustmentUnitService.assertNotInSealedBox(unit);
+            } else {
+                if (request.productId() == null) {
+                    throw new InvalidRequestException(ErrorCode.ADJUSTMENT_PRODUCT_REQUIRED);
+                }
+                if (request.serialNumber() == null || request.serialNumber().isBlank()) {
+                    throw new InvalidRequestException(ErrorCode.ADJUSTMENT_SERIAL_REQUIRED_FOUND);
+                }
+                if (request.locationId() == null) {
+                    throw new InvalidRequestException(ErrorCode.ADJUSTMENT_LOCATION_REQUIRED_FOUND);
+                }
+                productRepository.findById(request.productId())
+                        .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.PRODUCT_NOT_FOUND));
+                if (locationRepository.findById(request.locationId()).isEmpty()) {
+                    throw new InvalidRequestException(ErrorCode.LOCATION_NOT_FOUND);
+                }
+                if (productUnitRepository.findBySerialNumberIgnoreCase(request.serialNumber()).isPresent()) {
+                    throw new InvalidRequestException(ErrorCode.ADJUSTMENT_SERIAL_DUPLICATE, request.serialNumber());
+                }
             }
         }
 
         String adjustCode = generateAdjustCode();
-        String sourceType = request.sourceType() != null ? request.sourceType().toUpperCase() : AdjustmentSourceType.MANUAL.name();
+        AdjustmentSourceType sourceType = AdjustmentSourceType.MANUAL;
+        if (request.sourceType() != null && !request.sourceType().isBlank()) {
+            try {
+                sourceType = AdjustmentSourceType.valueOf(request.sourceType().toUpperCase());
+            } catch (IllegalArgumentException e) {
+                throw new InvalidRequestException(ErrorCode.ADJUSTMENT_INVALID_SOURCE_TYPE);
+            }
+            if (sourceType == AdjustmentSourceType.STOCK_CHECK) {
+                throw new InvalidRequestException(ErrorCode.ADJUSTMENT_SOURCE_TYPE_NOT_ALLOWED);
+            }
+        }
 
         StockAdjustment adj = StockAdjustment.builder()
                 .adjustCode(adjustCode)
-                .type(type)
+                .type(type.name())
                 .productUnitId(request.productUnitId())
                 .productId(request.productId())
-                .quantity(request.quantity() != null ? request.quantity() : 1)
+                .quantity(request.quantity() != null ? request.quantity() : BigDecimal.ONE)
                 .reason(request.reason())
                 .imageUrl(request.imageUrl())
                 .serialNumber(request.serialNumber())
                 .locationId(request.locationId())
-                .sourceType(sourceType)
+                .sourceType(sourceType.name())
                 .sourceId(request.sourceId())
                 .status(AdjustmentStatus.PENDING)
                 .createdBy(userId)
@@ -159,27 +215,43 @@ public class StockAdjustmentService {
     public StockAdjustmentResponse approve(Long id, ApproveAdjustmentRequest request) {
         Long userId = securityPolicy.requireAuthenticated();
 
-        var adj = adjustmentRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.ADJUSTMENT_NOT_FOUND));
+        var adj = adjustmentRepository.findByIdForUpdate(id)
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.ADJUSTMENT_NOT_FOUND));
 
         adjustmentStateMachine.validate(adj.getStatus(), AdjustmentStatus.APPROVED);
         securityPolicy.requireNotCreator(adj.getCreatedBy());
 
-        String type = adj.getType();
-        if (AdjustmentType.DAMAGED.name().equals(type)) {
-            adjustmentUnitService.applyDamaged(adj.getProductUnitId(), SourceType.STOCK_ADJUSTMENT.name(), adj.getId(), userId);
-        } else if (AdjustmentType.LOST.name().equals(type)) {
-            adjustmentUnitService.applyLost(adj.getProductUnitId(), SourceType.STOCK_ADJUSTMENT.name(), adj.getId(), userId);
-        } else if (AdjustmentType.FOUND.name().equals(type)) {
-            if (adj.getProductUnitId() != null) {
-                adjustmentUnitService.applyFoundRestore(adj.getProductUnitId(), SourceType.STOCK_ADJUSTMENT.name(), adj.getId(), userId);
-            } else {
-                adjustmentUnitService.applyFoundNew(adj, userId);
+        AdjustmentType type = AdjustmentType.valueOf(adj.getType());
+        SourceType source = SourceType.STOCK_CHECK.name().equals(adj.getSourceType())
+                ? SourceType.STOCK_CHECK : SourceType.STOCK_ADJUSTMENT;
+        ProductUnit unit = adj.getProductUnitId() != null
+                ? productUnitRepository.findById(adj.getProductUnitId()).orElse(null)
+                : null;
+        boolean bulk = unit != null && "BULK".equals(unit.getTrackingType());
+        BigDecimal quantity = adj.getQuantity() != null ? adj.getQuantity() : BigDecimal.ONE;
+        switch (type) {
+            case DAMAGED -> {
+                if (bulk) adjustmentUnitService.applyBulkQuantity(unit, source, type, quantity, adj.getId(), userId);
+                else adjustmentUnitService.applyDamaged(adj.getProductUnitId(), source, adj.getId(), userId);
+            }
+            case LOST -> {
+                if (bulk) adjustmentUnitService.applyBulkQuantity(unit, source, type, quantity, adj.getId(), userId);
+                else adjustmentUnitService.applyLost(adj.getProductUnitId(), source, adj.getId(), userId);
+            }
+            case FOUND -> {
+                if (bulk) {
+                    adjustmentUnitService.applyBulkQuantity(unit, source, type, quantity, adj.getId(), userId);
+                } else if (adj.getProductUnitId() != null) {
+                    adjustmentUnitService.applyFoundRestore(adj.getProductUnitId(), source, adj.getId(), userId);
+                } else {
+                    adjustmentUnitService.applyFoundNew(adj, userId);
+                }
             }
         }
 
         adj.setStatus(AdjustmentStatus.APPROVED);
         adj.setApprovedBy(userId);
+        adj.setApprovedAt(Instant.now());
         adj.setApprovalNote(request != null ? request.approvalNote() : null);
         adj = adjustmentRepository.save(adj);
         return enrich(adj);
@@ -190,13 +262,14 @@ public class StockAdjustmentService {
     public StockAdjustmentResponse reject(Long id, ApproveAdjustmentRequest request) {
         Long userId = securityPolicy.requireAuthenticated();
 
-        var adj = adjustmentRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.ADJUSTMENT_NOT_FOUND));
+        var adj = adjustmentRepository.findByIdForUpdate(id)
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.ADJUSTMENT_NOT_FOUND));
 
         adjustmentStateMachine.validate(adj.getStatus(), AdjustmentStatus.REJECTED);
+        securityPolicy.requireNotCreator(adj.getCreatedBy());
 
         if (request == null || request.approvalNote() == null || request.approvalNote().isBlank()) {
-            throw new InvalidRequestException(Message.Inventory.REJECTION_REASON_REQUIRED);
+            throw new InvalidRequestException(ErrorCode.REJECTION_REASON_REQUIRED);
         }
 
         adj.setStatus(AdjustmentStatus.REJECTED);
@@ -204,6 +277,67 @@ public class StockAdjustmentService {
         adj.setApprovalNote(request.approvalNote());
         adj = adjustmentRepository.save(adj);
         return enrich(adj);
+    }
+
+    @Transactional
+    @AuditLog(action = LogConstant.Action.CANCEL_ADJUSTMENT, entity = LogConstant.Entity.STOCK_ADJUSTMENT)
+    public StockAdjustmentResponse cancel(Long id) {
+        Long userId = securityPolicy.requireAuthenticated();
+
+        var adj = adjustmentRepository.findByIdForUpdate(id)
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.ADJUSTMENT_NOT_FOUND));
+
+        adjustmentStateMachine.validate(adj.getStatus(), AdjustmentStatus.CANCELLED);
+        securityPolicy.requireOwner(adj.getCreatedBy());
+
+        adj.setStatus(AdjustmentStatus.CANCELLED);
+        adj = adjustmentRepository.save(adj);
+        return enrich(adj);
+    }
+
+    private ResponsePage<StockAdjustmentResponse> enrichPage(org.springframework.data.domain.Page<StockAdjustment> page) {
+        List<StockAdjustment> adjs = page.getContent();
+        if (adjs.isEmpty()) {
+            return ResponsePage.of(page.map(this::enrichSingle));
+        }
+        List<Long> userIds = adjs.stream()
+                .flatMap(a -> a.getApprovedBy() != null
+                        ? java.util.stream.Stream.of(a.getCreatedBy(), a.getApprovedBy())
+                        : java.util.stream.Stream.of(a.getCreatedBy()))
+                .distinct().toList();
+        Map<Long, String> userMap = userRepository.findAllById(userIds).stream()
+                .collect(Collectors.toMap(User::getId, User::getFullName));
+
+        List<Long> unitIds = adjs.stream().map(StockAdjustment::getProductUnitId)
+                .filter(java.util.Objects::nonNull).distinct().toList();
+        Map<Long, ProductUnit> unitMap = unitIds.isEmpty() ? Map.of()
+                : productUnitRepository.findAllById(unitIds).stream()
+                    .collect(Collectors.toMap(ProductUnit::getId, u -> u));
+
+        List<Long> productIds = new ArrayList<>(adjs.stream().map(StockAdjustment::getProductId)
+                .filter(java.util.Objects::nonNull).toList());
+        unitMap.values().stream().map(ProductUnit::getProductId)
+                .filter(java.util.Objects::nonNull).forEach(productIds::add);
+        productIds = productIds.stream().distinct().toList();
+        Map<Long, Product> productMap = productIds.isEmpty() ? Map.of()
+                : productRepository.findAllById(productIds).stream()
+                    .collect(Collectors.toMap(Product::getId, p -> p));
+
+        return ResponsePage.of(page.map(a -> enrichBatch(a, userMap, unitMap, productMap)));
+    }
+
+    private StockAdjustmentResponse enrichBatch(StockAdjustment adj, Map<Long, String> userMap, Map<Long, ProductUnit> unitMap, Map<Long, Product> productMap) {
+        var createdByName = userMap.get(adj.getCreatedBy());
+        var approvedByName = adj.getApprovedBy() != null ? userMap.get(adj.getApprovedBy()) : null;
+        ProductUnit unit = adj.getProductUnitId() != null ? unitMap.get(adj.getProductUnitId()) : null;
+        Long productId = adj.getProductId() != null ? adj.getProductId()
+                : (unit != null ? unit.getProductId() : null);
+        Product product = productId != null ? productMap.get(productId) : null;
+        return StockAdjustmentMappingHelper.map(adj, createdByName, approvedByName, unit, product);
+    }
+
+    private StockAdjustmentResponse enrichSingle(StockAdjustment adj) {
+        return enrichBatch(adj, Map.of(), Map.of(), Map.of());
     }
 
     private StockAdjustmentResponse enrich(StockAdjustment adj) {

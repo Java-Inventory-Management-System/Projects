@@ -1,47 +1,44 @@
 import { describe, it, expect } from "vitest"
-import { api, loginAsAdmin, loginAsManager, ensureImport } from "./api-client"
+import { api, loginAsManager, loginAsSales, loginAsStock, ensureImport } from "./api-client"
 
 describe("Export Flow", () => {
-  it("should create, approve and fulfill export receipt", async () => {
-    await loginAsManager()
-    const { serialNumbers } = await ensureImport()
+  it("should create and fulfill export receipt", async () => {
+    await loginAsSales()
+    const { serialNumbers } = await ensureImport(1, 1)
+    await loginAsSales()
 
     const createRes = await api.post("/export-receipt", {
-      reason: "SALE", customerId: 1, note: "E2E export",
+      type: "SALE", reason: "SALE", customerId: 1, note: "E2E export",
       items: [{ productId: 1, quantity: 1, unitPrice: 15000000 }],
     })
     expect(createRes.status).toBe(201)
     expect(createRes.data.data.status).toBe("PENDING")
     const exportId = createRes.data.data.id
 
-    await loginAsAdmin()
-    const approveRes = await api.put(`/export-receipt/${exportId}/approve`)
-    expect(approveRes.status).toBe(200)
-    expect(approveRes.data.data.status).toBe("APPROVED")
-
-    await loginAsManager()
+    await loginAsStock()
     const fulfillRes = await api.put(`/export-receipt/${exportId}/fulfill`, {
+      note: "E2E fulfill",
+      evidenceImages: ["https://cloudinary.example.com/e2e-evidence.jpg"],
       items: [{ itemId: createRes.data.data.items[0].id, serialNumbers }],
     })
     expect(fulfillRes.status).toBe(200)
     expect(fulfillRes.data.data.status).toBe("COMPLETED")
   })
 
-  it("should reject export receipt", async () => {
-    await loginAsManager()
+  it("should cancel export receipt", async () => {
+    await loginAsSales()
+    await ensureImport()
+    await loginAsSales()
     const createRes = await api.post("/export-receipt", {
-      reason: "INTERNAL", note: "Reject test",
+      type: "INTERNAL", reason: "INTERNAL", note: "Cancel test",
       items: [{ productId: 1, quantity: 1, unitPrice: 50000 }],
     })
     const exportId = createRes.data.data.id
 
-    await loginAsAdmin()
-    const rejectRes = await api.put(`/export-receipt/${exportId}/reject`, {
-      reason: "Insufficient documentation",
-    })
-    expect(rejectRes.status).toBe(200)
-    expect(rejectRes.data.data.status).toBe("CANCELLED")
-    expect(rejectRes.data.data.rejectReason).toBe("Insufficient documentation")
+    await loginAsManager()
+    const cancelRes = await api.put(`/export-receipt/${exportId}/cancel`)
+    expect(cancelRes.status).toBe(200)
+    expect(cancelRes.data.data.status).toBe("CANCELLED")
   })
 
   it("should return pagination with pageNumber/pageSize", async () => {

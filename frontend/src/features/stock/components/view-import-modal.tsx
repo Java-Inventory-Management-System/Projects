@@ -1,5 +1,7 @@
 import { useTranslation } from "react-i18next"
+import type { TFunction } from "i18next"
 import type { ImportReceipt } from "@/utils/types"
+import { IMPORT_RECEIPT_STATUS } from "@/utils/types"
 import { useNavigate } from "react-router-dom"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -7,12 +9,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { ScanLine, Eye } from "lucide-react"
 
-const getStatusLabel = (status: string, t: (k: string) => string): { label: string; variant: "default" | "secondary" | "outline" | "destructive" } => {
+const getStatusLabel = (status: string, t: TFunction): { label: string; variant: "default" | "secondary" | "outline" | "destructive" } => {
   const keyMap: Record<string, string> = {
-    DRAFT: "draft", PENDING_APPROVAL: "pendingApproval", COMPLETED: "completed", CANCELLED: "cancelled",
+    [IMPORT_RECEIPT_STATUS.DRAFT]: "draft", [IMPORT_RECEIPT_STATUS.RECEIVED]: "received", [IMPORT_RECEIPT_STATUS.REJECTED]: "rejected", [IMPORT_RECEIPT_STATUS.CANCELLED]: "cancelled",
   }
   const variantMap: Record<string, "secondary" | "outline" | "default" | "destructive"> = {
-    DRAFT: "secondary", PENDING_APPROVAL: "outline", COMPLETED: "default", CANCELLED: "destructive",
+    [IMPORT_RECEIPT_STATUS.DRAFT]: "secondary", [IMPORT_RECEIPT_STATUS.RECEIVED]: "default", [IMPORT_RECEIPT_STATUS.REJECTED]: "destructive", [IMPORT_RECEIPT_STATUS.CANCELLED]: "destructive",
   }
   return { label: t(`importStatus.${keyMap[status] ?? status}`, status), variant: variantMap[status] ?? "secondary" }
 }
@@ -56,18 +58,63 @@ export const ViewImportModal = ({
               <p className="font-medium">{receipt.supplierName || "—"}</p>
             </div>
             <div>
-              <span className="text-muted-foreground">{t("label.createdDate")}</span>
-              <p className="font-medium">{new Date(receipt.createdAt).toLocaleString("vi-VN")}</p>
+              <span className="text-muted-foreground">{t("importDetail.taskReceivedTime")}</span>
+              <p className="font-medium">{new Date(receipt.updatedAt).toLocaleString("vi-VN")}</p>
             </div>
             <div>
               <span className="text-muted-foreground">{t("label.creator")}</span>
               <p className="font-medium">{receipt.createdByName || "—"}</p>
             </div>
-            <div>
-              <span className="text-muted-foreground">{t("label.approver")}</span>
-              <p className="font-medium">{receipt.approvedByName ?? "—"}</p>
-            </div>
+            {receipt.status === IMPORT_RECEIPT_STATUS.REJECTED ? (
+              <>
+                <div>
+                  <span className="text-muted-foreground">{t("viewImportModal.rejectedBy")}</span>
+                  <p className="font-medium">{receipt.rejectedByName ?? "—"}</p>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">{t("viewImportModal.rejectedAt")}</span>
+                  <p className="font-medium">{receipt.rejectedAt ? new Date(receipt.rejectedAt).toLocaleString("vi-VN") : "—"}</p>
+                </div>
+              </>
+            ) : (
+              <div>
+                <span className="text-muted-foreground">{t("label.approver")}</span>
+                <p className="font-medium">{receipt.approvedByName ?? "—"}</p>
+              </div>
+            )}
           </div>
+          {receipt.status === IMPORT_RECEIPT_STATUS.REJECTED && (
+            <div className="rounded-md border border-destructive/20 bg-destructive/5 px-3 py-2.5 text-sm space-y-2">
+              <div>
+                <span className="text-xs font-medium text-destructive tracking-wide">{t("viewImportModal.rejectReason")}</span>
+                <p className="mt-1 leading-relaxed">{receipt.rejectReason ?? "—"}</p>
+              </div>
+              {receipt.evidenceImage && (
+                <img
+                  src={receipt.evidenceImage}
+                  alt={t("viewImportModal.evidence")}
+                  className="max-h-48 rounded-md border object-contain"
+                />
+              )}
+            </div>
+          )}
+          {receipt.status === IMPORT_RECEIPT_STATUS.REJECTED && receipt.resolution && (
+            <div className="rounded-md border bg-primary/5 px-3 py-2.5 text-sm space-y-1.5">
+              <div className="flex items-center gap-2">
+                <Badge variant="outline">
+                  {receipt.resolution === "RETURNED_TO_SUPPLIER"
+                    ? t("importDetail.resolveReturned")
+                    : t("importDetail.resolveResending")}
+                </Badge>
+                {receipt.resolvedByName && (
+                  <span className="text-xs text-muted-foreground">
+                    {t("importDetail.resolvedBy")}: {receipt.resolvedByName}
+                  </span>
+                )}
+              </div>
+              {receipt.resolutionNote && <p className="leading-relaxed">{receipt.resolutionNote}</p>}
+            </div>
+          )}
           {receipt.note && (
             <div className="rounded-md border bg-muted/20 px-3 py-2.5 text-sm">
               <span className="text-xs font-medium text-muted-foreground tracking-wide">{t("label.note")}</span>
@@ -109,17 +156,17 @@ export const ViewImportModal = ({
           </div>
           <div className="flex justify-between items-center text-sm">
             <span className="text-muted-foreground">
-              {t("viewImportModal.totalUnits", { count: receipt.items.reduce((sum, i) => sum + i.createdUnits, 0) })}
+              {t("viewImportModal.totalUnits", { count: receipt.items.reduce((sum: number, i) => sum + i.createdUnits, 0) })}
             </span>
             <span className="text-lg font-semibold">{t("viewImportModal.total")}: {(receipt.totalAmount ?? 0).toLocaleString("vi-VN")}₫</span>
           </div>
         </div>
         <DialogFooter className="gap-2">
-          <Button variant="outline" onClick={() => navigate(`/stock/imports/${receipt.id}`)}>
+          <Button variant="outline" onClick={() => { onOpenChange(false); navigate(`/stock/imports/${receipt.id}`) }}>
             <Eye className="size-4 mr-1" /> {t("viewImportModal.viewDetail")}
           </Button>
-          {receipt.status === "DRAFT" && (
-            <Button onClick={() => navigate(`/stock/imports/new?id=${receipt.id}`)}>
+          {receipt.status === IMPORT_RECEIPT_STATUS.DRAFT && (
+            <Button onClick={() => { onOpenChange(false); navigate(`/stock/imports/new?id=${receipt.id}`) }}>
               <ScanLine className="size-4 mr-1" /> {t("viewImportModal.enterSerials")}
             </Button>
           )}

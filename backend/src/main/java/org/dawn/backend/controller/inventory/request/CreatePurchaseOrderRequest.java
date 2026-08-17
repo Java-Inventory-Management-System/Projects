@@ -8,11 +8,13 @@ public record CreatePurchaseOrderRequest(
         Long supplierId,
         LocalDate expectedDate,
         String note,
+        String invoiceCode,
         List<POItemRequest> items
 ) {
     public record POItemRequest(
             Long productId,
             BigDecimal quantity,
-            BigDecimal unitPrice
+            BigDecimal unitPrice,
+            List<String> serials
     ) {}
 }

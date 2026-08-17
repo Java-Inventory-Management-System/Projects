@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useMemo, useCallback } from "react"
+import { useEffect, useState, useMemo, useCallback } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
@@ -7,6 +7,7 @@ import { useTranslation } from "react-i18next"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createPriceAdjustment, getAvailableItemsByProduct } from "@/services/price-adjustment-service"
 import { getProducts } from "@/services/product-service"
+import { useDebounce } from "@/hooks/use-debounce"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -16,6 +17,7 @@ import { ArrowLeft, ArrowRight, AlertTriangle, Search, Loader2, TrendingUp, Tren
 import { Badge } from "@/components/ui/badge"
 import { toast } from "@/utils/toast"
 import { FieldError } from "@/components/ui/field"
+import { PriceHistoryPanel } from "@/features/stock/components/price-history-panel"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -38,11 +40,9 @@ export function PriceAdjustmentCreatePage() {
   const { t } = useTranslation()
   const qc = useQueryClient()
   const [confirmLeave, setConfirmLeave] = useState(false)
-  const [searchTerm, setSearchTerm] = useState("")
-  const [debouncedSearch, setDebouncedSearch] = useState("")
-  const [selectedProductId, setSelectedProductId] = useState<number | null>(null)
-  const [displayPrice, setDisplayPrice] = useState("")
-  const searchTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+const [searchTerm, setSearchTerm] = useState("")
+const [selectedProductId, setSelectedProductId] = useState<number | null>(null)
+const [displayPrice, setDisplayPrice] = useState("")
 
   const form = useForm({ resolver: zodResolver(getSchema(t)), defaultValues: { selectedItem: "", newPrice: 0, reason: "" } })
   const selectedItemStr = form.watch("selectedItem")
@@ -58,12 +58,7 @@ export function PriceAdjustmentCreatePage() {
     return () => window.removeEventListener("beforeunload", handler)
   }, [isDirty])
 
-  // Debounced search
-  useEffect(() => {
-    clearTimeout(searchTimer.current)
-    searchTimer.current = setTimeout(() => setDebouncedSearch(searchTerm), 300)
-    return () => clearTimeout(searchTimer.current)
-  }, [searchTerm])
+  const debouncedSearch = useDebounce(searchTerm, 300)
 
   const { data: productsRes, isLoading: searchLoading } = useQuery({
     queryKey: ["products", "list", "100", debouncedSearch],
@@ -94,7 +89,7 @@ export function PriceAdjustmentCreatePage() {
       qc.invalidateQueries({ queryKey: ["price-adjustments"] })
       qc.invalidateQueries({ queryKey: ["my-price-adjustments"] })
       toast.success(t("priceAdjCreate.createSuccess", { code: result.adjustCode }))
-      navigate("/stock/price-adjustments")
+      navigate("/stock/ops/price-adjustments")
     },
     onError: (e: Error) => toast.error(e.message || t("priceAdjCreate.createError")),
   })
@@ -113,23 +108,24 @@ export function PriceAdjustmentCreatePage() {
         reason: values.reason.trim(),
       })
     },
-    [availableItems, oldPrice, save],
+    [availableItems, oldPrice, save, t],
   )
 
-  const products = productsRes?.content ?? []
+  const products = (productsRes?.content ?? []).filter((p) => p.isActive)
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
+    <div className="mx-auto max-w-6xl space-y-6">
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="sm" onClick={() => {
           if (isDirty) setConfirmLeave(true)
-          else navigate("/stock/price-adjustments")
+          else navigate("/stock/ops/price-adjustments")
         }}>
           <ArrowLeft className="size-4 mr-1" /> {t("common.back")}
         </Button>
         <h1 className="text-xl font-semibold tracking-tight">{t("priceAdjCreate.title")}</h1>
       </div>
 
+      <div className="grid gap-6 items-start lg:grid-cols-[1fr_380px]">
       <form onSubmit={form.handleSubmit(handleCreate)} className="space-y-4">
         {/* Step 1: Search product */}
         <div className="space-y-2">
@@ -194,9 +190,9 @@ export function PriceAdjustmentCreatePage() {
         )}
 
         {allItemsPending && availableItems && availableItems.length > 0 && (
-          <Alert variant="default" className="border-amber-300 bg-amber-50">
-            <AlertTriangle className="size-4 text-amber-600" />
-            <AlertDescription className="text-amber-800 text-sm">
+          <Alert variant="default" className="border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/20">
+            <AlertTriangle className="size-4 text-amber-600 dark:text-amber-400" />
+            <AlertDescription className="text-amber-800 text-sm dark:text-amber-300">
               {t("priceAdjCreate.allBatchesPending")}
             </AlertDescription>
           </Alert>
@@ -258,16 +254,16 @@ export function PriceAdjustmentCreatePage() {
                 className="h-9 w-full"
                 value={displayPrice}
                 onChange={(e) => {
-                  const raw = e.target.value.replace(/[^0-9]/g, "")
-                  const num = raw ? parseInt(raw, 10) : 0
+                  const raw = e.target.value.replace(/[^0-9.,]/g, "").replace(",", ".")
+                  const num = raw ? Number(raw) : 0
                   form.setValue("newPrice", num, { shouldValidate: true })
-                  setDisplayPrice(num ? num.toLocaleString("vi-VN") + "₫" : "")
+                  setDisplayPrice(num ? num.toLocaleString("vi-VN", { maximumFractionDigits: 2 }) + "₫" : "")
                 }}
                 onFocus={() => {
                   if (newPrice > 0) setDisplayPrice(String(newPrice))
                 }}
                 onBlur={() => {
-                  if (newPrice > 0) setDisplayPrice(newPrice.toLocaleString("vi-VN") + "₫")
+                  if (newPrice > 0) setDisplayPrice(newPrice.toLocaleString("vi-VN", { maximumFractionDigits: 2 }) + "₫")
                 }}
               />
             </div>
@@ -285,7 +281,7 @@ export function PriceAdjustmentCreatePage() {
           </div>
           <FieldError errors={form.formState.errors.newPrice ? [{ message: form.formState.errors.newPrice.message ?? "" }] : undefined} />
           {showPriceWarning && (
-            <div className="flex items-center gap-2 text-sm text-amber-700 bg-amber-50 rounded-lg px-4 py-2 border border-amber-200">
+            <div className="flex items-center gap-2 text-sm text-amber-700 bg-amber-50 rounded-lg px-4 py-2 border border-amber-200 dark:text-amber-300 dark:bg-amber-950/20 dark:border-amber-800">
               <AlertTriangle className="size-4 shrink-0" />
               {t("priceAdjCreate.priceWarning")}
             </div>
@@ -304,7 +300,7 @@ export function PriceAdjustmentCreatePage() {
       <div className="flex gap-2 justify-end">
         <Button variant="outline" type="button" onClick={() => {
           if (isDirty) setConfirmLeave(true)
-          else navigate("/stock/price-adjustments")
+          else navigate("/stock/ops/price-adjustments")
         }}>
           {t("common.cancel")}
         </Button>
@@ -321,6 +317,14 @@ export function PriceAdjustmentCreatePage() {
       </div>
       </form>
 
+      <aside className="lg:sticky lg:top-20">
+        <PriceHistoryPanel
+          productId={selectedProductId}
+          productName={products.find((p) => p.id === selectedProductId)?.name}
+        />
+      </aside>
+      </div>
+
       <AlertDialog open={confirmLeave} onOpenChange={(v) => { if (!v) setConfirmLeave(false) }}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -329,7 +333,7 @@ export function PriceAdjustmentCreatePage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>{t("dialog.stay")}</AlertDialogCancel>
-            <AlertDialogAction onClick={() => { setConfirmLeave(false); navigate("/stock/price-adjustments") }}>
+            <AlertDialogAction onClick={() => { setConfirmLeave(false); navigate("/stock/ops/price-adjustments") }}>
               {t("dialog.leave")}
             </AlertDialogAction>
           </AlertDialogFooter>

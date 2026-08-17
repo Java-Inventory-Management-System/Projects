@@ -1,5 +1,5 @@
 import http from "@/utils/http-client"
-import type { ResponsePage, StockCheck, StockCheckScopeType } from "@/utils/types"
+import type { ResponsePage, StockCheck, StockCheckSchedule, StockCheckScopeType, StockCheckZoneStatus } from "@/utils/types"
 import { mapResponsePage, mapStockCheck } from "@/utils/mappers"
 
 export async function getStockChecks(
@@ -25,8 +25,44 @@ export async function getStockCheckById(id: number): Promise<StockCheck> {
   return mapStockCheck(res)
 }
 
-export async function createStockCheck(data: { scopeType: StockCheckScopeType; scopeId: number; note?: string }): Promise<StockCheck> {
+export async function getStockCheckPrintFile(id: number, lang: string, format: "pdf" | "excel"): Promise<Blob> {
+  const res = await http.get(`/stock-check/${id}/print`, { params: { lang, format }, responseType: "blob" })
+  return res as unknown as Blob
+}
+
+export async function getStockCheckCount(): Promise<number> {
+  const res = await http.get("/stock-check/count")
+  return res as number
+}
+
+export async function getStockCheckZoneStatus(): Promise<StockCheckZoneStatus> {
+  const res = await http.get("/stock-check/zone-status")
+  return res as StockCheckZoneStatus
+}
+
+export async function getStockCheckSchedules(): Promise<StockCheckSchedule[]> {
+  const res = await http.get("/stock-check/schedules")
+  return res as StockCheckSchedule[]
+}
+
+export async function countUnitsInScope(
+  scopeType: string, scopeId: number, shelfCodes?: string[],
+): Promise<number> {
+  const params: Record<string, string | number> = { scopeType, scopeId }
+  if (shelfCodes && shelfCodes.length > 0) params.shelfCodes = shelfCodes.join(",")
+  const res = await http.get("/stock-check/scope-unit-count", { params })
+  return res as number
+}
+
+export async function createStockCheck(data: {
+  scopeType: StockCheckScopeType; scopeId: number; shelfCodes?: string[]; note?: string
+}): Promise<StockCheck> {
   const res = await http.post("/stock-check", data)
+  return mapStockCheck(res)
+}
+
+export async function startStockCheck(id: number): Promise<StockCheck> {
+  const res = await http.put(`/stock-check/${id}/start`)
   return mapStockCheck(res)
 }
 
@@ -39,6 +75,8 @@ export async function recordStockCheckItems(
       countedQuantity?: number
       note?: string
       photo?: string
+      suspectSeal?: boolean
+      damagedPackaging?: boolean
     }>
   },
 ): Promise<StockCheck> {
@@ -51,22 +89,20 @@ export async function completeStockCheck(id: number): Promise<StockCheck> {
   return mapStockCheck(res)
 }
 
-export async function startStockCheck(id: number): Promise<StockCheck> {
-  const res = await http.put(`/stock-check/${id}/start`)
+export async function addExtraStockCheckItem(
+  id: number,
+  data: { sku: string; serialNumber?: string; countedQuantity?: number; note?: string; photo?: string },
+): Promise<StockCheck> {
+  const res = await http.post(`/stock-check/${id}/extra-items`, data)
   return mapStockCheck(res)
 }
 
-export async function approveStockCheck(id: number, approvalNote?: string): Promise<StockCheck> {
-  const res = await http.put(`/stock-check/${id}/approve`, { approvalNote })
+export async function reopenStockCheck(id: number): Promise<StockCheck> {
+  const res = await http.put(`/stock-check/${id}/reopen`)
   return mapStockCheck(res)
 }
 
-export async function rejectStockCheck(id: number, approvalNote?: string): Promise<StockCheck> {
-  const res = await http.put(`/stock-check/${id}/reject`, { approvalNote })
-  return mapStockCheck(res)
-}
-
-export async function importStockCheckSerials(id: number, fileContent: string): Promise<StockCheck> {
-  const res = await http.post(`/stock-check/${id}/import-serials`, { fileContent })
+export async function cancelStockCheck(id: number): Promise<StockCheck> {
+  const res = await http.put(`/stock-check/${id}/cancel`)
   return mapStockCheck(res)
 }

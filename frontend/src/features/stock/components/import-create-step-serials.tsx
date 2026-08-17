@@ -1,6 +1,7 @@
-import { useState, useMemo } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useTranslation } from "react-i18next"
-import type { LineItem, DiscrepancyNote } from "@/utils/types"
+import type { LineItem, DiscrepancyNote, QcRecord } from "@/utils/types"
+import { TRACKING_TYPE } from "@/utils/types"
 import type { ItemAction } from "../reducers/import-create-reducer"
 import { toast } from "@/utils/toast"
 import { Button } from "@/components/ui/button"
@@ -17,9 +18,10 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { SerialModal } from "@/features/stock/components/serial-modal"
+import { Checkbox } from "@/components/ui/checkbox"
 import { LocationPicker } from "@/features/stock/components/location-picker"
-import { ScanLine, CircleCheckBig, Circle, ClipboardList, Check, X, Plus, ListChecks } from "lucide-react"
+import { BinAllocatorDialog } from "@/features/stock/components/import-create-bin-allocator"
+import { ScanLine, CircleCheckBig, Circle, ClipboardList, Check, X, Plus, ListChecks, Layers, AlertTriangle, CheckCircle2 } from "lucide-react"
 
 interface PreviewEntry {
   line: number
@@ -77,7 +79,7 @@ function SerialPreview({ pasteText }: { pasteText: string }) {
           e.status === "ok" ? (
             <span
               key={i}
-              className="inline-flex items-center gap-1 rounded-md border border-green-300 bg-green-50 px-2 py-0.5 text-xs font-mono text-green-700"
+              className="inline-flex items-center gap-1 rounded-md border border-green-300 bg-green-50 px-2 py-0.5 text-xs font-mono text-green-700 dark:border-green-800 dark:bg-green-950/20 dark:text-green-300"
             >
               <Check className="size-3" />
               {e.serial}
@@ -106,10 +108,11 @@ interface Props {
   dispatch: React.Dispatch<ItemAction>
   discrepancyNotes: DiscrepancyNote[]
   onDiscrepancyNotesChange: (notes: DiscrepancyNote[]) => void
-  suggestedLocations?: Record<number, number>
+  poSerialsByProduct?: Map<number, Set<string>>
+  onQcStatus: (status: { hasRecords: boolean; done: boolean; records: QcRecord[] }) => void
 }
 
-export function ImportStepSerials({ items, dispatch, discrepancyNotes, onDiscrepancyNotesChange, suggestedLocations }: Props) {
+export function ImportStepSerials({ items, dispatch, discrepancyNotes, onDiscrepancyNotesChange, poSerialsByProduct, onQcStatus }: Props) {
   const { t } = useTranslation()
   const [serialModalOpen, setSerialModalOpen] = useState(false)
   const [activeItemId, setActiveItemId] = useState<number | null>(null)
@@ -118,11 +121,63 @@ export function ImportStepSerials({ items, dispatch, discrepancyNotes, onDiscrep
   const [discrepancyOpen, setDiscrepancyOpen] = useState(false)
   const [discDesc, setDiscDesc] = useState("")
   const [discQty, setDiscQty] = useState("")
+  const [allocatorFor, setAllocatorFor] = useState<number | null>(null)
+  const [qcRecords, setQcRecords] = useState<QcRecord[]>([])
+
+  const allSerials = useMemo(
+    () =>
+      items
+        .filter((i) => i.itemStatus !== "NOT_RECEIVED")
+        .flatMap((i) => i.serials.map((s) => ({ serial: s, productName: i.productName }))),
+    [items],
+  )
+
+  useEffect(() => {
+    setQcRecords((prev) => {
+      const prevMap = new Map(prev.map((r) => [r.serial, r]))
+      const synced: QcRecord[] = []
+      let changed = false
+      for (const s of allSerials) {
+        const existing = prevMap.get(s.serial)
+        if (existing) {
+          synced.push(existing)
+        } else {
+          synced.push({ serial: s.serial, productName: s.productName, passed: true, failReason: "" })
+          changed = true
+        }
+      }
+      if (prev.length - synced.length > 0) changed = true
+      return changed ? synced : prev
+    })
+  }, [allSerials])
+
+  useEffect(() => {
+    onQcStatus({
+      hasRecords: qcRecords.length > 0,
+      done: qcRecords.length > 0 && qcRecords.every((r) => r.passed || r.failReason.trim().length > 0),
+      records: qcRecords,
+    })
+  }, [qcRecords, onQcStatus])
+
+  function handleQcChange(serial: string, changes: { passed?: boolean; failReason?: string }) {
+    setQcRecords((prev) => {
+      const existing = prev.find((r) => r.serial === serial)
+      if (existing) return prev.map((r) => (r.serial === serial ? { ...r, ...changes } : r))
+      const item = items.find((i) => i.serials.includes(serial))
+      return [...prev, { serial, productName: item?.productName ?? "", passed: true, failReason: "", ...changes }]
+    })
+  }
 
   const activeItem = items.find((i) => i.tempId === activeItemId)
 
   const totalExpected = useMemo(() => items.reduce((s, i) => s + i.quantity, 0), [items])
-  const totalReceived = useMemo(() => items.filter((i) => i.itemStatus !== "NOT_RECEIVED").reduce((s, i) => s + i.serials.length, 0), [items])
+  const totalReceived = useMemo(
+    () =>
+      items
+        .filter((i) => i.itemStatus !== "NOT_RECEIVED")
+        .reduce((s, i) => s + (i.trackingType === TRACKING_TYPE.BULK ? i.quantity : i.serials.length), 0),
+    [items],
+  )
   const progressPct = totalExpected > 0 ? Math.round((totalReceived / totalExpected) * 100) : 0
 
   function saveSerials(tempId: number, serials: string[]) {
@@ -187,8 +242,6 @@ export function ImportStepSerials({ items, dispatch, discrepancyNotes, onDiscrep
 
   return (
     <div className="space-y-4">
-      <h2 className="text-sm font-semibold text-muted-foreground">{t("importStepSerials.heading")}</h2>
-
       {items.length > 0 && (
         <>
           <div className="flex items-center gap-3 text-sm">
@@ -200,6 +253,21 @@ export function ImportStepSerials({ items, dispatch, discrepancyNotes, onDiscrep
               />
             </div>
             <span className="font-medium tabular-nums">{totalReceived}/{totalExpected}</span>
+            {qcRecords.length > 0 && (
+              <span
+                className={`rounded-full px-2 py-0.5 text-xs font-medium tabular-nums ${
+                  qcRecords.every((r) => r.passed || r.failReason.trim())
+                    ? "bg-green-100 text-green-700 dark:bg-green-950/30 dark:text-green-400"
+                    : "bg-amber-100 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400"
+                }`}
+                title={t("importStepSerials.qcProgressTitle")}
+              >
+                {t("importStepSerials.qcProgress", {
+                  done: qcRecords.filter((r) => r.passed || r.failReason.trim()).length,
+                  total: qcRecords.length,
+                })}
+              </span>
+            )}
           </div>
 
           <div className="rounded-lg border overflow-x-auto">
@@ -210,15 +278,22 @@ export function ImportStepSerials({ items, dispatch, discrepancyNotes, onDiscrep
                   <TableHead className="w-16 text-right">{t("importStepSerials.expected")}</TableHead>
                   <TableHead className="w-20 text-center">{t("importStepSerials.received")}</TableHead>
                   <TableHead className="w-28 text-center">{t("importStepSerials.serial")}</TableHead>
+                  <TableHead className="w-24 text-center">{t("importStepSerials.qcColumn")}</TableHead>
                   <TableHead className="w-36">{t("importStepSerials.location")}</TableHead>
                   <TableHead className="w-28 text-center">{t("importStepSerials.status")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {items.map((item) => {
+                  const isBulk = item.trackingType === TRACKING_TYPE.BULK
                   const serialCount = item.serials.length
-                  const serialOk = serialCount === item.quantity
                   const isNotReceived = item.itemStatus === "NOT_RECEIVED"
+                  const serialOk = isBulk ? !isNotReceived : serialCount === item.quantity
+                  const itemQc = isBulk || isNotReceived
+                    ? null
+                    : item.serials.map((s) => qcRecords.find((r) => r.serial === s)).filter((r): r is QcRecord => !!r)
+                  const qcPending = itemQc ? itemQc.filter((r) => !r.passed && !r.failReason.trim()).length : 0
+                  const qcPassed = itemQc ? itemQc.filter((r) => r.passed).length : 0
                   return (
                     <TableRow key={item.tempId}>
                       <TableCell className="font-medium text-sm truncate max-w-[200px]" title={item.productName}>
@@ -239,36 +314,74 @@ export function ImportStepSerials({ items, dispatch, discrepancyNotes, onDiscrep
                           <span className="text-muted-foreground text-xs">—</span>
                         ) : (
                           <span className={serialOk ? "text-green-600 font-medium" : "text-amber-600"}>
-                            {serialCount}
+                            {isBulk ? item.quantity : serialCount}
                           </span>
                         )}
                       </TableCell>
                       <TableCell className="text-center">
-                        {isNotReceived ? (
+                        {isBulk ? (
+                          <span className="text-xs text-muted-foreground">{t("importStepSerials.bulkNoSerial")}</span>
+                        ) : isNotReceived ? (
                           <span className="text-xs text-muted-foreground italic">{t("importStepSerials.notReceived")}</span>
                         ) : (
-                          <Button
-                            variant={serialOk ? "outline" : "secondary"}
-                            size="sm"
-                            className="gap-1 text-xs h-9"
-                            onClick={() => {
-                              setActiveItemId(item.tempId)
-                              setSerialModalOpen(true)
-                            }}
-                          >
-                            <ScanLine className="size-3.5" />
-                            {serialCount}/{item.quantity}
-                          </Button>
+                          <div className="flex items-center justify-center gap-1.5">
+                            <Button
+                              variant={serialOk ? "outline" : "secondary"}
+                              size="sm"
+                              className="gap-1 text-xs h-9"
+                              onClick={() => {
+                                setActiveItemId(item.tempId)
+                                setSerialModalOpen(true)
+                              }}
+                            >
+                              <ScanLine className="size-3.5" />
+                              {serialCount}/{item.quantity}
+                            </Button>
+                            {serialCount < item.quantity && (
+                              <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[11px] font-medium text-amber-700 dark:bg-amber-950/30 dark:text-amber-400">
+                                {t("importStepSerials.shortageBadge", { count: item.quantity - serialCount })}
+                              </span>
+                            )}
+                          </div>
                         )}
                       </TableCell>
                       <TableCell>
-                        <LocationPicker
-                          value={item.locationId}
-                          onSelect={(locId) =>
-                            dispatch({ type: "UPDATE_ITEM", tempId: item.tempId, field: "locationId", value: locId })
-                          }
-                          suggestedLocationId={suggestedLocations?.[item.tempId]}
-                        />
+                        {itemQc ? (
+                          <span
+                            className={`inline-flex items-center gap-1 text-xs font-medium ${
+                              qcPending > 0
+                                ? "text-amber-600"
+                                : qcPassed === itemQc.length
+                                  ? "text-green-600"
+                                  : "text-muted-foreground"
+                            }`}
+                          >
+                            {qcPassed}/{itemQc.length} {t("importStepSerials.qcPassed")}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          <LocationPicker
+                            value={item.locationId}
+                            onSelect={(locId) =>
+                              dispatch({ type: "UPDATE_ITEM", tempId: item.tempId, field: "locationId", value: locId })
+                            }
+                          />
+                          {item.quantity > 1 && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="gap-1 text-xs h-8"
+                              onClick={() => setAllocatorFor(item.tempId)}
+                            >
+                              <Layers className="size-3.5" />
+                              {t("binAllocator.open")}
+                            </Button>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell className="text-center">
                         <Tooltip>
@@ -316,6 +429,7 @@ export function ImportStepSerials({ items, dispatch, discrepancyNotes, onDiscrep
               ))}
             </div>
           )}
+
         </>
       )}
 
@@ -336,14 +450,25 @@ export function ImportStepSerials({ items, dispatch, discrepancyNotes, onDiscrep
       </div>
 
       {activeItem && (
-        <SerialModal
+        <ReconcileSerialDialog
           open={serialModalOpen}
           onOpenChange={setSerialModalOpen}
-          productName={activeItem.productName}
-          productSku={activeItem.productSku}
-          required={activeItem.quantity}
-          serials={activeItem.serials}
+          item={activeItem}
+          poSerialsByProduct={poSerialsByProduct}
           onSave={(serials) => saveSerials(activeItem.tempId, serials)}
+          qcRecords={qcRecords}
+          onQcChange={handleQcChange}
+        />
+      )}
+
+      {allocatorFor != null && (
+        <BinAllocatorDialog
+          open={allocatorFor != null}
+          onOpenChange={(open) => {
+            if (!open) setAllocatorFor(null)
+          }}
+          item={items.find((i) => i.tempId === allocatorFor)!}
+          dispatch={dispatch}
         />
       )}
 
@@ -433,5 +558,205 @@ export function ImportStepSerials({ items, dispatch, discrepancyNotes, onDiscrep
         </DialogContent>
       </Dialog>
     </div>
+  )
+}
+
+interface ReconcileRow {
+  serial: string
+  present: boolean
+  extra: boolean
+}
+
+function ReconcileSerialDialog({
+  open,
+  onOpenChange,
+  item,
+  poSerialsByProduct,
+  onSave,
+  qcRecords,
+  onQcChange,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  item: LineItem
+  poSerialsByProduct?: Map<number, Set<string>>
+  onSave: (serials: string[]) => void
+  qcRecords: QcRecord[]
+  onQcChange: (serial: string, changes: { passed?: boolean; failReason?: string }) => void
+}) {
+  const { t } = useTranslation()
+  const poSet = useMemo(
+    () => poSerialsByProduct?.get(item.productId) ?? new Set<string>(),
+    [poSerialsByProduct, item.productId],
+  )
+  const [draft, setDraft] = useState<ReconcileRow[]>([])
+  const [extraInput, setExtraInput] = useState("")
+
+  useEffect(() => {
+    if (!open) return
+    const rows = new Map<string, ReconcileRow>()
+    for (const s of poSet) rows.set(s, { serial: s, present: item.serials.includes(s), extra: false })
+    for (const s of item.serials) {
+      if (rows.has(s)) rows.get(s)!.present = true
+      else rows.set(s, { serial: s, present: true, extra: true })
+    }
+    setDraft([...rows.values()])
+    setExtraInput("")
+  }, [open, item.serials, poSet])
+
+  const presentCount = draft.filter((d) => d.present).length
+  const full = presentCount === item.quantity
+
+  function togglePresent(serial: string) {
+    setDraft((prev) => prev.map((d) => (d.serial === serial ? { ...d, present: !d.present } : d)))
+  }
+
+  function removeRow(serial: string) {
+    setDraft((prev) => prev.filter((d) => d.serial !== serial))
+  }
+
+  function addExtra() {
+    const serial = extraInput.trim()
+    if (!serial) return
+    if (draft.some((d) => d.serial.toLowerCase() === serial.toLowerCase())) {
+      toast.error(t("serialModal.duplicate", { serial }))
+      return
+    }
+    setDraft((prev) => [...prev, { serial, present: true, extra: true }])
+    setExtraInput("")
+  }
+
+  function handleSave() {
+    onSave(draft.filter((d) => d.present).map((d) => d.serial))
+    onOpenChange(false)
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle className="text-base">{t("importStepSerials.reconcileTitle")}</DialogTitle>
+          <p className="text-sm text-muted-foreground mt-1">
+            {item.productName}
+            <span className="font-mono ml-2">{item.productSku}</span>
+          </p>
+        </DialogHeader>
+
+        <div className="flex items-center gap-2 text-sm">
+          <span className="text-muted-foreground">{t("importStepSerials.reconcileCount")}:</span>
+          <span className={full ? "font-semibold text-green-600" : "font-semibold text-amber-600"}>
+            {presentCount}/{item.quantity}
+          </span>
+          {full ? (
+            <CheckCircle2 className="size-4 text-green-600" />
+          ) : (
+            <AlertTriangle className="size-4 text-amber-600" />
+          )}
+          {!full && (
+            <span className="text-xs text-muted-foreground ml-auto">{t("importStepSerials.reconcileHint")}</span>
+          )}
+        </div>
+
+        <div className="max-h-[300px] overflow-y-auto rounded-md border divide-y">
+          {draft.map((row) => {
+            const rec = qcRecords.find((r) => r.serial === row.serial)
+            const passed = rec ? rec.passed : true
+            return (
+              <div key={row.serial} className="flex items-center gap-2 px-3 py-1.5 text-xs">
+                <Checkbox
+                  checked={row.present}
+                  onCheckedChange={() => togglePresent(row.serial)}
+                  aria-label={row.serial}
+                />
+                <span
+                  className={`font-mono flex-1 truncate ${row.present ? "" : "text-muted-foreground line-through"}`}
+                  title={row.serial}
+                >
+                  {row.serial}
+                </span>
+                {row.extra && (
+                  <span className="rounded bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground">
+                    {t("importStepSerials.extraLabel")}
+                  </span>
+                )}
+                {!row.present && (
+                  <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[11px] font-medium text-amber-700 dark:bg-amber-950/30 dark:text-amber-400">
+                    {t("importStepSerials.missingLabel")}
+                  </span>
+                )}
+                {row.present && (
+                  <>
+                    <Button
+                      size="sm"
+                      variant={passed ? "default" : "outline"}
+                      className="h-7 text-xs px-2.5"
+                      onClick={() => onQcChange(row.serial, { passed: true })}
+                    >
+                      {t("importStepQc.pass")}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={!passed ? "destructive" : "outline"}
+                      className="h-7 text-xs px-2.5"
+                      onClick={() => onQcChange(row.serial, { passed: false })}
+                    >
+                      {t("importStepQc.fail")}
+                    </Button>
+                    {!passed && (
+                      <Input
+                        className="h-7 w-40 text-xs"
+                        placeholder={t("importStepQc.failReasonPlaceholder")}
+                        value={rec?.failReason ?? ""}
+                        onChange={(e) => onQcChange(row.serial, { failReason: e.target.value })}
+                      />
+                    )}
+                  </>
+                )}
+                {row.extra && (
+                  <Button variant="ghost" size="icon" className="size-6 shrink-0" onClick={() => removeRow(row.serial)}>
+                    <X className="size-3" />
+                  </Button>
+                )}
+              </div>
+            )
+          })}
+          {draft.length === 0 && (
+            <p className="px-3 py-4 text-xs text-muted-foreground text-center">
+              {t("importStepSerials.noSerialsToReconcile")}
+            </p>
+          )}
+        </div>
+
+        <div className="flex items-end gap-2">
+          <div className="flex-1 space-y-1">
+            <Label className="text-xs">{t("importStepSerials.addExtraSerial")}</Label>
+            <Input
+              className="h-8 font-mono text-xs"
+              placeholder={t("importStepSerials.extraPlaceholder")}
+              value={extraInput}
+              onChange={(e) => setExtraInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault()
+                  addExtra()
+                }
+              }}
+            />
+          </div>
+          <Button variant="outline" size="icon" className="h-8 w-8 shrink-0" onClick={addExtra}>
+            <Plus className="size-4" />
+          </Button>
+        </div>
+
+        <DialogFooter className="gap-2">
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            {t("common.cancel")}
+          </Button>
+          <Button onClick={handleSave} disabled={presentCount === 0}>
+            {t("importStepSerials.reconcileSave", { count: presentCount })}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }

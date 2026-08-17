@@ -26,16 +26,24 @@ public class PriceAdjustmentController {
     @PreAuthorize(AuthorizationExpressions.CAN_OPERATE_STOCK)
     public ResponseObject<ResponsePage<PriceAdjustmentResponse>> getMyAdjustments(
             Pageable pageable,
-            @RequestParam(required = false) String status) {
-        return ResponseObject.success(priceAdjustmentService.findMyAdjustments(pageable, status));
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String search) {
+        return ResponseObject.success(priceAdjustmentService.findMyAdjustments(pageable, status, search));
     }
 
     @GetMapping
     @PreAuthorize(AuthorizationExpressions.CAN_VIEW_INVENTORY)
     public ResponseObject<ResponsePage<PriceAdjustmentResponse>> getAll(
             Pageable pageable,
-            @RequestParam(required = false) String status) {
-        return ResponseObject.success(priceAdjustmentService.findAll(pageable, status));
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String search) {
+        return ResponseObject.success(priceAdjustmentService.findAll(pageable, status, search));
+    }
+
+    @GetMapping("/history/{productId}")
+    @PreAuthorize(AuthorizationExpressions.CAN_VIEW_INVENTORY)
+    public ResponseObject<List<PriceAdjustmentResponse>> getHistory(@PathVariable Long productId) {
+        return ResponseObject.success(priceAdjustmentService.findHistoryByProduct(productId));
     }
 
     @GetMapping("/{id}")
@@ -45,13 +53,13 @@ public class PriceAdjustmentController {
     }
 
     @GetMapping("/available-items/{productId}")
-    @PreAuthorize(AuthorizationExpressions.CAN_OPERATE_STOCK)
+    @PreAuthorize(AuthorizationExpressions.CAN_CREATE_PRICE_ADJUSTMENT)
     public ResponseObject<List<AvailableItemResponse>> getAvailableItems(@PathVariable Long productId) {
         return ResponseObject.success(priceAdjustmentService.findAvailableItemsByProduct(productId));
     }
 
     @PostMapping
-    @PreAuthorize(AuthorizationExpressions.CAN_OPERATE_STOCK)
+    @PreAuthorize(AuthorizationExpressions.CAN_CREATE_PRICE_ADJUSTMENT)
     public ResponseObject<PriceAdjustmentResponse> create(@RequestBody CreatePriceAdjustmentRequest request) {
         return ResponseObject.created(priceAdjustmentService.create(request));
     }
@@ -75,7 +83,7 @@ public class PriceAdjustmentController {
     }
 
     @PutMapping("/{id}/cancel")
-    @PreAuthorize(AuthorizationExpressions.CAN_OPERATE_STOCK)
+    @PreAuthorize(AuthorizationExpressions.CAN_CREATE_PRICE_ADJUSTMENT)
     public ResponseObject<PriceAdjustmentResponse> cancel(@PathVariable Long id) {
         return ResponseObject.success(priceAdjustmentService.cancel(id));
     }

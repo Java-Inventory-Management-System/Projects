@@ -1,8 +1,8 @@
 package org.dawn.backend.service.auth;
+import org.dawn.backend.constant.shared.ErrorCode;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.dawn.backend.constant.shared.Message;
 import org.dawn.backend.entity.auth.User;
 import org.dawn.backend.entity.auth.UserDetailsImpl;
 import org.dawn.backend.exception.type.ResourceNotFoundException;
@@ -25,10 +25,10 @@ public class UserDetailService implements UserDetailsService {
         if (input.contains("@")) {
             user = userRepository
                     .findByEmail(input)
-                    .orElseThrow(() -> new ResourceNotFoundException(Message.User.EMAIL_NOT_FOUND));
+                    .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.EMAIL_NOT_FOUND));
         } else {
             user = userRepository.findByUsername(input)
-                    .orElseThrow(() -> new ResourceNotFoundException(Message.User.USERNAME_NOT_FOUND));
+                    .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.USERNAME_NOT_FOUND));
         }
 
         return UserDetailsImpl.build(user);

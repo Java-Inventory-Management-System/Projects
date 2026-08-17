@@ -32,6 +32,9 @@ public record ReturnReceiptResponse(
             BigDecimal quantity,
             String condition,
             String resultingAction,
+            String description,
+            String evidenceImage,
+            Long defectCategoryId,
             String productName,
             String productSku,
             String serialNumber

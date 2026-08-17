@@ -2,9 +2,11 @@ package org.dawn.backend.service.inventory.exports;
 
 import org.dawn.backend.controller.inventory.response.ExportReceiptResponse;
 import org.dawn.backend.controller.inventory.response.ExportReceiptResponse.ExportItemResponse;
+import org.dawn.backend.controller.inventory.response.ExportReceiptResponse.StatusHistoryResponse;
 import org.dawn.backend.entity.catalog.Product;
 import org.dawn.backend.entity.inventory.ExportReceipt;
 import org.dawn.backend.entity.inventory.ExportReceiptItem;
+import org.dawn.backend.entity.inventory.ExportReceiptStatusHistory;
 
 import java.util.List;
 import java.util.Map;
@@ -19,7 +21,10 @@ public interface ExportReceiptMappingHelper {
                                       String rejectedByName,
                                       List<ExportReceiptItem> items,
                                       Map<Long, Product> productMap,
-                                      Map<Long, String> trackingTypeMap) {
+                                      Map<Long, String> trackingTypeMap,
+                                      List<ExportReceiptStatusHistory> statusHistory,
+                                      Map<Long, String> userNames,
+                                      Map<Long, List<String>> serialsByItemId) {
         return ExportReceiptResponse.builder()
                 .id(receipt.getId())
                 .receiptCode(receipt.getReceiptCode())
@@ -28,8 +33,8 @@ public interface ExportReceiptMappingHelper {
                 .customerName(customerName)
                 .totalAmount(receipt.getTotalAmount())
                 .status(receipt.getStatus().name())
-                .note(receipt.getNote())
-                .createdBy(receipt.getCreatedBy())
+        .note(receipt.getNote())
+        .createdBy(receipt.getCreatedBy())
                 .createdByName(createdByName)
                 .approvedBy(receipt.getApprovedBy())
                 .approvedByName(approvedByName)
@@ -40,6 +45,9 @@ public interface ExportReceiptMappingHelper {
                 .rejectedByName(rejectedByName)
                 .rejectedAt(receipt.getRejectedAt())
                 .rejectReason(receipt.getRejectReason())
+                .evidenceImages(receipt.getEvidenceImages() == null ? List.of()
+                        : java.util.Arrays.stream(receipt.getEvidenceImages().split(","))
+                                .filter(s -> !s.isBlank()).toList())
                 .externalReference(receipt.getExternalReference())
                 .items(items.stream().map(item -> {
                     Product p = productMap.get(item.getProductId());
@@ -51,8 +59,21 @@ public interface ExportReceiptMappingHelper {
                             .quantity(item.getQuantity())
                             .unitPrice(item.getUnitPrice())
                             .trackingType(trackingTypeMap != null ? trackingTypeMap.get(item.getProductId()) : null)
+                            .serialNumbers(serialsByItemId != null
+                                    ? serialsByItemId.getOrDefault(item.getId(), List.of())
+                                    : List.of())
                             .build();
                 }).toList())
+                .statusHistory(statusHistory == null ? List.of() : statusHistory.stream()
+                        .map(h -> StatusHistoryResponse.builder()
+                                .fromStatus(h.getFromStatus())
+                                .toStatus(h.getToStatus())
+                                .createdAt(h.getCreatedAt())
+                                .changedBy(h.getChangedBy())
+                                .changedByName(userNames != null && h.getChangedBy() != null
+                                        ? userNames.get(h.getChangedBy()) : null)
+                                .build())
+                        .toList())
                 .createdAt(receipt.getCreatedAt())
                 .updatedAt(receipt.getUpdatedAt())
                 .build();

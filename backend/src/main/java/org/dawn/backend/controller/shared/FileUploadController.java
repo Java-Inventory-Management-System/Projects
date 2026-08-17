@@ -22,7 +22,7 @@ public class FileUploadController {
     private final CloudinaryService cloudinaryService;
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize(AuthorizationExpressions.CAN_OPERATE_STOCK)
+    @PreAuthorize(AuthorizationExpressions.IS_AUTHENTICATED)
     public ResponseObject<Map<String, String>> upload(@RequestParam("file") MultipartFile file) {
         String url = cloudinaryService.uploadFile(file);
         return ResponseObject.success(Map.of("url", url));

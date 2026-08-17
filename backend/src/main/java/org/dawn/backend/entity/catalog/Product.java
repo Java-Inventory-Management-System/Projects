@@ -4,8 +4,11 @@ import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
 import org.dawn.backend.entity.base.AuditableEntity;
+import org.hibernate.annotations.BatchSize;
 
 import java.math.BigDecimal;
+import java.util.HashSet;
+import java.util.Set;
 
 @Entity
 @Table(name = "products")
@@ -13,8 +16,8 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @AllArgsConstructor
 @SuperBuilder
-@EqualsAndHashCode(callSuper = true, exclude = {"brand", "category"})
-@ToString(callSuper = true, exclude = {"brand", "category"})
+@EqualsAndHashCode(callSuper = true, exclude = {"brand", "category", "suppliers"})
+@ToString(callSuper = true, exclude = {"brand", "category", "suppliers"})
 public class Product extends AuditableEntity {
 
     @Column(name = "name", nullable = false, length = 255)
@@ -56,4 +59,13 @@ public class Product extends AuditableEntity {
     @Column(name = "is_active", nullable = false)
     @Builder.Default
     private Boolean isActive = true;
+
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "product_suppliers",
+            joinColumns = @JoinColumn(name = "product_id"),
+            inverseJoinColumns = @JoinColumn(name = "supplier_id"))
+    @BatchSize(size = 100)
+    @Builder.Default
+    private Set<Supplier> suppliers = new HashSet<>();
 }

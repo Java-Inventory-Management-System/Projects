@@ -33,6 +33,18 @@ public class StockCheck extends AuditableEntity {
     @Column(name = "note", columnDefinition = "TEXT")
     private String note;
 
+    @Column(name = "shelf_codes", length = 255)
+    private String shelfCodes;
+
+    @Column(name = "checked_by")
+    private Long checkedBy;
+
+    @Column(name = "entered_by")
+    private Long enteredBy;
+
+    @Column(name = "box_status_snapshot", columnDefinition = "TEXT")
+    private String boxStatusSnapshot;
+
     @Column(name = "created_by", nullable = false)
     private Long createdBy;
 

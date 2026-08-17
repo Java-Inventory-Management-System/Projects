@@ -1,4 +1,5 @@
 package org.dawn.backend.service.inventory;
+import org.dawn.backend.constant.shared.ErrorCode;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -6,34 +7,44 @@ import org.dawn.backend.aspect.AuditLog;
 import org.dawn.backend.config.web.response.ResponsePage;
 import org.dawn.backend.constant.enums.inventory.ProductUnitStatus;
 import org.dawn.backend.constant.enums.inventory.SourceType;
+import org.dawn.backend.constant.enums.inventory.box.BoxStatus;
 import org.dawn.backend.constant.shared.LogConstant;
-import org.dawn.backend.constant.shared.Message;
 import org.dawn.backend.controller.inventory.request.LocationRequest;
 import org.dawn.backend.controller.inventory.request.RelocateRequest;
 import org.dawn.backend.controller.inventory.response.LocationMapResponse;
 import org.dawn.backend.controller.inventory.response.LocationMapResponse.ZoneData;
 import org.dawn.backend.controller.inventory.response.LocationMapResponse.ShelfData;
 import org.dawn.backend.controller.inventory.response.LocationMapResponse.BinData;
+import org.dawn.backend.controller.inventory.response.LocationMapResponse.BinProduct;
 import org.dawn.backend.controller.inventory.response.LocationResponse;
+import org.dawn.backend.entity.catalog.Product;
 import org.dawn.backend.entity.inventory.Location;
 import org.dawn.backend.entity.inventory.ProductUnit;
 import org.dawn.backend.entity.inventory.ProductUnitStatusLog;
 import org.dawn.backend.exception.type.InvalidRequestException;
 import org.dawn.backend.exception.type.ResourceAlreadyExistedException;
 import org.dawn.backend.exception.type.ResourceNotFoundException;
+import org.dawn.backend.repository.catalog.ProductRepository;
 import org.dawn.backend.repository.inventory.LocationRepository;
 import org.dawn.backend.repository.inventory.ProductUnitRepository;
 import org.dawn.backend.repository.inventory.ProductUnitStatusLogRepository;
+import org.dawn.backend.repository.inventory.box.BoxRepository;
+import org.dawn.backend.service.inventory.box.BoxCapacity;
+import org.dawn.backend.entity.inventory.Box;
 import org.dawn.backend.config.security.SecurityPolicy;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -43,14 +54,57 @@ public class LocationService {
 
     private final LocationRepository locationRepository;
     private final ProductUnitRepository productUnitRepository;
+    private final ProductRepository productRepository;
     private final ProductUnitStatusLogRepository productUnitStatusLogRepository;
     private final SecurityPolicy securityPolicy;
+    private final LocationCapacityValidator capacityValidator;
+    private final BoxRepository boxRepository;
+    private final BoxCapacity boxCapacity;
 
     @Transactional(readOnly = true)
     public LocationMapResponse getMap() {
         var locations = locationRepository.findAllByOrderByZoneCodeAscShelfCodeAscBinCodeAsc();
-        var counts = productUnitRepository.countByLocation();
         var skuMap = productUnitRepository.findSkuByLocationId();
+        var sealedBoxes = boxRepository.findByLocationIdInAndStatus(locations.stream().map(Location::getId).toList(), BoxStatus.SEALED);
+        var boxMap = sealedBoxes.stream()
+                .collect(Collectors.groupingBy(Box::getLocationId, LinkedHashMap::new, Collectors.toList()));
+        var boxById = sealedBoxes.stream().collect(Collectors.toMap(Box::getId, b -> b, (a, b) -> a));
+
+        var units = productUnitRepository.findInStockUnitsByLocationIdIn(locations.stream().map(Location::getId).toList());
+        var countByLoc = units.stream()
+                .collect(Collectors.groupingBy(ProductUnit::getLocationId,
+                        Collectors.summingLong(u -> "BULK".equals(u.getTrackingType())
+                                && u.getRemainingQuantity() != null ? u.getRemainingQuantity().longValue() : 1L)));
+        var products = productRepository.findAllById(units.stream().map(ProductUnit::getProductId).distinct().toList()).stream()
+                .collect(Collectors.toMap(Product::getId, p -> p));
+        Map<Long, List<BinProduct>> productMap = units.stream()
+                .collect(Collectors.groupingBy(ProductUnit::getLocationId, LinkedHashMap::new,
+                        Collectors.groupingBy(ProductUnit::getProductId, LinkedHashMap::new,
+                                Collectors.groupingBy(u -> boxById.containsKey(u.getBoxId()) ? u.getBoxId() : 0L, Collectors.toList()))))
+                .entrySet().stream()
+                .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().entrySet().stream()
+                        .flatMap(pe -> pe.getValue().entrySet().stream().map(bg -> {
+                            List<ProductUnit> group = bg.getValue();
+                            Product p = products.get(pe.getKey());
+                            boolean bulk = "BULK".equals(group.get(0).getTrackingType());
+                            long quantity = bulk
+                                    ? group.stream().mapToLong(u -> u.getRemainingQuantity() != null ? u.getRemainingQuantity().longValue() : 0L).sum()
+                                    : group.size();
+                            List<String> serials = bulk ? List.of() : group.stream()
+                                    .map(ProductUnit::getSerialNumber).filter(s -> s != null).toList();
+                            Box box = bg.getKey() != 0L ? boxById.get(bg.getKey()) : null;
+                            return new BinProduct(pe.getKey(),
+                                    p != null ? p.getName() : null,
+                                    p != null ? p.getSku() : null,
+                                    group.get(0).getTrackingType(),
+                                    quantity, serials,
+                                    box != null ? box.getId() : null,
+                                    box != null ? box.getBoxCode() : null,
+                                    box != null && box.getBoxType() != null ? box.getBoxType().name() : null);
+                        }))
+                        .sorted(Comparator.comparing((BinProduct bp) -> bp.boxCode() == null ? "" : bp.boxCode())
+                                .thenComparing(BinProduct::productId))
+                        .toList()));
 
         Map<String, List<Location>> byZone = locations.stream()
             .collect(Collectors.groupingBy(Location::getZoneCode, LinkedHashMap::new, Collectors.toList()));
@@ -63,7 +117,10 @@ public class LocationService {
                 List<BinData> bins = shelfEntry.getValue().stream().map(loc -> {
                     Long mc = loc.getMaxCapacity() != null ? loc.getMaxCapacity().longValue() : null;
                     List<String> skus = skuMap.getOrDefault(loc.getId(), Collections.emptyList());
-                    return new BinData(loc.getId(), loc.getBinCode(), loc.getFullCode(), counts.getOrDefault(loc.getId(), 0L), mc, skus);
+                    List<String> boxCodes = boxMap.getOrDefault(loc.getId(), Collections.emptyList()).stream()
+                            .map(Box::getBoxCode).toList();
+                    List<BinProduct> binProducts = productMap.getOrDefault(loc.getId(), Collections.emptyList());
+                    return new BinData(loc.getId(), loc.getBinCode(), loc.getFullCode(), countByLoc.getOrDefault(loc.getId(), 0L), mc, loc.getIsActive(), skus, boxCodes.size(), boxCodes, binProducts);
                 }).toList();
                 return new ShelfData(shelfEntry.getKey(), bins);
             }).toList();
@@ -85,7 +142,7 @@ public class LocationService {
         return locationRepository
                 .findById(id)
                 .map(LocationMappingHelper::map)
-                .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.LOCATION_NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.LOCATION_NOT_FOUND));
     }
 
     @Transactional(readOnly = true)
@@ -100,7 +157,7 @@ public class LocationService {
     public LocationResponse create(LocationRequest request) {
         String fullCode = request.zoneCode() + "-" + request.shelfCode() + "-" + request.binCode();
         if (locationRepository.existsByFullCode(fullCode)) {
-            throw new ResourceAlreadyExistedException(Message.Inventory.LOCATION_CODE_EXISTS);
+            throw new ResourceAlreadyExistedException(ErrorCode.LOCATION_CODE_EXISTS);
         }
         Location location = Location.builder()
                 .zoneCode(request.zoneCode().trim().toUpperCase())
@@ -108,6 +165,7 @@ public class LocationService {
                 .binCode(request.binCode().trim().toUpperCase())
                 .fullCode(fullCode)
                 .description(request.description())
+                .maxCapacity(request.maxCapacity())
                 .build();
         return LocationMappingHelper.map(locationRepository.save(location));
     }
@@ -117,12 +175,23 @@ public class LocationService {
     public LocationResponse update(Long id, LocationRequest request) {
         Location location = locationRepository
                 .findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.LOCATION_NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.LOCATION_NOT_FOUND));
         if (request.zoneCode() != null) location.setZoneCode(request.zoneCode().trim().toUpperCase());
         if (request.shelfCode() != null) location.setShelfCode(request.shelfCode().trim());
         if (request.binCode() != null) location.setBinCode(request.binCode().trim().toUpperCase());
-        location.setFullCode(location.getZoneCode() + "-" + location.getShelfCode() + "-" + location.getBinCode());
+        String newFullCode = location.getZoneCode() + "-" + location.getShelfCode() + "-" + location.getBinCode();
+        if (!location.getFullCode().equals(newFullCode) && locationRepository.existsByFullCode(newFullCode)) {
+            throw new ResourceAlreadyExistedException(ErrorCode.LOCATION_CODE_EXISTS);
+        }
+        location.setFullCode(newFullCode);
         if (request.description() != null) location.setDescription(request.description());
+        if (request.maxCapacity() != null) {
+            BigDecimal used = boxCapacity.usageByLocation().getOrDefault(id, BigDecimal.ZERO);
+            if (request.maxCapacity().compareTo(used) < 0) {
+                throw new InvalidRequestException(ErrorCode.LOCATION_CAPACITY_BELOW_USAGE.format(location.getFullCode(), used));
+            }
+            location.setMaxCapacity(request.maxCapacity());
+        }
         return LocationMappingHelper.map(locationRepository.save(location));
     }
 
@@ -131,7 +200,7 @@ public class LocationService {
     public LocationResponse toggleActive(Long id) {
         Location location = locationRepository
                 .findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.LOCATION_NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.LOCATION_NOT_FOUND));
         location.setIsActive(!Boolean.TRUE.equals(location.getIsActive()));
         return LocationMappingHelper.map(locationRepository.save(location));
     }
@@ -141,10 +210,10 @@ public class LocationService {
     public void delete(Long id) {
         Location location = locationRepository
                 .findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.LOCATION_NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.LOCATION_NOT_FOUND));
         long productCount = productUnitRepository.countByLocationId(id);
         if (productCount > 0) {
-            throw new InvalidRequestException(Message.format(Message.Inventory.CANNOT_DELETE_LOCATION_WITH_UNITS, productCount));
+            throw new InvalidRequestException(ErrorCode.CANNOT_DELETE_LOCATION_WITH_UNITS.format( productCount));
         }
         locationRepository.delete(location);
     }
@@ -156,31 +225,52 @@ public class LocationService {
         Long destId = request.destBinId();
 
         if (sourceId.equals(destId)) {
-            throw new InvalidRequestException(Message.Inventory.RELOCATE_SAME_BIN);
+            throw new InvalidRequestException(ErrorCode.RELOCATE_SAME_BIN);
         }
 
         Location sourceLocation = locationRepository
                 .findById(sourceId)
-                .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.LOCATION_NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.LOCATION_NOT_FOUND));
         Location destLocation = locationRepository
                 .findById(destId)
-                .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.LOCATION_NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.LOCATION_NOT_FOUND));
 
-        List<ProductUnit> units = productUnitRepository.findByLocationIdInAndStatus(
+        List<ProductUnit> units = productUnitRepository.findByLocationIdInAndStatusWithLock(
                 List.of(sourceId), ProductUnitStatus.IN_STOCK);
 
         if (units.isEmpty()) {
-            throw new InvalidRequestException(Message.Inventory.SOURCE_BIN_EMPTY);
+            throw new InvalidRequestException(ErrorCode.SOURCE_BIN_EMPTY);
         }
 
         int quantity = request.quantity() != null ? request.quantity() : units.size();
         if (quantity <= 0 || quantity > units.size()) {
-            throw new InvalidRequestException(Message.format(Message.Inventory.INVALID_QUANTITY, quantity));
+            throw new InvalidRequestException(ErrorCode.INVALID_QUANTITY.format( quantity));
         }
 
-        List<ProductUnit> toMove = quantity < units.size()
-                ? new ArrayList<>(units.subList(0, quantity))
-                : units;
+        List<ProductUnit> toMove = new ArrayList<>(quantity < units.size()
+                ? units.subList(0, quantity)
+                : units);
+
+        Set<Long> boxIds = toMove.stream().map(ProductUnit::getBoxId)
+                .filter(Objects::nonNull).collect(Collectors.toSet());
+        if (!boxIds.isEmpty()) {
+            Set<Long> selectedIds = toMove.stream().map(ProductUnit::getId).collect(Collectors.toSet());
+            for (var boxed : productUnitRepository.findByBoxIdInAndStatus(List.copyOf(boxIds), ProductUnitStatus.IN_STOCK)) {
+                if (!selectedIds.contains(boxed.getId())) {
+                    toMove.add(boxed);
+                }
+            }
+            for (var box : boxRepository.findByIdsForUpdate(List.copyOf(boxIds))) {
+                box.setLocationId(destId);
+            }
+        }
+
+        BigDecimal incoming = toMove.stream()
+                .map(unit -> ProductUnitStatus.IN_STOCK.name().equals(unit.getStatus())
+                        && "BULK".equals(unit.getTrackingType()) && unit.getRemainingQuantity() != null
+                        ? unit.getRemainingQuantity() : BigDecimal.ONE)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        capacityValidator.assertCapacity(destId, incoming);
 
         long currentUserId = securityPolicy.requireAuthenticated();
 

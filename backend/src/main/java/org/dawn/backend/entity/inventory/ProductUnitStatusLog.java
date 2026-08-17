@@ -35,6 +35,9 @@ public class ProductUnitStatusLog extends BaseEntity {
     @Column(name = "source_id")
     private Long sourceId;
 
+    @Column(name = "note", length = 500)
+    private String note;
+
     @Column(name = "changed_by", nullable = false)
     private Long changedBy;
 

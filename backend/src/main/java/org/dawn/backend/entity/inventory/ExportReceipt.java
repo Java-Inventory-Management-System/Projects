@@ -28,6 +28,9 @@ public class ExportReceipt extends AuditableEntity {
     @Column(name = "customer_id")
     private Long customerId;
 
+    @Column(name = "supplier_id")
+    private Long supplierId;
+
     @Column(name = "total_amount", precision = 15, scale = 2)
     private BigDecimal totalAmount;
 
@@ -38,6 +41,9 @@ public class ExportReceipt extends AuditableEntity {
 
     @Column(name = "note", columnDefinition = "TEXT")
     private String note;
+
+    @Column(name = "evidence_images", columnDefinition = "TEXT")
+    private String evidenceImages;
 
     @Column(name = "created_by", nullable = false)
     private Long createdBy;
@@ -62,6 +68,9 @@ public class ExportReceipt extends AuditableEntity {
 
     @Column(name = "source_import_receipt_id")
     private Long sourceImportReceiptId;
+
+    @Column(name = "source_return_receipt_id")
+    private Long sourceReturnReceiptId;
 
     @Column(name = "total_cogs", precision = 15, scale = 2)
     private BigDecimal totalCogs;

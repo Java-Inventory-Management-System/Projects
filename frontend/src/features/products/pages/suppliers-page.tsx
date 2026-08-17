@@ -8,13 +8,14 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
-import { Plus, Pencil, Power } from "lucide-react"
+import { Plus, Pencil } from "lucide-react"
 import { DataTable, type Column } from "@/components/ui/data-table"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { toast } from "@/utils/toast"
 import { usePermission } from "@/hooks/use-permission"
 import { ROLES } from "@/utils/permissions"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
+import { ToggleActiveButton } from "@/components/toggle-active-button"
 
 interface SupplierForm {
   name: string
@@ -112,7 +113,7 @@ export function SuppliersPage() {
       className: "w-[90px]",
       render: (s) => (
         <div className="flex gap-1">
-          {perm.hasRole(...ROLES.MANAGER) && (
+          {perm.hasRole(...ROLES.CAN_MANAGE_CATALOG) && (
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button variant="ghost" size="icon" onClick={() => openEdit(s)}>
@@ -122,15 +123,14 @@ export function SuppliersPage() {
               <TooltipContent>{t("common.edit")}</TooltipContent>
             </Tooltip>
           )}
-          {perm.hasRole(...ROLES.MANAGER) && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" onClick={() => toggle.mutate(s.id)}>
-                  <Power className="size-3.5" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>{s.isActive ? t("common.deactivate") : t("common.activate")}</TooltipContent>
-            </Tooltip>
+          {perm.hasRole(...ROLES.CAN_MANAGE_CATALOG) && (
+            <ToggleActiveButton
+              active={s.isActive}
+              name={s.name}
+              pending={toggle.isPending}
+              onToggle={() => toggle.mutate(s.id)}
+              confirmDescription={s.isActive ? t("common.deactivateWarning") : undefined}
+            />
           )}
         </div>
       ),
@@ -141,9 +141,11 @@ export function SuppliersPage() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-semibold tracking-tight">{t("supplierPage.heading")}</h1>
-        <Button onClick={openCreate}>
-          <Plus className="size-4 mr-1" /> {t("common.add")}
-        </Button>
+        {perm.hasRole(...ROLES.CAN_MANAGE_CATALOG) && (
+          <Button onClick={openCreate}>
+            <Plus className="size-4 mr-1" /> {t("common.add")}
+          </Button>
+        )}
       </div>
 
       <DataTable columns={columns} data={suppliers} isLoading={isLoading} emptyMessage={t("supplierPage.empty")} totalElements={suppliers.length} />

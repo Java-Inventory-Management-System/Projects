@@ -5,9 +5,11 @@ import {
   getStockAdjustmentById,
   approveStockAdjustment,
   rejectStockAdjustment,
+  cancelStockAdjustment,
 } from "@/services/stock-adjustment-service"
 import { usePermission } from "@/hooks/use-permission"
-import { ADJUSTMENT_STATUS } from "@/utils/types"
+import { invalidateDashboard } from "@/hooks/use-reports"
+import { ADJUSTMENT_STATUS, ADJUSTMENT_TYPE } from "@/utils/types"
 import { ROLES } from "@/utils/permissions"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -25,7 +27,7 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
-import { Check, X } from "lucide-react"
+import { Check, X, Ban } from "lucide-react"
 import { Separator } from "@/components/ui/separator"
 import { toast } from "@/utils/toast"
 import { useTranslation } from "react-i18next"
@@ -37,7 +39,7 @@ export const StockAdjustmentDetailPage = () => {
   const qc = useQueryClient()
   const perm = usePermission()
 
-  const [approvalAction, setApprovalAction] = useState<"approve" | "reject" | null>(null)
+  const [approvalAction, setApprovalAction] = useState<"approve" | "reject" | "cancel" | null>(null)
   const [approvalNote, setApprovalNote] = useState("")
 
   const { data: adj, isLoading } = useQuery({
@@ -51,9 +53,10 @@ export const StockAdjustmentDetailPage = () => {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["stock-adjustment", id] })
       qc.invalidateQueries({ queryKey: ["stock-adjustments"] })
+      qc.invalidateQueries({ queryKey: ["my-stock-adjustments"] })
+      qc.invalidateQueries({ queryKey: ["work-queue"] })
       qc.invalidateQueries({ queryKey: ["inventory"] })
-      qc.invalidateQueries({ queryKey: ["inventory-summary"] })
-      qc.invalidateQueries({ queryKey: ["low-stock"] })
+      invalidateDashboard(qc)
       setApprovalAction(null)
       setApprovalNote("")
       toast.success(t("stockAdjDetail.approveSuccess"))
@@ -66,6 +69,8 @@ export const StockAdjustmentDetailPage = () => {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["stock-adjustment", id] })
       qc.invalidateQueries({ queryKey: ["stock-adjustments"] })
+      qc.invalidateQueries({ queryKey: ["my-stock-adjustments"] })
+      qc.invalidateQueries({ queryKey: ["work-queue"] })
       setApprovalAction(null)
       setApprovalNote("")
       toast.success(t("stockAdjDetail.rejectSuccess"))
@@ -73,16 +78,30 @@ export const StockAdjustmentDetailPage = () => {
     onError: (err: Error) => toast.error(err.message || t("stockAdjDetail.rejectFail")),
   })
 
-  const typeLabel: Record<string, string> = { DAMAGED: t("adjustmentType.damaged"), LOST: t("adjustmentType.lost"), FOUND: t("adjustmentType.found") }
+  const cancelMut = useMutation({
+    mutationFn: () => cancelStockAdjustment(Number(id!)),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["stock-adjustment", id] })
+      qc.invalidateQueries({ queryKey: ["stock-adjustments"] })
+      qc.invalidateQueries({ queryKey: ["my-stock-adjustments"] })
+      qc.invalidateQueries({ queryKey: ["work-queue"] })
+      setApprovalAction(null)
+      toast.success(t("stockAdjDetail.cancelSuccess"))
+    },
+    onError: (err: Error) => toast.error(err.message || t("stockAdjDetail.cancelFail")),
+  })
+
+  const typeLabel: Record<string, string> = { [ADJUSTMENT_TYPE.DAMAGED]: t("adjustmentType.damaged"), [ADJUSTMENT_TYPE.LOST]: t("adjustmentType.lost"), [ADJUSTMENT_TYPE.FOUND]: t("adjustmentType.found") }
   const typeColor: Record<string, "destructive" | "outline" | "default"> = {
-    DAMAGED: "destructive",
-    LOST: "destructive",
-    FOUND: "default",
+    [ADJUSTMENT_TYPE.DAMAGED]: "destructive",
+    [ADJUSTMENT_TYPE.LOST]: "destructive",
+    [ADJUSTMENT_TYPE.FOUND]: "default",
   }
-  const statusLabel: Record<string, { label: string; variant: "default" | "secondary" | "destructive" }> = {
-    PENDING: { label: t("status.pending"), variant: "secondary" },
-    APPROVED: { label: t("status.approved"), variant: "default" },
-    REJECTED: { label: t("status.rejected"), variant: "destructive" },
+  const statusLabel: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
+    [ADJUSTMENT_STATUS.PENDING]: { label: t("status.pending"), variant: "secondary" },
+    [ADJUSTMENT_STATUS.APPROVED]: { label: t("status.approved"), variant: "default" },
+    [ADJUSTMENT_STATUS.REJECTED]: { label: t("status.rejected"), variant: "destructive" },
+    [ADJUSTMENT_STATUS.CANCELLED]: { label: t("status.cancelled"), variant: "outline" },
   }
 
   if (isLoading) {
@@ -107,14 +126,15 @@ export const StockAdjustmentDetailPage = () => {
   const st = statusLabel[adj.status] ?? { label: adj.status, variant: "secondary" }
   // MANAGER/ADMIN: approve/reject adjustments
   const isManager = perm.hasRole(...ROLES.CAN_APPROVE)
-  const canApprove = adj.status === ADJUSTMENT_STATUS.PENDING && isManager
+  const canApprove = adj.status === ADJUSTMENT_STATUS.PENDING && isManager && adj.createdBy !== perm.user?.id
+  const canCancel = adj.status === ADJUSTMENT_STATUS.PENDING && adj.createdBy === perm.user?.id
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <Breadcrumb>
         <BreadcrumbList>
           <BreadcrumbItem>
-            <BreadcrumbLink onClick={() => navigate("/stock/adjustments")}>{t("stockAdjDetail.breadcrumb")}</BreadcrumbLink>
+            <BreadcrumbLink onClick={() => navigate("/stock/ops/adjustments")}>{t("stockAdjDetail.breadcrumb")}</BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator />
           <BreadcrumbItem>
@@ -189,7 +209,7 @@ export const StockAdjustmentDetailPage = () => {
               </div>
               <div>
                 <span className="text-muted-foreground">{t("stockAdjDetail.approvedDate")}</span>
-                <p className="mt-0.5">{new Date(adj.updatedAt).toLocaleString("vi-VN")}</p>
+                <p className="mt-0.5">{new Date(adj.approvedAt ?? adj.updatedAt).toLocaleString("vi-VN")}</p>
               </div>
             </>
           )}
@@ -214,6 +234,13 @@ export const StockAdjustmentDetailPage = () => {
           </ButtonGroup>
         </div>
       )}
+      {canCancel && (
+        <div className="flex justify-end">
+          <Button variant="outline" className="text-destructive" onClick={() => setApprovalAction("cancel")}>
+            <Ban className="size-4 mr-1" /> {t("stockAdjDetail.cancel")}
+          </Button>
+        </div>
+      )}
 
       <Dialog
         open={!!approvalAction}
@@ -227,9 +254,15 @@ export const StockAdjustmentDetailPage = () => {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {approvalAction === "approve" ? t("stockAdjDetail.approveDialogTitle") : t("stockAdjDetail.rejectDialogTitle")}
+              {approvalAction === "approve" ? t("stockAdjDetail.approveDialogTitle")
+                : approvalAction === "reject" ? t("stockAdjDetail.rejectDialogTitle")
+                : t("stockAdjDetail.cancelDialogTitle")}
             </DialogTitle>
+            {approvalAction === "cancel" && (
+              <p className="text-sm text-muted-foreground">{t("stockAdjDetail.cancelDialogDesc", { code: adj.adjustCode })}</p>
+            )}
           </DialogHeader>
+          {approvalAction !== "cancel" && (
           <ScrollArea className="max-h-[60vh]">
             <div className="space-y-2">
               <label className="text-sm text-muted-foreground">{t("form.noteOptional")}</label>
@@ -241,6 +274,7 @@ export const StockAdjustmentDetailPage = () => {
               />
             </div>
           </ScrollArea>
+          )}
           <DialogFooter>
             <Button
               variant="outline"
@@ -254,12 +288,15 @@ export const StockAdjustmentDetailPage = () => {
             <Button
               onClick={() => {
                 if (approvalAction === "approve") approveMut.mutate()
-                else rejectMut.mutate()
+                else if (approvalAction === "reject") rejectMut.mutate()
+                else if (approvalAction === "cancel") cancelMut.mutate()
               }}
-              disabled={approveMut.isPending || rejectMut.isPending}
-              variant={approvalAction === "reject" ? "destructive" : "default"}
+              disabled={approveMut.isPending || rejectMut.isPending || cancelMut.isPending}
+              variant={approvalAction === "reject" || approvalAction === "cancel" ? "destructive" : "default"}
             >
-              {approvalAction === "approve" ? t("dialog.approve") : t("stockAdjDetail.rejectConfirm")}
+              {approvalAction === "approve" ? t("dialog.approve")
+                : approvalAction === "reject" ? t("stockAdjDetail.rejectConfirm")
+                : t("stockAdjDetail.cancelConfirm")}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -20,13 +20,13 @@ public class SupplierController {
     private final SupplierService supplierService;
 
     @GetMapping("")
-    @PreAuthorize(AuthorizationExpressions.CAN_VIEW_INVENTORY)
+    @PreAuthorize(AuthorizationExpressions.CAN_OPERATE)
     public ResponseObject<ResponsePage<SupplierResponse>> getAll(Pageable pageable) {
         return ResponseObject.success(supplierService.findAll(pageable));
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize(AuthorizationExpressions.CAN_VIEW_INVENTORY)
+    @PreAuthorize(AuthorizationExpressions.CAN_OPERATE)
     public ResponseObject<SupplierResponse> getOne(@PathVariable Long id) {
         return ResponseObject.success(supplierService.findOne(id));
     }

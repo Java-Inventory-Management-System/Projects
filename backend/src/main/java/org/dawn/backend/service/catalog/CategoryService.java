@@ -1,14 +1,16 @@
 package org.dawn.backend.service.catalog;
+import org.dawn.backend.constant.shared.ErrorCode;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dawn.backend.aspect.AuditLog;
 import org.dawn.backend.config.web.response.ResponsePage;
 import org.dawn.backend.constant.shared.LogConstant;
-import org.dawn.backend.constant.shared.Message;
 import org.dawn.backend.controller.catalog.request.CategoryRequest;
 import org.dawn.backend.controller.catalog.response.CategoryResponse;
 import org.dawn.backend.entity.catalog.Category;
+import org.dawn.backend.exception.type.InvalidRequestException;
+import org.dawn.backend.exception.type.ResourceAlreadyExistedException;
 import org.dawn.backend.exception.type.ResourceNotFoundException;
 import org.dawn.backend.repository.catalog.CategoryRepository;
 import org.springframework.data.domain.Pageable;
@@ -34,12 +36,18 @@ public class CategoryService {
         return categoryRepository
                 .findById(id)
                 .map(CategoryMappingHelper::map)
-                .orElseThrow(() -> new ResourceNotFoundException(Message.Catalog.CATEGORY_NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.CATEGORY_NOT_FOUND));
     }
 
     @Transactional
     @AuditLog(action = LogConstant.Action.CREATE_CATEGORY, entity = LogConstant.Entity.CATEGORY)
     public CategoryResponse create(CategoryRequest request) {
+        if (request.name() == null || request.name().isBlank()) {
+            throw new InvalidRequestException(ErrorCode.CATEGORY_NAME_REQUIRED);
+        }
+        if (categoryRepository.existsByNameIgnoreCase(request.name().trim())) {
+            throw new ResourceAlreadyExistedException(ErrorCode.CATEGORY_NAME_EXISTS);
+        }
         Category category = Category.builder()
                 .name(request.name().trim())
                 .description(request.description())
@@ -52,9 +60,14 @@ public class CategoryService {
     public CategoryResponse update(Long id, CategoryRequest request) {
         Category category = categoryRepository
                 .findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException(Message.Catalog.CATEGORY_NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.CATEGORY_NOT_FOUND));
         if (request.name() != null && !request.name().isBlank()) {
-            category.setName(request.name().trim());
+            String newName = request.name().trim();
+            if (!category.getName().equalsIgnoreCase(newName)
+                    && categoryRepository.existsByNameIgnoreCase(newName)) {
+                throw new ResourceAlreadyExistedException(ErrorCode.CATEGORY_NAME_EXISTS);
+            }
+            category.setName(newName);
         }
         if (request.description() != null) category.setDescription(request.description());
         return CategoryMappingHelper.map(categoryRepository.save(category));
@@ -65,7 +78,7 @@ public class CategoryService {
     public CategoryResponse toggleActive(Long id) {
         Category category = categoryRepository
                 .findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException(Message.Catalog.CATEGORY_NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.CATEGORY_NOT_FOUND));
         category.setIsActive(!Boolean.TRUE.equals(category.getIsActive()));
         return CategoryMappingHelper.map(categoryRepository.save(category));
     }

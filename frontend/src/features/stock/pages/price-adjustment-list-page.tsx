@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom"
 import { usePermission } from "@/hooks/use-permission"
 import { ROLES } from "@/utils/permissions"
 import { usePriceAdjustments, useMyPriceAdjustments } from "@/hooks/use-price-adjustments"
+import { toKey, ADJUSTMENT_STATUS_VARIANT } from "@/utils/labels"
 import { cancelPriceAdjustment } from "@/services/price-adjustment-service"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { Button } from "@/components/ui/button"
@@ -85,10 +86,8 @@ export function PriceAdjustmentListPage() {
     })
   }, [])
 
-  // Always fetch all for filtering on FE by search term
-  // The /my endpoint can't be searched by product name on BE, so we use the all endpoint
-  const allAdj = usePriceAdjustments(page, pageSize, sortStr, statusFilter || undefined)
-  const myAdj = useMyPriceAdjustments(page, pageSize, sortStr, statusFilter || undefined)
+  const allAdj = usePriceAdjustments(page, pageSize, sortStr, statusFilter || undefined, searchTerm || undefined)
+  const myAdj = useMyPriceAdjustments(page, pageSize, sortStr, statusFilter || undefined, searchTerm || undefined)
   const { data, isLoading, isError, refetch } = isAdminManager ? allAdj : myAdj
 
   const cancelMutation = useMutation({
@@ -96,27 +95,11 @@ export function PriceAdjustmentListPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["price-adjustments"] })
       qc.invalidateQueries({ queryKey: ["my-price-adjustments"] })
+      qc.invalidateQueries({ queryKey: ["work-queue"] })
       toast.success(t("priceAdjList.cancelSuccess"))
       setCancelTarget(null)
     },
     onError: (e: Error) => toast.error(e.message),
-  })
-
-  const statusLabel: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
-    [ADJUSTMENT_STATUS.PENDING]: { label: t("priceAdjStatus.pending"), variant: "outline" },
-    [ADJUSTMENT_STATUS.APPROVED]: { label: t("priceAdjStatus.approved"), variant: "default" },
-    [ADJUSTMENT_STATUS.REJECTED]: { label: t("priceAdjStatus.rejected"), variant: "destructive" },
-    [ADJUSTMENT_STATUS.CANCELLED]: { label: t("priceAdjStatus.cancelled"), variant: "secondary" },
-  }
-
-  const filtered = (data?.content ?? []).filter((r) => {
-    if (!searchTerm) return true
-    const q = searchTerm.toLowerCase()
-    return (
-      r.adjustCode.toLowerCase().includes(q) ||
-      (r.productName ?? "").toLowerCase().includes(q) ||
-      (r.productSku ?? "").toLowerCase().includes(q)
-    )
   })
 
   const clearFilters = useCallback(() => {
@@ -158,7 +141,7 @@ export function PriceAdjustmentListPage() {
       header: t("table.status"),
       className: "w-28 text-center",
       render: (r) => {
-        const s = statusLabel[r.status] ?? { label: r.status, variant: "secondary" as const }
+        const s = { label: t(`priceAdjStatus.${toKey(r.status)}`), variant: ADJUSTMENT_STATUS_VARIANT[r.status] }
         return (
           <div className="flex items-center gap-1 justify-center">
             <Badge variant={s.variant}>{s.label}</Badge>
@@ -181,7 +164,7 @@ export function PriceAdjustmentListPage() {
         <div className="flex items-center gap-1">
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" onClick={() => navigate(`/stock/price-adjustments/${r.id}`)}>
+              <Button variant="ghost" size="icon" onClick={() => navigate(`/stock/ops/price-adjustments/${r.id}`)}>
                 <Eye className="size-4" />
               </Button>
             </TooltipTrigger>
@@ -206,9 +189,11 @@ export function PriceAdjustmentListPage() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-semibold tracking-tight">{t("priceAdjList.title")}</h1>
-        <Button onClick={() => navigate("/stock/price-adjustments/new")}>
-          <Plus className="size-4 mr-1" /> {t("priceAdjList.create")}
-        </Button>
+        {perm.hasRole(...ROLES.CAN_CREATE_PRICE_ADJUSTMENT) && (
+          <Button onClick={() => navigate("/stock/ops/price-adjustments/new")}>
+            <Plus className="size-4 mr-1" /> {t("priceAdjList.create")}
+          </Button>
+        )}
       </div>
 
       <div className="flex flex-wrap gap-2">
@@ -226,7 +211,7 @@ export function PriceAdjustmentListPage() {
           onValueChange={(v) => {
             const next = new URLSearchParams(searchParams)
             next.set("page", "0")
-            if (v) next.set("status", v)
+            if (v && v !== "all") next.set("status", v)
             else next.delete("status")
             setSearchParams(next)
           }}
@@ -254,7 +239,7 @@ export function PriceAdjustmentListPage() {
       ) : (
         <DataTable
           columns={columns}
-          data={filtered}
+          data={data?.content ?? []}
           isLoading={isLoading}
           emptyMessage={
             searchTerm || statusFilter
@@ -283,10 +268,10 @@ export function PriceAdjustmentListPage() {
         </div>
       )}
 
-      {filtered.length === 0 && !isError && !isLoading && !searchTerm && !statusFilter && (
+      {(data?.content.length ?? 0) === 0 && !isError && !isLoading && !searchTerm && !statusFilter && perm.hasRole(...ROLES.CAN_CREATE_PRICE_ADJUSTMENT) && (
         <div className="text-center py-8">
           <p className="text-muted-foreground mb-3">{t("priceAdjList.empty")}</p>
-          <Button onClick={() => navigate("/stock/price-adjustments/new")}>
+          <Button onClick={() => navigate("/stock/ops/price-adjustments/new")}>
             <Plus className="size-4 mr-1" /> {t("priceAdjList.createFirst")}
           </Button>
         </div>
@@ -304,7 +289,7 @@ export function PriceAdjustmentListPage() {
           <AlertDialogFooter>
             <AlertDialogCancel>{t("dialog.no")}</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => cancelTarget && cancelMutation.mutate(cancelTarget.id)}
+              onClick={() => { if (cancelTarget) { const id = cancelTarget.id; setCancelTarget(null); cancelMutation.mutate(id) } }}
               disabled={cancelMutation.isPending}
             >
               {cancelMutation.isPending ? t("priceAdjList.cancelProcessing") : t("priceAdjList.cancelConfirm")}

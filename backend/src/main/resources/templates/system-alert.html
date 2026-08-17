@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title th:text="${title}">Thông báo hệ thống</title>
+</head>
+<body>
+<div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto;">
+    <h2 style="color: #E8603C;" th:text="${title}">Thông báo hệ thống</h2>
+    <ul style="padding-left: 20px; line-height: 1.6;">
+        <li th:each="line : ${lines}" th:text="${line}">Nội dung</li>
+    </ul>
+    <hr style="margin: 24px 0;">
+    <p style="color: #888; font-size: 12px;">
+        Email được gửi tự động bởi hệ thống quản lý kho. Vui lòng không trả lời email này.
+    </p>
+</div>
+<div th:replace="~{fragments/footer :: footer}"></div>
+</body>
+</html>

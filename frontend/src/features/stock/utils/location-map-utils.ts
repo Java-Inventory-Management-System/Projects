@@ -1,3 +1,5 @@
+import type { LocationMapBinProduct } from "@/utils/types"
+
 export type FilterMode = "all" | "empty" | "stocked" | "full"
 export type FillLevel = "empty" | "low" | "medium" | "full"
 
@@ -9,6 +11,9 @@ export interface DetailBin {
   productCount: number
   maxCapacity: number | null
   productSkuList?: string[]
+  boxCount?: number
+  boxCodes?: string[]
+  products?: LocationMapBinProduct[]
 }
 
 export interface LevelStyle {
@@ -19,16 +24,36 @@ export interface LevelStyle {
 }
 
 export const LEVELS: LevelStyle[] = [
-  { key: "empty", bg: "bg-sky-50", border: "border-sky-200", text: "text-sky-600" },
-  { key: "low", bg: "bg-sky-100", border: "border-sky-300", text: "text-sky-700" },
-  { key: "medium", bg: "bg-sky-200", border: "border-sky-400", text: "text-sky-800" },
-  { key: "full", bg: "bg-sky-300", border: "border-sky-500 border-2", text: "text-sky-900" },
+  {
+    key: "empty",
+    bg: "bg-background dark:bg-background",
+    border: "border border-dashed border-border dark:border-border",
+    text: "text-muted-foreground dark:text-muted-foreground",
+  },
+  {
+    key: "low",
+    bg: "bg-blue-200 dark:bg-blue-900",
+    border: "border border-blue-400 dark:border-blue-700",
+    text: "text-blue-900 dark:text-blue-100",
+  },
+  {
+    key: "medium",
+    bg: "bg-amber-200 dark:bg-amber-900",
+    border: "border-2 border-amber-400 dark:border-amber-700",
+    text: "text-amber-900 dark:text-amber-100 font-medium",
+  },
+  {
+    key: "full",
+    bg: "bg-red-500 dark:bg-red-500",
+    border: "border-[3px] border-red-600 dark:border-red-600",
+    text: "text-white dark:text-white font-bold",
+  },
 ] as const
 
-/** Ngưỡng % capacity (dùng chung cho filter + màu) */
+/** Ngưỡng % capacity (dùng chung cho filter + màu): <50% xanh, 50-89% vàng, ≥90% đỏ */
 export const CAPACITY_THRESHOLDS = {
   empty: 0,
-  low: 0.7,
+  low: 0.5,
   medium: 0.9,
   full: 1.0,
 } as const
@@ -51,6 +76,13 @@ export function fillLevel(count: number, maxCapacity?: number | null): FillLevel
 
 export function binColor(count: number, maxCapacity?: number | null) {
   return LEVELS.find((l) => l.key === fillLevel(count, maxCapacity)) ?? LEVELS[0]
+}
+
+/** Màu thanh capacity theo ngưỡng chung: <50% xanh dương, 50-89% vàng, ≥90% đỏ */
+export function capacityBarColor(pct: number) {
+  if (pct >= CAPACITY_THRESHOLDS.medium) return "bg-red-500"
+  if (pct >= CAPACITY_THRESHOLDS.low) return "bg-amber-500"
+  return "bg-blue-500"
 }
 
 export const FILTERS: { key: FilterMode }[] = [

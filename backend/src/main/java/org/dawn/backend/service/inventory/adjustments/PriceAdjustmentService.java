@@ -1,4 +1,5 @@
 package org.dawn.backend.service.inventory.adjustments;
+import org.dawn.backend.constant.shared.ErrorCode;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -8,7 +9,6 @@ import org.dawn.backend.config.web.response.ResponsePage;
 import org.dawn.backend.constant.enums.inventory.adjustments.AdjustmentStatus;
 import org.springframework.data.domain.Page;
 import org.dawn.backend.constant.shared.LogConstant;
-import org.dawn.backend.constant.shared.Message;
 import org.dawn.backend.controller.inventory.request.CreatePriceAdjustmentRequest;
 import org.dawn.backend.controller.inventory.response.AvailableItemResponse;
 import org.dawn.backend.controller.inventory.response.PriceAdjustmentResponse;
@@ -30,9 +30,12 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -45,22 +48,23 @@ public class PriceAdjustmentService {
     private final ImportReceiptItemRepository importReceiptItemRepository;
     private final ImportReceiptRepository importReceiptRepository;
     private final ProductRepository productRepository;
+    private final org.dawn.backend.repository.inventory.ProductUnitRepository productUnitRepository;
     private final UserRepository userRepository;
     private final SecurityPolicy securityPolicy;
     private final StateMachine<AdjustmentStatus> adjustmentStateMachine;
+    private final org.dawn.backend.service.shared.LockGuard lockGuard;
 
     @Transactional(readOnly = true)
-    public ResponsePage<PriceAdjustmentResponse> findAll(Pageable pageable, String status) {
+    public ResponsePage<PriceAdjustmentResponse> findAll(Pageable pageable, String status, String search) {
         AdjustmentStatus s = safeParseAdjustmentStatus(status);
-        Page<PriceAdjustment> page = s != null
-                ? priceAdjustmentRepository.findByStatus(s, pageable)
-                : status != null && !status.isBlank()
-                    ? Page.empty(pageable)
-                    : priceAdjustmentRepository.findAll(pageable);
+        String kw = search != null && !search.isBlank() ? search.trim() : null;
+        Page<PriceAdjustment> page = s == null && status != null && !status.isBlank()
+                ? Page.empty(pageable)
+                : priceAdjustmentRepository.findFiltered(kw, s, pageable);
         var adjs = page.getContent();
-        var itemProductMap = fetchItemProductMap(adjs);
+        var itemContextMap = fetchItemContextMap(adjs);
         var userMap = fetchUserMap(adjs);
-        return ResponsePage.of(page.map(a -> enrich(a, itemProductMap, userMap)));
+        return ResponsePage.of(page.map(a -> enrich(a, itemContextMap, userMap)));
     }
 
     @Transactional(readOnly = true)
@@ -68,7 +72,7 @@ public class PriceAdjustmentService {
         Long userId = securityPolicy.requireAuthenticated();
 
         var adj = priceAdjustmentRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.PRICE_ADJ_NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.PRICE_ADJ_NOT_FOUND));
 
         securityPolicy.requireAdminOrManagerOrOwner(adj.getCreatedBy());
 
@@ -76,18 +80,17 @@ public class PriceAdjustmentService {
     }
 
     @Transactional(readOnly = true)
-    public ResponsePage<PriceAdjustmentResponse> findMyAdjustments(Pageable pageable, String status) {
+    public ResponsePage<PriceAdjustmentResponse> findMyAdjustments(Pageable pageable, String status, String search) {
         Long userId = securityPolicy.requireAuthenticated();
         AdjustmentStatus s = safeParseAdjustmentStatus(status);
-        Page<PriceAdjustment> page = s != null
-                ? priceAdjustmentRepository.findByCreatedByAndStatus(userId, s, pageable)
-                : status != null && !status.isBlank()
-                    ? Page.empty(pageable)
-                    : priceAdjustmentRepository.findByCreatedBy(userId, pageable);
+        String kw = search != null && !search.isBlank() ? search.trim() : null;
+        Page<PriceAdjustment> page = s == null && status != null && !status.isBlank()
+                ? Page.empty(pageable)
+                : priceAdjustmentRepository.findFilteredByCreatedBy(userId, kw, s, pageable);
         var adjs = page.getContent();
-        var itemProductMap = fetchItemProductMap(adjs);
+        var itemContextMap = fetchItemContextMap(adjs);
         var userMap = fetchUserMap(adjs);
-        return ResponsePage.of(page.map(a -> enrich(a, itemProductMap, userMap)));
+        return ResponsePage.of(page.map(a -> enrich(a, itemContextMap, userMap)));
     }
 
     @Transactional(readOnly = true)
@@ -97,17 +100,15 @@ public class PriceAdjustmentService {
 
         var receiptIds = items.stream().map(ImportReceiptItem::getReceiptId).distinct().toList();
         var receipts = importReceiptRepository.findAllById(receiptIds).stream()
-                .filter(r -> r.getStatus() == org.dawn.backend.constant.enums.inventory.imports.ImportReceiptStatus.COMPLETED)
+                .filter(r -> r.getStatus() == org.dawn.backend.constant.enums.inventory.imports.ImportReceiptStatus.RECEIVED)
                 .collect(java.util.stream.Collectors.toMap(ImportReceipt::getId, java.util.function.Function.identity()));
 
         var product = productRepository.findById(productId).orElse(null);
         String productName = product != null ? product.getName() : null;
         String productSku = product != null ? product.getSku() : null;
 
-        var pendingItemIds = priceAdjustmentRepository.findAll().stream()
-                .filter(a -> a.getStatus() == AdjustmentStatus.PENDING)
-                .map(PriceAdjustment::getImportReceiptItemId)
-                .collect(java.util.stream.Collectors.toSet());
+        var pendingItemIds = Set.copyOf(
+                priceAdjustmentRepository.findImportReceiptItemIdsByStatus(AdjustmentStatus.PENDING));
 
         return items.stream()
                 .filter(item -> receipts.containsKey(item.getReceiptId()))
@@ -130,31 +131,38 @@ public class PriceAdjustmentService {
         Long userId = securityPolicy.requireAuthenticated();
 
         if (request.importReceiptItemId() == null) {
-            throw new InvalidRequestException(Message.Inventory.PRICE_ADJ_ITEM_REQUIRED);
+            throw new InvalidRequestException(ErrorCode.PRICE_ADJ_ITEM_REQUIRED);
         }
         if (request.newPrice() == null || request.newPrice().compareTo(java.math.BigDecimal.ONE) < 0) {
-            throw new InvalidRequestException(Message.Inventory.PRICE_ADJ_NEW_PRICE_NEGATIVE);
+            throw new InvalidRequestException(ErrorCode.PRICE_ADJ_NEW_PRICE_NEGATIVE);
         }
-        if (request.newPrice().scale() > 0) {
-            throw new InvalidRequestException(Message.Inventory.PRICE_ADJ_WHOLE_NUMBER);
+        if (request.newPrice().stripTrailingZeros().scale() > 0) {
+            throw new InvalidRequestException(ErrorCode.PRICE_ADJ_WHOLE_NUMBER);
         }
         if (request.reason() == null || request.reason().isBlank()) {
-            throw new InvalidRequestException(Message.Inventory.PRICE_ADJ_REASON_REQUIRED);
+            throw new InvalidRequestException(ErrorCode.PRICE_ADJ_REASON_REQUIRED);
         }
 
         var existing = priceAdjustmentRepository.findByImportReceiptItemIdAndStatus(
                 request.importReceiptItemId(), AdjustmentStatus.PENDING);
         if (existing.isPresent()) {
             throw new InvalidRequestException(
-                    Message.format(Message.Inventory.PRICE_ADJ_DUPLICATE_PENDING, existing.get().getAdjustCode()));
+                    ErrorCode.PRICE_ADJ_DUPLICATE_PENDING, existing.get().getAdjustCode());
         }
 
         var item = importReceiptItemRepository.findById(request.importReceiptItemId())
-                .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.IMPORT_ITEM_NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.IMPORT_ITEM_NOT_FOUND));
+        lockGuard.assertProductsActive(java.util.List.of(item.getProductId()));
+
+        var receipt = importReceiptRepository.findById(item.getReceiptId())
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.IMPORT_RECEIPT_NOT_FOUND));
+        if (receipt.getStatus() != org.dawn.backend.constant.enums.inventory.imports.ImportReceiptStatus.RECEIVED) {
+            throw new InvalidRequestException(ErrorCode.PRICE_ADJ_RECEIPT_NOT_COMPLETED);
+        }
 
         var oldPrice = item.getUnitPrice() != null ? item.getUnitPrice() : java.math.BigDecimal.ZERO;
         if (oldPrice.compareTo(request.newPrice()) == 0) {
-            throw new InvalidRequestException(Message.Inventory.PRICE_ADJ_SAME_PRICE);
+            throw new InvalidRequestException(ErrorCode.PRICE_ADJ_SAME_PRICE);
         }
 
         String adjustCode = ReceiptCodeGenerator.generate("PADJ-", priceAdjustmentRepository::existsByAdjustCode);
@@ -178,25 +186,37 @@ public class PriceAdjustmentService {
         Long userId = securityPolicy.requireAuthenticated();
 
         var adj = priceAdjustmentRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.PRICE_ADJ_NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.PRICE_ADJ_NOT_FOUND));
 
         adjustmentStateMachine.validate(adj.getStatus(), AdjustmentStatus.APPROVED);
         securityPolicy.requireNotCreator(adj.getCreatedBy());
 
         var item = importReceiptItemRepository.findById(adj.getImportReceiptItemId())
-                .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.IMPORT_ITEM_NOT_FOUND));
-        if (item.getUnitPrice().compareTo(adj.getOldPrice()) != 0) {
-            throw new InvalidRequestException(Message.Inventory.PRICE_ADJ_PRICE_CHANGED);
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.IMPORT_ITEM_NOT_FOUND));
+        BigDecimal currentPrice = item.getUnitPrice() != null ? item.getUnitPrice() : BigDecimal.ZERO;
+        if (currentPrice.compareTo(adj.getOldPrice()) != 0) {
+            throw new InvalidRequestException(ErrorCode.PRICE_ADJ_PRICE_CHANGED);
         }
+
+        int updated = priceAdjustmentRepository.optimisticApprove(
+                id, userId, approvalNote, Instant.now());
+        if (updated == 0) {
+            throw new InvalidRequestException(ErrorCode.PRICE_ADJ_ONLY_PENDING_APPROVE);
+        }
+
         item.setUnitPrice(adj.getNewPrice());
         importReceiptItemRepository.save(item);
 
-        int updated = priceAdjustmentRepository.optimisticUpdateStatus(
-                id, AdjustmentStatus.APPROVED, userId, approvalNote);
-        if (updated == 0) {
-            throw new InvalidRequestException(Message.Inventory.PRICE_ADJ_ONLY_PENDING_APPROVE);
+        var units = productUnitRepository.findByImportReceiptItemId(item.getId());
+        units.forEach(u -> u.setCostPrice(adj.getNewPrice()));
+        if (!units.isEmpty()) {
+            productUnitRepository.saveAll(units);
         }
+
         adj.setStatus(AdjustmentStatus.APPROVED);
+        adj.setApprovedBy(userId);
+        adj.setApprovalNote(approvalNote);
+        adj.setApprovedAt(Instant.now());
         return enrich(adj);
     }
 
@@ -206,7 +226,7 @@ public class PriceAdjustmentService {
         Long userId = securityPolicy.requireAuthenticated();
 
         var adj = priceAdjustmentRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.PRICE_ADJ_NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.PRICE_ADJ_NOT_FOUND));
 
         adjustmentStateMachine.validate(adj.getStatus(), AdjustmentStatus.CANCELLED);
         securityPolicy.requireOwner(adj.getCreatedBy());
@@ -214,8 +234,10 @@ public class PriceAdjustmentService {
         int updated = priceAdjustmentRepository.optimisticUpdateStatus(
                 id, AdjustmentStatus.CANCELLED, userId, null);
         if (updated == 0) {
-            throw new InvalidRequestException(Message.Inventory.PRICE_ADJ_ONLY_PENDING_CANCEL);
+            throw new InvalidRequestException(ErrorCode.PRICE_ADJ_ONLY_PENDING_CANCEL);
         }
+        adj = priceAdjustmentRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.PRICE_ADJ_NOT_FOUND));
         return enrich(adj);
     }
 
@@ -225,34 +247,67 @@ public class PriceAdjustmentService {
         Long userId = securityPolicy.requireAuthenticated();
 
         if (reason == null || reason.isBlank()) {
-            throw new InvalidRequestException(Message.Inventory.PRICE_ADJ_REJECT_REASON_REQUIRED);
+            throw new InvalidRequestException(ErrorCode.PRICE_ADJ_REJECT_REASON_REQUIRED);
         }
 
         var adj = priceAdjustmentRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.PRICE_ADJ_NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.PRICE_ADJ_NOT_FOUND));
 
         adjustmentStateMachine.validate(adj.getStatus(), AdjustmentStatus.REJECTED);
+        securityPolicy.requireNotCreator(adj.getCreatedBy());
 
         int updated = priceAdjustmentRepository.optimisticUpdateStatus(
                 id, AdjustmentStatus.REJECTED, userId, reason);
         if (updated == 0) {
-            throw new InvalidRequestException(Message.Inventory.PRICE_ADJ_ONLY_PENDING_REJECT);
+            throw new InvalidRequestException(ErrorCode.PRICE_ADJ_ONLY_PENDING_REJECT);
         }
+        adj = priceAdjustmentRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.PRICE_ADJ_NOT_FOUND));
         return enrich(adj);
     }
 
-    private Map<Long, String[]> fetchItemProductMap(List<PriceAdjustment> adjs) {
+    @Transactional(readOnly = true)
+    public List<PriceAdjustmentResponse> findHistoryByProduct(Long productId) {
+        var itemIds = importReceiptItemRepository.findByProductId(productId).stream()
+                .map(ImportReceiptItem::getId)
+                .toList();
+        if (itemIds.isEmpty()) return List.of();
+        var adjs = priceAdjustmentRepository.findByImportReceiptItemIdIn(itemIds).stream()
+                .filter(a -> a.getStatus() == AdjustmentStatus.APPROVED
+                        || a.getStatus() == AdjustmentStatus.PENDING)
+                .sorted(Comparator.comparing(PriceAdjustment::getCreatedAt).reversed())
+                .toList();
+        if (adjs.isEmpty()) return List.of();
+        var itemContextMap = fetchItemContextMap(adjs);
+        var userMap = fetchUserMap(adjs);
+        return adjs.stream().map(a -> enrich(a, itemContextMap, userMap)).toList();
+    }
+
+    private record ItemContext(Long productId, String productName, String productSku,
+                               String receiptCode, Instant receiptDate) {}
+
+    private Map<Long, ItemContext> fetchItemContextMap(List<PriceAdjustment> adjs) {
         var itemIds = adjs.stream().map(PriceAdjustment::getImportReceiptItemId).distinct().toList();
         var items = importReceiptItemRepository.findAllById(itemIds).stream()
                 .collect(Collectors.toMap(ImportReceiptItem::getId, Function.identity()));
+        var receiptIds = items.values().stream().map(ImportReceiptItem::getReceiptId).distinct().toList();
+        var receipts = importReceiptRepository.findAllById(receiptIds).stream()
+                .collect(Collectors.toMap(ImportReceipt::getId, Function.identity()));
         var productIds = items.values().stream().map(ImportReceiptItem::getProductId).distinct().toList();
         var products = productRepository.findAllById(productIds).stream()
                 .collect(Collectors.toMap(Product::getId, Function.identity()));
         return items.entrySet().stream().collect(Collectors.toMap(
                 Map.Entry::getKey,
                 e -> {
-                    var p = products.get(e.getValue().getProductId());
-                    return new String[]{p != null ? p.getName() : null, p != null ? p.getSku() : null};
+                    var item = e.getValue();
+                    var p = products.get(item.getProductId());
+                    var r = receipts.get(item.getReceiptId());
+                    return new ItemContext(
+                            item.getProductId(),
+                            p != null ? p.getName() : null,
+                            p != null ? p.getSku() : null,
+                            r != null ? r.getReceiptCode() : null,
+                            r != null ? r.getCreatedAt() : null);
                 }));
     }
 
@@ -269,30 +324,42 @@ public class PriceAdjustmentService {
                 .collect(Collectors.toMap(User::getId, User::getFullName));
     }
 
-    private PriceAdjustmentResponse enrich(PriceAdjustment adj, Map<Long, String[]> itemProductMap, Map<Long, String> userMap) {
-        var itemProduct = itemProductMap.get(adj.getImportReceiptItemId());
+    private PriceAdjustmentResponse enrich(PriceAdjustment adj, Map<Long, ItemContext> itemContextMap, Map<Long, String> userMap) {
+        var ctx = itemContextMap.get(adj.getImportReceiptItemId());
         return PriceAdjustmentMappingHelper.map(adj,
-                itemProduct != null ? itemProduct[0] : null,
-                itemProduct != null ? itemProduct[1] : null,
+                ctx != null ? ctx.productId() : null,
+                ctx != null ? ctx.productName() : null,
+                ctx != null ? ctx.productSku() : null,
+                ctx != null ? ctx.receiptCode() : null,
+                ctx != null ? ctx.receiptDate() : null,
                 userMap.get(adj.getCreatedBy()),
                 adj.getApprovedBy() != null ? userMap.get(adj.getApprovedBy()) : null);
     }
 
     private PriceAdjustmentResponse enrich(PriceAdjustment adj) {
         var item = importReceiptItemRepository.findById(adj.getImportReceiptItemId()).orElse(null);
-        String productName = null, productSku = null;
+        Long productId = null;
+        String productName = null, productSku = null, receiptCode = null;
+        Instant receiptDate = null;
         if (item != null) {
+            productId = item.getProductId();
             var product = productRepository.findById(item.getProductId()).orElse(null);
             if (product != null) {
                 productName = product.getName();
                 productSku = product.getSku();
+            }
+            var receipt = importReceiptRepository.findById(item.getReceiptId()).orElse(null);
+            if (receipt != null) {
+                receiptCode = receipt.getReceiptCode();
+                receiptDate = receipt.getCreatedAt();
             }
         }
         var createdByName = userRepository.findById(adj.getCreatedBy()).map(User::getFullName).orElse(null);
         var approvedByName = adj.getApprovedBy() != null
                 ? userRepository.findById(adj.getApprovedBy()).map(User::getFullName).orElse(null)
                 : null;
-        return PriceAdjustmentMappingHelper.map(adj, productName, productSku, createdByName, approvedByName);
+        return PriceAdjustmentMappingHelper.map(adj,
+                productId, productName, productSku, receiptCode, receiptDate, createdByName, approvedByName);
     }
 
     private AdjustmentStatus safeParseAdjustmentStatus(String value) {

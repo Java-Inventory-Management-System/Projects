@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react"
+import { LocationCodePopover } from "../components/location-code-popover"
 import { useTranslation } from "react-i18next"
 import { useForm, useFieldArray, Controller } from "react-hook-form"
 import { useNavigate } from "react-router-dom"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { createExportReceipt } from "@/services/export-service"
 import { useProducts } from "@/hooks/use-products"
-import { getSerialsForExport, getAllSerialsForProduct } from "@/services/product-unit-service"
+import { getSerialsForExport, getAllSerialsForProduct, exportSerialsStatuses } from "@/services/product-unit-service"
 import { CustomerSelectModal } from "@/features/stock/components/customer-select-modal"
 import { exportFormSchema } from "@/features/stock/schemas/export-schema"
 import type { ExportFormData } from "@/features/stock/schemas/export-schema"
@@ -30,9 +31,9 @@ import { toast } from "@/utils/toast"
 import { EXPORT_REASON } from "@/utils/types"
 
 interface ExportFormFields {
-  reason: string
+  type: ExportReason | ""
   customerId: string
-  note: string
+  customReason: string
   items: {
     tempId: number
     productId: number
@@ -51,6 +52,7 @@ export const ExportCreatePage = () => {
     { value: EXPORT_REASON.INTERNAL, label: t("exportReason.internal") },
     { value: EXPORT_REASON.RETURN_SUPPLIER, label: t("exportReason.returnSupplier") },
     { value: EXPORT_REASON.DISPOSE, label: t("exportReason.dispose") },
+    { value: EXPORT_REASON.OTHER, label: t("exportReason.other") },
   ]
   const qc = useQueryClient()
   const [customerName, setCustomerName] = useState("")
@@ -59,10 +61,10 @@ export const ExportCreatePage = () => {
   const [showDraftDialog, setShowDraftDialog] = useState(false)
 
   const { data: productsRes } = useProducts(0, 100)
-  const products = useMemo(() => productsRes?.content ?? [], [productsRes])
+  const products = useMemo(() => (productsRes?.content ?? []).filter((p) => p.isActive), [productsRes])
 
   const form = useForm<ExportFormFields>({
-    defaultValues: { reason: "", customerId: "", note: "", items: [] },
+    defaultValues: { type: "", customerId: "", customReason: "", items: [] },
   })
   const { fields, append, remove } = useFieldArray({ control: form.control, name: "items" })
 
@@ -75,7 +77,7 @@ export const ExportCreatePage = () => {
 
   const formValues = form.watch()
   const draftState = useMemo(
-    () => ({ reason: formValues.reason, customerId: formValues.customerId, customerName, note: formValues.note, items: formValues.items }),
+    () => ({ type: formValues.type, customerId: formValues.customerId, customerName, customReason: formValues.customReason, items: formValues.items }),
     [formValues, customerName],
   )
   const isDirty = fields.length > 0
@@ -86,9 +88,9 @@ export const ExportCreatePage = () => {
     (data) => {
       const d = data as typeof draftState
       form.reset({
-        reason: d.reason ?? "",
+        type: d.type ?? "",
         customerId: d.customerId ?? "",
-        note: d.note ?? "",
+        customReason: d.customReason ?? "",
         items: d.items ?? [],
       })
       setCustomerName(d.customerName ?? "")
@@ -103,9 +105,10 @@ export const ExportCreatePage = () => {
       setSerials({})
       return
     }
+    const statuses = exportSerialsStatuses(formValues.type)
     let cancelled = false
     const tempIds = fields.map((f) => f.tempId)
-    Promise.all(fields.map((f) => getSerialsForExport(f.productId, f.quantity))).then((results) => {
+    Promise.all(fields.map((f) => getSerialsForExport(f.productId, f.quantity, statuses))).then((results) => {
       if (cancelled) return
       const map: Record<number, ProductUnit[]> = {}
       results.forEach((serials, idx) => {
@@ -114,7 +117,7 @@ export const ExportCreatePage = () => {
       setSerials(map)
     })
     return () => { cancelled = true }
-  }, [fields])
+  }, [fields, formValues.type])
 
   const createMut = useMutation({
     mutationFn: createExportReceipt,
@@ -130,12 +133,12 @@ export const ExportCreatePage = () => {
   const openOverrideDialog = useCallback(async (tempId: number, productId: number) => {
     setOverrideDialog({ tempId, productId })
     setOverrideLoading(true)
-    const all = await getAllSerialsForProduct(productId)
+    const all = await getAllSerialsForProduct(productId, exportSerialsStatuses(formValues.type))
     setAllProductSerials(all)
     const current = overrideSerials[tempId] ?? serials[tempId] ?? []
     setOverrideSelectedIds(current.map((s) => s.id))
     setOverrideLoading(false)
-  }, [overrideSerials, serials])
+  }, [overrideSerials, serials, formValues.type])
 
   const confirmOverride = useCallback(() => {
     if (!overrideDialog) return
@@ -160,21 +163,31 @@ export const ExportCreatePage = () => {
   }, [selectedProductId, products, append])
 
   const onSubmit = form.handleSubmit((values) => {
-    const raw: ExportFormData = { reason: values.reason, customerId: values.customerId, note: values.note, items: values.items }
+    const raw: ExportFormData = { type: values.type, customerId: values.customerId, customReason: values.customReason, items: values.items }
     const parsed = exportFormSchema.safeParse(raw)
     if (!parsed.success) {
       const first = parsed.error.issues[0]
       toast.error(t(first.message))
       return
     }
-    if (values.reason === EXPORT_REASON.SALE && !values.customerId) {
+    const isOther = values.type === EXPORT_REASON.OTHER
+    if (isOther && !values.customReason.trim()) {
+      toast.error(t("exportCreate.otherReasonRequired"))
+      return
+    }
+    if (values.type === EXPORT_REASON.SALE && !values.customerId) {
       toast.error(t("exportCreate.selectCustomerRequired"))
       return
     }
+    if (values.items.some((i) => !i.quantity || i.quantity < 1)) {
+      toast.error(t("exportCreate.invalidQuantity"))
+      return
+    }
+    const type = values.type as ExportReason
     createMut.mutate({
-      reason: values.reason as ExportReason,
+      type,
+      reason: isOther ? values.customReason.trim() : type,
       customerId: values.customerId ? Number(values.customerId) : null,
-      note: values.note || null,
       items: values.items.map((i) => {
         const overridden = overrideSerials[i.tempId]
         return {
@@ -195,7 +208,7 @@ export const ExportCreatePage = () => {
     })
   })
 
-  const watchedReason = form.watch("reason")
+  const watchedType = form.watch("type")
   const watchedCustomerId = form.watch("customerId")
   const hasSerials = useMemo(() => {
     const hasAuto = Object.values(serials).some((arr) => arr.length > 0)
@@ -217,7 +230,7 @@ export const ExportCreatePage = () => {
           <Label htmlFor="reason">{t("exportCreate.reason")}</Label>
           <Controller
             control={form.control}
-            name="reason"
+            name="type"
             render={({ field }) => (
               <Select value={field.value} onValueChange={field.onChange}>
                 <SelectTrigger id="reason">
@@ -234,7 +247,7 @@ export const ExportCreatePage = () => {
             )}
           />
         </div>
-        {watchedReason === EXPORT_REASON.SALE && (
+        {watchedType === EXPORT_REASON.SALE && (
           <div className="space-y-2">
             <Label htmlFor="customer">{t("exportCreate.customer")}</Label>
             <div className="flex gap-2">
@@ -314,13 +327,8 @@ export const ExportCreatePage = () => {
                       {...form.register(`items.${index}.quantity`, { valueAsNumber: true })}
                     />
                   </TableCell>
-                  <TableCell>
-                    <Input
-                      type="number"
-                      min={0}
-                      className="h-8 w-24 text-right"
-                      {...form.register(`items.${index}.unitPrice`, { valueAsNumber: true })}
-                    />
+                  <TableCell className="text-right tabular-nums">
+                    {item.unitPrice.toLocaleString("vi-VN")}₫
                   </TableCell>
                   <TableCell className="text-right tabular-nums">
                     {(item.quantity * item.unitPrice).toLocaleString("vi-VN")}₫
@@ -364,7 +372,7 @@ export const ExportCreatePage = () => {
                         <TableRow key={s.id}>
                           <TableCell className="text-xs text-muted-foreground">{item.productName}</TableCell>
                           <TableCell className="font-mono text-xs">{s.serialNumber}</TableCell>
-                          <TableCell className="font-mono text-xs text-muted-foreground">{s.locationCode ?? "—"}</TableCell>
+                          <TableCell><LocationCodePopover code={s.locationCode} /></TableCell>
                           <TableCell className="text-xs text-muted-foreground">
                             {new Date(s.importedAt).toLocaleDateString("vi-VN")}
                           </TableCell>
@@ -398,12 +406,18 @@ export const ExportCreatePage = () => {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="note">{t("exportCreate.note")}</Label>
-        <Textarea
-          id="note"
-          placeholder={t("form.noteOptional")}
-          {...form.register("note")}
-        />
+        {watchedType === EXPORT_REASON.OTHER && (
+          <>
+            <Label htmlFor="customReason">
+              {t("exportCreate.otherReason")} <span className="text-destructive">*</span>
+            </Label>
+            <Textarea
+              id="customReason"
+              placeholder={t("exportCreate.otherReasonPlaceholder")}
+              {...form.register("customReason")}
+            />
+          </>
+        )}
       </div>
 
       <div className="flex gap-2 justify-end">
@@ -413,7 +427,7 @@ export const ExportCreatePage = () => {
         <Button
           onClick={onSubmit}
           disabled={
-            !watchedReason || fields.length === 0 || createMut.isPending || (watchedReason === EXPORT_REASON.SALE && !watchedCustomerId)
+            !watchedType || fields.length === 0 || createMut.isPending || (watchedType === EXPORT_REASON.SALE && !watchedCustomerId)
           }
         >
           {createMut.isPending ? t("common.processing") : t("exportCreate.submit")}
@@ -491,8 +505,8 @@ export const ExportCreatePage = () => {
                     />
                     <div className="flex-1 min-w-0">
                       <p className="font-mono text-xs font-medium truncate">{s.serialNumber}</p>
-                      <p className="text-[10px] text-muted-foreground">
-                        {s.locationCode ?? "—"} · {new Date(s.importedAt).toLocaleDateString("vi-VN")}
+                      <p className="text-xs text-muted-foreground">
+                        <LocationCodePopover code={s.locationCode} /> · {new Date(s.importedAt).toLocaleDateString("vi-VN")}
                       </p>
                     </div>
                   </label>

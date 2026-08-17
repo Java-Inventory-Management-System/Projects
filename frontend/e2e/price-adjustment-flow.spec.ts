@@ -1,65 +1,69 @@
 import { test, expect } from "@playwright/test"
-import { loginAsStock, loginAsManager } from "./helpers/auth"
+import { loginAsManager, loginAsAdmin } from "./helpers/auth"
 import { navigateTo } from "./helpers/nav"
-import { initTokens, getToken, API_URL } from "./helpers/api"
-import { approveDialog } from "./helpers/approve"
+import { initTokens, getToken, API_URL, createPurchaseOrder, getE2ELocationId } from "./helpers/api"
 
 test.describe("Price Adjustment Flow (Điều chỉnh giá) — SOP §8", () => {
 
-  test("STOCK creates price adj via API_URL → MANAGER approves via UI → cost_price updated", async ({ browser }) => {
-    const stockCtx = await browser.newContext()
+  test("MANAGER creates price adj via API_URL → ADMIN approves via UI → cost_price updated", async ({ browser }) => {
     const mgrCtx = await browser.newContext()
-    const stock = await stockCtx.newPage()
+    const adminCtx = await browser.newContext()
     const mgr = await mgrCtx.newPage()
+    const admin = await adminCtx.newPage()
 
-    await loginAsStock(stock)
     await loginAsManager(mgr)
-    await initTokens(stock)
+    await loginAsAdmin(admin)
+    await initTokens(mgr)
 
-    const stockToken = await getToken("stock", stock)
     const managerToken = await getToken("manager", mgr)
+    const adminToken = await getToken("admin", admin)
+    const locationId = await getE2ELocationId(mgr)
 
     const serial = `E2E-PADJ-${Date.now()}`
-    const impRes = await stock.request.post(`${API_URL}/import-receipt`, {
+    const purchaseOrderId = await createPurchaseOrder(mgr)
+    const impRes = await mgr.request.post(`${API_URL}/import-receipt`, {
       data: {
-        supplierId: 1, note: "E2E price adj",
-        items: [{ productId: 1, quantity: 1, unitPrice: 10000000, warrantyMonths: 12, serialNumbers: [serial], locationId: 1 }],
+        supplierId: 1, purchaseOrderId, note: "E2E price adj",
+        items: [{ productId: 1, quantity: 1, unitPrice: 10000000, warrantyMonths: 12, serialNumbers: [serial], locationId }],
       },
-      headers: { Authorization: `Bearer ${stockToken}` },
+      headers: { Authorization: `Bearer ${managerToken}` },
     })
     expect(impRes.ok()).toBeTruthy()
     const impData = (await impRes.json()).data
     const impId = impData.id
     const impItemId = impData.items[0].id
 
-    const confirmRes = await stock.request.put(`${API_URL}/import-receipt/${impId}/confirm`, {
-      data: { serials: [{ itemId: impItemId, serialNumbers: [serial], locationId: 1 }] },
-      headers: { Authorization: `Bearer ${stockToken}` },
-    })
-    expect(confirmRes.ok()).toBeTruthy()
-    const impApproveRes = await stock.request.put(`${API_URL}/import-receipt/${impId}/approve`, {
+    const confirmRes = await mgr.request.put(`${API_URL}/import-receipt/${impId}/confirm`, {
+      data: { serials: [{ itemId: impItemId, serialNumbers: [serial], locationId }] },
       headers: { Authorization: `Bearer ${managerToken}` },
     })
-    expect(impApproveRes.ok()).toBeTruthy()
+    expect(confirmRes.ok()).toBeTruthy()
 
-    const adjRes = await stock.request.post(`${API_URL}/price-adjustment`, {
+    // MANAGER creates price adjustment (CAN_CREATE_PRICE_ADJUSTMENT), ADMIN approves (requireNotCreator)
+    const adjRes = await mgr.request.post(`${API_URL}/price-adjustment`, {
       data: { importReceiptItemId: impItemId, newPrice: 12000000, reason: "E2E market adjustment" },
-      headers: { Authorization: `Bearer ${stockToken}` },
+      headers: { Authorization: `Bearer ${managerToken}` },
     })
     expect(adjRes.ok()).toBeTruthy()
     const adjId: number = (await adjRes.json()).data.id
 
-    await navigateTo(mgr, `/stock/price-adjustments/${adjId}`)
-    await approveDialog(mgr, adjId)
+    await navigateTo(admin, `/stock/ops/price-adjustments/${adjId}`)
+    const approveResp = admin.waitForResponse(
+      (r) => r.url().includes(`/${adjId}/approve`) && r.status() === 200,
+    )
+    await admin.getByRole("button", { name: "Duyệt", exact: true }).click()
+    await admin.locator('button:has-text("Xác nhận duyệt")').first().waitFor({ state: "visible", timeout: 5000 })
+    await admin.locator('button:has-text("Xác nhận duyệt")').first().click()
+    await approveResp
 
-    const detail = await mgr.request.get(`${API_URL}/price-adjustment/${adjId}`, {
-      headers: { Authorization: `Bearer ${managerToken}` },
+    const detail = await admin.request.get(`${API_URL}/price-adjustment/${adjId}`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
     })
     const data = (await detail.json()) as { data: { status: string; newPrice: number } }
     expect(data.data.status).toBe("APPROVED")
     expect(data.data.newPrice).toBe(12000000)
 
-    await stockCtx.close()
     await mgrCtx.close()
+    await adminCtx.close()
   })
 })

@@ -16,23 +16,25 @@ public class InventoryStateMachineConfig {
     @Bean
     public StateMachine<ImportReceiptStatus> importReceiptStateMachine() {
         return new StateMachine<>(ImportReceiptStatus.class)
-            .allow(ImportReceiptStatus.DRAFT, ImportReceiptStatus.PENDING_APPROVAL, ImportReceiptStatus.CANCELLED)
-            .allow(ImportReceiptStatus.PENDING_APPROVAL, ImportReceiptStatus.COMPLETED, ImportReceiptStatus.CANCELLED);
+            // ponytail: bỏ bước duyệt (v2) — stock tự nhận/từ chối; RECEIVED là trạng thái cuối
+            .allow(ImportReceiptStatus.DRAFT, ImportReceiptStatus.RECEIVED, ImportReceiptStatus.REJECTED, ImportReceiptStatus.CANCELLED);
     }
 
     @Bean
     public StateMachine<ExportReceiptStatus> exportReceiptStateMachine() {
         return new StateMachine<>(ExportReceiptStatus.class)
-            .allow(ExportReceiptStatus.PENDING, ExportReceiptStatus.APPROVED, ExportReceiptStatus.CANCELLED)
-            .allow(ExportReceiptStatus.APPROVED, ExportReceiptStatus.COMPLETED);
+            // ponytail: APPROVED chỉ còn cho phiếu legacy (tạo trước khi cắt bước duyệt), không sinh mới
+            .allow(ExportReceiptStatus.PENDING, ExportReceiptStatus.COMPLETED, ExportReceiptStatus.CANCELLED)
+            .allow(ExportReceiptStatus.APPROVED, ExportReceiptStatus.COMPLETED, ExportReceiptStatus.CANCELLED);
     }
 
     @Bean
     public StateMachine<StockCheckStatus> stockCheckStateMachine() {
         return new StateMachine<>(StockCheckStatus.class)
-            .allow(StockCheckStatus.PENDING, StockCheckStatus.IN_PROGRESS)
-            .allow(StockCheckStatus.IN_PROGRESS, StockCheckStatus.COMPLETED)
-            .allow(StockCheckStatus.COMPLETED, StockCheckStatus.APPROVED, StockCheckStatus.IN_PROGRESS);
+            .allow(StockCheckStatus.PENDING, StockCheckStatus.IN_PROGRESS, StockCheckStatus.CANCELLED)
+            .allow(StockCheckStatus.IN_PROGRESS, StockCheckStatus.COMPLETED, StockCheckStatus.CANCELLED)
+            .allow(StockCheckStatus.COMPLETED, StockCheckStatus.APPROVED, StockCheckStatus.IN_PROGRESS)
+            .allow(StockCheckStatus.EXPIRED, StockCheckStatus.IN_PROGRESS);
     }
 
     @Bean

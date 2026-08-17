@@ -25,12 +25,12 @@ import {
 import { useFormDraft, clearDraft } from "@/hooks/use-form-draft"
 import { usePermission } from "@/hooks/use-permission"
 import { cn } from "@/utils/cn"
-import { ArrowLeft, Search, Info, ScanLine, CheckCircle2, XCircle, Plus, List } from "lucide-react"
+import { ArrowLeft, Search, Info, ScanLine, CheckCircle2, Plus, List } from "lucide-react"
 import { Empty, EmptyTitle } from "@/components/ui/empty"
 import { toast } from "@/utils/toast"
 import { mapResponsePage, mapProductUnit } from "@/utils/mappers"
-import { ADJUSTMENT_TYPE, STOCK_CHECK_DIFF, type ProductUnit } from "@/utils/types"
-import { backgroundBatch } from "@/utils/background-batch"
+import { ADJUSTMENT_STATUS, ADJUSTMENT_TYPE, type ProductUnit } from "@/utils/types"
+import { UNIT_STATUS_VARIANT } from "@/utils/labels"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 const getPresetReasons = (t: (key: string) => string): Record<string, string[]> => ({
@@ -50,14 +50,6 @@ interface AdjustmentForm {
   imageUrl: string
 }
 
-interface BatchResult {
-  index: number
-  serialNumber: string
-  productName: string
-  success: boolean
-  error?: string
-}
-
 export const StockAdjustmentCreatePage = () => {
   const { t } = useTranslation()
   const navigate = useNavigate()
@@ -72,27 +64,14 @@ export const StockAdjustmentCreatePage = () => {
   const submittingRef = useRef(false)
   const locationState = location.state as {
     reason?: string
-    mismatches?: Array<{
-      productUnitId: number
-      productName: string
-      productSku: string
-      serialNumber: string
-      difference: string
-    }>
-    batch?: boolean
   } | null
   const initialReason = locationState?.reason ?? ""
 
   const [searchUnit, setSearchUnit] = useState("")
   const [searchProduct, setSearchProduct] = useState("")
-  const [showConfirm, setShowConfirm] = useState(false)
-  const [showManualConfirm, setShowManualConfirm] = useState(false)
-  const [showResult, setShowResult] = useState(false)
-  const [showDraftDialog, setShowDraftDialog] = useState(false)
-  const [foundMode, setFoundMode] = useState<"existing" | "new" | null>(null)
+  const [dialog, setDialog] = useState<"manual" | "draft" | null>(null)
+  const [rawFoundMode, setRawFoundMode] = useState<"existing" | "new" | null>(null)
   const [scanInput, setScanInput] = useState("")
-  const [batchProgress, setBatchProgress] = useState<{ current: number; total: number } | null>(null)
-  const [batchResults, setBatchResults] = useState<BatchResult[]>([])
   const [successResult, setSuccessResult] = useState<{ adjustCode: string } | null>(null)
 
   const form = useForm<AdjustmentForm>({
@@ -101,20 +80,14 @@ export const StockAdjustmentCreatePage = () => {
   const { formState } = form
   const formValues = form.getValues()
   const watchedType = form.watch("type")
-  const watchedReason = form.watch("reason")
 
-  useEffect(() => {
-    if (watchedType === ADJUSTMENT_TYPE.FOUND) {
-      if (!foundMode) setFoundMode("existing")
-    } else {
-      setFoundMode(null)
-    }
-  }, [watchedType, foundMode])
+  const watchedReason = form.watch("reason")
+  const foundMode = watchedType === ADJUSTMENT_TYPE.FOUND ? (rawFoundMode ?? "existing") : null
 
   const draftState = useMemo(() => ({ type: watchedType, reason: watchedReason }), [watchedType, watchedReason])
   const isDirty = !!watchedType || !!watchedReason.trim()
   const { draftAvailable, restore, dismiss } = useFormDraft(
-    "/stock/adjustments/new",
+    "/stock/ops/adjustments/new",
     draftState as unknown as Record<string, unknown>,
     isDirty,
     (data) => {
@@ -124,7 +97,7 @@ export const StockAdjustmentCreatePage = () => {
     },
   )
   useEffect(() => {
-    if (draftAvailable) setShowDraftDialog(true)
+    if (draftAvailable) setDialog("draft")
   }, [draftAvailable])
 
   const { data: unitsData, isLoading: unitsLoading } = useQuery({
@@ -146,6 +119,8 @@ export const StockAdjustmentCreatePage = () => {
     enabled: watchedType === ADJUSTMENT_TYPE.FOUND && foundMode === "new",
   })
 
+  const activeProducts = (productsData?.content ?? []).filter((p) => p.isActive)
+
   const selectedUnitId = form.watch("selectedUnitId")
   const { data: unitAdjustments } = useQuery({
     queryKey: ["stock-adjustments", "by-unit", selectedUnitId],
@@ -165,31 +140,17 @@ export const StockAdjustmentCreatePage = () => {
   const createMut = useMutation({
     mutationFn: createStockAdjustment,
     onSuccess: (data) => {
-      clearDraft("/stock/adjustments/new")
+      clearDraft("/stock/ops/adjustments/new")
       qc.invalidateQueries({ queryKey: ["stock-adjustments"] })
       const code = (data as { adjustCode?: string }).adjustCode ?? ""
       setSuccessResult({ adjustCode: code })
       form.reset()
-      setFoundMode(null)
+      setRawFoundMode(null)
       setScanInput("")
       toast.success(t("stockAdjCreate.createSuccess"))
     },
     onError: (err: Error) => toast.error(err.message || t("common.error")),
   })
-
-  const showResultRef = useRef(showResult)
-  showResultRef.current = showResult
-
-  useEffect(() => {
-    return backgroundBatch.subscribe(() => {
-      const p = backgroundBatch.getProgress()
-      setBatchProgress(p ? { current: p.current, total: p.total } : null)
-      setBatchResults(backgroundBatch.getResults())
-      if (!backgroundBatch.isRunning() && backgroundBatch.getResults().length > 0 && !showResultRef.current) {
-        setShowResult(true)
-      }
-    })
-  }, [])
 
   const validate = (): boolean => {
     form.clearErrors()
@@ -218,59 +179,10 @@ export const StockAdjustmentCreatePage = () => {
     return valid
   }
 
-  const buildSubmitData = () => {
-    const values = form.getValues()
-    const data: Parameters<typeof createStockAdjustment>[0] = {
-      type: values.type,
-      reason: values.reason.trim(),
-    }
-    if (values.type === ADJUSTMENT_TYPE.DAMAGED || values.type === ADJUSTMENT_TYPE.LOST) {
-      data.productUnitId = values.selectedUnitId!
-    }
-    if (values.type === ADJUSTMENT_TYPE.FOUND && foundMode === "new") {
-      data.productId = values.selectedProductId!
-      data.quantity = values.quantity
-      data.serialNumber = values.foundSerialNumber.trim()
-      data.locationId = Number(values.foundLocationId)
-    }
-    if (values.type === ADJUSTMENT_TYPE.FOUND && foundMode === "existing" && values.selectedUnitId) {
-      data.productUnitId = values.selectedUnitId
-    }
-    if (values.imageUrl.trim()) data.imageUrl = values.imageUrl.trim()
-    return data
-  }
-
   const handleSubmit = () => {
     if (submittingRef.current) return
-    if (locationState?.batch && locationState.mismatches) {
-      setShowConfirm(true)
-      return
-    }
     if (!validate()) return
-    setShowManualConfirm(true)
-  }
-
-  const confirmManual = () => {
-    setShowManualConfirm(false)
-    submittingRef.current = true
-    createMut.mutate(buildSubmitData(), {
-      onSettled: () => { submittingRef.current = false },
-    })
-  }
-
-  const confirmBatch = () => {
-    setShowConfirm(false)
-    const reason = form.getValues("reason").trim()
-    backgroundBatch.start(
-      locationState!.mismatches!.map((m) => ({
-        productUnitId: m.productUnitId,
-        difference: m.difference,
-        serialNumber: m.serialNumber,
-        productName: m.productName,
-      })),
-      reason,
-    )
-    qc.invalidateQueries({ queryKey: ["stock-adjustments"] })
+    setDialog("manual")
   }
 
   const handleScan = useCallback((value: string) => {
@@ -289,7 +201,7 @@ export const StockAdjustmentCreatePage = () => {
       setScanInput("")
       toast.success(t("stockAdjCreate.selected", { product: match.productName }))
     }
-  }, [unitsData, form])
+  }, [unitsData, form, t])
 
   const displayUnitSearch = watchedType === ADJUSTMENT_TYPE.DAMAGED
     || watchedType === ADJUSTMENT_TYPE.LOST
@@ -304,8 +216,8 @@ export const StockAdjustmentCreatePage = () => {
     return (
       <div className="mx-auto max-w-3xl">
         <div className="flex flex-col items-center justify-center py-16 text-center space-y-4">
-          <div className="rounded-full bg-green-100 p-3">
-            <CheckCircle2 className="size-10 text-green-600" />
+          <div className="rounded-full bg-green-100 p-3 dark:bg-green-950/30">
+            <CheckCircle2 className="size-10 text-green-600 dark:text-green-400" />
           </div>
           <h2 className="text-xl font-semibold">{t("stockAdjCreate.createSuccess")}</h2>
           {successResult.adjustCode && (
@@ -313,10 +225,10 @@ export const StockAdjustmentCreatePage = () => {
           )}
           <p className="text-sm text-muted-foreground max-w-sm">{t("stockAdjCreate.createSuccessDesc")}</p>
           <div className="flex gap-3 pt-2">
-            <Button onClick={() => { setSuccessResult(null); form.reset(); setFoundMode(null); setScanInput("") }}>
+            <Button onClick={() => { setSuccessResult(null); form.reset(); setRawFoundMode(null); setScanInput("") }}>
               <Plus className="size-4 mr-1" /> {t("stockAdjCreate.createAnother")}
             </Button>
-            <Button variant="outline" onClick={() => navigate("/stock/adjustments")}>
+            <Button variant="outline" onClick={() => navigate("/stock/ops/adjustments")}>
               <List className="size-4 mr-1" /> {t("stockAdjCreate.backToList")}
             </Button>
           </div>
@@ -328,7 +240,7 @@ export const StockAdjustmentCreatePage = () => {
   return (
     <div className={cn("mx-auto space-y-6", density === "spacious" ? "max-w-4xl" : "max-w-3xl")}>
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size={density === "spacious" ? "default" : "sm"} onClick={() => navigate("/stock/adjustments")}>
+        <Button variant="ghost" size={density === "spacious" ? "default" : "sm"} onClick={() => navigate("/stock/ops/adjustments")}>
           <ArrowLeft className="size-4" />
         </Button>
         <h1 className={cn("font-semibold tracking-tight", density === "spacious" ? "text-2xl" : "text-xl")}>{t("stockAdjCreate.title")}</h1>
@@ -348,7 +260,7 @@ export const StockAdjustmentCreatePage = () => {
                 field.onChange(v)
                 form.setValue("selectedUnitId", null)
                 form.setValue("selectedProductId", null)
-                setFoundMode(null)
+                setRawFoundMode(null)
                 setScanInput("")
                 form.clearErrors()
               }}
@@ -385,7 +297,7 @@ export const StockAdjustmentCreatePage = () => {
                   variant={foundMode === "existing" ? "default" : "outline"}
                   size="sm"
                   onClick={() => {
-                    setFoundMode("existing")
+                    setRawFoundMode("existing")
                     form.setValue("selectedUnitId", null)
                     form.setValue("selectedProductId", null)
                     form.setValue("foundSerialNumber", "")
@@ -400,7 +312,7 @@ export const StockAdjustmentCreatePage = () => {
                   variant={foundMode === "new" ? "default" : "outline"}
                   size="sm"
                   onClick={() => {
-                    setFoundMode("new")
+                    setRawFoundMode("new")
                     form.setValue("selectedUnitId", null)
                     form.setValue("selectedProductId", null)
                     form.clearErrors()
@@ -486,7 +398,7 @@ export const StockAdjustmentCreatePage = () => {
                               <span className="text-xs text-muted-foreground ml-1">{u.productSku}</span>
                             </td>
                             <td className="px-2 py-1">
-                              <Badge variant={u.status === "IN_STOCK" ? "default" : "secondary"} className="text-[10px]">
+                              <Badge variant={UNIT_STATUS_VARIANT[u.status]} className="text-xs">
                                 {u.status}
                               </Badge>
                             </td>
@@ -499,15 +411,15 @@ export const StockAdjustmentCreatePage = () => {
                 </div>
                 {formState.errors.selectedUnitId?.message && <p className="text-xs text-destructive">{formState.errors.selectedUnitId.message}</p>}
                 {selectedUnitId && unitAdjustments && unitAdjustments.content.length > 0 && (
-                  <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs space-y-0.5">
-                    <p className="font-medium text-amber-800">{t("stockAdjCreate.unitHistory")}</p>
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs space-y-0.5 dark:border-amber-800 dark:bg-amber-950/20">
+                    <p className="font-medium text-amber-800 dark:text-amber-300">{t("stockAdjCreate.unitHistory")}</p>
                     {unitAdjustments.content.slice(0, 3).map((a) => (
-                      <p key={a.id} className="text-amber-700">
-                        {a.type === "DAMAGED" ? t("adjustmentType.damaged") : a.type === "LOST" ? t("adjustmentType.lost") : t("adjustmentType.found")} — {a.status === "PENDING" ? t("status.pendingApproval") : a.status === "APPROVED" ? t("status.approved") : t("status.rejected")}
+                      <p key={a.id} className="text-amber-700 dark:text-amber-400">
+                        {a.type === ADJUSTMENT_TYPE.DAMAGED ? t("adjustmentType.damaged") : a.type === ADJUSTMENT_TYPE.LOST ? t("adjustmentType.lost") : t("adjustmentType.found")} — {a.status === ADJUSTMENT_STATUS.PENDING ? t("status.pendingApproval") : a.status === ADJUSTMENT_STATUS.APPROVED ? t("status.approved") : t("status.rejected")}
                         {" · "}{new Date(a.createdAt).toLocaleDateString("vi-VN")}
                       </p>
                     ))}
-                    {unitAdjustments.content.some((a) => a.status === "PENDING") && (
+                    {unitAdjustments.content.some((a) => a.status === ADJUSTMENT_STATUS.PENDING) && (
                       <p className="text-amber-800 font-medium mt-1">⚠ {t("stockAdjCreate.pendingWarning")}</p>
                     )}
                   </div>
@@ -533,7 +445,7 @@ export const StockAdjustmentCreatePage = () => {
                         <Skeleton key={i} className="h-8 w-full" />
                       ))}
                     </div>
-                  ) : !productsData || productsData.content.length === 0 ? (
+                  ) : activeProducts.length === 0 ? (
                     <Empty className="py-4">
                       <EmptyTitle>{t("stockAdjCreate.noProductsFound")}</EmptyTitle>
                     </Empty>
@@ -547,7 +459,7 @@ export const StockAdjustmentCreatePage = () => {
                         </tr>
                       </thead>
                       <tbody>
-                        {productsData.content.map((p: { id: number; sku: string | null; name: string | null }) => {
+                        {activeProducts.map((p: { id: number; sku: string | null; name: string | null }) => {
                           const selectedProductId = formValues.selectedProductId
                           return (
                           <tr
@@ -669,28 +581,22 @@ export const StockAdjustmentCreatePage = () => {
       )}
 
       <div className="flex justify-end gap-3">
-        <Button variant="outline" onClick={() => navigate("/stock/adjustments")}>
+        <Button variant="outline" onClick={() => navigate("/stock/ops/adjustments")}>
           {t("common.cancel")}
         </Button>
         <Button
           onClick={handleSubmit}
-          disabled={createMut.isPending || backgroundBatch.isRunning() || (!locationState?.batch && !watchedType)}
+          disabled={createMut.isPending || !watchedType}
         >
-          {createMut.isPending
-            ? t("stockAdjCreate.creating")
-            : backgroundBatch.isRunning()
-              ? t("stockAdjCreate.batchProgress", { current: batchProgress?.current ?? 0, total: batchProgress?.total ?? 0 })
-              : locationState?.batch
-                ? t("stockAdjCreate.createBatch", { count: locationState.mismatches?.length ?? 0 })
-                : t("stockAdjCreate.create")}
+          {createMut.isPending ? t("stockAdjCreate.creating") : t("stockAdjCreate.create")}
         </Button>
       </div>
 
       <Dialog
-        open={showDraftDialog}
+        open={dialog === "draft"}
         onOpenChange={(v) => {
           if (!v) {
-            setShowDraftDialog(false)
+            setDialog(null)
             dismiss()
           }
         }}
@@ -706,7 +612,7 @@ export const StockAdjustmentCreatePage = () => {
             <Button
               variant="outline"
               onClick={() => {
-                setShowDraftDialog(false)
+                setDialog(null)
                 dismiss()
               }}
             >
@@ -714,7 +620,7 @@ export const StockAdjustmentCreatePage = () => {
             </Button>
             <Button
               onClick={() => {
-                setShowDraftDialog(false)
+                setDialog(null)
                 restore()
               }}
             >
@@ -724,87 +630,7 @@ export const StockAdjustmentCreatePage = () => {
         </DialogContent>
       </Dialog>
 
-      <Dialog
-        open={showConfirm}
-        onOpenChange={(v) => {
-          if (!v) setShowConfirm(false)
-        }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t("stockAdjCreate.batchConfirmTitle")}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-2 text-sm">
-            <div className="flex gap-2">
-              <span className="text-muted-foreground w-28 shrink-0">{t("stockAdjCreate.quantity")}:</span>
-              <span className="font-medium">{locationState?.mismatches?.length ?? 0} {t("stockAdjCreate.receipts")}</span>
-            </div>
-            <div className="rounded-lg border max-h-32 overflow-y-auto divide-y text-xs">
-              {locationState?.mismatches?.map((m, i) => (
-                <div key={i} className="flex items-center gap-2 px-2 py-1.5">
-                  <Badge
-                    variant={m.difference === STOCK_CHECK_DIFF.UNEXPECTED ? "default" : "destructive"}
-                    className="text-[10px]"
-                  >
-                    {m.difference}
-                  </Badge>
-                  <span className="font-mono">{m.serialNumber}</span>
-                  <span className="text-muted-foreground truncate">{m.productName}</span>
-                </div>
-              ))}
-            </div>
-            <div>
-              <span className="text-muted-foreground">{t("stockAdjCreate.reason")}:</span>
-              <Input
-                className="mt-1 h-8 text-sm"
-                {...form.register("reason")}
-                placeholder={t("stockAdjCreate.batchReasonPlaceholder")}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowConfirm(false)}>
-              {t("dialog.back")}
-            </Button>
-            <Button onClick={confirmBatch} disabled={backgroundBatch.isRunning()}>
-              {backgroundBatch.isRunning() ? t("stockAdjCreate.creating") : t("dialog.confirm")}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={showResult} onOpenChange={(v) => { if (!v) { setShowResult(false); navigate("/stock/adjustments") } }}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t("stockAdjCreate.batchResultTitle")}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-2 max-h-64 overflow-y-auto">
-            {batchResults.map((r) => (
-              <div key={r.index} className="flex items-start gap-2 rounded-lg border px-3 py-2 text-sm">
-                {r.success ? (
-                  <CheckCircle2 className="size-4 mt-0.5 text-green-600 shrink-0" />
-                ) : (
-                  <XCircle className="size-4 mt-0.5 text-destructive shrink-0" />
-                )}
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono text-xs">{r.serialNumber}</span>
-                    <span className="text-muted-foreground truncate">{r.productName}</span>
-                  </div>
-                  {!r.success && <p className="text-xs text-destructive mt-0.5">{r.error}</p>}
-                </div>
-              </div>
-            ))}
-          </div>
-          <DialogFooter>
-            <Button onClick={() => { setShowResult(false); navigate("/stock/adjustments") }}>
-              {t("stockAdjCreate.batchResultSummary", { success: batchResults.filter((r) => r.success).length, total: batchResults.length })}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={showManualConfirm} onOpenChange={(v) => { if (!v) setShowManualConfirm(false) }}>
+      <Dialog open={dialog === "manual"} onOpenChange={(v) => { if (!v) setDialog(null) }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t("stockAdjCreate.confirmTitle")}</DialogTitle>
@@ -855,7 +681,7 @@ export const StockAdjustmentCreatePage = () => {
             })()}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowManualConfirm(false)}>
+            <Button variant="outline" onClick={() => setDialog(null)}>
               {t("dialog.back")}
             </Button>
             <Button onClick={confirmManual} disabled={createMut.isPending}>

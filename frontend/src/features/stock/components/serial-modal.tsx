@@ -3,9 +3,11 @@ import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { ChipInput } from "@/components/ui/chip-input"
 import { Spinner } from "@/components/ui/spinner"
+import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { AlertTriangle, CheckCircle2, XCircle, Upload, ChevronDown, ChevronUp } from "lucide-react"
 import { toast } from "@/utils/toast"
+import type { QcRecord } from "@/utils/types"
 
 interface SerialModalProps {
   open: boolean
@@ -15,6 +17,8 @@ interface SerialModalProps {
   required: number
   serials: string[]
   onSave: (serials: string[]) => void
+  qcRecords?: QcRecord[]
+  onQcChange?: (serial: string, changes: { passed?: boolean; failReason?: string }) => void
 }
 
 const HEADER_PATTERN = /^(serial|sku|số\.serial|stt|no|s\/n)\s*$/i
@@ -42,6 +46,8 @@ export const SerialModal = ({
   required,
   serials,
   onSave,
+  qcRecords,
+  onQcChange,
 }: SerialModalProps) => {
   const { t } = useTranslation()
   const [chips, setChips] = useState<string[]>(serials)
@@ -216,6 +222,49 @@ export const SerialModal = ({
           <p className={`text-xs ${overCount ? "text-destructive" : "text-muted-foreground"}`}>
             {errorMsg}
           </p>
+        )}
+
+        {qcRecords && onQcChange && chips.length > 0 && (
+          <div className="border-t pt-2.5 space-y-1.5">
+            <p className="text-xs font-medium text-muted-foreground">{t("serialModal.qcTitle")}</p>
+            <div className="max-h-[220px] overflow-y-auto space-y-1.5 pr-1">
+              {(showAll ? chips : chips.slice(0, VISIBLE_LIMIT)).map((serial) => {
+                const rec = qcRecords.find((r) => r.serial === serial)
+                const passed = rec ? rec.passed : true
+                return (
+                  <div key={serial} className="flex items-center gap-2 text-xs">
+                    <span className="font-mono flex-1 truncate" title={serial}>
+                      {serial}
+                    </span>
+                    <Button
+                      size="sm"
+                      variant={passed ? "default" : "outline"}
+                      className="h-7 text-xs px-2.5"
+                      onClick={() => onQcChange(serial, { passed: true })}
+                    >
+                      {t("importStepQc.pass")}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={!passed ? "destructive" : "outline"}
+                      className="h-7 text-xs px-2.5"
+                      onClick={() => onQcChange(serial, { passed: false })}
+                    >
+                      {t("importStepQc.fail")}
+                    </Button>
+                    {!passed && (
+                      <Input
+                        className="h-7 w-44 text-xs"
+                        placeholder={t("importStepQc.failReasonPlaceholder")}
+                        value={rec?.failReason ?? ""}
+                        onChange={(e) => onQcChange(serial, { failReason: e.target.value })}
+                      />
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
         )}
 
         <DialogFooter className="gap-2">

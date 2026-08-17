@@ -3,6 +3,7 @@ import { AUTH_ENABLED } from "@/utils/http-client"
 import { useCallback } from "react"
 import { ROLES } from "@/utils/permissions"
 import type { URole } from "@/utils/types"
+import { ADJUSTMENT_STATUS } from "@/utils/types"
 
 export function usePermission() {
   const user = useAuthStore((s) => s.user)
@@ -17,10 +18,10 @@ export function usePermission() {
 
   const canApprove = useCallback(
     (adj?: { createdBy?: number | null; status?: string }) => {
-      if (!AUTH_ENABLED) return adj ? adj.status === "PENDING" : true
+      if (!AUTH_ENABLED) return adj ? adj.status === ADJUSTMENT_STATUS.PENDING : true
       const hasApproveRole = hasRole(...ROLES.CAN_APPROVE)
       if (!adj) return hasApproveRole
-      return hasApproveRole && adj.status === "PENDING" && adj.createdBy !== user?.id
+      return hasApproveRole && adj.status === ADJUSTMENT_STATUS.PENDING && adj.createdBy !== user?.id
     },
     [hasRole, user],
   )

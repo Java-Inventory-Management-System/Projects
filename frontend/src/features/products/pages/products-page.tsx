@@ -16,13 +16,17 @@ import { ViewProductModal } from "../components/view-product-modal"
 import { usePermission } from "@/hooks/use-permission"
 import { ROLES } from "@/utils/permissions"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
+import { TrackingTypeBadge } from "@/components/tracking-type-badge"
+import { UNIT_LABELS } from "@/utils/labels"
 
 export const ProductsPage = () => {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const brandFilter = searchParams.get("brandId") ? Number(searchParams.get("brandId")) : undefined
-  const categoryFilter = searchParams.get("categoryId") ? Number(searchParams.get("categoryId")) : undefined
+  const categoryFilter = searchParams.get("filter") === "uncategorized"
+    ? 0
+    : (searchParams.get("categoryId") ? Number(searchParams.get("categoryId")) : undefined)
 
   const [searchInput, setSearchInput] = useState(searchParams.get("q") ?? "")
   const [page, setPage] = useState(0)
@@ -74,7 +78,16 @@ export const ProductsPage = () => {
       className: "w-[120px]",
       render: (p) => <span className="text-muted-foreground">{p.categoryName}</span>,
     },
-    { header: t("productForm.unit"), className: "w-[60px]", render: (p) => <span>{p.unit}</span> },
+    {
+      header: t("productForm.unit"),
+      className: "w-[70px]",
+      render: (p) => <span>{p.unit ? t(UNIT_LABELS[p.unit] ?? p.unit) : "—"}</span>,
+    },
+    {
+      header: t("productForm.trackingType"),
+      className: "w-[110px]",
+      render: (p) => <TrackingTypeBadge type={p.trackingType} />,
+    },
     {
       header: t("productForm.sellPrice"),
       sortKey: "sellPrice",
@@ -84,7 +97,11 @@ export const ProductsPage = () => {
     {
       header: t("common.status"),
       className: "w-[70px] text-center",
-      render: (p) => <Badge variant={p.isActive ? "default" : "secondary"}>{p.isActive ? t("common.active") : t("common.inactive")}</Badge>,
+      render: (p) => (
+        <Badge variant={p.isActive ? "default" : "secondary"}>
+          {p.isActive ? t("common.active") : t("common.inactive")}
+        </Badge>
+      ),
     },
     {
       header: t("common.actions"),
@@ -118,9 +135,11 @@ export const ProductsPage = () => {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-semibold tracking-tight">{t("nav.products")}</h1>
-        <Button onClick={() => navigate("/products/new")}>
-          <Plus className="size-4 mr-1" /> {t("productsPage.addProduct")}
-        </Button>
+        {perm.hasRole(...ROLES.MANAGER) && (
+          <Button onClick={() => navigate("/products/new")}>
+            <Plus className="size-4 mr-1" /> {t("productsPage.addProduct")}
+          </Button>
+        )}
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -159,9 +178,10 @@ export const ProductsPage = () => {
           </SelectContent>
         </Select>
         <Select
-          value={categoryFilter ? String(categoryFilter) : "all"}
+          value={categoryFilter !== undefined ? String(categoryFilter) : "all"}
           onValueChange={(v) => {
             const next = new URLSearchParams(searchParams)
+            next.delete("filter")
             if (v === "all") next.delete("categoryId")
             else next.set("categoryId", v)
             setSearchParams(next)
@@ -173,6 +193,7 @@ export const ProductsPage = () => {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">{t("common.all")}</SelectItem>
+            <SelectItem value="0">{t("productsPage.uncategorized")}</SelectItem>
             {categories.map((c) => (
               <SelectItem key={c.id} value={String(c.id)}>
                 {c.name}

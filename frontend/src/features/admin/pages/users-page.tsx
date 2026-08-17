@@ -14,11 +14,23 @@ import {
 } from "@/services/user-service"
 import type { UserResponse, URole } from "@/utils/types"
 import { USER_STATUS } from "@/utils/types"
+import { USER_STATUS_VARIANT } from "@/utils/labels"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Search, Plus, RefreshCw, Shield, UserCog, KeyRound, Ban, CheckCircle } from "lucide-react"
+import { Search, Plus, RefreshCw, Shield, UserCog, KeyRound, Copy, Eye, EyeOff } from "lucide-react"
+import { ToggleActiveButton } from "@/components/toggle-active-button"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { DataTable, type Column } from "@/components/ui/data-table"
 import {
   Dialog,
@@ -33,12 +45,6 @@ import { toast } from "@/utils/toast"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 
 const roleOptions: URole[] = ["ADMIN", "MANAGER", "STOCK", "SALES"]
-
-const statusLabel: Record<string, { labelKey: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
-  [USER_STATUS.NEW]: { labelKey: "usersPage.statusNew", variant: "outline" },
-  [USER_STATUS.ACTIVE]: { labelKey: "usersPage.statusActive", variant: "default" },
-  [USER_STATUS.INACTIVE]: { labelKey: "usersPage.statusInactive", variant: "secondary" },
-}
 
 function fmt(d: string) {
   return new Date(d).toLocaleDateString("vi-VN")
@@ -81,6 +87,7 @@ export const UsersPage = () => {
   const { data: usersRes, isLoading, error: fetchError } = useQuery({
     queryKey: ["users", debouncedSearch || "paged", debouncedSearch ? 0 : page, pageSize, sortStr],
     queryFn: () => debouncedSearch ? getUsers(0, 10000, sortStr) : getUsers(page, pageSize, sortStr),
+    placeholderData: (prev) => prev,
   })
 
   const filtered = debouncedSearch
@@ -94,16 +101,17 @@ export const UsersPage = () => {
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ["users"] })
 
-  const [createOpen, setCreateOpen] = useState(false)
+  const [dialog, setDialog] = useState<"create" | "edit" | "role" | null>(null)
   const [tempPassword, setTempPassword] = useState<string | null>(null)
+  const [showTempPwd, setShowTempPwd] = useState(false)
+  const [resetPwdFor, setResetPwdFor] = useState<string | null>(null)
   const createForm = useForm({ defaultValues: { fullName: "", email: "", roleName: "STOCK", status: USER_STATUS.ACTIVE } })
 
-  const [editOpen, setEditOpen] = useState(false)
   const [editUser, setEditUser] = useState<UserResponse | null>(null)
   const editForm = useForm({ defaultValues: { fullName: "", phoneNumber: "", gender: "" } })
-  const [roleOpen, setRoleOpen] = useState(false)
   const [roleUserId, setRoleUserId] = useState<number | null>(null)
   const [roleVal, setRoleVal] = useState<string>("")
+  const [roleConfirmOpen, setRoleConfirmOpen] = useState(false)
 
   const createMut = useMutation({ mutationFn: createUser, onSuccess: invalidate })
   const updateMut = useMutation({ mutationFn: ({ id, data }: { id: number; data: import("@/services/user-service").UpdateInfoRequest }) => updateUserInfo(id, data), onSuccess: invalidate })
@@ -119,6 +127,7 @@ export const UsersPage = () => {
     try {
       const res = await createMut.mutateAsync(values)
       setTempPassword(res.tempPassword)
+      setResetPwdFor(null)
       toast.success(t('usersPage.createSuccessToast'))
     } catch (err) {
       toast.error((err as Error).message || t('usersPage.errorOccurred'))
@@ -128,7 +137,7 @@ export const UsersPage = () => {
   const openEdit = (u: UserResponse) => {
     setEditUser(u)
     editForm.reset({ fullName: u.fullName, phoneNumber: u.phoneNumber ?? "", gender: u.gender != null ? String(u.gender) : "" })
-    setEditOpen(true)
+    setDialog("edit")
   }
 
   const handleEdit = editForm.handleSubmit(async (values) => {
@@ -136,7 +145,7 @@ export const UsersPage = () => {
     try {
       await updateMut.mutateAsync({ id: editUser.id, data: { fullName: values.fullName, phoneNumber: values.phoneNumber || null, gender: values.gender ? Number(values.gender) : null } })
       toast.success(t('usersPage.updateSuccessToast'))
-      setEditOpen(false)
+      setDialog(null)
     } catch (err) {
       toast.error((err as Error).message || t('usersPage.errorOccurred'))
     }
@@ -147,7 +156,7 @@ export const UsersPage = () => {
     try {
       await roleMut.mutateAsync({ id: roleUserId, role: roleVal })
       toast.success(t('usersPage.roleChangeSuccess'))
-      setRoleOpen(false)
+      setDialog(null)
     } catch (err) {
       toast.error((err as Error).message || t('usersPage.errorOccurred'))
     }
@@ -162,10 +171,13 @@ export const UsersPage = () => {
     }
   }
 
-  const handleResetPassword = async (id: number) => {
+  const handleResetPassword = async (id: number, username: string) => {
     try {
       const pwd = await resetPwdMut.mutateAsync(id)
-      toast.success(t('usersPage.resetPwdSuccess', { password: pwd }))
+      setDialog("create")
+      setShowTempPwd(false)
+      setResetPwdFor(username)
+      setTempPassword(pwd)
     } catch (err) {
       toast.error((err as Error).message || t('usersPage.errorOccurred'))
     }
@@ -186,7 +198,7 @@ export const UsersPage = () => {
     {
       header: t('usersPage.colStatus'),
       render: (u) => {
-        const st = statusLabel[u.status] ?? { labelKey: undefined, variant: "secondary" as const }
+        const st = { labelKey: `usersPage.status${u.status.charAt(0) + u.status.slice(1).toLowerCase()}`, variant: USER_STATUS_VARIANT[u.status] }
         return <Badge variant={st.variant}>{st.labelKey ? t(st.labelKey) : u.status}</Badge>
       },
     },
@@ -194,6 +206,15 @@ export const UsersPage = () => {
       header: t('usersPage.colCreatedAt'),
       sortKey: "createdAt",
       render: (u) => <span className="text-xs text-muted-foreground">{fmt(u.createdAt)}</span>,
+    },
+    {
+      header: t('usersPage.colLastLogin'),
+      sortKey: "lastLogin",
+      render: (u) => (
+        <span className="text-xs text-muted-foreground">
+          {u.lastLogin ? new Date(u.lastLogin).toLocaleString("vi-VN") : "—"}
+        </span>
+      ),
     },
     {
       header: t('usersPage.colActions'),
@@ -216,7 +237,7 @@ export const UsersPage = () => {
                 onClick={() => {
                   setRoleUserId(u.id)
                   setRoleVal(u.role)
-                  setRoleOpen(true)
+                  setDialog("role")
                 }}
               >
                 <Shield className="size-4" />
@@ -226,24 +247,18 @@ export const UsersPage = () => {
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" onClick={() => handleResetPassword(u.id)}>
+              <Button variant="ghost" size="icon" onClick={() => handleResetPassword(u.id, u.username)}>
                 <KeyRound className="size-4" />
               </Button>
             </TooltipTrigger>
             <TooltipContent>{t('usersPage.resetPwdTooltip')}</TooltipContent>
           </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" onClick={() => handleToggleStatus(u)}>
-                {u.isDeleted ? (
-                  <CheckCircle className="size-4 text-green-600" />
-                ) : (
-                  <Ban className="size-4 text-destructive" />
-                )}
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>{u.isDeleted ? t('usersPage.activateTooltip') : t('usersPage.deactivateTooltip')}</TooltipContent>
-          </Tooltip>
+          <ToggleActiveButton
+            active={!u.isDeleted}
+            name={u.fullName ?? u.username}
+            pending={toggleStatusMut.isPending}
+            onToggle={() => handleToggleStatus(u)}
+          />
         </div>
       ),
     },
@@ -257,7 +272,7 @@ export const UsersPage = () => {
           onClick={() => {
             createForm.reset()
             setTempPassword(null)
-            setCreateOpen(true)
+            setDialog("create")
           }}
         >
           <Plus className="size-4 mr-1" /> {t('usersPage.addUser')}
@@ -308,15 +323,14 @@ export const UsersPage = () => {
       )}
 
       <Dialog
-        open={createOpen}
+        open={dialog === "create"}
         onOpenChange={(v) => {
-          setCreateOpen(v)
-          if (!v) setTempPassword(null)
+          setDialog(v ? "create" : null); if (!v) { setResetPwdFor(null); setTempPassword(null); setShowTempPwd(false) }
         }}
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{t('usersPage.createDialogTitle')}</DialogTitle>
+            <DialogTitle>{resetPwdFor ? t('usersPage.resetDialogTitle', { username: resetPwdFor }) : t('usersPage.createDialogTitle')}</DialogTitle>
             {!tempPassword && <DialogDescription>{t('usersPage.createDialogDesc')}</DialogDescription>}
           </DialogHeader>
           {tempPassword ? (
@@ -324,7 +338,30 @@ export const UsersPage = () => {
               <div className="rounded-md border border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950/20 px-4 py-3 text-sm text-green-800 dark:text-green-200">
                 <p className="font-medium">{t('usersPage.createSuccess')}</p>
                 <p className="mt-2 text-xs">{t('usersPage.passwordNote')}</p>
-                <p className="mt-1 font-mono text-lg font-bold tracking-wider select-all">{tempPassword}</p>
+                <div className="mt-1 flex items-center gap-2">
+                  <p className="flex-1 font-mono text-lg font-bold tracking-wider break-all">
+                    {showTempPwd ? tempPassword : "•".repeat(tempPassword.length)}
+                  </p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={async () => {
+                      await navigator.clipboard.writeText(tempPassword).catch(() => {})
+                      toast.success(t('usersPage.passwordCopied'))
+                    }}
+                  >
+                    <Copy className="size-3.5 mr-1" />
+                    {t('usersPage.copyPassword')}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setShowTempPwd((v) => !v)}
+                    aria-label={showTempPwd ? t('usersPage.hidePassword') : t('usersPage.showPassword')}
+                  >
+                    {showTempPwd ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                  </Button>
+                </div>
                 <p className="mt-2 text-xs text-muted-foreground">
                   {t('usersPage.passwordHint')}
                 </p>
@@ -332,7 +369,7 @@ export const UsersPage = () => {
               <DialogFooter>
                 <Button
                   onClick={() => {
-                    setCreateOpen(false)
+                    setDialog(null)
                     setTempPassword(null)
                   }}
                 >
@@ -374,7 +411,7 @@ export const UsersPage = () => {
                 </div>
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setCreateOpen(false)}>
+                <Button variant="outline" onClick={() => setDialog(null)}>
                   {t('usersPage.cancel')}
                 </Button>
                 <Button onClick={handleCreate} disabled={createMut.isPending}>
@@ -386,7 +423,7 @@ export const UsersPage = () => {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+      <Dialog open={dialog === "edit"} onOpenChange={(v) => setDialog(v ? "edit" : null)}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t('usersPage.editDialogTitle')}</DialogTitle>
@@ -424,7 +461,7 @@ export const UsersPage = () => {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditOpen(false)}>
+            <Button variant="outline" onClick={() => setDialog(null)}>
               {t('usersPage.cancel')}
             </Button>
             <Button onClick={handleEdit} disabled={updateMut.isPending}>
@@ -434,7 +471,7 @@ export const UsersPage = () => {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={roleOpen} onOpenChange={setRoleOpen}>
+      <Dialog open={dialog === "role"} onOpenChange={(v) => setDialog(v ? "role" : null)}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t('usersPage.roleDialogTitle')}</DialogTitle>
@@ -455,13 +492,32 @@ export const UsersPage = () => {
             </Select>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setRoleOpen(false)}>
+            <Button variant="outline" onClick={() => setDialog(null)}>
               {t('usersPage.cancel')}
             </Button>
-            <Button onClick={handleRoleChange}>{t('usersPage.roleSave')}</Button>
+            <Button onClick={() => setRoleConfirmOpen(true)}>{t('usersPage.roleSave')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={roleConfirmOpen} onOpenChange={setRoleConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('usersPage.roleConfirmTitle')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t('usersPage.roleConfirmDesc', {
+                name: (usersRes?.content ?? []).find((u) => u.id === roleUserId)?.fullName ?? roleUserId,
+                from: t('roleLabel.' + ((usersRes?.content ?? []).find((u) => u.id === roleUserId)?.role ?? roleVal)),
+                to: t('roleLabel.' + roleVal),
+              })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+            <AlertDialogAction onClick={handleRoleChange}>{t('usersPage.roleConfirmAction')}</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

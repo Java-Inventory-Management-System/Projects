@@ -1,14 +1,19 @@
 import { useState, useEffect, useMemo } from "react"
+import { LocationCodePopover } from "../components/location-code-popover"
 import { useParams, useNavigate } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { getExportReceiptById, fulfillExportReceipt } from "@/services/export-service"
-import { getAllSerialsForProduct } from "@/services/product-unit-service"
+import { ImageUpload } from "@/components/ui/image-upload"
+import { getAllSerialsForProduct, exportSerialsStatuses } from "@/services/product-unit-service"
+import { invalidateDashboard } from "@/hooks/use-reports"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Empty, EmptyTitle } from "@/components/ui/empty"
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
+import { Label } from "@/components/ui/label"
 import {
   Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
@@ -22,9 +27,11 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog"
 import { toast } from "@/utils/toast"
-import { EXPORT_RECEIPT_STATUS, type ProductUnit } from "@/utils/types"
+import { EXPORT_RECEIPT_STATUS, TRACKING_TYPE, type ProductUnit } from "@/utils/types"
+import { formatDateVN, formatDateTime } from "@/utils/format"
 import { useBarcodeScanner } from "@/hooks/use-barcode-scanner"
 import { ScanLine } from "lucide-react"
+import { TrackingTypeBadge } from "@/components/tracking-type-badge"
 
 export function ExportFulfillPage() {
   const { t } = useTranslation()
@@ -36,10 +43,20 @@ export function ExportFulfillPage() {
     COMPLETED: { label: t("exportStatus.completed"), variant: "default" },
     CANCELLED: { label: t("exportStatus.cancelled"), variant: "destructive" },
   }
+  const reasonLabel: Record<string, string> = {
+    SALE: t("exportReason.sale"),
+    INTERNAL: t("exportReason.internal"),
+    RETURN_SUPPLIER: t("exportReason.returnSupplier"),
+    DISPOSE: t("exportReason.dispose"),
+    WARRANTY_REPLACEMENT: t("exportReason.warrantyReplacement"),
+    OTHER: t("exportReason.other"),
+  }
   const qc = useQueryClient()
   const [confirmOpen, setConfirmOpen] = useState(false)
+  const [note, setNote] = useState("")
+  const [evidence, setEvidence] = useState("")
 
-  const [serialPicker, setSerialPicker] = useState<{ exportItemId: number; productId: number; productName: string } | null>(null)
+  const [serialPicker, setSerialPicker] = useState<{ exportItemId: number; productId: number; productName: string; quantity: number } | null>(null)
   const [allSerials, setAllSerials] = useState<ProductUnit[]>([])
   const [selectedIds, setSelectedIds] = useState<number[]>([])
   const [serialsPerItem, setSerialsPerItem] = useState<Record<number, string[]>>({})
@@ -50,6 +67,10 @@ export function ExportFulfillPage() {
   const { scanning, barcodeInput, setBarcodeInput, videoRef, stopCamera, toggleCamera } = useBarcodeScanner(
     (rawValue) => {
       if (!serialPicker) return
+      if (selectedIds.length >= serialPicker.quantity) {
+        toast.error(t("exportFulfill.serialLimitReached", { count: serialPicker.quantity }))
+        return
+      }
       const match = allSerials.find((s) => s.serialNumber === rawValue)
       if (match && !selectedIds.includes(match.id)) {
         setSelectedIds((prev) => [...prev, match.id])
@@ -64,7 +85,7 @@ export function ExportFulfillPage() {
     enabled: !!id,
   })
 
-  const isSerialized = (item: { trackingType?: string }) => item.trackingType === "SERIALIZED"
+  const isSerialized = (item: { trackingType?: string }) => item.trackingType === TRACKING_TYPE.SERIALIZED
 
   const itemsWithTracking = useMemo(() => {
     if (!receipt) return []
@@ -78,10 +99,30 @@ export function ExportFulfillPage() {
     setFulfilledQtys(initial)
   }, [receipt])
 
+  useEffect(() => {
+    if (!receipt) return
+    const toFill = receipt.items
+      .filter(isSerialized)
+      .filter((it) => !serialsPerItem[it.id]?.length)
+    if (toFill.length === 0) return
+    let cancelled = false
+    Promise.all(toFill.map((it) => getAllSerialsForProduct(it.productId, exportSerialsStatuses(receipt.reason)))).then(
+      (results) => {
+        if (cancelled) return
+        const auto: Record<number, string[]> = {}
+        results.forEach((serials, idx) => {
+          auto[toFill[idx].id] = serials.slice(0, toFill[idx].quantity).map((s) => s.serialNumber)
+        })
+        setSerialsPerItem((prev) => ({ ...auto, ...prev }))
+      },
+    )
+    return () => { cancelled = true }
+  }, [receipt, serialsPerItem])
+
   const openSerialPicker = async (item: typeof itemsWithTracking[0]) => {
-    setSerialPicker({ exportItemId: item.id, productId: item.productId, productName: item.productName })
+    setSerialPicker({ exportItemId: item.id, productId: item.productId, productName: item.productName, quantity: item.quantity })
     setSerialsLoading(true)
-    const all = await getAllSerialsForProduct(item.productId)
+    const all = await getAllSerialsForProduct(item.productId, exportSerialsStatuses(receipt?.reason))
     setAllSerials(all)
     const saved = serialsPerItem[item.id]
     if (saved?.length) {
@@ -96,7 +137,17 @@ export function ExportFulfillPage() {
   const fulfillMut = useMutation({
     mutationFn: () => {
       if (!receipt) throw new Error("No receipt")
+      if (!note.trim()) {
+        toast.error(t("exportFulfill.noteRequired"))
+        throw new Error("note-required")
+      }
+      if (!evidence) {
+        toast.error(t("exportFulfill.evidenceRequired"))
+        throw new Error("evidence-required")
+      }
       return fulfillExportReceipt(receipt.id, {
+        note,
+        evidenceImages: evidence.split(",").filter(Boolean),
         items: receipt.items.map((item) => {
           if (isSerialized(item)) {
             return { itemId: item.id, serialNumbers: serialsPerItem[item.id] ?? [] }
@@ -109,7 +160,8 @@ export function ExportFulfillPage() {
       qc.invalidateQueries({ queryKey: ["export-receipt", id] })
       qc.invalidateQueries({ queryKey: ["export-receipts"] })
       qc.invalidateQueries({ queryKey: ["inventory"] })
-      qc.invalidateQueries({ queryKey: ["inventory-summary"] })
+      invalidateDashboard(qc)
+      qc.invalidateQueries({ queryKey: ["export-pending-count"] })
       toast.success(t("exportFulfill.success"))
       navigate(`/stock/exports/${receipt!.id}`)
     },
@@ -146,8 +198,8 @@ export function ExportFulfillPage() {
       <Card>
         <CardContent className="pt-6">
           <div className="grid grid-cols-2 gap-4 text-sm">
-            <div><span className="text-muted-foreground">{t("label.reason")}</span><p className="font-medium">{receipt.reason}</p></div>
-            <div><span className="text-muted-foreground">{t("label.createdDate")}</span><p className="font-medium">{new Date(receipt.createdAt).toLocaleString("vi-VN")}</p></div>
+            <div><span className="text-muted-foreground">{t("label.reason")}</span><p className="font-medium">{reasonLabel[receipt.reason] ?? receipt.reason}</p></div>
+            <div><span className="text-muted-foreground">{t("label.createdDate")}</span><p className="font-medium">{formatDateTime(receipt.createdAt)}</p></div>
             {receipt.customerName && <div><span className="text-muted-foreground">{t("label.customer")}</span><p className="font-medium">{receipt.customerName}</p></div>}
             <div><span className="text-muted-foreground">{t("label.creator")}</span><p className="font-medium">{receipt.createdByName || "—"}</p></div>
           </div>
@@ -159,10 +211,10 @@ export function ExportFulfillPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>{t("table.product")}</TableHead>
-                <TableHead className="w-16 text-right">{t("exportFulfill.requested")}</TableHead>
-                <TableHead className="w-20 text-right">{t("exportFulfill.type")}</TableHead>
-                <TableHead className="w-24 text-right">{t("exportFulfill.actual")}</TableHead>
+                <TableHead className="w-2/5">{t("table.product")}</TableHead>
+                <TableHead className="w-24 text-right">{t("exportFulfill.requested")}</TableHead>
+                <TableHead className="w-32 text-right">{t("exportFulfill.type")}</TableHead>
+                <TableHead className="w-36 text-right">{t("exportFulfill.actual")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -174,23 +226,29 @@ export function ExportFulfillPage() {
                   </TableCell>
                   <TableCell className="text-right tabular-nums">{item.quantity}</TableCell>
                   <TableCell className="text-right">
-                    <Badge variant="outline" className="text-[10px]">
-                      {isSerialized(item) ? t("trackingType.serialized") : t("trackingType.bulk")}
-                    </Badge>
+                    <TrackingTypeBadge type={item.trackingType} />
                   </TableCell>
                   <TableCell className="text-right">
                     {isSerialized(item) ? (
-                      <Button variant="outline" size="sm" onClick={() => openSerialPicker(item)}>
-                        {serialsPerItem[item.id]?.length ? t("exportFulfill.selectedSerial", { count: serialsPerItem[item.id].length }) : t("exportFulfill.selectSerial")}
-                      </Button>
+                      <div className="flex flex-col items-end gap-1">
+                        <Button variant="outline" size="sm" onClick={() => openSerialPicker(item)}>
+                          {serialsPerItem[item.id]?.length ? t("exportFulfill.selectedSerial", { count: serialsPerItem[item.id].length }) : t("exportFulfill.selectSerial")}
+                        </Button>
+                        {serialsPerItem[item.id]?.length > 0 && (
+                          <span className="font-mono text-[11px] text-muted-foreground text-right leading-tight">
+                            {serialsPerItem[item.id].slice(0, 3).join(", ")}
+                            {serialsPerItem[item.id].length > 3 ? `… (+${serialsPerItem[item.id].length - 3})` : ""}
+                          </span>
+                        )}
+                      </div>
                     ) : (
                       <Input
                         type="number"
-                        min={0}
+                        min={1}
                         max={item.quantity}
                         className="h-8 w-20 text-right ml-auto"
                         value={fulfilledQtys[item.id] ?? item.quantity}
-                        onChange={(e) => setFulfilledQtys((prev) => ({ ...prev, [item.id]: Number(e.target.value) }))}
+                        onChange={(e) => setFulfilledQtys((prev) => ({ ...prev, [item.id]: Math.min(Number(e.target.value), item.quantity) }))}
                       />
                     )}
                   </TableCell>
@@ -201,11 +259,30 @@ export function ExportFulfillPage() {
         </CardContent>
       </Card>
 
-      {receipt.status === EXPORT_RECEIPT_STATUS.APPROVED && (
-        <div className="flex gap-2 justify-end">
-          <Button variant="outline" onClick={() => navigate("/stock/exports")}>{t("common.back")}</Button>
-          <Button onClick={() => setConfirmOpen(true)}>{t("exportFulfill.confirmFulfill")}</Button>
-        </div>
+      {(receipt.status === EXPORT_RECEIPT_STATUS.PENDING || receipt.status === EXPORT_RECEIPT_STATUS.APPROVED) && (
+        <>
+          <div className="space-y-2">
+            <Label htmlFor="fulfill-note">
+              {t("exportFulfill.note")} <span className="text-destructive">*</span>
+            </Label>
+            <Textarea
+              id="fulfill-note"
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder={t("exportFulfill.notePlaceholder")}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>
+              {t("exportFulfill.evidenceLabel")} <span className="text-destructive">*</span>
+            </Label>
+            <ImageUpload value={evidence} onChange={setEvidence} />
+          </div>
+          <div className="flex gap-2 justify-end">
+            <Button variant="outline" onClick={() => navigate("/stock/exports")}>{t("common.back")}</Button>
+            <Button onClick={() => setConfirmOpen(true)} disabled={!note.trim() || !evidence}>{t("exportFulfill.confirmFulfill")}</Button>
+          </div>
+        </>
       )}
 
       <AlertDialog open={confirmOpen} onOpenChange={(v) => { if (!v) setConfirmOpen(false) }}>
@@ -227,7 +304,14 @@ export function ExportFulfillPage() {
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>{t("exportFulfill.selectSerialTitle")}</DialogTitle>
-            <DialogDescription>{t("exportFulfill.selectSerialDescription", { productName: serialPicker?.productName ?? "" })}</DialogDescription>
+            <DialogDescription>
+              {t("exportFulfill.selectSerialDescription", { productName: serialPicker?.productName ?? "" })}
+              {serialPicker && (
+                <span className="ml-1 text-foreground font-medium">
+                  {t("exportFulfill.selectedCount", { selected: selectedIds.length, total: serialPicker.quantity })}
+                </span>
+              )}
+            </DialogDescription>
           </DialogHeader>
 
           {scanning && (
@@ -251,6 +335,11 @@ export function ExportFulfillPage() {
               onChange={(e) => setBarcodeInput(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key !== "Enter" || !barcodeInput.trim()) return
+                if (selectedIds.length >= (serialPicker?.quantity ?? 0)) {
+                  toast.error(t("exportFulfill.serialLimitReached", { count: serialPicker?.quantity }))
+                  setBarcodeInput("")
+                  return
+                }
                 const match = allSerials.find((s) => s.serialNumber === barcodeInput.trim())
                 if (match) {
                   if (!selectedIds.includes(match.id)) {
@@ -272,17 +361,18 @@ export function ExportFulfillPage() {
             <div className="max-h-[50vh] overflow-y-auto space-y-1 -mx-6 px-6">
               {allSerials.map((s) => {
                 const checked = selectedIds.includes(s.id)
+                const disabled = !checked && selectedIds.length >= (serialPicker?.quantity ?? 0)
                 return (
                   <label key={s.id} className={`flex items-center gap-3 rounded px-3 py-2 text-sm cursor-pointer transition-colors ${
-                    checked ? "bg-primary/5 ring-1 ring-primary/20" : "hover:bg-muted"
+                    checked ? "bg-primary/5 ring-1 ring-primary/20" : disabled ? "opacity-40 cursor-not-allowed" : "hover:bg-muted"
                   }`}>
-                    <input type="checkbox" checked={checked}
+                    <input type="checkbox" checked={checked} disabled={disabled}
                       onChange={() => setSelectedIds((prev) => checked ? prev.filter((id) => id !== s.id) : [...prev, s.id])}
                       className="size-4" />
                     <div className="flex-1 min-w-0">
                       <p className="font-mono text-xs font-medium truncate">{s.serialNumber}</p>
-                      <p className="text-[10px] text-muted-foreground">
-                        {s.locationCode ?? "—"} · {new Date(s.importedAt).toLocaleDateString("vi-VN")}
+                      <p className="text-xs text-muted-foreground">
+                        <LocationCodePopover code={s.locationCode} /> · {formatDateVN(s.importedAt)}
                       </p>
                     </div>
                   </label>
@@ -301,7 +391,7 @@ export function ExportFulfillPage() {
               setSerialsPerItem((prev) => ({ ...prev, [serialPicker.exportItemId]: serialNumbers }))
               setSerialPicker(null)
               stopCamera()
-            }} disabled={selectedIds.length === 0} className="w-full sm:w-auto">
+            }} disabled={selectedIds.length !== (serialPicker?.quantity ?? 0)} className="w-full sm:w-auto">
               {t("exportFulfill.confirmSerial", { count: selectedIds.length })}
             </Button>
           </DialogFooter>

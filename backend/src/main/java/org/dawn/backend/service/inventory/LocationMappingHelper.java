@@ -15,6 +15,7 @@ public interface LocationMappingHelper {
                 .description(location.getDescription())
                 .isActive(location.getIsActive())
                 .maxCapacity(location.getMaxCapacity())
+                .lastCheckedAt(location.getLastCheckedAt())
                 .createdAt(location.getCreatedAt())
                 .updatedAt(location.getUpdatedAt())
                 .build();

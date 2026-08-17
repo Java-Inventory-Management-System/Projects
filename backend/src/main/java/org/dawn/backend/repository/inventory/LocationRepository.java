@@ -1,9 +1,13 @@
 package org.dawn.backend.repository.inventory;
 
+import jakarta.persistence.LockModeType;
 import org.dawn.backend.entity.inventory.Location;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -16,4 +20,12 @@ public interface LocationRepository extends JpaRepository<Location, Long> {
     boolean existsByFullCode(String fullCode);
     List<Location> findAllByOrderByZoneCodeAscShelfCodeAscBinCodeAsc();
     List<Location> findByZoneCode(String zoneCode);
+
+    List<Location> findByZoneCodeAndShelfCodeBetween(String zoneCode, String shelfFrom, String shelfTo);
+
+    List<Location> findByZoneCodeAndShelfCodeIn(String zoneCode, java.util.Collection<String> shelfCodes);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT l FROM Location l WHERE l.id = :id")
+    Optional<Location> findByIdForUpdate(@Param("id") Long id);
 }

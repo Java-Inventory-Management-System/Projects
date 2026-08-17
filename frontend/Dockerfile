@@ -5,7 +5,7 @@ COPY package*.json ./
 RUN npm install
 COPY . .
 
-ARG VITE_BASE_API_URL
+ARG VITE_BASE_API_URL=http://localhost:8888/api/v1
 ENV VITE_BASE_API_URL=$VITE_BASE_API_URL
 
 ARG VITE_ENABLED_AUTH
@@ -20,6 +20,13 @@ RUN printf 'server {\n\
     index index.html;\n\
     location / {\n\
         try_files $uri $uri/ /index.html;\n\
+    }\n\
+    location ~* \\.(css|js|svg|woff2?|png|jpg|jpeg|webp|avif)$ {\n\
+        add_header Cache-Control "public, max-age=31536000, immutable";\n\
+        try_files $uri =404;\n\
+    }\n\
+    location = /index.html {\n\
+        add_header Cache-Control "no-store, no-cache, must-revalidate";\n\
     }\n\
 }' > /etc/nginx/conf.d/default.conf
 

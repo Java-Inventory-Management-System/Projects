@@ -10,13 +10,14 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
-import { Plus, Pencil, Power, Search } from "lucide-react"
+import { Plus, Pencil, Search } from "lucide-react"
 import { DataTable, type Column } from "@/components/ui/data-table"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { toast } from "@/utils/toast"
 import { usePermission } from "@/hooks/use-permission"
 import { ROLES } from "@/utils/permissions"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
+import { ToggleActiveButton } from "@/components/toggle-active-button"
 
 interface CustomerForm {
   name: string
@@ -98,18 +99,25 @@ export function CustomersPage() {
     { header: t("common.phone"), render: (c) => <span className="text-sm">{c.phone ?? "—"}</span> },
     { header: t("common.email"), render: (c) => <span className="text-sm">{c.email ?? "—"}</span> },
     { header: t("common.address"), render: (c) => <span className="text-sm">{c.address ?? "—"}</span> },
-    { header: t("customerPage.note"), render: (c) => <span className="text-sm text-muted-foreground">{c.note ?? "—"}</span> },
+    {
+      header: t("customerPage.note"),
+      render: (c) => <span className="text-sm text-muted-foreground">{c.note ?? "—"}</span>,
+    },
     {
       header: t("common.status"),
       className: "w-24 text-center",
-      render: (c) => <Badge variant={c.isActive ? "default" : "secondary"}>{c.isActive ? t("common.active") : t("common.inactive")}</Badge>,
+      render: (c) => (
+        <Badge variant={c.isActive ? "default" : "secondary"}>
+          {c.isActive ? t("common.active") : t("common.inactive")}
+        </Badge>
+      ),
     },
     {
       header: t("common.actions"),
       className: "w-[90px]",
       render: (c) => (
         <div className="flex gap-1">
-          {perm.hasRole(...ROLES.MANAGER) && (
+          {perm.hasRole(...ROLES.CAN_MANAGE_CATALOG) && (
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button variant="ghost" size="icon" onClick={() => openEdit(c)}>
@@ -119,15 +127,19 @@ export function CustomersPage() {
               <TooltipContent>{t("common.edit")}</TooltipContent>
             </Tooltip>
           )}
-          {perm.hasRole(...ROLES.MANAGER) && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" onClick={() => toggle.mutate(c.id)}>
-                  <Power className="size-3.5" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>{c.isActive ? t("common.deactivate") : t("common.activate")}</TooltipContent>
-            </Tooltip>
+          {perm.hasRole(...ROLES.CAN_MANAGE_CATALOG) && (
+            <ToggleActiveButton
+              active={c.isActive}
+              name={c.name}
+              pending={toggle.isPending}
+              onToggle={() => toggle.mutate(c.id)}
+              confirmTitle={c.isActive && c.exportCount ? t("customerPage.deactivateHistoryTitle") : undefined}
+              confirmDescription={
+                c.isActive && c.exportCount
+                  ? t("customerPage.deactivateHistoryConfirm", { name: c.name, count: c.exportCount })
+                  : undefined
+              }
+            />
           )}
         </div>
       ),
@@ -138,9 +150,11 @@ export function CustomersPage() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-semibold tracking-tight">{t("customerPage.heading")}</h1>
-        <Button onClick={openCreate}>
-          <Plus className="size-4 mr-1" /> {t("common.add")}
-        </Button>
+        {perm.hasRole(...ROLES.CAN_OPERATE) && (
+          <Button onClick={openCreate}>
+            <Plus className="size-4 mr-1" /> {t("common.add")}
+          </Button>
+        )}
       </div>
 
       <div className="relative max-w-sm">
@@ -151,7 +165,13 @@ export function CustomersPage() {
           value={search}
           onChange={(e) => {
             setSearch(e.target.value)
-            setSearchParams((prev) => { prev.delete("page"); return prev }, { replace: true })
+            setSearchParams(
+              (prev) => {
+                prev.delete("page")
+                return prev
+              },
+              { replace: true },
+            )
           }}
         />
       </div>
@@ -165,7 +185,15 @@ export function CustomersPage() {
         totalPages={totalPages}
         totalElements={data?.pagination?.totalElements}
         pageSize={20}
-        onPageChange={(p) => setSearchParams((prev) => { prev.set("page", String(p)); return prev }, { replace: true })}
+        onPageChange={(p) =>
+          setSearchParams(
+            (prev) => {
+              prev.set("page", String(p))
+              return prev
+            },
+            { replace: true },
+          )
+        }
       />
 
       <Dialog

@@ -7,6 +7,7 @@ public record ImportReceiptRequest(
         String receiptCode,
         Long supplierId,
         Long purchaseOrderId,
+        Long originalWarrantyExportId,
         String note,
         List<ImportItemRequest> items
 ) {
@@ -15,7 +16,9 @@ public record ImportReceiptRequest(
             BigDecimal quantity,
             BigDecimal unitPrice,
             Integer warrantyMonths,
+            String warrantyResultType,
             List<String> serialNumbers,
+            List<String> replacementSourceSerials,
             Long locationId
     ) {}
 }

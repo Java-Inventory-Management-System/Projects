@@ -24,6 +24,7 @@ CREATE TABLE locations (
     max_capacity  DECIMAL(15,2),
     warehouse_id  BIGINT,
     is_active     BOOLEAN       NOT NULL DEFAULT TRUE,
+    last_checked_at TIMESTAMP   NULL,
     created_at    TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at    TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     UNIQUE (zone_code, shelf_code, bin_code),

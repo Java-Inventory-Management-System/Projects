@@ -13,6 +13,7 @@ public record CustomerResponse(
         String address,
         String note,
         Boolean isActive,
+        long exportCount,
         Instant createdAt,
         Instant updatedAt
 ) {}

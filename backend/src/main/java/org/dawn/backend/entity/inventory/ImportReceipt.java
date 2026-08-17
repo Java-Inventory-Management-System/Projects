@@ -6,6 +6,7 @@ import lombok.experimental.SuperBuilder;
 import org.dawn.backend.entity.base.AuditableEntity;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import org.dawn.backend.constant.enums.inventory.imports.ImportReceiptStatus;
 
 @Entity
@@ -38,9 +39,28 @@ public class ImportReceipt extends AuditableEntity {
     @Column(name = "purchase_order_id")
     private Long purchaseOrderId;
 
+    @Column(name = "original_warranty_export_id")
+    private Long originalWarrantyExportId;
+
     @Column(name = "created_by", nullable = false)
     private Long createdBy;
 
     @Column(name = "approved_by")
     private Long approvedBy;
+
+    @Column(name = "reject_reason", length = 500)
+    private String rejectReason;
+
+    @Column(name = "rejected_by")
+    private Long rejectedBy;
+
+    @Column(name = "rejected_at")
+    private Instant rejectedAt;
+
+    @Column(name = "evidence_image", length = 500)
+    private String evidenceImage;
+    private String resolution;
+    private String resolutionNote;
+    private Long resolvedBy;
+    private Instant resolvedAt;
 }

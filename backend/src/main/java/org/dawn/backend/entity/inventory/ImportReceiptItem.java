@@ -26,6 +26,9 @@ public class ImportReceiptItem extends BaseEntity {
     @Column(name = "quantity", nullable = false, precision = 15, scale = 2)
     private BigDecimal quantity;
 
+    @Column(name = "received_quantity", precision = 15, scale = 2)
+    private BigDecimal receivedQuantity;
+
     @Column(name = "unit_price", precision = 15, scale = 2)
     private BigDecimal unitPrice;
 
@@ -34,4 +37,7 @@ public class ImportReceiptItem extends BaseEntity {
 
     @Column(name = "supplier_batch_no", length = 100)
     private String supplierBatchNo;
+
+    @Column(name = "warranty_result_type", length = 20)
+    private String warrantyResultType;
 }

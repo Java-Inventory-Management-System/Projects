@@ -5,9 +5,17 @@ import org.dawn.backend.config.web.response.ResponseObject;
 import org.dawn.backend.config.web.response.ResponsePage;
 import org.dawn.backend.constant.security.AuthorizationExpressions;
 import org.dawn.backend.controller.inventory.request.ReturnReceiptRequest;
+import org.dawn.backend.controller.inventory.request.WarrantyExchangeRequest;
 import org.dawn.backend.controller.inventory.response.ReturnReceiptResponse;
+import org.dawn.backend.controller.inventory.response.WarrantyExchangeInfoResponse;
+import org.dawn.backend.controller.inventory.response.WarrantyExchangeResponse;
 import org.dawn.backend.service.inventory.returns.ReturnReceiptService;
+import org.dawn.backend.service.inventory.returns.WarrantyExchangeService;
+import org.dawn.backend.service.inventory.ReceiptPrintService;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -19,14 +27,30 @@ import java.util.Map;
 public class ReturnReceiptController {
 
     private final ReturnReceiptService returnReceiptService;
+    private final WarrantyExchangeService warrantyExchangeService;
+    private final ReceiptPrintService receiptPrintService;
+
+    @GetMapping(value = "/{id}/print")
+    @PreAuthorize(AuthorizationExpressions.CAN_OPERATE)
+    public ResponseEntity<byte[]> print(@PathVariable Long id,
+            @RequestParam(defaultValue = "vi") String lang,
+            @RequestParam(defaultValue = "pdf") String format) {
+        ReceiptPrintService.PrintFile f = receiptPrintService.printReturnFile(id, lang, format);
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(f.contentType()))
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        ("excel".equalsIgnoreCase(format) ? "attachment" : "inline") + "; filename=\"" + f.filename() + "\"")
+                .body(f.bytes());
+    }
 
     @GetMapping("")
     @PreAuthorize(AuthorizationExpressions.CAN_OPERATE)
     public ResponseObject<ResponsePage<ReturnReceiptResponse>> findAll(Pageable pageable,
                                                                         @RequestParam(required = false) String status,
                                                                         @RequestParam(required = false) String reason,
-                                                                        @RequestParam(required = false) String search) {
-        return ResponseObject.success(returnReceiptService.findAll(pageable, status, reason, search));
+                                                                        @RequestParam(required = false) String search,
+                                                                        @RequestParam(required = false) Long createdBy) {
+        return ResponseObject.success(returnReceiptService.findAll(pageable, status, reason, search, createdBy));
     }
 
     @GetMapping("/{id}")
@@ -36,7 +60,7 @@ public class ReturnReceiptController {
     }
 
     @PostMapping("")
-    @PreAuthorize(AuthorizationExpressions.CAN_OPERATE)
+    @PreAuthorize(AuthorizationExpressions.CAN_CREATE_TRANSACTION)
     public ResponseObject<ReturnReceiptResponse> create(@RequestBody ReturnReceiptRequest request) {
         return ResponseObject.success(returnReceiptService.create(request));
     }
@@ -58,5 +82,25 @@ public class ReturnReceiptController {
     public ResponseObject<ReturnReceiptService.ProductUnitLookup> lookupUnit(
             @RequestParam String serial, @RequestParam Long exportReceiptId) {
         return ResponseObject.success(returnReceiptService.lookupUnitBySerial(serial, exportReceiptId));
+    }
+
+    @GetMapping("/returnable-units")
+    @PreAuthorize(AuthorizationExpressions.CAN_OPERATE)
+    public ResponseObject<ReturnReceiptService.ReturnableUnitsInfo> returnableUnits(
+            @RequestParam Long exportReceiptId) {
+        return ResponseObject.success(returnReceiptService.returnableUnits(exportReceiptId));
+    }
+
+    @GetMapping("/{id}/warranty-exchange-info")
+    @PreAuthorize(AuthorizationExpressions.CAN_OPERATE)
+    public ResponseObject<WarrantyExchangeInfoResponse> warrantyExchangeInfo(@PathVariable Long id) {
+        return ResponseObject.success(warrantyExchangeService.info(id));
+    }
+
+    @PutMapping("/{id}/warranty-exchange")
+    @PreAuthorize(AuthorizationExpressions.CONFIRM_WARRANTY_EXCHANGE)
+    public ResponseObject<WarrantyExchangeResponse> warrantyExchange(@PathVariable Long id,
+                                                                     @RequestBody WarrantyExchangeRequest request) {
+        return ResponseObject.success(warrantyExchangeService.exchange(id, request));
     }
 }

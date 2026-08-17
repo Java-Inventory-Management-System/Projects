@@ -18,6 +18,7 @@ public record ProductUnitResponse(
         Long importReceiptItemId,
         Long locationId,
         String locationCode,
+        Long boxId,
         String status,
         Instant importedAt,
         Integer warrantyMonths,

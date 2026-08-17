@@ -15,6 +15,8 @@ public interface ImportReceiptMappingHelper {
                                       String supplierName,
                                       String createdByName,
                                       String approvedByName,
+                                      String rejectedByName,
+                                      String resolvedByName,
                                       String poCode,
                                       List<ImportReceiptItem> items,
                                       Map<Long, Product> productMap,
@@ -26,6 +28,7 @@ public interface ImportReceiptMappingHelper {
                 .supplierId(receipt.getSupplierId())
                 .supplierName(supplierName)
                 .purchaseOrderId(receipt.getPurchaseOrderId())
+                .originalWarrantyExportId(receipt.getOriginalWarrantyExportId())
                 .poCode(poCode)
                 .totalAmount(receipt.getTotalAmount())
                 .status(receipt.getStatus().name())
@@ -34,6 +37,16 @@ public interface ImportReceiptMappingHelper {
                 .createdByName(createdByName)
                 .approvedBy(receipt.getApprovedBy())
                 .approvedByName(approvedByName)
+                .rejectReason(receipt.getRejectReason())
+                .rejectedBy(receipt.getRejectedBy())
+                .rejectedByName(rejectedByName)
+                .rejectedAt(receipt.getRejectedAt())
+                .evidenceImage(receipt.getEvidenceImage())
+                .resolution(receipt.getResolution())
+                .resolutionNote(receipt.getResolutionNote())
+                .resolvedBy(receipt.getResolvedBy())
+                .resolvedByName(resolvedByName)
+                .resolvedAt(receipt.getResolvedAt())
                 .items(items.stream().map(item -> {
                     Product p = productMap.get(item.getProductId());
                     return ImportItemResponse.builder()
@@ -41,9 +54,12 @@ public interface ImportReceiptMappingHelper {
                             .productId(item.getProductId())
                             .productName(p != null ? p.getName() : null)
                             .productSku(p != null ? p.getSku() : null)
+                            .trackingType(p != null ? p.getTrackingType() : null)
                             .quantity(item.getQuantity())
+                            .receivedQuantity(item.getReceivedQuantity())
                             .unitPrice(item.getUnitPrice())
                             .warrantyMonths(item.getWarrantyMonths())
+                            .warrantyResultType(item.getWarrantyResultType())
                             .createdUnits(unitCounts.getOrDefault(item.getId(), 0))
                             .productUnitIds(unitIds.getOrDefault(item.getId(), List.of()))
                             .build();

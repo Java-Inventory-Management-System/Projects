@@ -33,6 +33,12 @@ public class PurchaseOrder extends AuditableEntity {
     @Builder.Default
     private PurchaseOrderStatus status = PurchaseOrderStatus.DRAFT;
 
+    @Column(name = "invoice_code", length = 100)
+    private String invoiceCode;
+
+    @Column(name = "asn_code", length = 100)
+    private String asnCode;
+
     @Column(name = "expected_date")
     private LocalDate expectedDate;
 

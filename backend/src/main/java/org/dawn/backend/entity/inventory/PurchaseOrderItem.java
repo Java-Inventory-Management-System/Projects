@@ -29,6 +29,9 @@ public class PurchaseOrderItem extends BaseEntity {
     @Column(name = "unit_price", precision = 15, scale = 2)
     private BigDecimal unitPrice;
 
+    @Column(name = "serials", columnDefinition = "TEXT")
+    private String serials;
+
     @Column(name = "received_quantity", nullable = false, precision = 15, scale = 2)
     @Builder.Default
     private BigDecimal receivedQuantity = BigDecimal.ZERO;

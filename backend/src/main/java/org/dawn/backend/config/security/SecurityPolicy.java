@@ -1,6 +1,6 @@
 package org.dawn.backend.config.security;
+import org.dawn.backend.constant.shared.ErrorCode;
 
-import org.dawn.backend.constant.shared.Message;
 import org.dawn.backend.entity.auth.UserDetailsImpl;
 import org.dawn.backend.exception.type.InvalidRequestException;
 import org.dawn.backend.exception.type.PermissionDeniedException;
@@ -52,7 +52,7 @@ public class SecurityPolicy {
         if (!ENABLED) return true;
         UserDetailsImpl currentUser = (UserDetailsImpl) auth.getPrincipal();
         if (currentUser.getId().equals(userId)) {
-            throw new PermissionDeniedException(Message.Auth.FORBIDDEN);
+            throw new PermissionDeniedException(ErrorCode.FORBIDDEN);
         }
         return true;
     }
@@ -61,7 +61,7 @@ public class SecurityPolicy {
     public Long requireAuthenticated() {
         if (!ENABLED) return 1L;
         Long uid = SecurityUtils.getCurrentUserId();
-        if (uid == null) throw new InvalidRequestException(Message.Auth.USER_NOT_AUTHENTICATED);
+        if (uid == null) throw new InvalidRequestException(ErrorCode.USER_NOT_AUTHENTICATED);
         return uid;
     }
 
@@ -69,20 +69,20 @@ public class SecurityPolicy {
         if (!ENABLED || creatorId == null) return;
         Long currentId = SecurityUtils.getCurrentUserId();
         if (creatorId.equals(currentId))
-            throw new PermissionDeniedException(Message.Auth.FORBIDDEN);
+            throw new PermissionDeniedException(ErrorCode.FORBIDDEN);
     }
 
     public void requireOwner(Long creatorId) {
         if (!ENABLED || creatorId == null) return;
         Long currentId = SecurityUtils.getCurrentUserId();
         if (!creatorId.equals(currentId))
-            throw new PermissionDeniedException(Message.Auth.FORBIDDEN);
+            throw new PermissionDeniedException(ErrorCode.FORBIDDEN);
     }
 
     public void requireNotSelf(Long targetId) {
         if (!ENABLED || targetId == null) return;
         if (targetId.equals(SecurityUtils.getCurrentUserId()))
-            throw new InvalidRequestException(Message.User.CANNOT_UPDATE_YOURSELF);
+            throw new InvalidRequestException(ErrorCode.CANNOT_UPDATE_YOURSELF);
     }
 
     public boolean isAdminOrManager() {
@@ -94,6 +94,6 @@ public class SecurityPolicy {
     public void requireAdminOrManagerOrOwner(Long creatorId) {
         if (!ENABLED) return;
         if (!isAdminOrManager() && !creatorId.equals(SecurityUtils.getCurrentUserId()))
-            throw new PermissionDeniedException(Message.Auth.FORBIDDEN);
+            throw new PermissionDeniedException(ErrorCode.FORBIDDEN);
     }
 }

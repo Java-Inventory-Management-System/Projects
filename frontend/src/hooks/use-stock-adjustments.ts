@@ -6,6 +6,7 @@ export function useStockAdjustments(page = 0, size = 20, sort?: string, type?: s
     queryKey: ["stock-adjustments", page, size, sort, type, status],
     queryFn: () => getStockAdjustments(page, size, sort, type, status),
     placeholderData: (prev) => prev,
+    staleTime: 60_000,
   })
 }
 
@@ -14,5 +15,6 @@ export function useMyStockAdjustments(page = 0, size = 20, sort?: string, type?:
     queryKey: ["my-stock-adjustments", page, size, sort, type, status],
     queryFn: () => getMyStockAdjustments(page, size, sort, type, status),
     placeholderData: (prev) => prev,
+    staleTime: 60_000,
   })
 }

@@ -20,6 +20,7 @@ export function useProducts(
     queryKey: ["products", page, size, sort, search, brandId, categoryId],
     queryFn: () => getProducts(page, size, sort, search, brandId, categoryId),
     placeholderData: (prev) => prev,
+    staleTime: 60_000,
   })
 }
 

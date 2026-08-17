@@ -13,12 +13,18 @@ import org.dawn.backend.config.web.response.ResponsePage;
 import org.dawn.backend.constant.security.AuthorizationExpressions;
 import org.dawn.backend.controller.inventory.request.ConfirmImportRequest;
 import org.dawn.backend.controller.inventory.request.ImportReceiptRequest;
+import org.dawn.backend.controller.inventory.response.BoxableImportResponse;
 import org.dawn.backend.controller.inventory.response.ImportReceiptResponse;
+import org.dawn.backend.controller.inventory.response.ProductUnitHistoryResponse;
 import org.dawn.backend.controller.inventory.response.ProductUnitResponse;
 import org.dawn.backend.service.inventory.imports.ImportConfirmationService;
 import org.dawn.backend.service.inventory.imports.ImportReceiptService;
 import org.dawn.backend.service.inventory.imports.ImportWorkflowService;
 import org.dawn.backend.service.inventory.ProductUnitService;
+import org.dawn.backend.service.inventory.ReceiptPrintService;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 
 @RestController
 @RequestMapping
@@ -29,11 +35,31 @@ public class ImportReceiptController {
     private final ImportConfirmationService importConfirmationService;
     private final ImportWorkflowService importWorkflowService;
     private final ProductUnitService productUnitService;
+    private final ReceiptPrintService receiptPrintService;
+
+    @GetMapping(value = "/import-receipt/{id}/print")
+    @PreAuthorize(AuthorizationExpressions.CAN_VIEW_INVENTORY)
+    public ResponseEntity<byte[]> print(@PathVariable Long id,
+            @RequestParam(defaultValue = "vi") String lang,
+            @RequestParam(defaultValue = "pdf") String format) {
+        ReceiptPrintService.PrintFile f = receiptPrintService.printImportFile(id, lang, format);
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(f.contentType()))
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        ("excel".equalsIgnoreCase(format) ? "attachment" : "inline") + "; filename=\"" + f.filename() + "\"")
+                .body(f.bytes());
+    }
 
     @GetMapping("/import-receipt")
     @PreAuthorize(AuthorizationExpressions.CAN_VIEW_INVENTORY)
-    public ResponseObject<ResponsePage<ImportReceiptResponse>> getAll(Pageable pageable, @RequestParam(required = false) String status) {
-        return ResponseObject.success(importReceiptService.findAll(pageable, status));
+    public ResponseObject<ResponsePage<ImportReceiptResponse>> getAll(Pageable pageable, @RequestParam(required = false) String status, @RequestParam(required = false, defaultValue = "false") boolean unresolved) {
+        return ResponseObject.success(importReceiptService.findAll(pageable, status, unresolved));
+    }
+
+    @GetMapping("/import-receipt/boxable")
+    @PreAuthorize(AuthorizationExpressions.CAN_VIEW_INVENTORY)
+    public ResponseObject<List<BoxableImportResponse>> getBoxable() {
+        return ResponseObject.success(importReceiptService.getBoxableImports());
     }
 
     @GetMapping("/import-receipt/{id}")
@@ -45,6 +71,9 @@ public class ImportReceiptController {
     @PostMapping("/import-receipt")
     @PreAuthorize(AuthorizationExpressions.CAN_OPERATE_STOCK)
     public ResponseObject<ImportReceiptResponse> create(@RequestBody ImportReceiptRequest request) {
+        if (request.originalWarrantyExportId() != null) {
+            return ResponseObject.created(importConfirmationService.createAndConfirm(request));
+        }
         return ResponseObject.created(importReceiptService.create(request));
     }
 
@@ -54,14 +83,22 @@ public class ImportReceiptController {
         return ResponseObject.success(importConfirmationService.confirm(id, request));
     }
 
-    @PutMapping("/import-receipt/{id}/approve")
-    @PreAuthorize(AuthorizationExpressions.CAN_APPROVE)
-    public ResponseObject<ImportReceiptResponse> approve(@PathVariable Long id) {
-        return ResponseObject.success(importWorkflowService.approve(id));
+    @PutMapping("/import-receipt/{id}/reject")
+    @PreAuthorize(AuthorizationExpressions.CAN_OPERATE_STOCK)
+    public ResponseObject<ImportReceiptResponse> reject(@PathVariable Long id,
+                                                       @RequestBody org.dawn.backend.controller.inventory.request.RejectImportRequest request) {
+        return ResponseObject.success(importWorkflowService.reject(id, request.reason(), request.evidenceImageUrl()));
+    }
+
+    @PutMapping("/import-receipt/{id}/resolve")
+    @PreAuthorize(AuthorizationExpressions.CAN_OPERATE_STOCK)
+    public ResponseObject<ImportReceiptResponse> resolve(@PathVariable Long id,
+                                                       @RequestBody org.dawn.backend.controller.inventory.request.ResolveImportRequest request) {
+        return ResponseObject.success(importWorkflowService.resolve(id, request.resolution(), request.note()));
     }
 
     @PutMapping("/import-receipt/{id}/cancel")
-    @PreAuthorize(AuthorizationExpressions.CAN_APPROVE)
+    @PreAuthorize(AuthorizationExpressions.CAN_OPERATE_STOCK)
     public ResponseObject<ImportReceiptResponse> cancel(@PathVariable Long id) {
         return ResponseObject.success(importWorkflowService.cancel(id));
     }
@@ -73,15 +110,25 @@ public class ImportReceiptController {
     }
 
     @GetMapping("/product-unit")
-    @PreAuthorize(AuthorizationExpressions.CAN_OPERATE)
-    public ResponseObject<ResponsePage<ProductUnitResponse>> getProductUnits(Pageable pageable) {
-        return ResponseObject.success(productUnitService.findAll(pageable));
+@PreAuthorize(AuthorizationExpressions.CAN_OPERATE)
+public ResponseObject<ResponsePage<ProductUnitResponse>> getProductUnits(
+        Pageable pageable,
+        @RequestParam(required = false) String search,
+        @RequestParam(required = false) String status,
+        @RequestParam(required = false) Long productId) {
+return ResponseObject.success(productUnitService.findFiltered(search, status, productId, pageable));
     }
 
     @GetMapping("/product-unit/{id}")
     @PreAuthorize(AuthorizationExpressions.CAN_OPERATE)
     public ResponseObject<ProductUnitResponse> getProductUnit(@PathVariable Long id) {
         return ResponseObject.success(productUnitService.findOne(id));
+    }
+
+    @GetMapping("/product-unit/{id}/history")
+    @PreAuthorize(AuthorizationExpressions.CAN_VIEW_INVENTORY)
+    public ResponseObject<ProductUnitHistoryResponse> getProductUnitHistory(@PathVariable Long id) {
+        return ResponseObject.success(productUnitService.findHistory(id));
     }
 
     @GetMapping("/product-unit/status/{status}")

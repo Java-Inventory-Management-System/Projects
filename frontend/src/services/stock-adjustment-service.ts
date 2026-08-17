@@ -68,3 +68,8 @@ export async function rejectStockAdjustment(id: number, approvalNote?: string): 
   const res = await http.put(`/stock-adjustment/${id}/reject`, { approvalNote })
   return mapStockAdjustment(res)
 }
+
+export async function cancelStockAdjustment(id: number): Promise<StockAdjustment> {
+  const res = await http.put(`/stock-adjustment/${id}/cancel`)
+  return mapStockAdjustment(res)
+}

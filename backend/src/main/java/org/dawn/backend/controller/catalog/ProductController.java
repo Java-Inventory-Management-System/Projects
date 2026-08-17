@@ -20,8 +20,12 @@ public class ProductController {
 
     @GetMapping("")
     @PreAuthorize(AuthorizationExpressions.CAN_OPERATE)
-    public ResponseObject<ResponsePage<ProductResponse>> getAll(Pageable pageable) {
-        return ResponseObject.success(productService.findAll(pageable));
+    public ResponseObject<ResponsePage<ProductResponse>> getAll(
+            Pageable pageable,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) Long brandId,
+            @RequestParam(required = false) Long categoryId) {
+        return ResponseObject.success(productService.findAll(pageable, search, brandId, categoryId));
     }
 
     @GetMapping("/{id}")

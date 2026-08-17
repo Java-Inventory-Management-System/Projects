@@ -2,13 +2,15 @@ import { useState } from "react"
 import { useParams, useNavigate } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { getExportReceiptById, approveExportReceipt, cancelExportReceipt } from "@/services/export-service"
+import { getExportReceiptById, cancelExportReceipt } from "@/services/export-service"
 import { usePermission } from "@/hooks/use-permission"
+import { invalidateDashboard } from "@/hooks/use-reports"
+import { ROLES } from "@/utils/permissions"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Empty, EmptyTitle } from "@/components/ui/empty"
-import { Check, X } from "lucide-react"
+import { X } from "lucide-react"
 import {
   Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
@@ -20,6 +22,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { toast } from "@/utils/toast"
 import { downloadCsv } from "@/utils/download-csv"
+import { formatMoney, formatDateTime } from "@/utils/format"
 import { PrintReceiptButton } from "../components/print-receipt"
 import { FileDown } from "lucide-react"
 import { EXPORT_RECEIPT_STATUS } from "@/utils/types"
@@ -40,10 +43,18 @@ export function ExportDetailPage() {
     RETURN_SUPPLIER: t("exportReason.returnSupplier"),
     DISPOSE: t("exportReason.dispose"),
     WARRANTY_REPLACEMENT: t("exportReason.warrantyReplacement"),
+    OTHER: t("exportReason.other"),
+  }
+  const historyStatusLabel: Record<string, string> = {
+    NEW: t("exportStatus.new"),
+    PENDING: t("exportStatus.pending"),
+    APPROVED: t("exportStatus.approved"),
+    COMPLETED: t("exportStatus.completed"),
+    CANCELLED: t("exportStatus.cancelled"),
   }
   const qc = useQueryClient()
   const perm = usePermission()
-  const [confirmAction, setConfirmAction] = useState<"approve" | "cancel" | null>(null)
+  const [confirmCancel, setConfirmCancel] = useState(false)
 
   const { data: receipt, isLoading } = useQuery({
     queryKey: ["export-receipt", id],
@@ -52,20 +63,17 @@ export function ExportDetailPage() {
   })
 
   const action = useMutation({
-    mutationFn: async (action: "approve" | "cancel") => {
-      if (action === "approve") return approveExportReceipt(Number(id))
-      return cancelExportReceipt(Number(id))
-    },
+    mutationFn: () => cancelExportReceipt(Number(id)),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["export-receipt", id] })
       qc.invalidateQueries({ queryKey: ["export-receipts"] })
       qc.invalidateQueries({ queryKey: ["inventory"] })
-      qc.invalidateQueries({ queryKey: ["inventory-summary"] })
-      qc.invalidateQueries({ queryKey: ["low-stock"] })
+      invalidateDashboard(qc)
+      qc.invalidateQueries({ queryKey: ["export-pending-count"] })
       toast.success(t("exportDetail.actionSuccess"))
-      setConfirmAction(null)
+      setConfirmCancel(false)
     },
-    onError: (e: Error) => { toast.error(e.message); setConfirmAction(null) },
+    onError: (e: Error) => { toast.error(e.message); setConfirmCancel(false) },
   })
 
   if (isLoading) return (
@@ -84,8 +92,8 @@ export function ExportDetailPage() {
       [t("table.product"), t("table.sku"), t("table.quantity"), t("table.unitPrice"), t("table.total")],
       receipt.items.map((item) => [
         item.productName, item.productSku ?? "", String(item.quantity),
-        (item.unitPrice ?? 0).toLocaleString("vi-VN"),
-        ((item.quantity ?? 0) * (item.unitPrice ?? 0)).toLocaleString("vi-VN"),
+        formatMoney(item.unitPrice ?? 0),
+        formatMoney((item.quantity ?? 0) * (item.unitPrice ?? 0)),
       ]),
     )
   }
@@ -106,36 +114,21 @@ export function ExportDetailPage() {
           <Badge variant={s.variant}>{s.label}</Badge>
         </div>
         <div className="flex items-center gap-2">
-          {receipt.status === EXPORT_RECEIPT_STATUS.PENDING && (/* perm.hasRole("MANAGER", "ADMIN") && */
+          {(receipt.status === EXPORT_RECEIPT_STATUS.PENDING || receipt.status === EXPORT_RECEIPT_STATUS.APPROVED) && (
             <>
-              <Button variant="outline" className="text-destructive" onClick={() => setConfirmAction("cancel")}>
-                <X className="size-4 mr-1" /> {t("exportDetail.cancelReceipt")}
-              </Button>
-              <Button onClick={() => setConfirmAction("approve")}>
-                <Check className="size-4 mr-1" /> {t("exportDetail.approve")}
-              </Button>
+              {perm.hasRole(...ROLES.CAN_APPROVE) && receipt.createdBy !== perm.user?.id && (
+                <Button variant="outline" className="text-destructive" onClick={() => setConfirmCancel(true)}>
+                  <X className="size-4 mr-1" /> {t("exportDetail.cancelReceipt")}
+                </Button>
+              )}
+              {perm.hasRole("STOCK", "MANAGER") && receipt.createdBy !== perm.user?.id && (
+                <Button onClick={() => navigate(`/stock/exports/${receipt.id}/fulfill`)}>
+                  {t("exportDetail.fulfill")}
+                </Button>
+              )}
             </>
           )}
-          {receipt.status === EXPORT_RECEIPT_STATUS.APPROVED && (/* perm.hasRole("STOCK", "MANAGER", "ADMIN") && */
-            <Button onClick={() => navigate(`/stock/exports/${receipt.id}/fulfill`)}>
-              {t("exportDetail.fulfill")}
-            </Button>
-          )}
-          {perm.hasRole("MANAGER", "ADMIN") && receipt.status !== EXPORT_RECEIPT_STATUS.CANCELLED && receipt.status !== EXPORT_RECEIPT_STATUS.PENDING && receipt.status !== EXPORT_RECEIPT_STATUS.COMPLETED && (
-            <Button variant="outline" className="text-destructive" onClick={() => setConfirmAction("cancel")}>
-              <X className="size-4 mr-1" /> {t("exportDetail.cancelReceipt")}
-            </Button>
-          )}
-          <PrintReceiptButton
-            receipt={{
-              code: receipt.receiptCode, type: "export", status: receipt.status,
-              createdAt: receipt.createdAt, createdByName: receipt.createdByName ?? "",
-              approvedByName: receipt.approvedByName, note: receipt.note,
-              totalAmount: receipt.totalAmount,
-              items: receipt.items.map((item) => ({ ...item, productSku: item.productSku ?? "" })),
-            }}
-            type="export"
-          />
+          <PrintReceiptButton id={receipt.id} type="export" />
           <Button variant="outline" size="sm" className="gap-1.5" onClick={handleDownloadInvoice}>
             <FileDown className="size-4" /> CSV
           </Button>
@@ -146,15 +139,13 @@ export function ExportDetailPage() {
         <CardContent className="pt-6">
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div><span className="text-muted-foreground">{t("label.reason")}</span><p className="font-medium">{reasonLabel[receipt.reason] ?? receipt.reason}</p></div>
-            <div><span className="text-muted-foreground">{t("label.createdDate")}</span><p className="font-medium">{new Date(receipt.createdAt).toLocaleString("vi-VN")}</p></div>
+            <div><span className="text-muted-foreground">{t("label.createdDate")}</span><p className="font-medium">{formatDateTime(receipt.createdAt)}</p></div>
             {receipt.customerName && <div><span className="text-muted-foreground">{t("label.customer")}</span><p className="font-medium">{receipt.customerName}</p></div>}
             {receipt.externalReference && <div><span className="text-muted-foreground">{t("label.warrantyCode")}</span><p className="font-medium font-mono text-xs">{receipt.externalReference}</p></div>}
             <div><span className="text-muted-foreground">{t("label.creator")}</span><p className="font-medium">{receipt.createdByName || "—"}</p></div>
-            <div><span className="text-muted-foreground">{t("label.approver")}</span><p className="font-medium">{receipt.approvedByName ?? "—"}</p></div>
+            {receipt.approvedByName && <div><span className="text-muted-foreground">{t("label.approver")}</span><p className="font-medium">{receipt.approvedByName}</p></div>}
             {receipt.fulfilledByName && <div><span className="text-muted-foreground">{t("label.exporter")}</span><p className="font-medium">{receipt.fulfilledByName}</p></div>}
-            {receipt.fulfilledAt && <div><span className="text-muted-foreground">{t("label.exportDate")}</span><p className="font-medium">{new Date(receipt.fulfilledAt).toLocaleString("vi-VN")}</p></div>}
-            {receipt.rejectedByName && <div><span className="text-muted-foreground">{t("label.rejector")}</span><p className="font-medium">{receipt.rejectedByName}</p></div>}
-            {receipt.rejectReason && <div><span className="text-muted-foreground">{t("label.rejectReason")}</span><p className="font-medium">{receipt.rejectReason}</p></div>}
+            {receipt.fulfilledAt && <div><span className="text-muted-foreground">{t("label.exportDate")}</span><p className="font-medium">{formatDateTime(receipt.fulfilledAt)}</p></div>}
           </div>
         </CardContent>
       </Card>
@@ -166,12 +157,24 @@ export function ExportDetailPage() {
         </div>
       )}
 
+      {receipt.evidenceImages.length > 0 && (
+        <div className="space-y-2">
+          <span className="text-xs font-medium text-muted-foreground tracking-wide">{t("exportDetail.evidence")}</span>
+          <div className="flex flex-wrap gap-2">
+            {receipt.evidenceImages.map((url, idx) => (
+              <img key={idx} src={url} alt={t("exportDetail.evidence")} className="max-h-48 rounded-md border object-contain" />
+            ))}
+          </div>
+        </div>
+      )}
+
       <Card>
         <CardContent className="p-0">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>{t("table.product")}</TableHead>
+                <TableHead>{t("table.serial")}</TableHead>
                 <TableHead className="w-16 text-right">{t("table.qty")}</TableHead>
                 <TableHead className="w-24 text-right">{t("table.unitPrice")}</TableHead>
                 <TableHead className="w-24 text-right">{t("table.total")}</TableHead>
@@ -184,9 +187,14 @@ export function ExportDetailPage() {
                     <span className="font-medium">{item.productName}</span>
                     <span className="text-xs text-muted-foreground ml-2">{item.productSku}</span>
                   </TableCell>
+                  <TableCell>
+                    <span className="font-mono text-xs break-all">
+                      {item.serialNumbers?.length ? item.serialNumbers.join(", ") : "—"}
+                    </span>
+                  </TableCell>
                   <TableCell className="text-right tabular-nums">{item.quantity}</TableCell>
-                  <TableCell className="text-right tabular-nums">{(item.unitPrice ?? 0).toLocaleString("vi-VN")}₫</TableCell>
-                  <TableCell className="text-right tabular-nums">{((item.quantity ?? 0) * (item.unitPrice ?? 0)).toLocaleString("vi-VN")}₫</TableCell>
+                  <TableCell className="text-right tabular-nums">{formatMoney(item.unitPrice ?? 0)}</TableCell>
+                  <TableCell className="text-right tabular-nums">{formatMoney((item.quantity ?? 0) * (item.unitPrice ?? 0))}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -194,21 +202,48 @@ export function ExportDetailPage() {
         </CardContent>
       </Card>
 
-      <div className="flex justify-end"><span className="text-lg font-semibold">{t("exportDetail.total")}: {(receipt.totalAmount ?? 0).toLocaleString("vi-VN")}₫</span></div>
+      <div className="flex justify-end"><span className="text-lg font-semibold">{t("exportDetail.total")}: {formatMoney(receipt.totalAmount ?? 0)}</span></div>
 
-      <AlertDialog open={!!confirmAction} onOpenChange={(v) => { if (!v) setConfirmAction(null) }}>
+      {receipt.statusHistory?.length > 0 && (
+        <Card>
+          <CardContent className="pt-6">
+            <h2 className="text-sm font-semibold mb-4">{t("exportDetail.timeline")}</h2>
+            <ol className="space-y-3">
+              {receipt.statusHistory.map((h, idx) => (
+                <li key={idx} className="flex items-start gap-3 text-sm">
+                  <span className="mt-1.5 size-2 shrink-0 rounded-full bg-primary" />
+                  <div>
+                    <p className="font-medium">
+                      <Badge variant="outline" className="mr-1.5">
+                        {historyStatusLabel[h.fromStatus] ?? h.fromStatus}
+                      </Badge>
+                      &rarr;
+                      <Badge variant="outline" className="ml-1.5">
+                        {historyStatusLabel[h.toStatus] ?? h.toStatus}
+                      </Badge>
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {h.changedByName ? `${h.changedByName} · ` : ""}{formatDateTime(h.createdAt)}
+                    </p>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </CardContent>
+        </Card>
+      )}
+
+      <AlertDialog open={confirmCancel} onOpenChange={(v) => { if (!v) setConfirmCancel(false) }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{confirmAction === "approve" ? t("exportDetail.approveConfirmTitle") : t("exportDetail.cancelConfirmTitle")}</AlertDialogTitle>
+            <AlertDialogTitle>{t("exportDetail.cancelConfirmTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
-              {confirmAction === "approve"
-                ? t("exportDetail.approveConfirmDescription")
-                : t("exportDetail.cancelConfirmDescription")}
+              {t("exportDetail.cancelConfirmDescription")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>{t("dialog.no")}</AlertDialogCancel>
-            <AlertDialogAction onClick={() => confirmAction && action.mutate(confirmAction)} disabled={action.isPending}>
+            <AlertDialogAction onClick={() => { setConfirmCancel(false); action.mutate() }} disabled={action.isPending}>
               {action.isPending ? t("dialog.processing") : t("dialog.confirm")}
             </AlertDialogAction>
           </AlertDialogFooter>

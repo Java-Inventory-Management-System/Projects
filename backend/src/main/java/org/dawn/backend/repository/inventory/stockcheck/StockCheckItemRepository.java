@@ -10,6 +10,8 @@ import java.util.List;
 public interface StockCheckItemRepository extends JpaRepository<StockCheckItem, Long> {
     List<StockCheckItem> findByStockCheckId(Long stockCheckId);
 
+    List<StockCheckItem> findByStockCheckIdIn(List<Long> stockCheckIds);
+
     List<StockCheckItem> findByStockCheckIdInAndProductUnitId(List<Long> stockCheckIds, Long productUnitId);
 
     void deleteByStockCheckId(Long stockCheckId);

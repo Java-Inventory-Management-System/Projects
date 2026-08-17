@@ -153,7 +153,7 @@ function DataTableInner<T>({
               </TableRow>
             ) : (
               (data ?? []).map((item, i) => (
-                <TableRow key={rowKey?.(item) ?? (item as Record<string, unknown>).id ?? i} style={{ contentVisibility: "auto" } as React.CSSProperties}>
+                <TableRow key={rowKey?.(item) ?? (item as { id?: React.Key }).id ?? i} style={{ contentVisibility: "auto" } as React.CSSProperties}>
                   {columns.map((c, j) => (
                     <TableCell key={j} className={c.className}>
                       {c.render(item)}

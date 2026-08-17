@@ -16,7 +16,7 @@ export default defineConfig({
     environment: "jsdom",
     setupFiles: "./src/__tests__/setup.ts",
     css: true,
-    exclude: ["src/__tests__/*.integration.test.ts", "node_modules/**", ".opencode/**"],
+    exclude: ["src/__tests__/*.integration.test.ts", "e2e/**", "node_modules/**", ".opencode/**"],
     coverage: {
       include: ["src/services/**", "src/utils/mappers.ts", "src/utils/http-client.ts"],
     },

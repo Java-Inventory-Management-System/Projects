@@ -13,7 +13,8 @@ import org.dawn.backend.constant.enums.inventory.ProductUnitStatus;
 @Table(name = "product_units", indexes = {
         @Index(name = "idx_product_unit_status", columnList = "status"),
         @Index(name = "idx_product_unit_serial", columnList = "serial_number"),
-        @Index(name = "idx_product_unit_imported_at", columnList = "imported_at")
+        @Index(name = "idx_product_unit_imported_at", columnList = "imported_at"),
+        @Index(name = "idx_product_unit_box", columnList = "box_id")
 })
 @Data
 @NoArgsConstructor
@@ -43,6 +44,9 @@ public class ProductUnit extends AuditableEntity {
 
     @Column(name = "location_id")
     private Long locationId;
+
+    @Column(name = "box_id")
+    private Long boxId;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)

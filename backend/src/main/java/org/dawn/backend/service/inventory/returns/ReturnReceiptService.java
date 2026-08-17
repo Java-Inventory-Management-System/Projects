@@ -1,4 +1,5 @@
 package org.dawn.backend.service.inventory.returns;
+import org.dawn.backend.constant.shared.ErrorCode;
 
 import org.dawn.backend.shared.statemachine.StateMachine;
 import lombok.RequiredArgsConstructor;
@@ -9,12 +10,13 @@ import org.dawn.backend.constant.enums.inventory.adjustments.*;
 import org.dawn.backend.constant.enums.inventory.exports.*;
 import org.dawn.backend.constant.enums.inventory.imports.*;
 import org.dawn.backend.constant.enums.inventory.returns.*;
-import org.dawn.backend.constant.enums.inventory.stockcheck.*;
+
 
 import org.dawn.backend.constant.enums.inventory.*;
 import org.dawn.backend.constant.shared.LogConstant;
-import org.dawn.backend.constant.shared.Message;
+import org.dawn.backend.constant.shared.QcProcessingLocations;
 import org.dawn.backend.controller.inventory.request.ReturnReceiptRequest;
+import org.dawn.backend.controller.inventory.request.ReturnReceiptRequest.ReturnItemRequest;
 import org.dawn.backend.controller.inventory.response.ReturnReceiptResponse;
 import org.dawn.backend.entity.auth.User;
 import org.dawn.backend.entity.catalog.Product;
@@ -26,16 +28,19 @@ import org.dawn.backend.repository.catalog.ProductRepository;
 import org.dawn.backend.repository.inventory.CustomerRepository;
 import org.dawn.backend.repository.inventory.ProductUnitRepository;
 import org.dawn.backend.repository.inventory.ProductUnitStatusLogRepository;
+import org.dawn.backend.repository.inventory.exports.ExportReceiptItemRepository;
 import org.dawn.backend.repository.inventory.exports.ExportReceiptItemUnitRepository;
 import org.dawn.backend.repository.inventory.exports.ExportReceiptRepository;
 import org.dawn.backend.repository.inventory.returns.ReturnReceiptItemRepository;
 import org.dawn.backend.repository.inventory.returns.ReturnReceiptRepository;
 import org.dawn.backend.shared.util.ReceiptCodeGenerator;
 import org.dawn.backend.config.security.SecurityPolicy;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
@@ -56,24 +61,39 @@ public class ReturnReceiptService {
     private final UserRepository userRepository;
     private final ProductRepository productRepository;
     private final ExportReceiptItemUnitRepository exportReceiptItemUnitRepository;
+    private final ExportReceiptItemRepository exportReceiptItemRepository;
+    private final org.dawn.backend.repository.catalog.DefectCategoryRepository defectCategoryRepository;
+    private final org.dawn.backend.repository.inventory.LocationRepository locationRepository;
     private final StateMachine<ReturnReceiptStatus> returnReceiptStateMachine;
     private final SecurityPolicy securityPolicy;
+    private final org.dawn.backend.service.shared.LockGuard lockGuard;
+
+    private static final String RETURN_STAGING_LOCATION_FULL_CODE = QcProcessingLocations.QC_SHELF_1_NEW_RETURNS;
+    private static final String WARRANTY_HOLD_LOCATION_FULL_CODE = QcProcessingLocations.QC_SHELF_2_WAIT_RMA;
 
     @Transactional(readOnly = true)
     public ResponsePage<ReturnReceiptResponse> findAll(Pageable pageable,
-                                                        String status,
-                                                        String reason,
-                                                        String search) {
+                                                       String status,
+                                                       String reason,
+                                                       String search,
+                                                       Long createdBy) {
         ReturnReceiptStatus st = safeParseStatus(status);
-        var page = st != null && reason != null
-                ? returnReceiptRepository.findByStatusAndReason(st, reason, pageable)
-                : st != null
-                    ? returnReceiptRepository.findByStatus(st, pageable)
-                    : reason != null
-                        ? returnReceiptRepository.findByReason(reason, pageable)
-                        : search != null && !search.isBlank()
-                            ? returnReceiptRepository.findByReceiptCodeContainingIgnoreCase(search, pageable)
-                            : returnReceiptRepository.findAll(pageable);
+        Page<ReturnReceipt> page;
+        if (createdBy != null) {
+            page = st != null
+                    ? returnReceiptRepository.findByStatusAndCreatedBy(st, createdBy, pageable)
+                    : returnReceiptRepository.findByCreatedBy(createdBy, pageable);
+        } else if (st != null && reason != null) {
+            page = returnReceiptRepository.findByStatusAndReason(st, reason, pageable);
+        } else if (st != null) {
+            page = returnReceiptRepository.findByStatus(st, pageable);
+        } else if (reason != null) {
+            page = returnReceiptRepository.findByReason(reason, pageable);
+        } else if (search != null && !search.isBlank()) {
+            page = returnReceiptRepository.findByReceiptCodeContainingIgnoreCase(search, pageable);
+        } else {
+            page = returnReceiptRepository.findAll(pageable);
+        }
         var receipts = page.getContent();
         var customerMap = fetchCustomerMap(receipts);
         var userMap = fetchUserMap(receipts);
@@ -93,7 +113,7 @@ public class ReturnReceiptService {
     @Transactional(readOnly = true)
     public ReturnReceiptResponse findOne(Long id) {
         var receipt = returnReceiptRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.RETURN_RECEIPT_NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.RETURN_RECEIPT_NOT_FOUND));
         return enrich(receipt);
     }
 
@@ -103,42 +123,74 @@ public class ReturnReceiptService {
         Long userId = securityPolicy.requireAuthenticated();
 
         if (request.items() == null || request.items().isEmpty()) {
-            throw new InvalidRequestException(Message.Inventory.RETURN_ITEMS_REQUIRED);
+            throw new InvalidRequestException(ErrorCode.RETURN_ITEMS_REQUIRED);
         }
         if (request.reason() == null || request.reason().isBlank()) {
-            throw new InvalidRequestException(Message.Inventory.RETURN_REASON_REQUIRED);
+            throw new InvalidRequestException(ErrorCode.RETURN_REASON_REQUIRED);
         }
         if (request.originalExportReceiptId() == null) {
-            throw new InvalidRequestException(Message.Inventory.RETURN_EXPORT_REQUIRED);
+            throw new InvalidRequestException(ErrorCode.RETURN_EXPORT_REQUIRED);
         }
         if (request.customerId() == null) {
-            throw new InvalidRequestException(Message.Inventory.RETURN_CUSTOMER_REQUIRED);
+            throw new InvalidRequestException(ErrorCode.RETURN_CUSTOMER_REQUIRED);
         }
 
-        String reason = request.reason().toUpperCase();
+        ReturnReason reason;
         try {
-            ReturnReason.valueOf(reason);
+            reason = ReturnReason.valueOf(request.reason().toUpperCase());
         } catch (IllegalArgumentException e) {
-            throw new InvalidRequestException(Message.format(Message.Inventory.RETURN_INVALID_REASON, request.reason()));
+            throw new InvalidRequestException(ErrorCode.RETURN_INVALID_REASON.format( request.reason()));
         }
 
         var exportReceipt = exportReceiptRepository.findById(request.originalExportReceiptId())
-                .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.EXPORT_RECEIPT_NOT_FOUND));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.EXPORT_RECEIPT_NOT_FOUND));
         if (!exportReceipt.getCustomerId().equals(request.customerId())) {
-            throw new InvalidRequestException(Message.Inventory.RETURN_EXPORT_NOT_BELONG_TO_CUSTOMER);
+            throw new InvalidRequestException(ErrorCode.RETURN_EXPORT_NOT_BELONG_TO_CUSTOMER);
         }
-        if ("CHANGE_MIND".equals(reason) && exportReceipt.getCreatedAt() != null
+        if (reason == ReturnReason.CHANGE_MIND && exportReceipt.getCreatedAt() != null
                 && exportReceipt.getCreatedAt().plus(7, ChronoUnit.DAYS).isBefore(Instant.now())) {
-            throw new InvalidRequestException(Message.Inventory.RETURN_7_DAY_LIMIT);
+            throw new InvalidRequestException(ErrorCode.RETURN_7_DAY_LIMIT);
         }
 
         String receiptCode = ReceiptCodeGenerator.generate("RET-", returnReceiptRepository::existsByReceiptCode);
+
+        var exportUnitIds = exportReceiptItemUnitRepository.findProductUnitIdsByReceiptId(request.originalExportReceiptId());
+
+        var unitIds = request.items().stream()
+                .map(ReturnReceiptRequest.ReturnItemRequest::productUnitId)
+                .filter(Objects::nonNull).filter(id -> id > 0).toList();
+        // Lock the involved units first so two concurrent return requests for the
+        // same unit cannot both pass the duplicate check below (see gap 6.4).
+        if (!unitIds.isEmpty()) {
+            productUnitRepository.findByIdsForUpdate(unitIds);
+        }
+        if (!unitIds.isEmpty()
+                && returnReceiptItemRepository.existsByProductUnitIdsInNonCancelledReceipts(unitIds, ReturnReceiptStatus.CANCELLED)) {
+            throw new InvalidRequestException(ErrorCode.RETURN_UNIT_ALREADY_RETURNED);
+        }
+        for (var itemReq : request.items()) {
+            if (itemReq.productUnitId() == null && itemReq.productId() != null
+                    && returnReceiptItemRepository.existsBulkByExportAndProductInNonCancelled(
+                            request.originalExportReceiptId(), itemReq.productId(), ReturnReceiptStatus.CANCELLED)) {
+                throw new InvalidRequestException(ErrorCode.RETURN_UNIT_ALREADY_RETURNED);
+            }
+        }
+
+        lockGuard.assertProductsActive(request.items().stream()
+                .map(ReturnItemRequest::productId).filter(Objects::nonNull).toList());
+
+        boolean hasSerial = request.items().stream()
+                .anyMatch(i -> i.productUnitId() != null && i.productUnitId() > 0);
+        boolean hasBulk = request.items().stream().anyMatch(i -> i.productUnitId() == null);
+        if (hasSerial && hasBulk) {
+            throw new InvalidRequestException(ErrorCode.RETURN_MIXED_ITEM_TYPES);
+        }
 
         ReturnReceipt receipt = ReturnReceipt.builder()
                 .receiptCode(receiptCode)
                 .customerId(request.customerId())
                 .originalExportReceiptId(request.originalExportReceiptId())
-                .reason(reason)
+                .reason(reason.name())
                 .status(ReturnReceiptStatus.PENDING_APPROVAL)
                 .note(request.note())
                 .createdBy(userId)
@@ -147,32 +199,81 @@ public class ReturnReceiptService {
         Long receiptId = receipt.getId();
 
         for (var itemReq : request.items()) {
-            String condition = itemReq.condition().toUpperCase();
+            ReturnCondition condition;
             try {
-                ReturnCondition.valueOf(condition);
+                condition = ReturnCondition.valueOf(itemReq.condition().toUpperCase());
             } catch (IllegalArgumentException e) {
-                throw new InvalidRequestException(Message.format(Message.Inventory.RETURN_INVALID_CONDITION, itemReq.condition()));
+                throw new InvalidRequestException(ErrorCode.RETURN_INVALID_CONDITION.format( itemReq.condition()));
             }
 
-            String action = itemReq.resultingAction().toUpperCase();
+            ResultingAction action;
             try {
-                ResultingAction.valueOf(action);
+                action = ResultingAction.valueOf(itemReq.resultingAction().toUpperCase());
             } catch (IllegalArgumentException e) {
-                throw new InvalidRequestException(Message.format(Message.Inventory.RETURN_INVALID_ACTION, itemReq.resultingAction()));
+                throw new InvalidRequestException(ErrorCode.RETURN_INVALID_ACTION.format( itemReq.resultingAction()));
             }
 
-            boolean good = "GOOD".equals(condition);
-            if (good && !"RESTOCK".equals(action)
-                    || !good && "RESTOCK".equals(action)) {
+            if (condition == ReturnCondition.DEFECTIVE
+                    && (itemReq.description() == null || itemReq.description().isBlank()
+                        || itemReq.evidenceImage() == null || itemReq.evidenceImage().isBlank())) {
+                throw new InvalidRequestException(ErrorCode.RETURN_EVIDENCE_REQUIRED);
+            }
+
+            if (condition == ReturnCondition.DEFECTIVE && itemReq.defectCategoryId() == null) {
+                throw new InvalidRequestException(ErrorCode.DEFECT_CATEGORY_REQUIRED_FOR_DEFECTIVE);
+            }
+            if (itemReq.defectCategoryId() != null
+                    && !defectCategoryRepository.existsById(itemReq.defectCategoryId())) {
+                throw new ResourceNotFoundException(ErrorCode.DEFECT_CATEGORY_NOT_FOUND);
+            }
+
+            boolean good = condition == ReturnCondition.GOOD;
+            if (good && action != ResultingAction.RESTOCK
+                    || !good && action == ResultingAction.RESTOCK) {
                 throw new InvalidRequestException(
-                    Message.format(Message.Inventory.RETURN_CONDITION_ACTION_MISMATCH, condition, action));
+                    ErrorCode.RETURN_CONDITION_ACTION_MISMATCH.format( condition, action));
+            }
+
+            if (itemReq.productUnitId() == null && action == ResultingAction.WARRANTY_TRANSFER) {
+                throw new InvalidRequestException(ErrorCode.WARRANTY_BULK_NOT_ALLOWED);
+            }
+
+            if (itemReq.productUnitId() == null
+                    && (itemReq.quantity() == null
+                        || itemReq.quantity().compareTo(java.math.BigDecimal.ZERO) <= 0)) {
+                throw new InvalidRequestException(ErrorCode.INVALID_QUANTITY.format( itemReq.quantity()));
             }
 
             if (itemReq.productUnitId() != null && itemReq.productUnitId() > 0) {
                 var pu = productUnitRepository.findById(itemReq.productUnitId())
-                        .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.PRODUCT_UNIT_NOT_FOUND));
+                        .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.PRODUCT_UNIT_NOT_FOUND));
                 if (ProductUnitStatus.EXPORTED != pu.getStatus()) {
-                    throw new InvalidRequestException(Message.Inventory.RETURN_UNIT_NOT_SOLD);
+                    throw new InvalidRequestException(ErrorCode.RETURN_UNIT_NOT_SOLD);
+                }
+                if (!exportUnitIds.contains(pu.getId())) {
+                    throw new InvalidRequestException(ErrorCode.RETURN_UNIT_NOT_IN_EXPORT);
+                }
+            }
+
+            Long capProductId = itemReq.productUnitId() != null && itemReq.productUnitId() > 0
+                    ? itemReq.productId() != null ? itemReq.productId()
+                            : productUnitRepository.findById(itemReq.productUnitId())
+                                    .map(ProductUnit::getProductId).orElse(null)
+                    : itemReq.productId();
+            if (capProductId != null) {
+                BigDecimal soldQty = exportReceiptItemRepository
+                        .sumQuantityByReceiptAndProduct(request.originalExportReceiptId(), capProductId);
+                BigDecimal returnedQty = returnReceiptItemRepository
+                        .sumBulkReturnedQtyByExportAndProduct(
+                                request.originalExportReceiptId(), capProductId, ReturnReceiptStatus.CANCELLED)
+                        .add(BigDecimal.valueOf(returnReceiptItemRepository
+                                .countSerialReturnedByExportAndProduct(
+                                        request.originalExportReceiptId(), capProductId, ReturnReceiptStatus.CANCELLED)));
+                BigDecimal newQty = itemReq.productUnitId() != null && itemReq.productUnitId() > 0
+                        ? BigDecimal.ONE : itemReq.quantity();
+                if (soldQty == null || returnedQty.add(newQty).compareTo(soldQty) > 0) {
+                    throw new InvalidRequestException(ErrorCode.RETURN_EXCEEDS_SOLD.format(
+                            soldQty == null ? BigDecimal.ZERO : soldQty, returnedQty));
                 }
             }
 
@@ -181,8 +282,11 @@ public class ReturnReceiptService {
                     .productUnitId(itemReq.productUnitId())
                     .productId(itemReq.productId())
                     .quantity(itemReq.quantity())
-                    .condition(condition)
-                    .resultingAction(action)
+                    .condition(condition.name())
+                    .resultingAction(action.name())
+                    .description(itemReq.description())
+                    .evidenceImage(itemReq.evidenceImage())
+                    .defectCategoryId(itemReq.defectCategoryId())
                     .build());
         }
 
@@ -211,6 +315,68 @@ public class ReturnReceiptService {
                 productName, productSku, pu.getSerialNumber(), pu.getStatus().name());
     }
 
+    @Transactional(readOnly = true)
+    public ReturnableUnitsInfo returnableUnits(Long exportReceiptId) {
+        exportReceiptRepository.findById(exportReceiptId)
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.EXPORT_RECEIPT_NOT_FOUND));
+        var exportUnitIds = exportReceiptItemUnitRepository.findProductUnitIdsByReceiptId(exportReceiptId);
+        Set<Long> heldUnitIds = exportUnitIds.isEmpty() ? Set.of()
+                : new HashSet<>(returnReceiptItemRepository
+                        .findHeldUnitIdsInNonCancelledReceipts(ReturnReceiptStatus.CANCELLED));
+        var units = exportUnitIds.isEmpty() ? List.<ProductUnit>of()
+                : productUnitRepository.findAllById(exportUnitIds).stream()
+                        .filter(u -> ProductUnitStatus.EXPORTED == u.getStatus())
+                        .toList();
+
+        var soldByProduct = exportReceiptItemRepository
+                .sumQuantityByReceiptGroupByProduct(exportReceiptId).stream()
+                .collect(Collectors.toMap(row -> (Long) row[0], row -> (BigDecimal) row[1]));
+        var productIds = new HashSet<Long>(units.stream().map(ProductUnit::getProductId).toList());
+        productIds.addAll(soldByProduct.keySet());
+        var products = productIds.isEmpty() ? Map.<Long, Product>of()
+                : productRepository.findAllById(productIds).stream()
+                        .collect(Collectors.toMap(Product::getId, Function.identity()));
+
+        List<ReturnableUnit> unitList = units.stream()
+                .map(u -> {
+                    Product p = products.get(u.getProductId());
+                    return new ReturnableUnit(u.getId(), u.getSerialNumber(), u.getProductId(),
+                            p != null ? p.getName() : null, p != null ? p.getSku() : null,
+                            heldUnitIds.contains(u.getId()), u.getWarrantyExpiresAt());
+                })
+                .toList();
+
+        List<BulkSummary> bulkList = soldByProduct.entrySet().stream()
+                .map(e -> {
+                    Long pid = e.getKey();
+                    BigDecimal sold = e.getValue();
+                    BigDecimal returned = returnReceiptItemRepository
+                            .sumBulkReturnedQtyByExportAndProduct(
+                                    exportReceiptId, pid, ReturnReceiptStatus.CANCELLED)
+                            .add(java.math.BigDecimal.valueOf(returnReceiptItemRepository
+                                    .countSerialReturnedByExportAndProduct(
+                                            exportReceiptId, pid, ReturnReceiptStatus.CANCELLED)));
+                    Product p = products.get(pid);
+                    return new BulkSummary(pid,
+                            p != null ? p.getName() : null, p != null ? p.getSku() : null,
+                            p != null ? p.getTrackingType() : null,
+                            sold, returned, sold.subtract(returned));
+                })
+                .sorted(Comparator.comparing(BulkSummary::productName,
+                        Comparator.nullsLast(String::compareTo)))
+                .toList();
+        return new ReturnableUnitsInfo(unitList, bulkList);
+    }
+
+    public record ReturnableUnitsInfo(List<ReturnableUnit> units, List<BulkSummary> bulkSummary) {}
+
+    public record ReturnableUnit(Long unitId, String serialNumber, Long productId,
+                                 String productName, String productSku, boolean held,
+                                 java.time.Instant warrantyExpiresAt) {}
+
+    public record BulkSummary(Long productId, String productName, String productSku, String trackingType,
+                              BigDecimal soldQty, BigDecimal returnedQty, BigDecimal remainingQty) {}
+
     public record ProductUnitLookup(
             boolean found, boolean inExport, Long productUnitId, Long productId,
             String productName, String productSku, String serialNumber, String status) {}
@@ -219,30 +385,42 @@ public class ReturnReceiptService {
     @AuditLog(action = LogConstant.Action.APPROVE_RETURN, entity = LogConstant.Entity.RETURN_RECEIPT)
     public ReturnReceiptResponse approve(Long id) {
         Long userId = securityPolicy.requireAuthenticated();
-        var receipt = returnReceiptRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.RETURN_RECEIPT_NOT_FOUND));
+        var receipt = returnReceiptRepository.findByIdForUpdate(id)
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.RETURN_RECEIPT_NOT_FOUND));
 
         securityPolicy.requireNotCreator(receipt.getCreatedBy());
         returnReceiptStateMachine.validate(receipt.getStatus(), ReturnReceiptStatus.COMPLETED);
 
         var items = returnReceiptItemRepository.findByReturnReceiptId(receipt.getId());
         for (var item : items) {
-            if (item.getProductUnitId() == null) continue;
+            if (item.getProductUnitId() == null) {
+                processBulkUnit(receipt.getId(), userId, item);
+                continue;
+            }
             var pu = productUnitRepository.findByIdForUpdate(item.getProductUnitId())
-                    .orElse(null);
-            if (pu == null) continue;
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            ErrorCode.PRODUCT_UNIT_NOT_FOUND, item.getProductUnitId()));
+            if (ProductUnitStatus.EXPORTED != pu.getStatus()) {
+                throw new InvalidRequestException(
+                        ErrorCode.RETURN_UNIT_NOT_SOLD.format(pu.getStatus()));
+            }
 
             ProductUnitStatus oldStatus = pu.getStatus();
-            String action = item.getResultingAction();
+            ResultingAction action = ResultingAction.valueOf(item.getResultingAction());
 
-            if (ResultingAction.REJECT.name().equals(action)) {
-                continue;
-            } else if (ResultingAction.RESTOCK.name().equals(action)) {
-                pu.setStatus(ProductUnitStatus.RETURNED);
-            } else if (ResultingAction.SCRAP.name().equals(action)) {
-                pu.setStatus(ProductUnitStatus.DISPOSED);
-            } else if (ResultingAction.WARRANTY_TRANSFER.name().equals(action)) {
-                pu.setStatus(ProductUnitStatus.DEFECTIVE);
+            switch (action) {
+                case REJECT, SCRAP -> {
+                    pu.setStatus(ProductUnitStatus.PENDING_DISPOSAL);
+                    assignLocationIfExists(pu, QcProcessingLocations.QC_SHELF_4_DEAD);
+                }
+                case RESTOCK -> {
+                    pu.setStatus(ProductUnitStatus.RETURN_QC_HOLD);
+                    assignLocationIfExists(pu, QcProcessingLocations.QC_SHELF_1_NEW_RETURNS);
+                }
+                case WARRANTY_TRANSFER -> {
+                    pu.setStatus(ProductUnitStatus.WAITING_RMA_EXPORT);
+                    assignLocationIfExists(pu, QcProcessingLocations.QC_SHELF_2_WAIT_RMA);
+                }
             }
 
             productUnitRepository.save(pu);
@@ -264,11 +442,69 @@ public class ReturnReceiptService {
         return enrich(receipt);
     }
 
+    private void processBulkUnit(Long receiptId, Long userId, ReturnReceiptItem item) {
+        if (item.getProductId() == null
+                || item.getQuantity() == null
+                || item.getQuantity().compareTo(java.math.BigDecimal.ZERO) <= 0) {
+            throw new InvalidRequestException(ErrorCode.INVALID_QUANTITY.format( item.getQuantity()));
+        }
+        var product = productRepository.findById(item.getProductId())
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.PRODUCT_NOT_FOUND));
+
+        ProductUnitStatus targetStatus;
+        String targetLocation;
+        ResultingAction action = ResultingAction.valueOf(item.getResultingAction());
+        switch (action) {
+            case RESTOCK -> {
+                targetStatus = ProductUnitStatus.RETURN_QC_HOLD;
+                targetLocation = QcProcessingLocations.QC_SHELF_1_NEW_RETURNS;
+            }
+            case WARRANTY_TRANSFER -> {
+                targetStatus = ProductUnitStatus.WAITING_RMA_EXPORT;
+                targetLocation = QcProcessingLocations.QC_SHELF_2_WAIT_RMA;
+            }
+            default -> {
+                targetStatus = ProductUnitStatus.PENDING_DISPOSAL;
+                targetLocation = QcProcessingLocations.QC_SHELF_4_DEAD;
+            }
+        }
+
+        ProductUnit unit = ProductUnit.builder()
+                .productId(item.getProductId())
+                .trackingType(product.getTrackingType())
+                .initialQuantity(item.getQuantity())
+                .remainingQuantity(item.getQuantity())
+                .locationId(resolveLocationId(targetLocation))
+                .status(targetStatus)
+                .importedAt(Instant.now())
+                .build();
+        unit = productUnitRepository.save(unit);
+
+        statusLogRepository.save(ProductUnitStatusLog.builder()
+                .productUnitId(unit.getId())
+                .fromStatus(null)
+                .toStatus(targetStatus.name())
+                .sourceType(SourceType.RETURN_RECEIPT.name())
+                .sourceId(receiptId)
+                .changedBy(userId)
+                .build());
+    }
+
+    private void assignLocationIfExists(ProductUnit pu, String fullCode) {
+        Long locationId = resolveLocationId(fullCode);
+        if (locationId != null) {
+            pu.setLocationId(locationId);
+        }
+    }
+
+    private Long resolveLocationId(String fullCode) {
+        return locationRepository.findByFullCode(fullCode).map(Location::getId).orElse(null);
+    }
+
     @Transactional
     @AuditLog(action = LogConstant.Action.CANCEL_RETURN, entity = LogConstant.Entity.RETURN_RECEIPT)
-    public ReturnReceiptResponse cancel(Long id) {
-        var receipt = returnReceiptRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException(Message.Inventory.RETURN_RECEIPT_NOT_FOUND));
+    public ReturnReceiptResponse cancel(Long id) {        var receipt = returnReceiptRepository.findByIdForUpdate(id)
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.RETURN_RECEIPT_NOT_FOUND));
 
         returnReceiptStateMachine.validate(receipt.getStatus(), ReturnReceiptStatus.CANCELLED);
 
@@ -330,7 +566,7 @@ public class ReturnReceiptService {
     private ReturnReceiptStatus safeParseStatus(String value) {
         if (value == null || value.isBlank()) return null;
         try { return ReturnReceiptStatus.valueOf(value.toUpperCase()); }
-        catch (IllegalArgumentException e) { return null; }
+        catch (IllegalArgumentException e) { throw new InvalidRequestException(ErrorCode.INVALID_STATUS.format(value)); }
     }
 
     private ReturnReceiptResponse enrich(ReturnReceipt receipt) {

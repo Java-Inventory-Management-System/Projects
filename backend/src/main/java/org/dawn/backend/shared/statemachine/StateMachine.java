@@ -1,6 +1,6 @@
 package org.dawn.backend.shared.statemachine;
+import org.dawn.backend.constant.shared.ErrorCode;
 
-import org.dawn.backend.constant.shared.Message;
 import org.dawn.backend.exception.type.InvalidRequestException;
 
 import java.util.Arrays;
@@ -24,6 +24,6 @@ public class StateMachine<S extends Enum<S>> {
     public void validate(S from, S to) {
         var allowed = transitions.getOrDefault(from, Set.of());
         if (!allowed.contains(to))
-            throw new InvalidRequestException(Message.format(Message.Common.INVALID_STATE_TRANSITION, from, to));
+            throw new InvalidRequestException(ErrorCode.INVALID_STATE_TRANSITION, from, to);
     }
 }

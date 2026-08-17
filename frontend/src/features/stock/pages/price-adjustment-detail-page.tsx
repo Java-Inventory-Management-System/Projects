@@ -15,7 +15,6 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Empty, EmptyTitle, EmptyDescription } from "@/components/ui/empty"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Check, X, Ban, Info } from "lucide-react"
 import {
@@ -45,6 +44,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { toast } from "@/utils/toast"
 import { useTranslation } from "react-i18next"
+import { PriceHistoryPanel } from "@/features/stock/components/price-history-panel"
 
 export function PriceAdjustmentDetailPage() {
   const { t } = useTranslation()
@@ -56,7 +56,6 @@ export function PriceAdjustmentDetailPage() {
   const [approvalNote, setApprovalNote] = useState("")
   const [rejectReason, setRejectReason] = useState("")
   const [showConflictDialog, setShowConflictDialog] = useState(false)
-  const [currentPrice, setCurrentPrice] = useState(0)
 
   const { data: adj, isLoading, isError } = useQuery({
     queryKey: ["price-adjustment", id],
@@ -74,6 +73,8 @@ export function PriceAdjustmentDetailPage() {
       qc.invalidateQueries({ queryKey: ["price-adjustment", id] })
       qc.invalidateQueries({ queryKey: ["price-adjustments"] })
       qc.invalidateQueries({ queryKey: ["my-price-adjustments"] })
+      qc.invalidateQueries({ queryKey: ["price-adjustment-history"] })
+      qc.invalidateQueries({ queryKey: ["work-queue"] })
       const msg = actionType.action === "approve" ? t("priceAdjDetail.approveSuccess", { code: adj?.adjustCode }) : t("priceAdjDetail.rejectSuccess", { code: adj?.adjustCode })
       toast.success(msg)
       setConfirmAction(null)
@@ -85,7 +86,6 @@ export function PriceAdjustmentDetailPage() {
       if (err.code === 'PRICE_ADJ_PRICE_CHANGED') {
         setConfirmAction(null)
         setShowConflictDialog(true)
-        setCurrentPrice(Number(err.message?.match(/[\d,]+/)?.[0] ?? 0))
       } else {
         toast.error(err.message || "")
         setConfirmAction(null)
@@ -99,6 +99,8 @@ export function PriceAdjustmentDetailPage() {
       qc.invalidateQueries({ queryKey: ["price-adjustment", id] })
       qc.invalidateQueries({ queryKey: ["price-adjustments"] })
       qc.invalidateQueries({ queryKey: ["my-price-adjustments"] })
+      qc.invalidateQueries({ queryKey: ["price-adjustment-history"] })
+      qc.invalidateQueries({ queryKey: ["work-queue"] })
       toast.success(t("priceAdjDetail.cancelSuccess", { code: adj?.adjustCode }))
       setConfirmAction(null)
     },
@@ -133,7 +135,7 @@ export function PriceAdjustmentDetailPage() {
         <EmptyDescription>
           {t("priceAdjDetail.notFoundDesc")}
         </EmptyDescription>
-        <Button variant="outline" className="mt-4" onClick={() => navigate("/stock/price-adjustments")}>
+        <Button variant="outline" className="mt-4" onClick={() => navigate("/stock/ops/price-adjustments")}>
           {t("priceAdjDetail.backToList")}
         </Button>
       </Empty>
@@ -143,18 +145,18 @@ export function PriceAdjustmentDetailPage() {
   const isManagerAdmin = perm.canApprove()
   const isOwn = adj.createdBy === perm.user?.id
   const canApprove = perm.canApprove(adj)
-  const canCancel = !isManagerAdmin && isOwn && adj.status === ADJUSTMENT_STATUS.PENDING
+  const canCancel = isOwn && adj.status === ADJUSTMENT_STATUS.PENDING
   const showSelfBlock = !canApprove && isManagerAdmin && isOwn && adj.status === ADJUSTMENT_STATUS.PENDING
   const priceDiff = adj.newPrice - adj.oldPrice
   const priceDiffPct = adj.oldPrice > 0 ? ((priceDiff / adj.oldPrice) * 100).toFixed(1) : "0.0"
 
   return (
     <TooltipProvider>
-    <div className="mx-auto max-w-2xl space-y-6">
+    <div className="mx-auto max-w-6xl space-y-6">
       <Breadcrumb>
         <BreadcrumbList>
           <BreadcrumbItem>
-            <BreadcrumbLink onClick={() => navigate("/stock/price-adjustments")}>{t("priceAdjDetail.breadcrumb")}</BreadcrumbLink>
+            <BreadcrumbLink onClick={() => navigate("/stock/ops/price-adjustments")}>{t("priceAdjDetail.breadcrumb")}</BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator />
           <BreadcrumbItem>
@@ -220,14 +222,16 @@ export function PriceAdjustmentDetailPage() {
       </div>
 
       {showSelfBlock && (
-        <Alert variant="default" className="border-blue-200 bg-blue-50">
-          <Info className="size-4 text-blue-600" />
-          <AlertDescription className="text-blue-800 text-sm">
+        <Alert variant="default" className="border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/20">
+          <Info className="size-4 text-blue-600 dark:text-blue-400" />
+          <AlertDescription className="text-blue-800 text-sm dark:text-blue-300">
             {t("priceAdjDetail.selfBlockAlert")}
           </AlertDescription>
         </Alert>
       )}
 
+      <div className="grid gap-6 items-start lg:grid-cols-[1fr_380px]">
+      <div className="space-y-6">
       <Card>
         <CardContent className="pt-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
@@ -267,6 +271,14 @@ export function PriceAdjustmentDetailPage() {
                 <p className="font-medium">{adj.approvedByName}</p>
               </div>
             )}
+            {adj.approvedAt && (
+              <div>
+                <span className="text-muted-foreground">{t("label.approvedDate")}</span>
+                <p className="font-medium">
+                  {new Date(adj.approvedAt).toLocaleString("vi-VN")}
+                </p>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -290,6 +302,12 @@ export function PriceAdjustmentDetailPage() {
           </CardContent>
         </Card>
       )}
+      </div>
+
+      <aside className="lg:sticky lg:top-20">
+        <PriceHistoryPanel productId={adj.productId} productName={adj.productName} />
+      </aside>
+      </div>
 
       {/* Approve Dialog */}
       <AlertDialog
@@ -314,7 +332,7 @@ export function PriceAdjustmentDetailPage() {
           <AlertDialogFooter>
             <AlertDialogCancel>{t("dialog.no")}</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => action.mutate({ action: "approve" })}
+              onClick={() => { setConfirmAction(null); action.mutate({ action: "approve" }) }}
               disabled={action.isPending}
             >
               {action.isPending ? t("dialog.processing") : t("dialog.approve")}
@@ -353,7 +371,7 @@ export function PriceAdjustmentDetailPage() {
           <AlertDialogFooter>
             <AlertDialogCancel>{t("dialog.no")}</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => action.mutate({ action: "reject", reason: rejectReason.trim() })}
+              onClick={() => { setConfirmAction(null); action.mutate({ action: "reject", reason: rejectReason.trim() }) }}
               disabled={action.isPending || rejectReason.trim().length < 5}
             >
               {action.isPending ? t("dialog.processing") : t("priceAdjDetail.rejectConfirm")}
@@ -378,7 +396,7 @@ export function PriceAdjustmentDetailPage() {
           <AlertDialogFooter>
             <AlertDialogCancel>{t("dialog.no")}</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => cancelMutation.mutate()}
+              onClick={() => { setConfirmAction(null); cancelMutation.mutate() }}
               disabled={cancelMutation.isPending}
             >
               {cancelMutation.isPending ? t("priceAdjDetail.cancelProcessing") : t("priceAdjDetail.cancelConfirm")}
@@ -390,19 +408,13 @@ export function PriceAdjustmentDetailPage() {
       {/* Conflict Dialog */}
       <AlertDialog
         open={showConflictDialog}
-        onOpenChange={(v) => { if (!v) {
-          setShowConflictDialog(false)
-          rejectPriceAdjustment(Number(id), t("priceAdjDetail.autoRejectReason")).catch(() => {})
-        }}}
+        onOpenChange={(v) => { if (!v) setShowConflictDialog(false) }}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
         <AlertDialogTitle>{t("priceAdjDetail.conflictTitle")}</AlertDialogTitle>
         <AlertDialogDescription>
           {t("priceAdjDetail.conflictDesc")}
-          {currentPrice > 0 && (
-            <> {t("priceAdjDetail.conflictCurrentPrice")} <span className="font-semibold">{(currentPrice).toLocaleString("vi-VN")}₫</span></>
-          )}
           <br />
           {t("priceAdjDetail.conflictNote")}
             </AlertDialogDescription>

@@ -20,13 +20,13 @@ public class CategoryController {
     private final CategoryService categoryService;
 
     @GetMapping("")
-    @PreAuthorize(AuthorizationExpressions.CAN_VIEW_INVENTORY)
+    @PreAuthorize(AuthorizationExpressions.CAN_OPERATE)
     public ResponseObject<ResponsePage<CategoryResponse>> getAll(Pageable pageable) {
         return ResponseObject.success(categoryService.findAll(pageable));
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize(AuthorizationExpressions.CAN_VIEW_INVENTORY)
+    @PreAuthorize(AuthorizationExpressions.CAN_OPERATE)
     public ResponseObject<CategoryResponse> getOne(@PathVariable Long id) {
         return ResponseObject.success(categoryService.findOne(id));
     }

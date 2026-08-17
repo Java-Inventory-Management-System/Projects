@@ -1,18 +1,22 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from "react"
+import { useState, useCallback, useMemo, useEffect } from "react"
 import { useTranslation } from "react-i18next"
 import { useNavigate, useParams } from "react-router-dom"
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
 import {
-  getStockCheckById,
   recordStockCheckItems,
   completeStockCheck,
-  startStockCheck,
-  approveStockCheck,
-  rejectStockCheck,
+  reopenStockCheck,
+  cancelStockCheck,
+  addExtraStockCheckItem,
+  getStockCheckPrintFile,
 } from "@/services/stock-check-service"
+import { useStockCheck, useStartStockCheck } from "@/hooks/use-stock-checks"
+import { toKey, STOCK_CHECK_STATUS_VARIANT } from "@/utils/labels"
 import { usePermission } from "@/hooks/use-permission"
+import { invalidateDashboard } from "@/hooks/use-reports"
 import { ROLES } from "@/utils/permissions"
-import { STOCK_CHECK_STATUS, STOCK_CHECK_DIFF, PRODUCT_UNIT_STATUS, type StockCheckItem, type DifferenceType } from "@/utils/types"
+import { AUTH_ENABLED } from "@/utils/http-client"
+import { STOCK_CHECK_STATUS, STOCK_CHECK_DIFF, PRODUCT_UNIT_STATUS, TRACKING_TYPE, UNVERIFIED_STATUS, type StockCheckItem } from "@/utils/types"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -26,13 +30,18 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
 import { Empty, EmptyTitle } from "@/components/ui/empty"
-import { AlertCircle, CheckCircle2, HelpCircle, Save, ClipboardCheck, Check, X, ListChecks, AlertTriangle, RotateCcw, Play } from "lucide-react"
+import { AlertCircle, ClipboardCheck, RotateCcw, Ban, Play, Boxes, MoreHorizontal, Printer, FileDown, CheckCircle2 } from "lucide-react"
 import { Progress } from "@/components/ui/progress"
-import { ButtonGroup } from "@/components/ui/button-group"
 import { cn } from "@/utils/cn"
 import { toast } from "@/utils/toast"
 import { StockCheckItemsTable } from "../components/stock-check-items-table"
-import { ApprovalDialog } from "../components/approval-dialog"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import {
   Dialog,
   DialogContent,
@@ -50,124 +59,147 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import { saveDraft, loadDraft, deleteDraft } from "@/utils/indexed-db"
 
 export const StockCheckDetailPage = () => {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const { id } = useParams<{ id: string }>()
-  const statusLabel: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
-    PENDING: { label: t("status.pending"), variant: "secondary" },
-    IN_PROGRESS: { label: t("status.inProgress"), variant: "outline" },
-    COMPLETED: { label: t("status.pendingApproval"), variant: "default" },
-    APPROVED: { label: t("status.approved"), variant: "default" },
-  }
   const navigate = useNavigate()
   const qc = useQueryClient()
   const perm = usePermission()
 
   const [localItems, setLocalItems] = useState<StockCheckItem[]>([])
   const [searchQuery, setSearchQuery] = useState("")
-  const [approvalModal, setApprovalModal] = useState<"approve" | "reject" | null>(null)
+  const [itemFilter, setItemFilter] = useState<"all" | "mismatch" | "untouched">("all")
+  const [activeTab, setActiveTab] = useState("info")
+  const [cancelDialog, setCancelDialog] = useState(false)
   const [completeModal, setCompleteModal] = useState(false)
-  const [resetDialog, setResetDialog] = useState(false)
-  const dirtyRef = useRef(false)
-  const initialItemsRef = useRef<StockCheckItem[]>([])
+  const [reopenDialog, setReopenDialog] = useState(false)
 
-  const { data: check, isLoading } = useQuery({
-    queryKey: ["stock-check", id],
-    queryFn: () => getStockCheckById(Number(id)),
-    enabled: !!id,
-  })
+  const { data: check, isLoading } = useStockCheck(id ? Number(id) : null)
 
-  // Load from BE, then overlay IndexedDB draft if available
   useEffect(() => {
-    if (!check || initialItemsRef.current.length > 0) return
-    initialItemsRef.current = check.items
-    dirtyRef.current = false
-    if (check.status === STOCK_CHECK_STATUS.PENDING || check.status === STOCK_CHECK_STATUS.IN_PROGRESS) {
-      loadDraft(id!).then((draft) => {
-        setLocalItems(draft ? draft.items : check.items)
-      })
-    } else {
-      setLocalItems(check.items)
-    }
-  }, [check, id])
+    if (check) setLocalItems(check.items)
+  }, [check])
 
-  const checkedCount = localItems.filter((i) => i.actualStatus != null).length
-  const autoFillCount = localItems.filter((i) => i.actualStatus == null && i.trackingType === "SERIALIZED").length
-  const bulkMissingCount = localItems.filter((i) => i.actualStatus == null && i.trackingType === "BULK" && i.countedQuantity == null).length
+  const startMut = useStartStockCheck()
+
+  const checkedCount = localItems.filter((i) => i.actualStatus != null && i.actualStatus !== UNVERIFIED_STATUS).length
+  const untouchedCount = localItems.filter((i) => i.actualStatus == null).length
+  const unverifiedCount = localItems.filter((i) => i.actualStatus === UNVERIFIED_STATUS).length
+  const surplusCount = localItems.filter((i) => i.difference === STOCK_CHECK_DIFF.SURPLUS).length
+  const bulkMissingCount = localItems.filter((i) => i.actualStatus == null && i.trackingType === TRACKING_TYPE.BULK && i.countedQuantity == null).length
 
   const itemsWithDiff = useMemo(() =>
     localItems.map((i) => {
-      if (i.actualStatus == null) return i
+      if (i.actualStatus == null || i.actualStatus === UNVERIFIED_STATUS) return i
       if (i.difference != null) return i
-      if (i.trackingType !== "SERIALIZED") return i
-      if (i.expectedStatus === i.actualStatus) return { ...i, difference: "MATCH" as DifferenceType }
+      if (i.trackingType !== TRACKING_TYPE.SERIALIZED) return i
+      if (i.expectedStatus === i.actualStatus) return { ...i, difference: STOCK_CHECK_DIFF.MATCH }
       const lostLike: readonly string[] = [PRODUCT_UNIT_STATUS.LOST, PRODUCT_UNIT_STATUS.REMOVED, PRODUCT_UNIT_STATUS.DISPOSED]
-      if (lostLike.includes(i.actualStatus)) return { ...i, difference: "MISSING" as DifferenceType }
-      return { ...i, difference: "UNEXPECTED" as DifferenceType }
+      if (lostLike.includes(i.actualStatus)) return { ...i, difference: STOCK_CHECK_DIFF.MISSING }
+      if (i.actualStatus === PRODUCT_UNIT_STATUS.DAMAGED_IN_STORAGE && i.expectedStatus === PRODUCT_UNIT_STATUS.IN_STOCK) {
+        return { ...i, difference: STOCK_CHECK_DIFF.DAMAGED }
+      }
+      return { ...i, difference: STOCK_CHECK_DIFF.UNEXPECTED }
     }), [localItems])
 
   const recordMut = useMutation({
     mutationFn: (data: {
-      items: Array<{ productUnitId: number; actualStatus?: string; countedQuantity?: number; note?: string; photo?: string }>
+      items: Array<{ productUnitId: number; actualStatus?: string; countedQuantity?: number; note?: string; photo?: string; suspectSeal?: boolean; damagedPackaging?: boolean }>
     }) => recordStockCheckItems(Number(id!), data),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["stock-check", id] })
+      qc.invalidateQueries({ queryKey: ["stock-check", Number(id)] })
       qc.invalidateQueries({ queryKey: ["stock-checks"] })
       toast.success(t("stockCheckDetail.recordSuccess"))
     },
     onError: (err: Error) => toast.error(err.message || t("stockCheckDetail.recordError")),
   })
 
-  // Auto-save to IndexedDB when dirty (debounced 1.5s)
-  useEffect(() => {
-    if (!dirtyRef.current || !id) return
-    const timer = setTimeout(() => {
-      saveDraft(id, localItems)
-      dirtyRef.current = false
-    }, 1500)
-    return () => clearTimeout(timer)
-  }, [localItems, id])
-
   const updateItem = useCallback((itemId: number, field: string, value: unknown) => {
-    dirtyRef.current = true
     setLocalItems((prev) => prev.map((i) => (i.id === itemId ? { ...i, [field]: value } : i)))
   }, [])
 
   const invalidateAll = () => {
-    qc.invalidateQueries({ queryKey: ["stock-check", id] })
+    qc.invalidateQueries({ queryKey: ["stock-check", Number(id)] })
     qc.invalidateQueries({ queryKey: ["stock-checks"] })
+    qc.invalidateQueries({ queryKey: ["my-stock-checks"] })
+    qc.invalidateQueries({ queryKey: ["stock-check-zone-status"] })
     qc.invalidateQueries({ queryKey: ["inventory"] })
-    qc.invalidateQueries({ queryKey: ["inventory-summary"] })
+    invalidateDashboard(qc)
   }
 
   const completeMut = useMutation({
     mutationFn: () => completeStockCheck(Number(id!)),
-    onSuccess: (res) => {
+    onSuccess: () => {
       invalidateAll()
-      deleteDraft(id!)
-      const filled = res.autoFilledCount
-      if (filled > 0) {
-        toast.success(t("stockCheckDetail.completeAutoFill", { count: filled }))
-      } else {
-        toast.success(t("stockCheckDetail.completeSuccess"))
-      }
-      navigate("/stock/checks")
+      setCompleteModal(false)
+      toast.success(t("stockCheckDetail.completeSuccess"))
+      navigate("/stock/ops/checks")
     },
     onError: (err: Error) => toast.error(err.message || t("stockCheckDetail.completeError")),
   })
 
-  const startMut = useMutation({
-    mutationFn: () => startStockCheck(Number(id!)),
+  const reopenMut = useMutation({
+    mutationFn: () => reopenStockCheck(Number(id!)),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["stock-check", id] })
-      toast.success(t("stockCheckDetail.startSuccess"))
+      invalidateAll()
+      setReopenDialog(false)
+      toast.success(t("stockCheckDetail.reopenSuccess"))
     },
-    onError: (err: Error) => toast.error(err.message || t("stockCheckDetail.startError")),
+    onError: (err: Error) => toast.error(err.message || t("stockCheckDetail.reopenError")),
   })
+
+  const cancelMut = useMutation({
+    mutationFn: () => cancelStockCheck(Number(id!)),
+    onSuccess: () => {
+      invalidateAll()
+      setCancelDialog(false)
+      toast.success(t("stockCheckDetail.cancelSuccess"))
+    },
+    onError: (err: Error) => toast.error(err.message || t("stockCheckDetail.cancelError")),
+  })
+
+  const extraMut = useMutation({
+    mutationFn: (data: { sku: string; serialNumber?: string; countedQuantity?: number; note?: string }) =>
+      addExtraStockCheckItem(Number(id!), data),
+    onSuccess: (res) => {
+      setLocalItems(res.items)
+      invalidateAll()
+      toast.success(t("stockCheckDetail.extraSuccess"))
+    },
+    onError: (err: Error) => { throw err },
+  })
+
+  const handleStart = () => {
+    if (check?.status !== STOCK_CHECK_STATUS.PENDING) return
+    startMut.mutate(Number(id!), {
+      onSuccess: () => {
+        invalidateAll()
+        setActiveTab("results")
+        toast.success(t("stockCheckDetail.startSuccess"))
+      },
+      onError: (err: Error) => toast.error(err.message || t("stockCheckDetail.startError")),
+    })
+  }
+
+  const handlePrint = async (format: "pdf" | "excel") => {
+    try {
+      const blob = await getStockCheckPrintFile(Number(id!), i18n.language, format)
+      const url = URL.createObjectURL(blob)
+      if (format === "pdf") {
+        window.open(url, "_blank")
+      } else {
+        const a = document.createElement("a")
+        a.href = url
+        a.download = `stock-check-${id}.xlsx`
+        a.click()
+      }
+      setTimeout(() => URL.revokeObjectURL(url), 60_000)
+    } catch {
+      toast.error(t("print.printFailed"))
+    }
+  }
 
   const handleSaveAndComplete = async () => {
     if (bulkMissingCount > 0) {
@@ -181,6 +213,8 @@ export const StockCheckDetailPage = () => {
       countedQuantity: i.countedQuantity ?? undefined,
       note: i.note || undefined,
       photo: i.photo || undefined,
+      suspectSeal: i.suspectSeal ?? undefined,
+      damagedPackaging: i.damagedPackaging ?? undefined,
     }))
     try {
       await recordMut.mutateAsync({ items })
@@ -191,32 +225,58 @@ export const StockCheckDetailPage = () => {
   }
 
   const handleBulkSet = useCallback((status: string) => {
-    dirtyRef.current = true
     setLocalItems((prev) =>
       prev.map((i) => {
         if (i.actualStatus != null) return i
+        if (i.difference === STOCK_CHECK_DIFF.SURPLUS) return i
         if (status === PRODUCT_UNIT_STATUS.LOST) {
           return { ...i, actualStatus: status, countedQuantity: 0 }
         }
-        return { ...i, actualStatus: status, countedQuantity: i.trackingType === "SERIALIZED" ? 1 : i.countedQuantity }
+        return {
+          ...i,
+          actualStatus: status,
+          countedQuantity:
+            i.trackingType === TRACKING_TYPE.SERIALIZED
+              ? 1
+              : i.countedQuantity ?? i.expectedQuantity ?? null,
+        }
       }),
     )
   }, [])
 
-  const handleSave = useCallback(() => {
-    if (!id) return
-    saveDraft(id, localItems)
-    dirtyRef.current = false
-    toast.success(t("stockCheckDetail.saveDraftSuccess"))
-  }, [id, localItems])
+  const handleResetAll = useCallback(() => {
+    setLocalItems((prev) =>
+      prev.map((i) =>
+        i.difference === STOCK_CHECK_DIFF.SURPLUS ? i : {
+          ...i,
+          actualStatus: null,
+          countedQuantity: null,
+          photo: null,
+          difference: null,
+          suspectSeal: null,
+          damagedPackaging: null,
+          note: null,
+        },
+      ),
+    )
+  }, [])
 
-  const handleReset = useCallback(() => {
-    setLocalItems(initialItemsRef.current.map((i) => ({ ...i })))
-    if (id) deleteDraft(id)
-    dirtyRef.current = false
-    setResetDialog(false)
-    toast.success(t("stockCheckDetail.resetSuccess"))
-  }, [id])
+  const boxGroups = useMemo(() => {
+    const groups = new Map<number, StockCheckItem[]>()
+    for (const i of localItems) {
+      if (i.boxId == null) continue
+      const list = groups.get(i.boxId) ?? []
+      list.push(i)
+      groups.set(i.boxId, list)
+    }
+    return [...groups.entries()].map(([boxId, items]) => ({
+      boxId,
+      boxCode: items[0].boxCode ?? String(boxId),
+      items,
+      checked: items.filter((i) => i.actualStatus != null && i.actualStatus !== UNVERIFIED_STATUS).length,
+      pendingCount: items.filter((i) => i.actualStatus == null).length,
+    }))
+  }, [localItems])
 
   if (isLoading) {
     return (
@@ -237,19 +297,30 @@ export const StockCheckDetailPage = () => {
     )
   }
 
-  const s = statusLabel[check.status] ?? { label: check.status, variant: "secondary" }
+  const s = { label: t(`status.${toKey(check.status)}`), variant: STOCK_CHECK_STATUS_VARIANT[check.status] }
   const canOperateStock = perm.hasRole(...ROLES.CAN_OPERATE_STOCK)
-  const isManager = perm.hasRole(...ROLES.CAN_APPROVE)
-  const canEdit = canOperateStock && (check.status === STOCK_CHECK_STATUS.PENDING || check.status === STOCK_CHECK_STATUS.IN_PROGRESS)
-  const canApprove = check.status === STOCK_CHECK_STATUS.COMPLETED && isManager
-  const isRejected = check.status === STOCK_CHECK_STATUS.IN_PROGRESS && check.approvalNote != null
+  const canEdit = canOperateStock && check.status === STOCK_CHECK_STATUS.IN_PROGRESS
+  const canStart = canOperateStock && check.status === STOCK_CHECK_STATUS.PENDING
+  const canCancel = canOperateStock &&
+    (check.status === STOCK_CHECK_STATUS.PENDING || check.status === STOCK_CHECK_STATUS.IN_PROGRESS) &&
+    (!AUTH_ENABLED || (perm.user != null && check.createdBy != null && perm.user.id === check.createdBy))
+  const canReopen = canOperateStock && (check.status === STOCK_CHECK_STATUS.COMPLETED || check.status === STOCK_CHECK_STATUS.EXPIRED)
+
+  const summary = {
+    missing: localItems.filter((i) => i.difference === STOCK_CHECK_DIFF.MISSING).length,
+    damaged: localItems.filter((i) => i.difference === STOCK_CHECK_DIFF.DAMAGED).length,
+    unexpected: localItems.filter((i) => i.difference === STOCK_CHECK_DIFF.UNEXPECTED || i.difference === STOCK_CHECK_DIFF.PARTIAL_SHORTAGE).length,
+    surplus: surplusCount,
+    suspectSeal: localItems.filter((i) => i.suspectSeal).length,
+    damagedPackaging: localItems.filter((i) => i.damagedPackaging).length,
+  }
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
       <Breadcrumb>
         <BreadcrumbList>
           <BreadcrumbItem>
-            <BreadcrumbLink onClick={() => navigate("/stock/checks")}>{t("nav.stockChecks")}</BreadcrumbLink>
+            <BreadcrumbLink onClick={() => navigate("/stock/ops/checks")}>{t("nav.stockChecks")}</BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator />
           <BreadcrumbItem>
@@ -258,131 +329,106 @@ export const StockCheckDetailPage = () => {
         </BreadcrumbList>
       </Breadcrumb>
 
-      {isRejected && (
-        <div className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 dark:bg-red-950/20 dark:border-red-800 px-4 py-3 text-sm">
-          <AlertTriangle className="size-5 text-red-500 shrink-0 mt-0.5" />
-          <div>
-            <p className="font-medium text-red-700 dark:text-red-400">{t("stockCheckDetail.rejectedLabel")}</p>
-            <p className="text-red-600 dark:text-red-300 mt-0.5">{check.approvalNote}</p>
-          </div>
-        </div>
-      )}
-
-      {(check.status === STOCK_CHECK_STATUS.IN_PROGRESS || check.status === STOCK_CHECK_STATUS.PENDING) && (
-        <div className="space-y-1.5">
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground flex items-center gap-1.5">
-              <ListChecks className="size-4" /> {t("stockCheckDetail.checkedProgress", { checked: checkedCount, total: check.totalItems })}
-            </span>
-            <span className="text-xs text-muted-foreground">
-              {check.totalItems > 0 ? Math.round((checkedCount / check.totalItems) * 100) : 0}%
-            </span>
-          </div>
-          <Progress value={check.totalItems > 0 ? (checkedCount / check.totalItems) * 100 : 0} className="h-2" />
+      {(check.status === STOCK_CHECK_STATUS.PENDING || canEdit) && (
+        <div className="rounded-lg border bg-card px-4 py-3.5">
+          {check.status === STOCK_CHECK_STATUS.PENDING ? (
+            <div className="flex items-center gap-3">
+              <AlertCircle className="size-5 text-muted-foreground shrink-0" />
+              <div className="flex-1">
+                <p className="text-sm font-medium">{t("stockCheckDetail.pendingBannerTitle")}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{t("stockCheckDetail.pendingBannerDesc")}</p>
+              </div>
+              {canStart && (
+                <Button onClick={handleStart} disabled={startMut.isPending}>
+                  <Play className="size-4 mr-1" />
+                  {startMut.isPending ? t("stockCheckDetail.starting") : t("stockCheckDetail.start")}
+                </Button>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground flex items-center gap-1.5">
+                  <ClipboardCheck className="size-4" /> {t("stockCheckDetail.checkedProgress", { checked: checkedCount, total: check.totalItems })}
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {check.totalItems > 0 ? Math.round((checkedCount / check.totalItems) * 100) : 0}%
+                </span>
+              </div>
+              <Progress value={check.totalItems > 0 ? (checkedCount / check.totalItems) * 100 : 0} className="h-2" />
+            </div>
+          )}
         </div>
       )}
 
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Badge variant={s.variant}>{s.label}</Badge>
+          {check.scopeType === "ZONE" && (
+            <span className="text-xs text-muted-foreground">
+              {t("stockCheckDetail.zone")} {check.scopeName ?? check.scopeId}
+            </span>
+          )}
+          {check.shelfCodes && check.shelfCodes.length > 0 && (
+            <span className="text-xs text-muted-foreground font-mono">
+              {check.shelfCodes.join(", ")}
+            </span>
+          )}
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
           {canEdit && (
-            <ButtonGroup>
-              <Button variant="outline" onClick={handleSave}>
-                <Save className="size-4 mr-1" /> {t("stockCheckDetail.saveDraft")}
+            <Button onClick={() => setCompleteModal(true)} disabled={recordMut.isPending || completeMut.isPending}>
+              <ClipboardCheck className="size-4 mr-1" />
+              {completeMut.isPending ? t("stockCheckDetail.completing") : t("stockCheckDetail.complete")}
+            </Button>
+          )}
+          {canReopen && (
+            <AlertDialog open={reopenDialog} onOpenChange={setReopenDialog}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>{t("stockCheckDetail.reopenConfirmTitle")}</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    {t("stockCheckDetail.reopenConfirmDesc")}
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => reopenMut.mutate()}>{t("stockCheckDetail.reopenConfirm")}</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+              <Button variant="outline" onClick={() => setReopenDialog(true)} disabled={reopenMut.isPending}>
+                <RotateCcw className="size-4 mr-1" />
+                {reopenMut.isPending ? t("stockCheckDetail.starting") : t("stockCheckDetail.reopen")}
               </Button>
-              <AlertDialog open={resetDialog} onOpenChange={setResetDialog}>
-                <AlertDialogTrigger asChild>
-                  <Button variant="outline">
-                    <RotateCcw className="size-4 mr-1" /> {t("stockCheckDetail.reset")}
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>{t("stockCheckDetail.resetConfirmTitle")}</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      {t("stockCheckDetail.resetConfirmDesc")}
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleReset}>{t("stockCheckDetail.resetConfirm")}</AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-              {check.status === STOCK_CHECK_STATUS.PENDING ? (
-                <Button onClick={() => startMut.mutate()} disabled={startMut.isPending}>
-                  <Play className="size-4 mr-1" />
-                  {startMut.isPending ? t("stockCheckDetail.starting") : t("stockCheckDetail.start")}
-                </Button>
-              ) : (
-                <Button onClick={() => setCompleteModal(true)} disabled={recordMut.isPending || completeMut.isPending}>
-                  <ClipboardCheck className="size-4 mr-1" />
-                  {completeMut.isPending ? t("stockCheckDetail.completing") : t("stockCheckDetail.complete")}
-                </Button>
+            </AlertDialog>
+          )}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="icon" aria-label={t("stockCheckDetail.moreActions")}>
+                <MoreHorizontal className="size-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem onClick={() => handlePrint("pdf")}>
+                <Printer className="size-3.5" /> {t("print.printPdf")}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handlePrint("excel")}>
+                <FileDown className="size-3.5" /> {t("print.excel")}
+              </DropdownMenuItem>
+              {canCancel && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => setCancelDialog(true)}>
+                    <Ban className="size-3.5" /> {t("stockCheckDetail.cancel")}
+                  </DropdownMenuItem>
+                </>
               )}
-            </ButtonGroup>
-          )}
-          {canApprove && (
-            <ButtonGroup>
-              <Button variant="outline" onClick={() => setApprovalModal("reject")}>
-                <X className="size-4 mr-1" /> {t("stockCheckDetail.reject")}
-              </Button>
-              <Button onClick={() => setApprovalModal("approve")}>
-                <Check className="size-4 mr-1" /> {t("stockCheckDetail.approveAll")}
-              </Button>
-            </ButtonGroup>
-          )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
-      {itemsWithDiff.some((i) => i.difference && i.difference !== STOCK_CHECK_DIFF.MATCH) && (
-        <div className="space-y-2">
-          <p className="text-sm font-medium text-muted-foreground">{t("stockCheckDetail.diffSummary")}</p>
-          <div className="grid gap-2">
-            {itemsWithDiff
-              .filter((i) => i.difference && i.difference !== STOCK_CHECK_DIFF.MATCH)
-              .slice(0, 10)
-              .map((i) => (
-                <div
-                  key={i.id}
-                  className={cn(
-                    "flex items-center gap-3 rounded-lg border px-4 py-2.5 text-sm",
-                    i.difference === STOCK_CHECK_DIFF.MISSING && "border-red-200 bg-red-50 dark:bg-red-950/20 dark:border-red-800",
-                    i.difference === STOCK_CHECK_DIFF.UNEXPECTED && "border-green-200 bg-green-50 dark:bg-green-950/20 dark:border-green-800",
-                    i.difference === STOCK_CHECK_DIFF.PARTIAL_SHORTAGE && "border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800",
-                  )}
-                >
-                  {i.difference === STOCK_CHECK_DIFF.MISSING ? (
-                    <AlertCircle className="size-4 text-red-500 shrink-0" />
-                  ) : i.difference === STOCK_CHECK_DIFF.UNEXPECTED ? (
-                    <CheckCircle2 className="size-4 text-green-500 shrink-0" />
-                  ) : (
-                    <HelpCircle className="size-4 text-amber-500 shrink-0" />
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <span className="font-medium">{i.productName}</span>
-                    {i.serialNumber && <span className="text-xs text-muted-foreground ml-1 font-mono">{i.serialNumber}</span>}
-                  </div>
-                  <Badge
-                    variant="outline"
-                    className={cn(
-                      "text-[10px] shrink-0",
-                      i.difference === STOCK_CHECK_DIFF.MISSING && "border-red-200 text-red-600",
-                      i.difference === STOCK_CHECK_DIFF.UNEXPECTED && "border-green-200 text-green-600",
-                      i.difference === STOCK_CHECK_DIFF.PARTIAL_SHORTAGE && "border-amber-200 text-amber-600",
-                    )}
-                  >
-                    {i.difference === STOCK_CHECK_DIFF.MISSING ? t("stockCheckDetail.diffMissing") : i.difference === STOCK_CHECK_DIFF.UNEXPECTED ? t("stockCheckDetail.diffUnexpected") : t("stockCheckDetail.diffPartial")}
-                  </Badge>
-                </div>
-              ))}
-          </div>
-        </div>
-      )}
-
-      <Tabs defaultValue="info">
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="info">{t("stockCheckDetail.tabInfo")}</TabsTrigger>
           <TabsTrigger value="results">{t("stockCheckDetail.tabResults")}</TabsTrigger>
@@ -401,7 +447,25 @@ export const StockCheckDetailPage = () => {
             {check.scopeType && (
               <div>
                 <span className="text-muted-foreground">{t("stockCheckDetail.scope")}</span>
-                <p className="font-medium">{check.scopeType === "ZONE" ? t("stockCheckDetail.zone") : t("stockCheckDetail.category")} #{check.scopeId}</p>
+                <p className="font-medium">
+                  {check.scopeType === "ZONE"
+                    ? `${t("stockCheckDetail.zone")} ${check.scopeName ?? check.scopeId}`
+                    : check.scopeType === "BOX"
+                      ? `${t("stockCheckDetail.box")} ${check.scopeName ?? check.scopeId}`
+                      : `${t("stockCheckDetail.category")} #${check.scopeId}`}
+                </p>
+              </div>
+            )}
+            {check.checkedByName && (
+              <div>
+                <span className="text-muted-foreground">{t("stockCheckDetail.checkedBy")}</span>
+                <p className="font-medium">{check.checkedByName}</p>
+              </div>
+            )}
+            {check.enteredByName && (
+              <div>
+                <span className="text-muted-foreground">{t("stockCheckDetail.enteredBy")}</span>
+                <p className="font-medium">{check.enteredByName}</p>
               </div>
             )}
             {check.approvedByName && (
@@ -423,85 +487,154 @@ export const StockCheckDetailPage = () => {
               </div>
             )}
           </div>
-          <div className="flex gap-3 text-sm">
-            <Badge variant="outline">{t("stockCheckDetail.total", { count: check.totalItems })}</Badge>
-            <Badge variant="secondary">{t("stockCheckDetail.match", { count: check.matchCount })}</Badge>
-            <Badge variant="outline" className="text-destructive">
-              {t("stockCheckDetail.missing", { count: check.missingCount })}
-            </Badge>
-            <Badge variant="outline" className="text-destructive">
-              {t("stockCheckDetail.unexpected", { count: check.unexpectedCount })}
-            </Badge>
-          </div>
         </TabsContent>
 
-        <TabsContent value="results">
-          <StockCheckItemsTable
-            items={itemsWithDiff}
-            canEdit={canEdit}
-            onUpdate={updateItem}
-            onBulkSet={handleBulkSet}
-            searchQuery={searchQuery}
-            onSearchChange={setSearchQuery}
-            onImportSerials={(e) => {
-              const file = e.target.files?.[0]
-              if (!file) return
-              const reader = new FileReader()
-              reader.onload = async () => {
-                const content = reader.result as string
-                try {
-                  const { importStockCheckSerials } = await import("@/services/stock-check-service")
-                  const updated = await importStockCheckSerials(Number(id!), content)
-                  setLocalItems(updated.items)
-                  saveDraft(id!, updated.items)
-                  qc.invalidateQueries({ queryKey: ["stock-check", id] })
-                  const lines = content.split(/[\n\r]+/).map((s: string) => s.trim()).filter(Boolean)
-                  toast.success(t("stockCheckDetail.importSerialsSuccess", { total: lines.length, matched: updated.items.filter(i => i.actualStatus).length }))
-                } catch (err) {
-                  toast.error((err as Error).message || t("stockCheckDetail.importError"))
-                }
-              }
-              reader.readAsText(file)
-              e.target.value = ""
-            }}
-          />
+        <TabsContent value="results" className="space-y-4">
+          {check.status === STOCK_CHECK_STATUS.PENDING ? (
+            <div className="flex min-h-[30vh] items-center justify-center rounded-lg border">
+              <Empty>
+                <EmptyTitle>{t("stockCheckDetail.pendingEmpty")}</EmptyTitle>
+              </Empty>
+            </div>
+          ) : (
+            <>
+              {boxGroups.length > 0 && (
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                  {boxGroups.map((g) => {
+                    const done = g.checked === g.items.length
+                    return (
+                      <div
+                        key={g.boxId}
+                        className={cn(
+                          "rounded-lg border px-4 py-2.5 text-sm",
+                          done && "border-green-200 bg-green-50/50 dark:border-green-800 dark:bg-green-950/10",
+                        )}
+                      >
+                        <div className="flex items-center gap-3">
+                          <Boxes className="size-4 text-muted-foreground shrink-0" />
+                          <span className="font-mono text-xs">{g.boxCode}</span>
+                          <Badge variant="outline" className={cn("text-xs", done && "border-green-300 text-green-700 dark:border-green-700 dark:text-green-400")}>
+                            {done && <CheckCircle2 className="size-3 mr-0.5 inline" />}
+                            {t("stockCheckDetail.checkedInBox", { checked: g.checked, total: g.items.length })}
+                          </Badge>
+                        </div>
+                        <ul className="mt-2 space-y-1 border-t pt-2 max-h-40 overflow-y-auto">
+                          {g.items.map((i) => {
+                            const checked = i.actualStatus != null && i.actualStatus !== UNVERIFIED_STATUS
+                            return (
+                              <li key={i.id} className="flex items-center gap-1.5 text-xs">
+                                {checked ? (
+                                  <CheckCircle2 className="size-3 text-green-600 shrink-0 dark:text-green-400" />
+                                ) : (
+                                  <span className="size-2.5 rounded-full bg-amber-400 shrink-0" />
+                                )}
+                                <span className="font-mono truncate">{i.serialNumber || i.productSku || "—"}</span>
+                                <span className="truncate text-muted-foreground">{i.productName}</span>
+                              </li>
+                            )
+                          })}
+                        </ul>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+              <StockCheckItemsTable
+                items={itemsWithDiff}
+                canEdit={canEdit}
+                onUpdate={updateItem}
+                onBulkSet={handleBulkSet}
+                onResetAll={handleResetAll}
+                searchQuery={searchQuery}
+                onSearchChange={setSearchQuery}
+                filter={itemFilter}
+                onFilterChange={setItemFilter}
+                onAddExtra={(data) => extraMut.mutateAsync(data)}
+                extraPending={extraMut.isPending}
+              />
+            </>
+          )}
         </TabsContent>
       </Tabs>
-
-      <ApprovalDialog
-        open={!!approvalModal}
-        onOpenChange={(v) => {
-          if (!v) setApprovalModal(null)
-        }}
-        id={Number(id)}
-        title={approvalModal === "approve" ? t("stockCheckDetail.approveDialogTitle") : t("stockCheckDetail.rejectDialogTitle")}
-        actions={[
-          { label: t("stockCheckDetail.reject"), confirmLabel: t("stockCheckDetail.rejectConfirm"), variant: "destructive", service: rejectStockCheck },
-          { label: t("stockCheckDetail.approve"), confirmLabel: t("stockCheckDetail.approveConfirm"), service: approveStockCheck },
-        ]}
-        invalidateKeys={[["stock-check", id!], ["stock-checks"], ["inventory"], ["inventory-summary"]]}
-      />
 
       <Dialog open={completeModal} onOpenChange={setCompleteModal}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t("stockCheckDetail.completeDialogTitle")}</DialogTitle>
-            <DialogDescription>
-              {autoFillCount > 0 ? (
-                <span>{t("stockCheckDetail.completeDialogAutoFill", { count: autoFillCount })}</span>
-              ) : (
-                <span>{t("stockCheckDetail.completeDialogSimple")}</span>
+            <DialogDescription className="space-y-2">
+              {unverifiedCount > 0 && (
+                <span className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800 px-3 py-2 text-sm font-medium text-amber-700 dark:text-amber-400">
+                  <AlertCircle className="size-4 shrink-0 mt-0.5" />
+                  {t("stockCheckDetail.completeDialogUnverified", { count: unverifiedCount })}
+                </span>
               )}
+              {surplusCount > 0 && (
+                <span className="flex items-start gap-2 rounded-md border border-green-200 bg-green-50 dark:bg-green-950/10 dark:border-green-800 px-3 py-2 text-sm text-green-700 dark:text-green-400">
+                  <CheckCircle2 className="size-4 shrink-0 mt-0.5" />
+                  {t("stockCheckDetail.completeDialogSurplus", { count: surplusCount })}
+                </span>
+              )}
+              <span className="block text-xs text-muted-foreground">{t("stockCheckDetail.completeDialogAdjustment")}</span>
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter>
+          <div className="grid grid-cols-3 gap-2 text-center">
+            <SummaryCell label={t("stockCheckDetail.sumChecked")} value={checkedCount} className="text-foreground" />
+            <SummaryCell label={t("stockCheckDetail.sumMissing")} value={summary.missing} className="text-red-600 dark:text-red-400" />
+            <SummaryCell label={t("stockCheckDetail.sumDamaged")} value={summary.damaged} className="text-orange-600 dark:text-orange-400" />
+            <SummaryCell label={t("stockCheckDetail.sumUnexpected")} value={summary.unexpected} className="text-blue-600 dark:text-blue-400" />
+            <SummaryCell label={t("stockCheckDetail.sumSurplus")} value={summary.surplus} className="text-violet-600 dark:text-violet-400" />
+            <SummaryCell label={t("stockCheckDetail.sumSuspectSeal")} value={summary.suspectSeal} className="text-amber-600 dark:text-amber-400" />
+            <SummaryCell label={t("stockCheckDetail.sumDamagedPackaging")} value={summary.damagedPackaging} className="text-amber-600 dark:text-amber-400" />
+          </div>
+          <DialogFooter className="flex-wrap gap-2">
             <Button variant="outline" onClick={() => setCompleteModal(false)}>{t("common.cancel")}</Button>
+            {untouchedCount > 0 && (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setCompleteModal(false)
+                  setItemFilter("untouched")
+                  setActiveTab("results")
+                }}
+              >
+                {t("stockCheckDetail.viewUntouched", { count: untouchedCount })}
+              </Button>
+            )}
             <Button onClick={handleSaveAndComplete} disabled={completeMut.isPending}>
-              {autoFillCount > 0 ? t("stockCheckDetail.completeDialogAutoFillBtn") : t("stockCheckDetail.completeDialogSimpleBtn")}
+              {completeMut.isPending ? t("stockCheckDetail.completing") : t("stockCheckDetail.complete")}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={cancelDialog} onOpenChange={setCancelDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("stockCheckDetail.cancelConfirmTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("stockCheckDetail.cancelConfirmDesc")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-white hover:bg-destructive/90"
+              onClick={() => cancelMut.mutate()}
+            >
+              {cancelMut.isPending ? t("stockCheckDetail.cancelling") : t("stockCheckDetail.cancelConfirm")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  )
+}
+
+function SummaryCell({ label, value, className }: { label: string; value: number; className?: string }) {
+  return (
+    <div className="rounded-lg border bg-muted/20 px-2 py-2">
+      <p className={cn("text-lg font-semibold leading-none", className)}>{value}</p>
+      <p className="mt-1 text-xs leading-tight text-muted-foreground">{label}</p>
     </div>
   )
 }

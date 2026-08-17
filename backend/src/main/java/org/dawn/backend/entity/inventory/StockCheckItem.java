@@ -6,6 +6,7 @@ import lombok.experimental.SuperBuilder;
 import org.dawn.backend.entity.base.BaseEntity;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 
 @Entity
 @Table(name = "stock_check_items")
@@ -35,6 +36,9 @@ public class StockCheckItem extends BaseEntity {
     @Column(name = "counted_quantity", precision = 15, scale = 2)
     private BigDecimal countedQuantity;
 
+    @Column(name = "expected_quantity", precision = 15, scale = 2)
+    private BigDecimal expectedQuantity;
+
     @Column(name = "difference", length = 20)
     private String difference;
 
@@ -46,4 +50,15 @@ public class StockCheckItem extends BaseEntity {
 
     @Column(name = "auto_filled")
     private Boolean autoFilled;
+
+    @Column(name = "touched_at")
+    private Instant touchedAt;
+
+    @Column(name = "suspect_seal", nullable = false)
+    @Builder.Default
+    private Boolean suspectSeal = false;
+
+    @Column(name = "damaged_packaging", nullable = false)
+    @Builder.Default
+    private Boolean damagedPackaging = false;
 }

@@ -5,7 +5,7 @@ import { usePurchaseOrders, useCancelPurchaseOrder } from "@/hooks/use-purchase-
 import { DataTable, type Column } from "@/components/ui/data-table"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Plus, Eye, X } from "lucide-react"
+import { Plus, Eye, Pencil, X } from "lucide-react"
 import { usePermission } from "@/hooks/use-permission"
 import { ROLES } from "@/utils/permissions"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
@@ -47,6 +47,7 @@ export function POListPage() {
 
   const statusConfig: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
     DRAFT: { label: t("poStatus.draft"), variant: "secondary" },
+    OPEN: { label: t("poStatus.open"), variant: "default" },
     PARTIAL: { label: t("poStatus.partial"), variant: "default" },
     COMPLETED: { label: t("poStatus.completed"), variant: "default" },
     CANCELLED: { label: t("poStatus.cancelled"), variant: "destructive" },
@@ -73,6 +74,16 @@ export function POListPage() {
       },
     },
     {
+      header: t("poList.rejected"),
+      className: "w-24",
+      render: (p) =>
+        p.rejectedReceiptCount > 0 ? (
+          <Badge variant="destructive">{t("poList.rejectedBadge", { count: p.rejectedReceiptCount })}</Badge>
+        ) : (
+          <span className="text-muted-foreground">—</span>
+        ),
+    },
+    {
       header: t("table.createdDate"),
       sortKey: "createdAt",
       render: (p) => (
@@ -81,18 +92,30 @@ export function POListPage() {
     },
     {
       header: t("table.actions"),
-      className: "w-[120px]",
+      className: "w-[160px]",
       render: (p) => (
         <div className="flex items-center gap-1">
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" onClick={() => navigate(`/stock/purchase-orders/${p.id}`)}>
+              <Button variant="ghost" size="icon" onClick={() => navigate(`/stock/imports/purchase-orders/${p.id}`)}>
                 <Eye className="size-4" />
               </Button>
             </TooltipTrigger>
             <TooltipContent>{t("common.viewDetail")}</TooltipContent>
           </Tooltip>
-          {p.status !== "CANCELLED" && p.status !== "COMPLETED" && (
+          {perm.hasRole(...ROLES.MANAGER) &&
+            (p.status === "DRAFT" || p.status === "OPEN") &&
+            !p.locked && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" onClick={() => navigate(`/stock/imports/purchase-orders/${p.id}/edit`)}>
+                    <Pencil className="size-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>{t("poDetail.edit")}</TooltipContent>
+              </Tooltip>
+            )}
+          {perm.hasRole(...ROLES.MANAGER) && p.status !== "CANCELLED" && p.status !== "COMPLETED" && (
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
