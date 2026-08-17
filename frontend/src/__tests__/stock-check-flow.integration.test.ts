@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll } from "vitest"
-import { api, loginAsManager, loginAsAdmin, ensureImport, cancelOpenStockChecks } from "./api-client"
+import { api, loginAsManager, loginAsStock, ensureImport, cancelOpenStockChecks } from "./api-client"
 
 describe("Stock Check Flow", () => {
   beforeAll(async () => {
@@ -51,12 +51,16 @@ describe("Stock Check Flow", () => {
     const cancelled = await api.put(`/stock-check/${id}/cancel`)
     expect(cancelled.data.data.status).toBe("CANCELLED")
 
-    await loginAsAdmin()
+    const created2 = await api.post("/stock-check", { scopeType: "ZONE", scopeId: 1 })
+    const id2 = created2.data.data.id
+    await loginAsStock()
     try {
-      await api.put(`/stock-check/${id}/cancel`)
+      await api.put(`/stock-check/${id2}/cancel`)
       expect.unreachable("should have thrown")
     } catch (err: any) {
       expect(err.response.status).toBe(400)
     }
+    await loginAsManager()
+    await api.put(`/stock-check/${id2}/cancel`)
   })
 })

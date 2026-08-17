@@ -12,6 +12,8 @@ async function rawLogin(username: string, password: string) {
 
 let adminToken: string
 let managerToken: string
+let salesToken: string
+let stockToken: string
 
 export async function loginAsAdmin() {
   if (!adminToken) adminToken = await rawLogin("admin", "123456")
@@ -21,6 +23,16 @@ export async function loginAsAdmin() {
 export async function loginAsManager() {
   if (!managerToken) managerToken = await rawLogin("manager", "123456")
   api.defaults.headers.common["Authorization"] = `Bearer ${managerToken}`
+}
+
+export async function loginAsSales() {
+  if (!salesToken) salesToken = await rawLogin("sales", "123456")
+  api.defaults.headers.common["Authorization"] = `Bearer ${salesToken}`
+}
+
+export async function loginAsStock() {
+  if (!stockToken) stockToken = await rawLogin("stock", "123456")
+  api.defaults.headers.common["Authorization"] = `Bearer ${stockToken}`
 }
 
 export const api: AxiosInstance = axios.create({

@@ -1,10 +1,11 @@
 import { describe, it, expect } from "vitest"
-import { api, loginAsManager, ensureImport } from "./api-client"
+import { api, loginAsManager, loginAsSales, loginAsStock, ensureImport } from "./api-client"
 
 describe("Export Flow", () => {
   it("should create and fulfill export receipt", async () => {
-    await loginAsManager()
+    await loginAsSales()
     const { serialNumbers } = await ensureImport(1, 1)
+    await loginAsSales()
 
     const createRes = await api.post("/export-receipt", {
       type: "SALE", reason: "SALE", customerId: 1, note: "E2E export",
@@ -14,6 +15,7 @@ describe("Export Flow", () => {
     expect(createRes.data.data.status).toBe("PENDING")
     const exportId = createRes.data.data.id
 
+    await loginAsStock()
     const fulfillRes = await api.put(`/export-receipt/${exportId}/fulfill`, {
       note: "E2E fulfill",
       evidenceImages: ["https://cloudinary.example.com/e2e-evidence.jpg"],
@@ -24,14 +26,16 @@ describe("Export Flow", () => {
   })
 
   it("should cancel export receipt", async () => {
-    await loginAsManager()
+    await loginAsSales()
     await ensureImport()
+    await loginAsSales()
     const createRes = await api.post("/export-receipt", {
       type: "INTERNAL", reason: "INTERNAL", note: "Cancel test",
       items: [{ productId: 1, quantity: 1, unitPrice: 50000 }],
     })
     const exportId = createRes.data.data.id
 
+    await loginAsManager()
     const cancelRes = await api.put(`/export-receipt/${exportId}/cancel`)
     expect(cancelRes.status).toBe(200)
     expect(cancelRes.data.data.status).toBe("CANCELLED")

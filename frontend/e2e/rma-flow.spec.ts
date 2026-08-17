@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test"
 import { loginAsStock, loginAsManager, loginAsSales } from "./helpers/auth"
-import { initTokens, getToken, ensureImport, API_URL, getE2ELocationId } from "./helpers/api"
+import { initTokens, getToken, ensureImport, API_URL } from "./helpers/api"
 
 test.describe("RMA Flow (Bảo hành trả nhà cung cấp) — SOP §6b", () => {
 
@@ -20,12 +20,10 @@ test.describe("RMA Flow (Bảo hành trả nhà cung cấp) — SOP §6b", () =>
     const stockToken = await getToken("stock", stock)
     const managerToken = await getToken("manager", mgr)
     const salesToken = await getToken("sales", sales)
-    const locationId = await getE2ELocationId(stock)
 
     const { productUnitIds } = await ensureImport(stock)
     test.skip(productUnitIds.length === 0, "No product units")
     const unitId = productUnitIds[0]
-    const serial = `E2E-RMA-${Date.now()}`
 
     const unitRes = await stock.request.get(`${API_URL}/product-unit/${unitId}`, {
       headers: { Authorization: `Bearer ${stockToken}` },

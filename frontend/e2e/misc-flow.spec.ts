@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test"
 import { loginAsStock, loginAsManager, loginAsSales } from "./helpers/auth"
-import { initTokens, getToken, ensureImport, API_URL, getE2ELocationId } from "./helpers/api"
+import { initTokens, getToken, ensureImport, API_URL } from "./helpers/api"
 
 test.describe("Misc Flows (PO hủy + xuất OTHER) — SOP §12", () => {
 
@@ -20,7 +20,6 @@ test.describe("Misc Flows (PO hủy + xuất OTHER) — SOP §12", () => {
     const stockToken = await getToken("stock", stock)
     const managerToken = await getToken("manager", mgr)
     const salesToken = await getToken("sales", sales)
-    const locationId = await getE2ELocationId(stock)
 
     // 1. PO cancel: MANAGER creates a DRAFT PO then cancels it
     const poRes = await mgr.request.post(`${API_URL}/purchase-order`, {

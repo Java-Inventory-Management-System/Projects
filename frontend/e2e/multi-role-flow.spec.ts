@@ -1,6 +1,5 @@
 import { test, expect } from "@playwright/test"
 import { loginAsStock, loginAsManager, loginAsSales } from "./helpers/auth"
-import { navigateTo } from "./helpers/nav"
 import { initTokens, getToken, API_URL, createPurchaseOrder, getE2ELocationId } from "./helpers/api"
 import { cleanupProduct1 } from "./helpers/cleanup"
 

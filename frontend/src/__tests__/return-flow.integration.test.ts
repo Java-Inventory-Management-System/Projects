@@ -1,9 +1,9 @@
 import { describe, it, expect } from "vitest"
-import { api, loginAsManager } from "./api-client"
+import { api, loginAsSales } from "./api-client"
 
 describe("Return Flow", () => {
   it("should reject return with invalid export", async () => {
-    await loginAsManager()
+    await loginAsSales()
     try {
       await api.post("/return-receipts", {
         customerId: 1, originalExportReceiptId: 99999, reason: "DEFECTIVE",

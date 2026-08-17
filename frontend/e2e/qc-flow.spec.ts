@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test"
 import { loginAsStock, loginAsManager, loginAsSales } from "./helpers/auth"
-import { initTokens, getToken, ensureImport, API_URL, getE2ELocationId } from "./helpers/api"
+import { initTokens, getToken, ensureImport, API_URL } from "./helpers/api"
 
 test.describe("QC Processing Flow (Kiểm định hàng trả) — SOP §5", () => {
 
@@ -20,7 +20,6 @@ test.describe("QC Processing Flow (Kiểm định hàng trả) — SOP §5", () 
     const stockToken = await getToken("stock", stock)
     const managerToken = await getToken("manager", mgr)
     const salesToken = await getToken("sales", sales)
-    const locationId = await getE2ELocationId(stock)
 
     const { productUnitIds } = await ensureImport(stock)
     test.skip(productUnitIds.length < 2, "Need 2 units")

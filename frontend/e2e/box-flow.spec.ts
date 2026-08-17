@@ -18,7 +18,7 @@ test.describe("Box Flow (Đóng/ mở thùng) — SOP §9", () => {
     const managerToken = await getToken("manager", mgr)
     const locationId = await getE2ELocationId(stock)
 
-    const { importReceiptId, productUnitIds } = await ensureImport(stock)
+    const { productUnitIds } = await ensureImport(stock)
     test.skip(productUnitIds.length === 0, "No product units available")
     const unitIds = productUnitIds.slice(0, 2)
 
