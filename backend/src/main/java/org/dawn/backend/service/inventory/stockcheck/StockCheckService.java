@@ -329,10 +329,6 @@ List<Long> resolveUnitIdsByScope(StockCheckScopeType scopeType, Long scopeId, Li
                             .build());
                 }
 
-                if (newActual == ProductUnitStatus.DAMAGED_IN_STORAGE && (req.photo() == null || req.photo().isBlank())) {
-                    throw new InvalidRequestException(ErrorCode.STOCK_CHECK_PHOTO_REQUIRED_DAMAGED);
-                }
-
                 item.setActualStatus(newActual.name());
                 item.setCountedQuantity(req.countedQuantity());
                 item.setPhoto(req.photo());
@@ -349,6 +345,9 @@ List<Long> resolveUnitIdsByScope(StockCheckScopeType scopeType, Long scopeId, Li
                     item.setDifference(DifferenceType.MATCH.name());
                 } else if (newActual == ProductUnitStatus.LOST) {
                     item.setDifference(DifferenceType.MISSING.name());
+                } else if (newActual == ProductUnitStatus.DAMAGED_IN_STORAGE
+                        && expected == ProductUnitStatus.IN_STOCK) {
+                    item.setDifference(DifferenceType.DAMAGED.name());
                 } else {
                     item.setDifference(DifferenceType.UNEXPECTED.name());
                 }
@@ -554,9 +553,8 @@ private void applyAdjustments(StockCheck sc, List<StockCheckItem> items, Long us
                 adjType = switch (diff) {
                     case MISSING -> AdjustmentType.LOST;
                     case SURPLUS -> AdjustmentType.FOUND;
-                    default -> actual == ProductUnitStatus.DAMAGED_IN_STORAGE
-                            ? AdjustmentType.DAMAGED
-                            : AdjustmentType.FOUND;
+                    case DAMAGED -> AdjustmentType.DAMAGED;
+                    default -> AdjustmentType.FOUND;
                 };
             }
             if (quantity.signum() <= 0) continue;
@@ -586,8 +584,11 @@ private void applyAdjustments(StockCheck sc, List<StockCheckItem> items, Long us
     }
 
     private DifferenceType computeBulkDifference(StockCheckItem item, ProductUnitStatus actual) {
-        if (actual == ProductUnitStatus.LOST || actual == ProductUnitStatus.DAMAGED_IN_STORAGE) {
+        if (actual == ProductUnitStatus.LOST) {
             return DifferenceType.MISSING;
+        }
+        if (actual == ProductUnitStatus.DAMAGED_IN_STORAGE) {
+            return DifferenceType.DAMAGED;
         }
         BigDecimal expected = item.getExpectedQuantity();
         BigDecimal counted = item.getCountedQuantity();

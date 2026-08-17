@@ -64,7 +64,7 @@ public interface StockCheckMappingHelper {
             DifferenceType diff = item.getDifference() == null ? null : DifferenceType.valueOf(item.getDifference());
             if (diff != null) switch (diff) {
                 case MATCH -> matchCount++;
-                case MISSING -> missingCount++;
+                case MISSING, DAMAGED -> missingCount++;
                 case UNEXPECTED -> unexpectedCount++;
                 default -> { }
             }

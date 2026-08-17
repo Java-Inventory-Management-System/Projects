@@ -284,6 +284,100 @@ class StockCheckServiceTests {
     }
 
     @Test
+    void recordItems_serializedDamaged_mapsToDamagedDiff() {
+        var sc = inProgressCheck();
+        var item = countedItem(1L);
+        item.setActualStatus(null);
+        item.setDifference(null);
+        when(stockCheckRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(sc));
+        when(stockCheckItemRepository.findByStockCheckId(1L)).thenReturn(List.of(item));
+        when(securityPolicy.requireAuthenticated()).thenReturn(10L);
+        when(stockCheckRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        stubResponseDeps();
+
+        stockCheckService.recordItems(1L, new StockCheckItemRequest.BatchRequest(
+                List.of(new StockCheckItemRequest(1L, "DAMAGED_IN_STORAGE", BigDecimal.ONE, null, "http://img/1.jpg", null, null))));
+
+        assertEquals("DAMAGED_IN_STORAGE", item.getActualStatus());
+        assertEquals("DAMAGED", item.getDifference());
+        assertEquals(0, BigDecimal.ONE.compareTo(item.getCountedQuantity()));
+        verify(stockCheckItemRepository).save(item);
+    }
+
+    @Test
+    void recordItems_serializedDamaged_whenExpectedNotInStock_staysUnexpected() {
+        var sc = inProgressCheck();
+        var item = countedItem(1L);
+        item.setExpectedStatus("LOST");
+        item.setActualStatus(null);
+        item.setDifference(null);
+        when(stockCheckRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(sc));
+        when(stockCheckItemRepository.findByStockCheckId(1L)).thenReturn(List.of(item));
+        when(securityPolicy.requireAuthenticated()).thenReturn(10L);
+        when(stockCheckRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        stubResponseDeps();
+
+        stockCheckService.recordItems(1L, new StockCheckItemRequest.BatchRequest(
+                List.of(new StockCheckItemRequest(1L, "DAMAGED_IN_STORAGE", BigDecimal.ONE, null, "http://img/1.jpg", null, null))));
+
+        assertEquals("UNEXPECTED", item.getDifference());
+    }
+
+    @Test
+    void complete_serializedDamaged_createsDamagedAdjustment() {
+        var sc = inProgressCheck();
+        var item = countedItem(1L);
+        item.setActualStatus("DAMAGED_IN_STORAGE");
+        item.setDifference("DAMAGED");
+        var unit = unit(1L, 2L, 1L, null, "SERIALIZED");
+        when(stockCheckRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(sc));
+        when(stockCheckItemRepository.findByStockCheckId(1L)).thenReturn(List.of(item));
+        when(productUnitRepository.findAllById(any())).thenReturn(List.of(unit));
+        when(securityPolicy.requireAuthenticated()).thenReturn(10L);
+        when(adjustmentRepository.existsBySourceTypeAndSourceId(any(), any())).thenReturn(false);
+        when(adjustmentRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(stockCheckRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(productRepository.findAllById(anyList())).thenReturn(List.of());
+        when(userRepository.findById(100L)).thenReturn(Optional.of(new org.dawn.backend.entity.auth.User()));
+
+        stockCheckService.complete(1L);
+
+        ArgumentCaptor<StockAdjustment> captor = ArgumentCaptor.forClass(StockAdjustment.class);
+        verify(adjustmentRepository).save(captor.capture());
+        assertEquals(AdjustmentType.DAMAGED.name(), captor.getValue().getType());
+        assertEquals(0, BigDecimal.ONE.compareTo(captor.getValue().getQuantity()));
+    }
+
+    @Test
+    void complete_bulkDamaged_createsDamagedAdjustment_ignoringCounted() {
+        var sc = inProgressCheck();
+        var item = countedItem(1L);
+        item.setTrackingType("BULK");
+        item.setExpectedQuantity(BigDecimal.valueOf(1000));
+        item.setCountedQuantity(BigDecimal.valueOf(900));
+        item.setActualStatus("DAMAGED_IN_STORAGE");
+        item.setDifference("DAMAGED");
+        var unit = unit(1L, 2L, 1L, null, "BULK");
+        when(stockCheckRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(sc));
+        when(stockCheckItemRepository.findByStockCheckId(1L)).thenReturn(List.of(item));
+        when(productUnitRepository.findAllById(any())).thenReturn(List.of(unit));
+        when(securityPolicy.requireAuthenticated()).thenReturn(10L);
+        when(adjustmentRepository.existsBySourceTypeAndSourceId(any(), any())).thenReturn(false);
+        when(adjustmentRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(stockCheckRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(productRepository.findAllById(anyList())).thenReturn(List.of());
+        when(userRepository.findById(100L)).thenReturn(Optional.of(new org.dawn.backend.entity.auth.User()));
+
+        stockCheckService.complete(1L);
+
+        ArgumentCaptor<StockAdjustment> captor = ArgumentCaptor.forClass(StockAdjustment.class);
+        verify(adjustmentRepository).save(captor.capture());
+        StockAdjustment adj = captor.getValue();
+        assertEquals(AdjustmentType.DAMAGED.name(), adj.getType());
+        assertEquals(0, BigDecimal.valueOf(1000).compareTo(adj.getQuantity()));
+    }
+
+    @Test
     void recordItems_rejectsInvalidActualStatus() {
         var sc = inProgressCheck();
         var item = countedItem(1L);
