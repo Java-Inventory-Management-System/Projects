@@ -170,6 +170,7 @@ public class ProductUnitService {
                         .sourceType(log.getSourceType())
                         .sourceId(log.getSourceId())
                         .sourceCode(log.getSourceId() != null ? sourceCodes.get(log.getSourceId()) : null)
+                        .note(log.getNote())
                         .changedByName(userMap.get(log.getChangedBy()))
                         .createdAt(log.getCreatedAt())
                         .build())

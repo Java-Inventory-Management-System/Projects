@@ -5,7 +5,7 @@ import { useReturnReceipts } from "@/hooks/use-returns"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
-import { Plus, Eye, Search } from "lucide-react"
+import { Plus, Eye, RefreshCw, Search } from "lucide-react"
 import { usePermission } from "@/hooks/use-permission"
 import { ROLES } from "@/utils/permissions"
 import { DataTable, type Column } from "@/components/ui/data-table"
@@ -13,6 +13,18 @@ import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import type { ReturnReceipt } from "@/utils/types"
 import { RETURN_RECEIPT_STATUS, RETURN_REASON } from "@/utils/types"
+
+const VALID_STATUSES = [
+  RETURN_RECEIPT_STATUS.PENDING_APPROVAL,
+  RETURN_RECEIPT_STATUS.COMPLETED,
+  RETURN_RECEIPT_STATUS.CANCELLED,
+]
+const VALID_REASONS = [
+  RETURN_REASON.CHANGE_MIND,
+  RETURN_REASON.DEFECTIVE,
+  RETURN_REASON.WRONG_ITEM,
+  RETURN_REASON.WARRANTY_CLAIM,
+]
 
 export const ReturnListPage = () => {
   const navigate = useNavigate()
@@ -24,8 +36,10 @@ export const ReturnListPage = () => {
   const [pageSize, setPageSize] = useState(10)
   const [sort, setSort] = useState<{ key: string; dir: "asc" | "desc" } | undefined>(undefined)
 
-  const [statusFilter, setStatusFilter] = useState<string | undefined>(searchParams.get("status") ?? undefined)
-  const [reasonFilter, setReasonFilter] = useState<string | undefined>(undefined)
+  const rawStatus = searchParams.get("status")
+  const rawReason = searchParams.get("reason")
+  const statusFilter = rawStatus && VALID_STATUSES.includes(rawStatus) ? rawStatus : undefined
+  const reasonFilter = rawReason && VALID_REASONS.includes(rawReason) ? rawReason : undefined
   const [searchText, setSearchText] = useState("")
 
   const handleSort = useCallback((key: string) => {
@@ -36,7 +50,7 @@ export const ReturnListPage = () => {
     })
   }, [])
 
-  const { data, isLoading } = useReturnReceipts(page, pageSize, statusFilter, reasonFilter, searchText || undefined)
+  const { data, isLoading, isError, refetch } = useReturnReceipts(page, pageSize, statusFilter, reasonFilter, searchText || undefined)
 
   const updateParams = useCallback(
     (updates: Record<string, string | undefined>) => {
@@ -127,7 +141,7 @@ export const ReturnListPage = () => {
             className="pl-9"
           />
         </div>
-        <Select value={statusFilter ?? "all"} onValueChange={(v) => { setStatusFilter(v === "all" ? undefined : v); updateParams({ page: undefined }) }}>
+        <Select value={statusFilter ?? "all"} onValueChange={(v) => { updateParams({ page: undefined, status: v === "all" ? undefined : v }) }}>
           <SelectTrigger className="w-36">
             <SelectValue placeholder={t("common.status")} />
           </SelectTrigger>
@@ -138,7 +152,7 @@ export const ReturnListPage = () => {
             <SelectItem value={RETURN_RECEIPT_STATUS.CANCELLED}>{t("returnStatus.cancelled")}</SelectItem>
           </SelectContent>
         </Select>
-        <Select value={reasonFilter ?? "all"} onValueChange={(v) => { setReasonFilter(v === "all" ? undefined : v); updateParams({ page: undefined }) }}>
+        <Select value={reasonFilter ?? "all"} onValueChange={(v) => { updateParams({ page: undefined, reason: v === "all" ? undefined : v }) }}>
           <SelectTrigger className="w-36">
             <SelectValue placeholder={t("table.reason")} />
           </SelectTrigger>
@@ -152,23 +166,32 @@ export const ReturnListPage = () => {
         </Select>
       </div>
 
-      <DataTable
-        columns={columns}
-        data={data?.content ?? []}
-        isLoading={isLoading}
-        emptyMessage={t("returnList.empty")}
-        sort={sort}
-        onSort={handleSort}
-        totalElements={data?.pagination.totalElements}
-        page={page}
-        totalPages={data?.pagination.totalPages}
-        pageSize={pageSize}
-        onPageChange={(p) => updateParams({ page: String(p) })}
-        onPageSizeChange={(s) => {
-          setPageSize(s)
-          updateParams({ page: undefined })
-        }}
-      />
+      {isError ? (
+        <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-6 text-center space-y-2">
+          <p className="text-sm text-destructive">{t("returnList.loadError")}</p>
+          <Button variant="outline" size="sm" onClick={() => refetch()}>
+            <RefreshCw className="size-3 mr-1" /> {t("returnList.retry")}
+          </Button>
+        </div>
+      ) : (
+        <DataTable
+          columns={columns}
+          data={data?.content ?? []}
+          isLoading={isLoading}
+          emptyMessage={t("returnList.empty")}
+          sort={sort}
+          onSort={handleSort}
+          totalElements={data?.pagination.totalElements}
+          page={page}
+          totalPages={data?.pagination.totalPages}
+          pageSize={pageSize}
+          onPageChange={(p) => updateParams({ page: String(p) })}
+          onPageSizeChange={(s) => {
+            setPageSize(s)
+            updateParams({ page: undefined })
+          }}
+        />
+      )}
     </div>
   )
 }

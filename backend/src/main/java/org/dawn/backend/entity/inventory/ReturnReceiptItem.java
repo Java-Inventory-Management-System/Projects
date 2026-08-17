@@ -42,4 +42,7 @@ public class ReturnReceiptItem extends BaseEntity {
 
     @Column(name = "evidence_image", length = 255)
     private String evidenceImage;
+
+    @Column(name = "defect_category_id")
+    private Long defectCategoryId;
 }

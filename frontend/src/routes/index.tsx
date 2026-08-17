@@ -23,6 +23,7 @@ const ProductCreatePage = lazyPage(() => import("@/features/products/pages/produ
 const ProductEditPage = lazyPage(() => import("@/features/products/pages/product-edit-page"), "ProductEditPage")
 const BrandsPage = lazyPage(() => import("@/features/products/pages/brands-page"), "BrandsPage")
 const CategoriesPage = lazyPage(() => import("@/features/products/pages/categories-page"), "CategoriesPage")
+const DefectCategoriesPage = lazyPage(() => import("@/features/products/pages/defect-categories-page"), "DefectCategoriesPage")
 const SuppliersPage = lazyPage(() => import("@/features/products/pages/suppliers-page"), "SuppliersPage")
 const CustomersPage = lazyPage(() => import("@/features/products/pages/customers-page"), "CustomersPage")
 const NotFoundPage = lazyPage(() => import("@/features/common/pages/not-found-page"), "NotFoundPage")
@@ -163,6 +164,7 @@ export const router = createBrowserRouter([
                     tabs={[
                       { path: "/catalog-settings/brands", labelKey: "nav.brands" },
                       { path: "/catalog-settings/categories", labelKey: "nav.categories" },
+                      { path: "/catalog-settings/defect-categories", labelKey: "nav.defectCategories" },
                       { path: "/catalog-settings/suppliers", labelKey: "nav.suppliers" },
                     ]}
                   />
@@ -188,6 +190,14 @@ export const router = createBrowserRouter([
                 ),
               },
               {
+                path: "defect-categories",
+                element: (
+                  <Lazy>
+                    <DefectCategoriesPage />
+                  </Lazy>
+                ),
+              },
+              {
                 path: "suppliers",
                 element: (
                   <Lazy>
@@ -199,6 +209,7 @@ export const router = createBrowserRouter([
           },
           { path: "brands", element: <RedirectTo to="/catalog-settings/brands" /> },
           { path: "categories", element: <RedirectTo to="/catalog-settings/categories" /> },
+          { path: "defect-categories", element: <RedirectTo to="/catalog-settings/defect-categories" /> },
           { path: "suppliers", element: <RedirectTo to="/catalog-settings/suppliers" /> },
           {
             path: "customers",

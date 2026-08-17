@@ -35,11 +35,12 @@ export async function createReturnReceipt(data: {
     productUnitId: number | null
     productId: number
     quantity: number
-    condition: string
-    resultingAction: string
-    description?: string
-    evidenceImage?: string
-  }>
+condition: string
+      resultingAction: string
+      description?: string
+      evidenceImage?: string
+      defectCategoryId?: number | null
+    }>
 }): Promise<ReturnReceipt> {
   const res = await http.post("/return-receipts", data)
   return mapReturnReceipt(res)
@@ -66,7 +67,73 @@ export interface UnitLookupResult {
   status: string | null
 }
 
+export interface ReturnableUnit {
+  unitId: number
+  serialNumber: string
+  productId: number
+  productName: string | null
+  productSku: string | null
+  held: boolean
+  warrantyExpiresAt: string | null
+}
+
+export interface BulkSummary {
+  productId: number
+  productName: string
+  productSku: string
+  trackingType: string
+  soldQty: number
+  returnedQty: number
+  remainingQty: number
+}
+
+export interface ReturnableUnitsInfo {
+  units: ReturnableUnit[]
+  bulkSummary: BulkSummary[]
+}
+
+export async function getReturnableUnits(exportReceiptId: number): Promise<ReturnableUnitsInfo> {
+  const res = await http.get("/return-receipts/returnable-units", { params: { exportReceiptId } })
+  return res as ReturnableUnitsInfo
+}
+
 export async function lookupReturnUnit(serial: string, exportReceiptId: number): Promise<UnitLookupResult> {
   const res = await http.get("/return-receipts/lookup-unit", { params: { serial, exportReceiptId } })
   return res.data as UnitLookupResult
+}
+
+export interface WarrantyExchangeInfo {
+  originalUnitId: number | null
+  serialNumber: string | null
+  productId: number | null
+  productName: string | null
+  originalSellPrice: number
+  warrantyExpiresAt: string | null
+  defectCategoryId: number | null
+  defectName: string | null
+  replaceable: boolean
+}
+
+export interface WarrantyExchangeResult {
+  receiptCode: string
+  exportReceiptId: number
+  replacementUnitId: number
+  replacementSerial: string
+  originalPrice: number
+  newPrice: number
+  chargeAmount: number
+  warrantyExpiresAt: string
+}
+
+export async function getWarrantyExchangeInfo(returnReceiptId: number): Promise<WarrantyExchangeInfo> {
+  const res = await http.get(`/return-receipts/${returnReceiptId}/warranty-exchange-info`)
+  return res.data as WarrantyExchangeInfo
+}
+
+export async function warrantyExchange(
+  returnReceiptId: number,
+  payload: { replacementUnitId: number; discountAmount?: number; note?: string },
+): Promise<WarrantyExchangeResult> {
+  const res = await http.put(`/return-receipts/${returnReceiptId}/warranty-exchange`, payload)
+  return res.data as WarrantyExchangeResult
 }

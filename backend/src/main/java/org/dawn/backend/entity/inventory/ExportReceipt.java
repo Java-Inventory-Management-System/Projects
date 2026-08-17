@@ -69,6 +69,9 @@ public class ExportReceipt extends AuditableEntity {
     @Column(name = "source_import_receipt_id")
     private Long sourceImportReceiptId;
 
+    @Column(name = "source_return_receipt_id")
+    private Long sourceReturnReceiptId;
+
     @Column(name = "total_cogs", precision = 15, scale = 2)
     private BigDecimal totalCogs;
 

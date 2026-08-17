@@ -21,6 +21,9 @@ public class LogConstant {
         public static final String CREATE_CATEGORY = "CREATE_CATEGORY";
         public static final String UPDATE_CATEGORY = "UPDATE_CATEGORY";
         public static final String TOGGLE_CATEGORY = "TOGGLE_CATEGORY";
+        public static final String CREATE_DEFECT_CATEGORY = "CREATE_DEFECT_CATEGORY";
+        public static final String UPDATE_DEFECT_CATEGORY = "UPDATE_DEFECT_CATEGORY";
+        public static final String TOGGLE_DEFECT_CATEGORY = "TOGGLE_DEFECT_CATEGORY";
         public static final String CREATE_SUPPLIER = "CREATE_SUPPLIER";
         public static final String UPDATE_SUPPLIER = "UPDATE_SUPPLIER";
         public static final String TOGGLE_SUPPLIER = "TOGGLE_SUPPLIER";
@@ -74,12 +77,14 @@ public static final String APPROVE_ADJUSTMENT = "APPROVE_ADJUSTMENT";
         public static final String CANCEL_RETURN = "CANCEL_RETURN";
         public static final String QC_PASS = "QC_PASS";
         public static final String DISPOSE_CONFIRM = "DISPOSE_CONFIRM";
+        public static final String WARRANTY_EXCHANGE = "WARRANTY_EXCHANGE";
     }
 
     public static class Entity {
         public static final String USER = "USER";
         public static final String BRAND = "BRAND";
         public static final String CATEGORY = "CATEGORY";
+        public static final String DEFECT_CATEGORY = "DEFECT_CATEGORY";
         public static final String SUPPLIER = "SUPPLIER";
         public static final String PRODUCT = "PRODUCT";
         public static final String IMPORT_RECEIPT = "IMPORT_RECEIPT";

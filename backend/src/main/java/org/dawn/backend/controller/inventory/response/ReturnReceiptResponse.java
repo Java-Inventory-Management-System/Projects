@@ -34,6 +34,7 @@ public record ReturnReceiptResponse(
             String resultingAction,
             String description,
             String evidenceImage,
+            Long defectCategoryId,
             String productName,
             String productSku,
             String serialNumber

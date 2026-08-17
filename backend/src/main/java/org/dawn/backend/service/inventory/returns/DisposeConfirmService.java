@@ -82,7 +82,7 @@ public class DisposeConfirmService {
 
     @Transactional
     @AuditLog(action = LogConstant.Action.DISPOSE_CONFIRM, entity = LogConstant.Entity.PRODUCT_UNIT)
-    public DisposeConfirmResponse confirm(List<Long> unitIds, String action, Long supplierId) {
+    public DisposeConfirmResponse confirm(List<Long> unitIds, String action, Long supplierId, String note) {
         Long userId = securityPolicy.requireAuthenticated();
         if (unitIds == null || unitIds.isEmpty()) {
             throw new InvalidRequestException(ErrorCode.DISPOSE_CONFIRM_UNITS_REQUIRED);
@@ -115,6 +115,7 @@ public class DisposeConfirmService {
                     .toStatus(targetStatus.name())
                     .sourceType(SourceType.QC_PROCESSING.name())
                     .sourceId(null)
+                    .note(note != null && !note.isBlank() ? note.trim() : null)
                     .changedBy(userId)
                     .build());
         }

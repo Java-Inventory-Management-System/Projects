@@ -1,14 +1,20 @@
 import { useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { getReturnReceiptById, approveReturnReceipt, cancelReturnReceipt } from "@/services/return-service"
+import { getReturnReceiptById, approveReturnReceipt, cancelReturnReceipt, getWarrantyExchangeInfo, warrantyExchange } from "@/services/return-service"
+import { getDefectCategories } from "@/services/defect-category-service"
+import { getProducts } from "@/services/product-service"
+import { getProductUnits } from "@/services/product-unit-service"
 import { usePermission } from "@/hooks/use-permission"
 import { ROLES } from "@/utils/permissions"
+import { formatMoney, formatDateVN } from "@/utils/format"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Empty, EmptyTitle } from "@/components/ui/empty"
 import { Separator } from "@/components/ui/separator"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import {
   Breadcrumb,
@@ -18,7 +24,7 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
-import { Check, X, ExternalLink, Circle } from "lucide-react"
+import { Check, X, ExternalLink, Circle, RefreshCcw } from "lucide-react"
 import { PrintReceiptButton } from "../components/print-receipt"
 import { toast } from "@/utils/toast"
 import { RETURN_RECEIPT_STATUS } from "@/utils/types"
@@ -34,11 +40,91 @@ export const ReturnDetailPage = () => {
 
   const [showCancel, setShowCancel] = useState(false)
   const [showApprove, setShowApprove] = useState(false)
+  const [showExchange, setShowExchange] = useState(false)
+  const [exchangeProductId, setExchangeProductId] = useState<number | "">("")
+  const [exchangeUnitId, setExchangeUnitId] = useState<number | "">("")
+  const [exchangeDiscount, setExchangeDiscount] = useState("")
+  const [exchangeNote, setExchangeNote] = useState("")
+  const [productQuery, setProductQuery] = useState("")
+  const [productOpen, setProductOpen] = useState(false)
+  const [unitQuery, setUnitQuery] = useState("")
+  const [unitOpen, setUnitOpen] = useState(false)
 
   const { data: receipt, isLoading } = useQuery({
     queryKey: ["return-receipt", id],
     queryFn: () => getReturnReceiptById(Number(id)),
     enabled: !!id,
+  })
+
+  const { data: defectCategories = [] } = useQuery({
+    queryKey: ["defect-categories"],
+    queryFn: getDefectCategories,
+  })
+
+  const defectName = (id: number | null) =>
+    id ? defectCategories.find((d) => d.id === id)?.name ?? null : null
+
+  const { data: exchangeInfo, isError: exchangeInfoError } = useQuery({
+    queryKey: ["warranty-exchange-info", id],
+    queryFn: () => getWarrantyExchangeInfo(Number(id)),
+    enabled: !!id,
+    retry: false,
+  })
+
+  const { data: productsPage, isPending: productsPending } = useQuery({
+    queryKey: ["products", "exchange", productQuery],
+    queryFn: () => getProducts(0, 50, undefined, productQuery.trim() || undefined),
+    enabled: showExchange,
+  })
+  const products = productsPage?.content ?? []
+
+  const { data: unitsPage } = useQuery({
+    queryKey: ["product-units", "IN_STOCK", exchangeProductId],
+    queryFn: () =>
+      getProductUnits(0, 100, "importedAt,desc", undefined, "IN_STOCK", exchangeProductId === "" ? undefined : Number(exchangeProductId)),
+    enabled: showExchange && exchangeProductId !== "",
+  })
+  const exchangeUnits = (unitsPage?.content ?? []).filter((u) => u.boxId === null && u.status === "IN_STOCK")
+  const filteredUnits = exchangeUnits.filter(
+    (u) => !unitQuery.trim() || u.serialNumber.toLowerCase().includes(unitQuery.trim().toLowerCase()),
+  )
+
+  const selectedProduct = products.find((p) => p.id === exchangeProductId)
+  const originalPrice = exchangeInfo?.originalSellPrice ?? 0
+  const priceDiff = selectedProduct ? Math.max(0, selectedProduct.sellPrice - originalPrice) : 0
+  const discount = Math.min(Math.max(0, Number(exchangeDiscount) || 0), priceDiff)
+  const charge = Math.max(0, priceDiff - discount)
+
+  const exchangeMut = useMutation({
+    mutationFn: () =>
+      warrantyExchange(Number(id!), {
+        replacementUnitId: Number(exchangeUnitId),
+        discountAmount: discount > 0 ? discount : undefined,
+        note: exchangeNote.trim() || undefined,
+      }),
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ["return-receipt", id] })
+      qc.invalidateQueries({ queryKey: ["return-receipts"] })
+      qc.invalidateQueries({ queryKey: ["inventory"] })
+      qc.invalidateQueries({ queryKey: ["product-units"] })
+      qc.invalidateQueries({ queryKey: ["work-queue"] })
+      setShowExchange(false)
+      setExchangeUnitId("")
+      setExchangeDiscount("")
+      setExchangeNote("")
+      const msg = t("returnDetail.exchangeSuccess")
+      if (data?.exportReceiptId) {
+        toast.success(msg, {
+          action: {
+            label: t("returnDetail.viewExport"),
+            onClick: () => navigate(`/stock/exports/${data.exportReceiptId}`),
+          },
+        })
+      } else {
+        toast.success(msg)
+      }
+    },
+    onError: (err: Error) => toast.error(err.message || t("returnDetail.exchangeFail")),
   })
 
   const approveMut = useMutation({
@@ -47,6 +133,7 @@ export const ReturnDetailPage = () => {
       qc.invalidateQueries({ queryKey: ["return-receipt", id] })
       qc.invalidateQueries({ queryKey: ["return-receipts"] })
       qc.invalidateQueries({ queryKey: ["inventory"] })
+      qc.invalidateQueries({ queryKey: ["work-queue"] })
       setShowApprove(false)
       toast.success(t("returnDetail.approveSuccess"))
     },
@@ -58,6 +145,7 @@ export const ReturnDetailPage = () => {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["return-receipt", id] })
       qc.invalidateQueries({ queryKey: ["return-receipts"] })
+      qc.invalidateQueries({ queryKey: ["work-queue"] })
       setShowCancel(false)
       toast.success(t("returnDetail.cancelSuccess"))
     },
@@ -162,6 +250,12 @@ export const ReturnDetailPage = () => {
         </div>
       </div>
 
+      {receipt.status === RETURN_RECEIPT_STATUS.PENDING_APPROVAL && (
+        <p className="flex items-center gap-1.5 text-xs text-muted-foreground -mt-3">
+          <RefreshCcw className="size-3 shrink-0" /> {t("returnDetail.exchangeGuide")}
+        </p>
+      )}
+
       <div className="rounded-lg border p-6 space-y-4">
         <div className="grid grid-cols-2 gap-6 text-sm">
           <div>
@@ -219,10 +313,15 @@ export const ReturnDetailPage = () => {
                     <span className="ml-2">x{item.quantity}</span>
                   </p>
                 </div>
-                <Badge variant="outline" className="text-[10px]">
+                <Badge variant="outline" className="text-xs">
                   {conditionLabel[item.condition] ?? item.condition}
                 </Badge>
-                <Badge className="text-[10px]">{actionLabel[item.resultingAction] ?? item.resultingAction}</Badge>
+                {defectName(item.defectCategoryId) && (
+                  <Badge variant="secondary" className="text-xs">
+                    {defectName(item.defectCategoryId)}
+                  </Badge>
+                )}
+                <Badge className="text-xs">{actionLabel[item.resultingAction] ?? item.resultingAction}</Badge>
               </div>
             ))}
           </div>
@@ -235,6 +334,25 @@ export const ReturnDetailPage = () => {
           <Button variant="outline" className="text-destructive" onClick={() => setShowCancel(true)}>
             <X className="size-4 mr-1" /> {t("returnDetail.cancelReceipt")}
           </Button>
+        )}
+        {canApprove && (
+          <span
+            title={
+              exchangeInfoError
+                ? t("returnDetail.exchangeUnavailable")
+                : exchangeInfo && !exchangeInfo.replaceable
+                  ? t("returnDetail.exchangeNotReplaceable")
+                  : undefined
+            }
+          >
+            <Button
+              variant="outline"
+              onClick={() => setShowExchange(true)}
+              disabled={exchangeInfoError || (exchangeInfo ? !exchangeInfo.replaceable : false) || exchangeMut.isPending}
+            >
+              <RefreshCcw className="size-4 mr-1" /> {t("returnDetail.exchange1to1")}
+            </Button>
+          </span>
         )}
         {canApprove && (
           <Button onClick={() => setShowApprove(true)} disabled={approveMut.isPending}>
@@ -279,6 +397,181 @@ export const ReturnDetailPage = () => {
             </Button>
             <Button variant="destructive" onClick={() => { setShowCancel(false); cancelMut.mutate() }} disabled={cancelMut.isPending}>
               {cancelMut.isPending ? t("returnDetail.cancelling") : t("returnDetail.cancelConfirm")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showExchange} onOpenChange={(v) => { if (!v) setShowExchange(false) }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{t("returnDetail.exchangeDialogTitle")}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 text-sm">
+            {exchangeInfo && (
+              <div className="space-y-1 rounded-md border bg-muted/20 px-4 py-3">
+                <p>
+                  {t("returnDetail.exchangeOriginal")}{" "}
+                  <span className="font-mono">{exchangeInfo.serialNumber ?? "—"}</span>
+                </p>
+                <p>
+                  {t("returnDetail.exchangeOriginalPrice")}: <b>{formatMoney(originalPrice)}</b>{" "}
+                  · {t("returnDetail.exchangeWarranty")}:{" "}
+                  {exchangeInfo.warrantyExpiresAt ? formatDateVN(exchangeInfo.warrantyExpiresAt) : "—"}
+                </p>
+                {exchangeInfo.defectName && <p className="text-muted-foreground">{exchangeInfo.defectName}</p>}
+                {!exchangeInfo.replaceable && (
+                  <p className="text-destructive text-xs">{t("returnDetail.exchangeNotReplaceable")}</p>
+                )}
+              </div>
+            )}
+            <div className="space-y-1.5">
+              <Label>{t("returnDetail.exchangeProduct")}</Label>
+              <div
+                className="relative"
+                onBlur={(e) => {
+                  if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setProductOpen(false)
+                }}
+              >
+                <Input
+                  value={productQuery}
+                  onChange={(e) => {
+                    setProductQuery(e.target.value)
+                    setExchangeProductId("")
+                    setExchangeUnitId("")
+                    setProductOpen(true)
+                  }}
+                  onFocus={() => setProductOpen(true)}
+                  placeholder={t("returnDetail.exchangeSelectProduct")}
+                  disabled={exchangeInfo ? !exchangeInfo.replaceable : false}
+                />
+                {productOpen && exchangeProductId === "" && (
+                  <div className="absolute z-20 mt-1 w-full max-h-48 overflow-y-auto rounded-md border bg-background shadow-sm divide-y text-sm">
+                    {productsPending ? (
+                      <div className="px-3 py-2 text-xs text-muted-foreground">{t("common.loading")}</div>
+                    ) : products.length > 0 ? (
+                      products.map((p) => (
+                        <button
+                          key={p.id}
+                          type="button"
+                          className="flex w-full items-center justify-between gap-2 px-3 py-1.5 text-left hover:bg-muted/30"
+                          onClick={() => {
+                            setExchangeProductId(p.id)
+                            setProductQuery(p.name)
+                            setProductOpen(false)
+                            setExchangeUnitId("")
+                          }}
+                        >
+                          <span className="truncate font-medium">{p.name}</span>
+                          {p.sku && <span className="shrink-0 text-xs text-muted-foreground">{p.sku}</span>}
+                        </button>
+                      ))
+                    ) : (
+                      <div className="px-3 py-2 text-xs text-muted-foreground">{t("common.noResults")}</div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+            {exchangeProductId !== "" && (
+              <div className="space-y-1.5">
+                <Label>{t("returnDetail.exchangeUnit")}</Label>
+                <div
+                  className="relative"
+                  onBlur={(e) => {
+                    if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setUnitOpen(false)
+                  }}
+                >
+                  <Input
+                    value={unitQuery}
+                    onChange={(e) => {
+                      setUnitQuery(e.target.value)
+                      setExchangeUnitId("")
+                    }}
+                    onFocus={() => setUnitOpen(true)}
+                    placeholder={
+                      exchangeUnits.length === 0 ? t("returnDetail.exchangeNoStock") : t("returnDetail.exchangeSelectUnit")
+                    }
+                    disabled={exchangeUnits.length === 0}
+                  />
+                  {unitOpen && (
+                    <div className="absolute z-20 mt-1 w-full max-h-48 overflow-y-auto rounded-md border bg-background shadow-sm divide-y text-sm">
+                      {filteredUnits.length > 0 ? (
+                        filteredUnits.map((u) => (
+                          <button
+                            key={u.id}
+                            type="button"
+                            className="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-muted/30"
+                            onClick={() => {
+                              setExchangeUnitId(u.id)
+                              setUnitQuery(u.serialNumber)
+                              setUnitOpen(false)
+                            }}
+                          >
+                            <span className="font-mono text-xs shrink-0">{u.serialNumber}</span>
+                            <span className="flex-1 truncate text-xs text-muted-foreground">{u.locationCode ?? "—"}</span>
+                            <span className="shrink-0 text-xs text-muted-foreground">
+                              {formatMoney(selectedProduct?.sellPrice ?? 0)}
+                            </span>
+                          </button>
+                        ))
+                      ) : (
+                        <div className="px-3 py-2 text-xs text-muted-foreground">{t("returnDetail.exchangeNoStock")}</div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+            {selectedProduct && (
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>{t("returnDetail.exchangeDiscount")}</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    max={priceDiff}
+                    value={exchangeDiscount}
+                    onChange={(e) => setExchangeDiscount(e.target.value)}
+                    placeholder="0"
+                  />
+                  {priceDiff > 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      {t("returnDetail.exchangeMaxDiscount", { amount: formatMoney(priceDiff) })}
+                    </p>
+                  )}
+                </div>
+                <div className="space-y-1.5">
+                  <Label>{t("returnDetail.exchangeCharge")}</Label>
+                  <p className="py-2 font-semibold">
+                    {formatMoney(charge)}
+                    {priceDiff > 0 && (
+                      <span className="ml-2 text-xs font-normal text-muted-foreground">
+                        {t("returnDetail.exchangeDiff")}: {formatMoney(priceDiff)}
+                      </span>
+                    )}
+                  </p>
+                </div>
+              </div>
+            )}
+            <div className="space-y-1.5">
+              <Label>{t("returnDetail.exchangeNote")}</Label>
+              <Input
+                value={exchangeNote}
+                onChange={(e) => setExchangeNote(e.target.value)}
+                placeholder={t("returnDetail.exchangeNotePlaceholder")}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowExchange(false)}>
+              {t("dialog.back")}
+            </Button>
+            <Button
+              disabled={!exchangeUnitId || !exchangeInfo?.replaceable || exchangeMut.isPending}
+              onClick={() => exchangeMut.mutate()}
+            >
+              {exchangeMut.isPending ? t("returnDetail.exchanging") : t("returnDetail.exchangeConfirm")}
             </Button>
           </DialogFooter>
         </DialogContent>

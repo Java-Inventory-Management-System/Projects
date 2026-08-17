@@ -461,6 +461,7 @@ export function mapReturnReceiptItem(raw: unknown): ReturnReceiptItem {
     quantity: r.quantity,
     condition: r.condition,
     resultingAction: r.resultingAction,
+    defectCategoryId: r.defectCategoryId ?? null,
   }
 }
 

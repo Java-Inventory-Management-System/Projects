@@ -48,6 +48,7 @@ function EventRow({ e, isImport }: { e: ProductUnitHistoryEvent; isImport: boole
         {e.changedByName && `${t("unitHistory.by", { name: e.changedByName })} · `}
         {fmtFull(e.createdAt)}
       </p>
+      {e.note && <p className="mt-0.5 text-xs text-muted-foreground italic">“{e.note}”</p>}
     </li>
   )
 }

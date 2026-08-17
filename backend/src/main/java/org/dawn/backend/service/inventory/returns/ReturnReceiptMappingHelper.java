@@ -75,6 +75,7 @@ public interface ReturnReceiptMappingHelper {
                 .resultingAction(item.getResultingAction())
                 .description(item.getDescription())
                 .evidenceImage(item.getEvidenceImage())
+                .defectCategoryId(item.getDefectCategoryId())
                 .productName(productName)
                 .productSku(productSku)
                 .serialNumber(serialNumber)

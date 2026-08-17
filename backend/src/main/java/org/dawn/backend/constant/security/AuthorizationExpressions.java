@@ -34,6 +34,9 @@ public class AuthorizationExpressions {
     /** Manage catalog — CRUD sản phẩm, danh mục, NCC, brand — MANAGER/ADMIN (13.1) */
     public static final String CAN_MANAGE_CATALOG = "@securityPolicy.hasAnyRole('MANAGER', 'ADMIN')";
 
+    /** Xác nhận đổi 1:1 bảo hành tại quầy — quản lý ca trở lên (Phần 4) */
+    public static final String CONFIRM_WARRANTY_EXCHANGE = "@securityPolicy.hasAnyRole('MANAGER', 'ADMIN')";
+
     /** Manage system — user management, audit, settings */
     public static final String CAN_MANAGE_SYSTEM = "@securityPolicy.hasRole('ADMIN')";
 

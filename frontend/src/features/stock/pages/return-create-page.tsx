@@ -1,28 +1,25 @@
-import { useState, useMemo, useEffect, useReducer } from "react"
+import { useRef, useState, useMemo, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useForm } from "react-hook-form"
-import { createReturnReceipt, lookupReturnUnit } from "@/services/return-service"
+import { createReturnReceipt, getReturnableUnits, type BulkSummary, type ReturnableUnit } from "@/services/return-service"
+import { getDefectCategories } from "@/services/defect-category-service"
 import { getCustomers } from "@/services/customer-service"
-import { getExportReceipts, getExportReceiptById, getExportUnits } from "@/services/export-service"
-import type { ExportUnit } from "@/services/export-service"
-import type { ExportReceiptItem } from "@/utils/types"
+import { getExportReceipts } from "@/services/export-service"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { TrackingTypeBadge } from "@/components/tracking-type-badge"
 import { ImageUpload } from "@/components/ui/image-upload"
 import {
   Dialog,
   DialogContent,
-DialogHeader,
-        DialogDescription,
-        DialogTitle,
+  DialogHeader,
+  DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog"
-import { ArrowLeft, Search, X, Sparkles } from "lucide-react"
+import { ArrowLeft, Search, X, Sparkles, AlertTriangle } from "lucide-react"
 import { cn } from "@/utils/cn"
 import { toast } from "@/utils/toast"
 import { useFormDraft, clearDraft } from "@/hooks/use-form-draft"
@@ -55,6 +52,7 @@ interface ReturnItemConfig {
   resultingAction: string
   description: string
   evidenceImage: string
+  defectCategoryId: number | null
 }
 
 const DEFAULT_ITEM_CONFIG: ReturnItemConfig = {
@@ -62,109 +60,23 @@ const DEFAULT_ITEM_CONFIG: ReturnItemConfig = {
   resultingAction: RETURN_RESULTING_ACTION.RESTOCK,
   description: "",
   evidenceImage: "",
+  defectCategoryId: null,
 }
 
 const DRAFT_PATH = "/returns-qc/returns/new"
 
-interface ReturnItemsState {
-  qty: Record<number, number>
-  serials: Record<number, ExportUnit[]>
-  configs: Record<string, ReturnItemConfig>
-}
-
-type ReturnItemsAction =
-  | { type: "setQty"; exportItemId: number; qty: number }
-  | { type: "setSerials"; exportItemId: number; units: ExportUnit[] }
-  | { type: "removeItem"; key: string }
-  | { type: "updateConfig"; key: string; field: keyof ReturnItemConfig; value: string }
-| { type: "applyConfig"; condition: string; resultingAction: string }
-| { type: "applyWarranty" }
-| { type: "clearWarranty" }
-  | { type: "clear" }
-
-const initialState: ReturnItemsState = { qty: {}, serials: {}, configs: {} }
-
-function itemsReducer(state: ReturnItemsState, action: ReturnItemsAction): ReturnItemsState {
-  switch (action.type) {
-    case "setQty": {
-      const qty = { ...state.qty }
-      if (action.qty > 0) qty[action.exportItemId] = action.qty
-      else delete qty[action.exportItemId]
-      return { ...state, qty }
-    }
-    case "setSerials": {
-      const serials = { ...state.serials }
-      if (action.units.length > 0) serials[action.exportItemId] = action.units
-      else delete serials[action.exportItemId]
-      return { ...state, serials }
-    }
-    case "removeItem": {
-      const next: ReturnItemsState = { qty: { ...state.qty }, serials: { ...state.serials }, configs: { ...state.configs } }
-      delete next.configs[action.key]
-      if (action.key.startsWith("bulk:")) {
-        delete next.qty[Number(action.key.slice(5))]
-      } else if (action.key.startsWith("ser:")) {
-        const unitId = Number(action.key.slice(4))
-        for (const [eId, units] of Object.entries(next.serials)) {
-          const filtered = units.filter((u) => u.id !== unitId)
-          if (filtered.length > 0) next.serials[Number(eId)] = filtered
-          else delete next.serials[Number(eId)]
-        }
-      }
-      return next
-    }
-    case "updateConfig":
-      return {
-        ...state,
-        configs: {
-          ...state.configs,
-          [action.key]: { ...(state.configs[action.key] ?? DEFAULT_ITEM_CONFIG), [action.field]: action.value },
-        },
-      }
-    case "applyConfig": {
-      const configs: typeof state.configs = {}
-      for (const key of Object.keys(state.configs)) {
-        const existing = state.configs[key]
-        const incompatible =
-          action.resultingAction === RETURN_RESULTING_ACTION.WARRANTY_TRANSFER &&
-          existing.condition !== RETURN_ITEM_CONDITION.DEFECTIVE
-        configs[key] = incompatible
-          ? existing
-          : { ...existing, condition: action.condition, resultingAction: action.resultingAction }
-      }
-      return { ...state, configs }
-    }
-    case "applyWarranty": {
-      let changed = false
-      const configs = { ...state.configs }
-      for (const [key, cfg] of Object.entries(configs)) {
-        if (cfg.condition === RETURN_ITEM_CONDITION.DEFECTIVE && cfg.resultingAction !== RETURN_RESULTING_ACTION.WARRANTY_TRANSFER) {
-          configs[key] = { ...cfg, resultingAction: RETURN_RESULTING_ACTION.WARRANTY_TRANSFER }
-          changed = true
-        }
-      }
-      return changed ? { ...state, configs } : state
-    }
-    case "clearWarranty": {
-      let changed = false
-      const configs = { ...state.configs }
-      for (const [key, cfg] of Object.entries(configs)) {
-        if (cfg.resultingAction === RETURN_RESULTING_ACTION.WARRANTY_TRANSFER) {
-          configs[key] = { ...cfg, resultingAction: RETURN_RESULTING_ACTION.SCRAP }
-          changed = true
-        }
-      }
-      return changed ? { ...state, configs } : state
-    }
-    case "clear":
-      return initialState
-  }
-}
+const STEP_LABELS = ["returnCreate.step1", "returnCreate.step2", "returnCreate.step3"] as const
 
 export const ReturnCreatePage = () => {
   const navigate = useNavigate()
   const qc = useQueryClient()
   const { t } = useTranslation()
+
+  const [step, setStep] = useState(0)
+  const [mode, setMode] = useState<"serial" | "bulk" | null>(null)
+  const [serials, setSerials] = useState<Set<number>>(new Set())
+  const [bulkQty, setBulkQty] = useState<Record<number, number>>({})
+  const [configs, setConfigs] = useState<Record<string, ReturnItemConfig>>({})
 
   const [customerQuery, setCustomerQuery] = useState("")
   const [selectedCustomerId, setSelectedCustomerId] = useState<number | null>(null)
@@ -173,39 +85,14 @@ export const ReturnCreatePage = () => {
   const [selectedExportId, setSelectedExportId] = useState<number | null>(null)
   const [selectedExportCode, setSelectedExportCode] = useState<string | null>(null)
   const [selectedExportCreatedAt, setSelectedExportCreatedAt] = useState<string | null>(null)
+  const [serialFilter, setSerialFilter] = useState("")
 
-  const [items, dispatch] = useReducer(itemsReducer, initialState)
-
-  const [productSearchQuery, setProductSearchQuery] = useState("")
-
-  const [warrantyConfirmOpen, setWarrantyConfirmOpen] = useState(false)
-  const [pendingWarrantyReason, setPendingWarrantyReason] = useState<ReturnReason | null>(null)
   const [showDraftDialog, setShowDraftDialog] = useState(false)
-
-  const [serialPickerExportItemId, setSerialPickerExportItemId] = useState<number | null>(null)
-  const [serialPickerSelection, setSerialPickerSelection] = useState<Set<number>>(new Set())
-  const [serialPickerUnits, setSerialPickerUnits] = useState<ExportUnit[]>([])
-  const [serialPickerLoading, setSerialPickerLoading] = useState(false)
-  const [serialSearchQuery, setSerialSearchQuery] = useState("")
-  const [searchSerialInput, setSearchSerialInput] = useState("")
-  const [searchSerialResult, setSearchSerialResult] = useState<{
-    found: boolean
-    inExport: boolean
-    productId: number | null
-    productName: string | null
-    serialNumber: string | null
-  } | null>(null)
-  const [searchSerialLoading, setSearchSerialLoading] = useState(false)
+  const [applyAllOpen, setApplyAllOpen] = useState(false)
+  const rowRefs = useRef<Record<string, HTMLDivElement | null>>({})
 
   const form = useForm<{ reason: ReturnReason; note: string }>({ defaultValues: { reason: RETURN_REASON.DEFECTIVE, note: "" } })
   const watchedReason = form.watch("reason")
-
-  const isWarrantyClaim = watchedReason === RETURN_REASON.WARRANTY_CLAIM
-
-  useEffect(() => {
-    if (isWarrantyClaim) dispatch({ type: "applyWarranty" })
-    else dispatch({ type: "clearWarranty" })
-  }, [isWarrantyClaim])
 
   const { data: customersData } = useQuery({
     queryKey: ["customers", customerQuery],
@@ -219,10 +106,15 @@ export const ReturnCreatePage = () => {
     enabled: !selectedExportId && !!selectedCustomerId,
   })
 
-  const { data: exportDetail } = useQuery({
-    queryKey: ["export-detail", selectedExportId],
-    queryFn: () => getExportReceiptById(selectedExportId!),
+  const { data: returnable } = useQuery({
+    queryKey: ["returnable-units", selectedExportId],
+    queryFn: () => getReturnableUnits(selectedExportId!),
     enabled: !!selectedExportId,
+  })
+
+  const { data: defectCategories = [] } = useQuery({
+    queryKey: ["defect-categories"],
+    queryFn: getDefectCategories,
   })
 
   const createMut = useMutation({
@@ -231,10 +123,53 @@ export const ReturnCreatePage = () => {
       toast.success(t("returnCreate.createSuccess"))
       clearDraft(DRAFT_PATH)
       qc.invalidateQueries({ queryKey: ["return-receipts"] })
+      qc.invalidateQueries({ queryKey: ["work-queue"] })
       navigate("/returns-qc/returns")
     },
     onError: (err: Error) => toast.error(err.message || t("returnCreate.createError")),
   })
+
+  const bulkList = useMemo<BulkSummary[]>(
+    () => (returnable?.bulkSummary ?? []).filter((b) => b.trackingType === TRACKING_TYPE.BULK),
+    [returnable],
+  )
+
+  const unitById = useMemo(() => {
+    const m = new Map<number, ReturnableUnit>()
+    returnable?.units.forEach((u) => m.set(u.unitId, u))
+    return m
+  }, [returnable])
+
+  const hasReturnable = useMemo(() => {
+    if (!returnable) return null
+    return returnable.units.length > 0 || bulkList.some((b) => b.remainingQty > 0)
+  }, [returnable, bulkList])
+
+  const serialGroups = useMemo(() => {
+    const groups = new Map<number, ReturnableUnit[]>()
+    for (const u of returnable?.units ?? []) {
+      const arr = groups.get(u.productId) ?? []
+      arr.push(u)
+      groups.set(u.productId, arr)
+    }
+    return [...groups.entries()]
+  }, [returnable])
+
+  const filteredSerialGroups = useMemo(() => {
+    const q = serialFilter.trim().toLowerCase()
+    if (!q) return serialGroups
+    return serialGroups
+      .map(([pid, units]) => [
+        pid,
+        units.filter(
+          (u) =>
+            u.serialNumber.toLowerCase().includes(q) ||
+            u.productName.toLowerCase().includes(q) ||
+            u.productSku?.toLowerCase().includes(q),
+        ),
+      ] as [number, ReturnableUnit[]])
+      .filter(([, units]) => units.length > 0)
+  }, [serialGroups, serialFilter])
 
   const changeMindInfo = useMemo(() => {
     if (watchedReason !== RETURN_REASON.CHANGE_MIND || !selectedExportCreatedAt) return null
@@ -248,154 +183,158 @@ export const ReturnCreatePage = () => {
     return Math.floor((Date.now() - new Date(selectedExportCreatedAt).getTime()) / 86400000)
   }, [selectedExportCreatedAt])
 
-  const filteredExportItems = useMemo(() => {
-    if (!exportDetail?.items) return []
-    if (!productSearchQuery.trim()) return exportDetail.items
-    const q = productSearchQuery.toLowerCase()
-    return exportDetail.items.filter(
-      (item) =>
-        item.productName?.toLowerCase().includes(q) ||
-        item.productSku?.toLowerCase().includes(q),
-    )
-  }, [exportDetail, productSearchQuery])
+  const changeMindExpired = exportCreatedDaysSince !== null && exportCreatedDaysSince >= 7
+
+  const changeMindDeadline = selectedExportCreatedAt
+    ? new Date(new Date(selectedExportCreatedAt).getTime() + 7 * 86400000).toLocaleDateString("vi-VN")
+    : null
+
+  const [qtyTouched, setQtyTouched] = useState<Record<number, boolean>>({})
 
   const returnItems = useMemo((): ReturnFormItem[] => {
     const result: ReturnFormItem[] = []
-
-    for (const [exportItemIdStr, qty] of Object.entries(items.qty)) {
+    for (const unitId of serials) {
+      const u = unitById.get(unitId)
+      if (!u) continue
+      const key = `ser:${u.unitId}`
+      const cfg = configs[key] ?? DEFAULT_ITEM_CONFIG
+      result.push({
+        key,
+        productUnitId: u.unitId,
+        productId: u.productId,
+        productName: u.productName,
+        productSku: u.productSku,
+        serialNumber: u.serialNumber,
+        trackingType: TRACKING_TYPE.SERIALIZED,
+        quantity: 1,
+        ...cfg,
+      })
+    }
+    for (const [pidStr, qty] of Object.entries(bulkQty)) {
       if (qty <= 0) continue
-      const exportItem = exportDetail?.items.find((i) => i.id === Number(exportItemIdStr))
-      if (!exportItem) continue
-      const key = `bulk:${exportItem.id}`
-      const config = items.configs[key] ?? DEFAULT_ITEM_CONFIG
+      const b = bulkList.find((x) => x.productId === Number(pidStr))
+      if (!b) continue
+      const key = `bulk:${b.productId}`
+      const cfg = configs[key] ?? DEFAULT_ITEM_CONFIG
       result.push({
         key,
         productUnitId: null,
-        productId: exportItem.productId,
-        productName: exportItem.productName ?? "",
-        productSku: exportItem.productSku ?? "",
+        productId: b.productId,
+        productName: b.productName,
+        productSku: b.productSku,
         serialNumber: "",
         trackingType: TRACKING_TYPE.BULK,
         quantity: qty,
-        ...config,
+        ...cfg,
       })
     }
-
-    for (const units of Object.values(items.serials)) {
-      for (const unit of units) {
-        const key = `ser:${unit.id}`
-        const config = items.configs[key] ?? DEFAULT_ITEM_CONFIG
-        result.push({
-          key,
-          productUnitId: unit.id,
-          productId: unit.productId,
-          productName: unit.productName,
-          productSku: unit.productSku,
-          serialNumber: unit.serialNumber,
-          trackingType: TRACKING_TYPE.SERIALIZED,
-          quantity: 1,
-          ...config,
-        })
-      }
-    }
-
     return result
-  }, [items, exportDetail])
+  }, [serials, bulkQty, configs, unitById, bulkList])
 
-  const handleQtyChange = (exportItemId: number, qty: number) => {
-    const clamped = Math.max(0, Math.min(qty, exportDetail?.items.find((i) => i.id === exportItemId)?.quantity ?? qty))
-    dispatch({ type: "setQty", exportItemId, qty: clamped })
-  }
-  const openSerialPicker = async (exportItem: ExportReceiptItem) => {
-    if (!selectedExportId) return
-    setSerialPickerExportItemId(exportItem.id)
-    setSerialPickerSelection(new Set(items.serials[exportItem.id]?.map((u) => u.id) ?? []))
-    setSerialSearchQuery("")
-    setSerialPickerLoading(true)
-    try {
-      const units = await getExportUnits(selectedExportId, exportItem.productId)
-      setSerialPickerUnits(units)
-    } catch {
-      toast.error(t("returnCreate.serialLoadError"))
-      setSerialPickerUnits([])
-    } finally {
-      setSerialPickerLoading(false)
+  const actionsFor = (trackingType: string, condition: string): string[] => {
+    if (condition === RETURN_ITEM_CONDITION.GOOD) return [RETURN_RESULTING_ACTION.RESTOCK]
+    if (trackingType === TRACKING_TYPE.SERIALIZED) {
+      return [
+        RETURN_RESULTING_ACTION.SCRAP,
+        RETURN_RESULTING_ACTION.WARRANTY_TRANSFER,
+        RETURN_RESULTING_ACTION.REJECT,
+      ]
     }
+    return [RETURN_RESULTING_ACTION.SCRAP, RETURN_RESULTING_ACTION.REJECT]
   }
 
-  const confirmSerialPicker = () => {
-    const exportItemId = serialPickerExportItemId
-    if (exportItemId === null) return
-    const selectedUnits = serialPickerUnits.filter((u) => serialPickerSelection.has(u.id))
-    dispatch({ type: "setSerials", exportItemId, units: selectedUnits })
-    setSerialPickerExportItemId(null)
-    setSerialPickerSelection(new Set())
-    setSerialPickerUnits([])
+  const updateConfig = (key: string, field: keyof ReturnItemConfig, value: string) => {
+    const parsed = field === "defectCategoryId" ? (value ? Number(value) : null) : value
+    setConfigs((prev) => ({ ...prev, [key]: { ...(prev[key] ?? DEFAULT_ITEM_CONFIG), [field]: parsed } }))
   }
 
-  const closeSerialPicker = () => {
-    setSerialPickerExportItemId(null)
-    setSerialPickerSelection(new Set())
-    setSerialPickerUnits([])
+  const updateCondition = (item: ReturnFormItem, condition: string) => {
+    const cfg = configs[item.key] ?? DEFAULT_ITEM_CONFIG
+    const valid = actionsFor(item.trackingType, condition)
+    const nextAction = valid.includes(cfg.resultingAction) ? cfg.resultingAction : valid[0]
+    setConfigs((prev) => ({ ...prev, [item.key]: { ...cfg, condition, resultingAction: nextAction } }))
   }
 
-  const removeReturnItem = (itemKey: string) => {
-    dispatch({ type: "removeItem", key: itemKey })
-  }
-
-  const updateItemConfig = (
-    key: string,
-    field: keyof ReturnItemConfig,
-    value: string,
-  ) => {
-    dispatch({ type: "updateConfig", key, field, value })
-  }
-
-  const applyAllConfig = () => {
-    if (returnItems.length === 0) return
+  const applyAllSkipped = useMemo(() => {
+    if (returnItems.length <= 1) return 0
     const first = returnItems[0]
-    const warrantyAll = first.resultingAction === RETURN_RESULTING_ACTION.WARRANTY_TRANSFER
-    const skipped = warrantyAll
-      ? returnItems.filter((i) => i.condition !== RETURN_ITEM_CONDITION.DEFECTIVE).length
-      : 0
-    dispatch({ type: "applyConfig", condition: first.condition, resultingAction: first.resultingAction })
-    if (skipped > 0) {
-      toast.warning(t("returnCreate.applyAllSkipped", { count: skipped }))
+    if (first.resultingAction !== RETURN_RESULTING_ACTION.WARRANTY_TRANSFER) return 0
+    return returnItems.filter((i) => i.condition !== RETURN_ITEM_CONDITION.DEFECTIVE).length
+  }, [returnItems])
+
+  const applyAll = () => {
+    const first = returnItems[0]
+    setConfigs((prev) => {
+      const next: typeof prev = {}
+      for (const item of returnItems) {
+        const existing = prev[item.key] ?? DEFAULT_ITEM_CONFIG
+        const incompatible =
+          first.resultingAction === RETURN_RESULTING_ACTION.WARRANTY_TRANSFER &&
+          item.condition !== RETURN_ITEM_CONDITION.DEFECTIVE
+        next[item.key] = incompatible
+          ? existing
+          : {
+              ...existing,
+              condition: first.condition,
+              resultingAction: first.resultingAction,
+              defectCategoryId: first.defectCategoryId,
+              description: first.description,
+              evidenceImage: first.evidenceImage,
+            }
+      }
+      return next
+    })
+    setApplyAllOpen(false)
+  }
+
+  const removeReturnItem = (item: ReturnFormItem) => {
+    setConfigs((prev) => {
+      const next = { ...prev }
+      delete next[item.key]
+      return next
+    })
+    if (item.trackingType === TRACKING_TYPE.SERIALIZED) {
+      setSerials((prev) => {
+        const next = new Set(prev)
+        next.delete(item.productUnitId!)
+        return next
+      })
     } else {
-      toast.success(t("returnCreate.applyAllSuccess"))
+      setBulkQty((prev) => {
+        const next = { ...prev }
+        delete next[item.productId]
+        return next
+      })
     }
   }
 
-  const doSearchSerial = async () => {
-    if (!searchSerialInput.trim() || !selectedExportId) return
-    setSearchSerialLoading(true)
-    setSearchSerialResult(null)
-    try {
-      const res = await lookupReturnUnit(searchSerialInput.trim(), selectedExportId)
-      if (res.found && res.inExport && res.productId) {
-        setSearchSerialResult({
-          found: true,
-          inExport: true,
-          productId: res.productId,
-          productName: res.productName,
-          serialNumber: res.serialNumber,
-        })
-      } else if (res.found && !res.inExport) {
-        setSearchSerialResult({
-          found: true,
-          inExport: false,
-          productId: res.productId,
-          productName: res.productName,
-          serialNumber: res.serialNumber,
-        })
-      } else {
-        setSearchSerialResult({ found: false, inExport: false, productId: null, productName: null, serialNumber: null })
-      }
-    } catch {
-      toast.error(t("returnCreate.serialLookupError"))
-    } finally {
-      setSearchSerialLoading(false)
-    }
+  const toggleSerial = (unitId: number) => {
+    setSerials((prev) => {
+      const next = new Set(prev)
+      if (next.has(unitId)) next.delete(unitId)
+      else next.add(unitId)
+      return next
+    })
+  }
+
+  const handleBulkQty = (b: BulkSummary, raw: string) => {
+    setQtyTouched((prev) => ({ ...prev, [b.productId]: true }))
+    const v = parseInt(raw) || 0
+    const clamped = Math.max(0, Math.min(v, b.remainingQty))
+    setBulkQty((prev) => {
+      const next = { ...prev }
+      if (clamped > 0) next[b.productId] = clamped
+      else delete next[b.productId]
+      return next
+    })
+  }
+
+  const selectMode = (m: "serial" | "bulk") => {
+    setMode(m)
+    setSerials(new Set())
+    setBulkQty({})
+    setConfigs({})
+    setSerialFilter("")
   }
 
   const selectExport = (e: { id: number; receiptCode: string; createdAt: string }) => {
@@ -403,15 +342,22 @@ export const ReturnCreatePage = () => {
     setSelectedExportCode(e.receiptCode)
     setSelectedExportCreatedAt(e.createdAt)
     setExportQuery("")
-    dispatch({ type: "clear" })
-    setProductSearchQuery("")
+    setMode(null)
+    setSerials(new Set())
+    setBulkQty({})
+    setConfigs({})
+    setSerialFilter("")
   }
 
   const clearExport = () => {
     setSelectedExportId(null)
     setSelectedExportCode(null)
     setSelectedExportCreatedAt(null)
-    dispatch({ type: "clear" })
+    setMode(null)
+    setSerials(new Set())
+    setBulkQty({})
+    setConfigs({})
+    setSerialFilter("")
   }
 
   const clearCustomer = () => {
@@ -420,41 +366,37 @@ export const ReturnCreatePage = () => {
     clearExport()
   }
 
-  const onSubmit = form.handleSubmit((values) => {
-    if (!selectedCustomerId || !selectedExportId || returnItems.length === 0) return
-    const zeroQty = returnItems.find((i) => !i.quantity || i.quantity <= 0)
-    if (zeroQty) {
-      toast.error(t("returnCreate.invalidQuantity", { name: zeroQty.productName }))
-      return
-    }
-    const missingSerial = returnItems.find(
-      (i) => i.trackingType === TRACKING_TYPE.SERIALIZED && (!i.productUnitId || i.productUnitId <= 0),
-    )
-    if (missingSerial) {
-      toast.error(t("returnCreate.missingSerial", { name: missingSerial.productName }))
-      return
-    }
-    const missingEvidence = returnItems.find(
-      (i) =>
-        i.condition === RETURN_ITEM_CONDITION.DEFECTIVE &&
-        (!i.description.trim() || !i.evidenceImage.trim()),
-    )
-    if (missingEvidence) {
-      toast.error(t("returnCreate.missingEvidence", { name: missingEvidence.productName }))
-      return
-    }
-    if (values.reason === RETURN_REASON.WARRANTY_CLAIM) {
-      const notWarranty = returnItems.find((i) => i.resultingAction !== RETURN_RESULTING_ACTION.WARRANTY_TRANSFER)
-      if (notWarranty) {
-        toast.error(t("returnCreate.warrantyNotApplied", { name: notWarranty.productName }))
-        return
+  const step0Valid =
+    !!selectedCustomerId && !!selectedExportId && !!watchedReason && hasReturnable !== false
+
+  const step1Valid = mode !== null && returnItems.length > 0
+
+  const onSubmit = () => {
+    if (returnItems.length === 0) return
+    const errors: Record<string, string> = {}
+    for (const item of returnItems) {
+      if (item.trackingType === TRACKING_TYPE.BULK && item.quantity <= 0) {
+        errors[item.key] = t("returnCreate.qtyRequired", { name: item.productName })
+      }
+      if (
+        item.condition === RETURN_ITEM_CONDITION.DEFECTIVE &&
+        (!item.description.trim() || !item.evidenceImage.trim() || !item.defectCategoryId)
+      ) {
+        errors[item.key] = t("returnCreate.missingEvidence", { name: item.productName })
       }
     }
+    const firstKey = Object.keys(errors)[0]
+    if (firstKey) {
+      rowRefs.current[firstKey]?.scrollIntoView({ behavior: "smooth", block: "center" })
+      setConfigs((prev) => ({ ...prev }))
+      toast.error(errors[firstKey])
+      return
+    }
     createMut.mutate({
-      customerId: selectedCustomerId,
-      originalExportReceiptId: selectedExportId,
-      reason: values.reason,
-      note: values.note.trim() || undefined,
+      customerId: selectedCustomerId!,
+      originalExportReceiptId: selectedExportId!,
+      reason: watchedReason,
+      note: form.watch("note").trim() || undefined,
       items: returnItems.map((i) => ({
         productUnitId: i.productUnitId,
         productId: i.productId,
@@ -463,9 +405,10 @@ export const ReturnCreatePage = () => {
         resultingAction: i.resultingAction,
         description: i.description.trim() || undefined,
         evidenceImage: i.evidenceImage.trim() || undefined,
+        defectCategoryId: i.defectCategoryId,
       })),
     })
-  })
+  }
 
   const reasonOptions = [
     { value: RETURN_REASON.DEFECTIVE, label: t("returnReason.defective") },
@@ -474,9 +417,9 @@ export const ReturnCreatePage = () => {
     { value: RETURN_REASON.WARRANTY_CLAIM, label: t("returnReason.warrantyClaim") },
   ]
 
-  const changeMindExpired = exportCreatedDaysSince !== null && exportCreatedDaysSince >= 7
-
   interface ReturnDraft {
+    v: 3
+    savedAt?: number
     customerId: number | null
     customerName: string | null
     exportId: number | null
@@ -484,10 +427,15 @@ export const ReturnCreatePage = () => {
     exportCreatedAt: string | null
     reason: ReturnReason
     note: string
-    items: ReturnItemsState
+    mode: "serial" | "bulk" | null
+    serialUnitIds: number[]
+    bulkQty: Record<number, number>
+    configs: Record<string, ReturnItemConfig>
   }
   const draftState = useMemo<ReturnDraft>(
     () => ({
+      v: 3,
+      savedAt: Date.now(),
       customerId: selectedCustomerId,
       customerName: selectedCustomerName,
       exportId: selectedExportId,
@@ -495,54 +443,40 @@ export const ReturnCreatePage = () => {
       exportCreatedAt: selectedExportCreatedAt,
       reason: watchedReason,
       note: form.watch("note") ?? "",
-      items,
+      mode,
+      serialUnitIds: [...serials],
+      bulkQty,
+      configs,
     }),
-    [selectedCustomerId, selectedCustomerName, selectedExportId, selectedExportCode, selectedExportCreatedAt, watchedReason, items, form],
+    [selectedCustomerId, selectedCustomerName, selectedExportId, selectedExportCode, selectedExportCreatedAt, watchedReason, form, mode, serials, bulkQty, configs],
   )
-  const draftDirty = !!(selectedCustomerId || selectedExportId || returnItems.length > 0)
+  const draftDirty = !!(selectedCustomerId || selectedExportId || serials.size > 0 || Object.keys(bulkQty).length > 0)
   const { draftAvailable, restore, dismiss } = useFormDraft<ReturnDraft>(
     DRAFT_PATH,
     draftState as unknown as ReturnDraft,
     draftDirty,
     (data) => {
       const d = data as ReturnDraft
+      if (d.v !== 3) return
       setSelectedCustomerId(d.customerId)
       setSelectedCustomerName(d.customerName)
       setSelectedExportId(d.exportId)
       setSelectedExportCode(d.exportCode)
       setSelectedExportCreatedAt(d.exportCreatedAt)
+      setMode(d.mode)
+      setSerials(new Set(d.serialUnitIds ?? []))
+      setBulkQty(d.bulkQty ?? {})
+      setConfigs(d.configs ?? {})
       if (d.reason) form.setValue("reason", d.reason)
       if (d.note) form.setValue("note", d.note)
-      if (d.items) {
-        for (const [eId, qty] of Object.entries(d.items.qty)) dispatch({ type: "setQty", exportItemId: Number(eId), qty })
-        for (const [eId, units] of Object.entries(d.items.serials)) dispatch({ type: "setSerials", exportItemId: Number(eId), units })
-        for (const [key, cfg] of Object.entries(d.items.configs)) {
-          dispatch({ type: "updateConfig", key, field: "condition", value: cfg.condition })
-          dispatch({ type: "updateConfig", key, field: "resultingAction", value: cfg.resultingAction })
-          dispatch({ type: "updateConfig", key, field: "description", value: cfg.description })
-          dispatch({ type: "updateConfig", key, field: "evidenceImage", value: cfg.evidenceImage })
-        }
-      }
+      if ((d.serialUnitIds?.length ?? 0) > 0 || Object.keys(d.bulkQty ?? {}).length > 0) setStep(2)
     },
   )
   useEffect(() => {
     if (draftAvailable) setShowDraftDialog(true)
   }, [draftAvailable])
 
-  const selectedElsewhere = useMemo(() => {
-    const s = new Set<number>()
-    if (serialPickerExportItemId === null) return s
-    for (const [eId, units] of Object.entries(items.serials)) {
-      if (Number(eId) === serialPickerExportItemId) continue
-      units.forEach((u) => s.add(u.id))
-    }
-    return s
-  }, [items.serials, serialPickerExportItemId])
-
-  const pickerLimit =
-    serialPickerExportItemId !== null
-      ? (exportDetail?.items.find((i) => i.id === serialPickerExportItemId)?.quantity ?? Infinity)
-      : Infinity
+  const isChangeMind = watchedReason === RETURN_REASON.CHANGE_MIND
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -553,632 +487,579 @@ export const ReturnCreatePage = () => {
         <h1 className="text-xl font-semibold tracking-tight">{t("returnCreate.title")}</h1>
       </div>
 
-      <div className="space-y-4 rounded-lg border p-6">
-        <div className="space-y-2">
-          <Label>
-            {t("returnCreate.customer")} <span className="text-destructive">*</span>
-          </Label>
-          {selectedCustomerId ? (
-            <div className="flex items-center gap-2 rounded-lg border px-3 py-2">
-              <span className="flex-1 font-medium">{selectedCustomerName}</span>
-              <Button variant="ghost" size="icon" className="size-6" onClick={clearCustomer}>
-                <X className="size-3" />
-              </Button>
-            </div>
-          ) : (
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-              <Input
-                value={customerQuery}
-                onChange={(e) => setCustomerQuery(e.target.value)}
-                placeholder={t("returnCreate.searchCustomerPlaceholder")}
-                className="pl-9"
-              />
-            </div>
-          )}
-          {!selectedCustomerId && customersData && (
-            <div className="rounded-lg border max-h-32 overflow-y-auto divide-y text-sm">
-              {customersData.content.length > 0 ? (
-                customersData.content.map((c) => (
-                  <div
-                    key={c.id}
-                    className="flex cursor-pointer items-center justify-between px-3 py-1.5 hover:bg-muted/30"
-                    onClick={() => {
-                      setSelectedCustomerId(c.id)
-                      setSelectedCustomerName(c.name)
-                      setCustomerQuery("")
-                    }}
-                  >
-                    <span className="font-medium">{c.name}</span>
-                    {c.phone && <span className="text-xs text-muted-foreground">{c.phone}</span>}
-                  </div>
-                ))
-              ) : (
-                <div className="px-3 py-2 text-xs text-muted-foreground">
-                  {customerQuery ? t("returnCreate.noCustomerFound") : t("returnCreate.typeToSearchCustomer")}
-                </div>
+      <div className="flex items-center gap-2">
+        {STEP_LABELS.map((labelKey, i) => (
+          <div key={labelKey} className="flex flex-1 items-center gap-2">
+            <div
+              className={cn(
+                "flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold",
+                i === step
+                  ? "bg-primary text-primary-foreground"
+                  : i < step
+                    ? "bg-primary/15 text-primary"
+                    : "bg-muted text-muted-foreground",
               )}
+            >
+              {i + 1}
             </div>
-          )}
-        </div>
+            <span
+              className={cn(
+                "text-xs font-medium",
+                i === step ? "text-foreground" : i < step ? "text-primary" : "text-muted-foreground",
+              )}
+            >
+              {t(labelKey)}
+            </span>
+            {i < STEP_LABELS.length - 1 && <div className="h-px flex-1 bg-border" />}
+          </div>
+        ))}
+      </div>
 
-        <div className="space-y-2">
-          <Label>
-            {t("returnCreate.originalExport")} <span className="text-destructive">*</span>
-          </Label>
-          {selectedExportId ? (
-            <div className="flex items-center gap-2 rounded-lg border px-3 py-2">
-              <span className="flex-1 font-mono text-xs font-medium">{selectedExportCode}</span>
-              {exportCreatedDaysSince !== null && (
-                <span
-                  className={cn(
-                    "text-[10px]",
-                    exportCreatedDaysSince >= 7 ? "text-red-500" : "text-muted-foreground",
-                  )}
-                >
-                  {exportCreatedDaysSince >= 7
-                    ? t("returnCreate.changeMindExpired", { days: exportCreatedDaysSince })
-                    : t("returnCreate.changeMindRemaining", { days: 7 - exportCreatedDaysSince })}
-                </span>
-              )}
-              <Button variant="ghost" size="icon" className="size-6" onClick={clearExport}>
-                <X className="size-3" />
-              </Button>
-            </div>
-          ) : (
-            <div className="space-y-2">
+      {step === 0 && (
+        <div className="space-y-4 rounded-lg border p-6">
+          <div className="space-y-2">
+            <Label>
+              {t("returnCreate.customer")} <span className="text-destructive">*</span>
+            </Label>
+            {selectedCustomerId ? (
+              <div className="flex items-center gap-2 rounded-lg border px-3 py-2">
+                <span className="flex-1 font-medium">{selectedCustomerName}</span>
+                <Button variant="ghost" size="icon" className="size-6" onClick={clearCustomer}>
+                  <X className="size-3" />
+                </Button>
+              </div>
+            ) : (
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
                 <Input
-                  value={exportQuery}
-                  onChange={(e) => setExportQuery(e.target.value)}
-                  placeholder={t("returnCreate.searchExportPlaceholder")}
+                  value={customerQuery}
+                  onChange={(e) => setCustomerQuery(e.target.value)}
+                  placeholder={t("returnCreate.searchCustomerPlaceholder")}
                   className="pl-9"
                 />
               </div>
-              <div className="rounded-lg border max-h-40 overflow-y-auto divide-y text-sm">
-                {exportsData?.content.map((e) => (
-                  <div
-                    key={e.id}
-                    className="flex cursor-pointer items-center justify-between px-3 py-1.5 hover:bg-muted/30"
-                    onClick={() => selectExport(e)}
-                  >
-                    <span className="font-mono text-xs font-medium">{e.receiptCode}</span>
-                    <span className="text-xs text-muted-foreground">{e.customerName ?? "—"}</span>
+            )}
+            {!selectedCustomerId && customersData && (
+              <div className="rounded-lg border max-h-32 overflow-y-auto divide-y text-sm">
+                {customersData.content.length > 0 ? (
+                  customersData.content.map((c) => (
+                    <div
+                      key={c.id}
+                      className="flex cursor-pointer items-center justify-between px-3 py-1.5 hover:bg-muted/30"
+                      onClick={() => {
+                        setSelectedCustomerId(c.id)
+                        setSelectedCustomerName(c.name)
+                        setCustomerQuery("")
+                      }}
+                    >
+                      <span className="font-medium">{c.name}</span>
+                      {c.phone && <span className="text-xs text-muted-foreground">{c.phone}</span>}
+                    </div>
+                  ))
+                ) : (
+                  <div className="px-3 py-2 text-xs text-muted-foreground">
+                    {customerQuery ? t("returnCreate.noCustomerFound") : t("returnCreate.typeToSearchCustomer")}
                   </div>
-                ))}
-                {exportsData && exportsData.content.length === 0 && (
-                  <div className="px-3 py-2 text-xs text-muted-foreground">{t("returnCreate.noExports")}</div>
                 )}
               </div>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label>
+              {t("returnCreate.originalExport")} <span className="text-destructive">*</span>
+            </Label>
+            {selectedExportId ? (
+              <div className="flex items-center gap-2 rounded-lg border px-3 py-2">
+                <span className="flex-1 font-mono text-xs font-medium">{selectedExportCode}</span>
+                {exportCreatedDaysSince !== null && (
+                  <span
+                    className={cn(
+                      "text-xs",
+                      exportCreatedDaysSince >= 7 ? "text-red-500" : "text-muted-foreground",
+                    )}
+                  >
+                    {exportCreatedDaysSince >= 7
+                      ? t("returnCreate.changeMindExpired", { days: exportCreatedDaysSince })
+                      : t("returnCreate.changeMindRemaining", { days: 7 - exportCreatedDaysSince })}
+                  </span>
+                )}
+                <Button variant="ghost" size="icon" className="size-6" onClick={clearExport}>
+                  <X className="size-3" />
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                  <Input
+                    value={exportQuery}
+                    onChange={(e) => setExportQuery(e.target.value)}
+                    placeholder={t("returnCreate.searchExportPlaceholder")}
+                    className="pl-9"
+                  />
+                </div>
+                <div className="rounded-lg border max-h-40 overflow-y-auto divide-y text-sm">
+                  {exportsData?.content.map((e) => (
+                    <div
+                      key={e.id}
+                      className="flex cursor-pointer items-center justify-between px-3 py-1.5 hover:bg-muted/30"
+                      onClick={() => selectExport(e)}
+                    >
+                      <span className="font-mono text-xs font-medium">{e.receiptCode}</span>
+                      <span className="text-xs text-muted-foreground">{e.customerName ?? "—"}</span>
+                    </div>
+                  ))}
+                  {exportsData && exportsData.content.length === 0 && (
+                    <div className="px-3 py-2 text-xs text-muted-foreground">{t("returnCreate.noExports")}</div>
+                  )}
+                </div>
+              </div>
+            )}
+            {hasReturnable === false && (
+              <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 dark:bg-red-950/20 dark:border-red-800 px-3 py-2 text-xs text-red-600">
+                <AlertTriangle className="size-3.5 shrink-0" />
+                {t("returnCreate.noReturnableExport")}
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label>
+              {t("returnCreate.reason")} <span className="text-destructive">*</span>
+            </Label>
+            <div className="flex flex-wrap gap-2">
+              {reasonOptions.map((opt) => {
+                const isChangeMindExpired = opt.value === RETURN_REASON.CHANGE_MIND && changeMindExpired
+                return (
+                  <label
+                    key={opt.value}
+                    title={
+                      isChangeMindExpired
+                        ? t("returnCreate.changeMindExpiredOption", { days: exportCreatedDaysSince })
+                        : undefined
+                    }
+                    className={cn(
+                      "flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors",
+                      watchedReason === opt.value
+                        ? "border-primary bg-primary/5"
+                        : "hover:bg-muted/30",
+                      isChangeMindExpired && "opacity-40 cursor-not-allowed",
+                    )}
+                  >
+                    <input
+                      type="radio"
+                      name="reason"
+                      value={opt.value}
+                      checked={watchedReason === opt.value}
+                      disabled={isChangeMindExpired}
+                      onChange={(e) => {
+                        if (isChangeMindExpired) return
+                        form.setValue("reason", e.target.value as ReturnReason)
+                      }}
+                      className="size-3.5 text-primary"
+                    />
+                    <span>{opt.label}</span>
+                  </label>
+                )
+              })}
+            </div>
+            {changeMindExpired && (
+              <p className="text-xs text-red-600">{t("returnCreate.changeMindExpiredOption", { days: exportCreatedDaysSince })}</p>
+            )}
+            {changeMindInfo && (
+              <div
+                className={cn(
+                  "text-sm mt-2 rounded-lg border px-4 py-3 flex items-start gap-2",
+                  changeMindInfo.expired
+                    ? "border-red-200 bg-red-50 dark:bg-red-950/20 dark:border-red-800 text-red-600"
+                    : "border-blue-200 bg-blue-50 dark:bg-blue-950/20 dark:border-blue-800 text-blue-600",
+                )}
+              >
+                <AlertTriangle className="size-4 shrink-0 mt-0.5" />
+                <div>
+                  {changeMindInfo.expired
+                    ? t("returnCreate.changeMindExpiredDetail", { days: changeMindInfo.daysSince, date: changeMindDeadline })
+                    : t("returnCreate.changeMindRemainingDetail", { remaining: changeMindInfo.remaining, days: changeMindInfo.daysSince, date: changeMindDeadline })}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="note">{t("returnCreate.note")}</Label>
+            <Textarea
+              id="note"
+              {...form.register("note")}
+              placeholder={t("form.notePlaceholder")}
+              rows={2}
+            />
+          </div>
+
+          <div className="flex justify-end">
+            <Button onClick={() => setStep(1)} disabled={!step0Valid}>
+              {t("returnCreate.continue")}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {step === 1 && (
+        <div className="space-y-4 rounded-lg border p-6">
+          <div className="space-y-2">
+            <Label>{t("returnCreate.modeLabel")}</Label>
+            <div className="flex gap-2">
+              {(["serial", "bulk"] as const).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => selectMode(m)}
+                  className={cn(
+                    "rounded-lg border px-3 py-2 text-sm transition-colors",
+                    mode === m ? "border-primary bg-primary/5" : "hover:bg-muted/30",
+                  )}
+                >
+                  {m === "serial" ? t("returnCreate.modeSerial") : t("returnCreate.modeBulk")}
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground">{t("returnCreate.modeHint")}</p>
+          </div>
+
+          {mode === "serial" && (
+            <div className="space-y-3">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                <Input
+                  value={serialFilter}
+                  onChange={(e) => setSerialFilter(e.target.value)}
+                  placeholder={t("returnCreate.searchSerialPlaceholder")}
+                  className="pl-9 h-8 text-xs"
+                />
+              </div>
+              {filteredSerialGroups.length > 0 ? (
+                filteredSerialGroups.map(([productId, units]) => {
+                  const selectable = units.filter((u) => !u.held)
+                  const groupAllSelected = selectable.length > 0 && selectable.every((u) => serials.has(u.unitId))
+                  const groupSomeSelected = selectable.some((u) => serials.has(u.unitId))
+                  return (
+                  <div key={productId} className="rounded-lg border divide-y">
+                    <div className="flex items-center justify-between px-3 py-2 bg-muted/30">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <input
+                          type="checkbox"
+                          className="size-3.5 shrink-0"
+                          checked={groupAllSelected}
+                          ref={(el) => {
+                            if (el) el.indeterminate = groupSomeSelected && !groupAllSelected
+                          }}
+                          disabled={selectable.length === 0}
+                          onChange={() => {
+                            setSerials((prev) => {
+                              const next = new Set(prev)
+                              if (groupAllSelected) selectable.forEach((u) => next.delete(u.unitId))
+                              else selectable.forEach((u) => next.add(u.unitId))
+                              return next
+                            })
+                          }}
+                        />
+                        <span className="text-xs font-medium truncate">{units[0].productName}</span>
+                        {units[0].productSku && (
+                          <span className="text-xs text-muted-foreground">SKU: {units[0].productSku}</span>
+                        )}
+                      </div>
+                      <span className="text-xs text-muted-foreground shrink-0">
+                        {t("returnCreate.selected", {
+                          count: units.filter((u) => serials.has(u.unitId)).length,
+                          total: units.filter((u) => !u.held).length,
+                        })}
+                      </span>
+                    </div>
+                    <div className="max-h-48 overflow-y-auto divide-y">
+                      {units.map((u) => (
+                        <label
+                          key={u.unitId}
+                          className={cn(
+                            "flex items-center gap-2 px-3 py-1.5 text-sm",
+                            u.held ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:bg-muted/30",
+                          )}
+                        >
+                          <input
+                            type="checkbox"
+                            className="size-3.5 shrink-0"
+                            checked={serials.has(u.unitId)}
+                            disabled={u.held}
+                            onChange={() => toggleSerial(u.unitId)}
+                          />
+                          <span className="font-mono text-xs">{u.serialNumber}</span>
+                          {u.warrantyExpiresAt &&
+                            (new Date(u.warrantyExpiresAt).getTime() < Date.now() ? (
+                              <span className="ml-auto text-xs text-red-600 rounded bg-red-50 dark:bg-red-950/30 px-1.5 py-0.5 shrink-0">
+                                {t("returnCreate.warrantyExpired")}
+                              </span>
+                            ) : (
+                              <span className="ml-auto text-xs text-emerald-700 rounded bg-emerald-50 dark:bg-emerald-950/30 px-1.5 py-0.5 shrink-0">
+                                {t("returnCreate.warrantyUntil", {
+                                  date: new Date(u.warrantyExpiresAt).toLocaleDateString("vi-VN"),
+                                })}
+                              </span>
+                            ))}
+                          {u.held && (
+                            <span className="ml-auto text-xs text-amber-600 rounded bg-amber-50 dark:bg-amber-950/30 px-1.5 py-0.5 shrink-0">
+                              {t("returnCreate.serialHeld")}
+                            </span>
+                          )}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                  )
+                })
+              ) : (
+                <p className="text-xs text-muted-foreground text-center py-4">
+                  {serialFilter ? t("returnCreate.noSerialMatch") : t("returnCreate.noSerialsAvailable")}
+                </p>
+              )}
             </div>
           )}
-        </div>
 
-        {selectedExportId && exportDetail?.items && exportDetail.items.length > 0 && (
-          <div className="space-y-2 rounded-lg border p-3 bg-muted/10">
-            <Label className="text-xs text-muted-foreground">
-              {t("returnCreate.exportProducts")}
-            </Label>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-              <Input
-                value={productSearchQuery}
-                onChange={(e) => setProductSearchQuery(e.target.value)}
-                placeholder={t("returnCreate.searchProductPlaceholder")}
-                className="pl-9 h-8 text-xs"
-              />
-            </div>
-            <div className="rounded-lg border divide-y text-xs max-h-64 overflow-y-auto">
-              {filteredExportItems.length > 0 ? (
-                filteredExportItems.map((item) => {
-                  const isSerialized = item.trackingType === TRACKING_TYPE.SERIALIZED
-                  const serialCount = items.serials[item.id]?.length ?? 0
+          {mode === "bulk" && (
+            <div className="space-y-2">
+              {bulkList.length > 0 ? (
+                bulkList.map((b) => {
+                  const qty = bulkQty[b.productId] ?? 0
+                  const exhausted = b.remainingQty <= 0
                   return (
-                    <div key={item.id}>
-                      <div className="flex items-center gap-3 px-3 py-2">
-                        <div className="flex-1 min-w-0">
-                          <span className="font-medium">{item.productName}</span>
-                          {item.productSku && (
-                            <span className="ml-2 text-muted-foreground">SKU: {item.productSku}</span>
-                          )}
-                        </div>
-                        <span className={cn(
-                          "text-[10px] font-medium px-1.5 py-0.5 rounded shrink-0",
-                          isSerialized
-                            ? "text-blue-600 bg-blue-50 dark:text-blue-400 dark:bg-blue-950/30"
-                            : "text-amber-600 bg-amber-50 dark:text-amber-400 dark:bg-amber-950/30",
-                        )}>
-                          {isSerialized ? t("trackingType.serialized") : t("trackingType.bulk")}
+                    <div key={b.productId} className="flex flex-wrap items-center gap-3 rounded-lg border px-3 py-2">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{b.productName}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {t("returnCreate.soldReturnedRemaining", {
+                            sold: b.soldQty,
+                            returned: b.returnedQty,
+                            remaining: b.remainingQty,
+                          })}
+                        </p>
+                      </div>
+                      {exhausted ? (
+                        <span className="text-xs text-muted-foreground rounded bg-muted px-1.5 py-0.5 shrink-0">
+                          {t("returnCreate.fullyReturned")}
                         </span>
-                        <span className="text-muted-foreground shrink-0">{t("returnCreate.purchased")}: {item.quantity}</span>
-                        {isSerialized ? (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-7 text-xs shrink-0"
-                            onClick={() => openSerialPicker(item)}
-                          >
-                            {t("returnCreate.selectSerial")}
-                            {serialCount > 0 && (
-                              <span className="ml-1.5 text-blue-500 font-semibold">
-                                {serialCount}/{item.quantity}
-                              </span>
-                            )}
-                          </Button>
-                        ) : (
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            <span className="text-muted-foreground">{t("returnCreate.return")}:</span>
+                      ) : (
+                        <div className="flex flex-col items-end gap-1 shrink-0">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-muted-foreground text-xs">{t("returnCreate.return")}:</span>
                             <Input
                               type="number"
                               min={0}
-                              max={item.quantity}
-                              value={items.qty[item.id] ?? 0}
-                              onChange={(e) => {
-                                const v = parseInt(e.target.value) || 0
-                                handleQtyChange(item.id, v)
-                              }}
-                              className="h-7 w-16 text-xs text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                              max={b.remainingQty}
+                              value={qty === 0 ? "" : qty}
+                              onChange={(e) => handleBulkQty(b, e.target.value)}
+                              className={cn(
+                                "h-7 w-16 text-xs text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
+                                qtyTouched[b.productId] && qty <= 0 && "border-red-500 focus-visible:ring-red-500",
+                              )}
                             />
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7 text-xs shrink-0"
+                              onClick={() => handleBulkQty(b, String(b.remainingQty))}
+                            >
+                              {t("returnCreate.max")}
+                            </Button>
                           </div>
-                        )}
-                      </div>
+                          {qtyTouched[b.productId] && qty <= 0 && (
+                            <p className="text-xs text-red-600">
+                              {t("returnCreate.qtyRequired", { name: b.productName })}
+                            </p>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )
                 })
               ) : (
-                <div className="px-3 py-2 text-xs text-muted-foreground">
-                  {productSearchQuery
-                    ? t("returnCreate.noProductMatch")
-                    : t("returnCreate.noExportProducts")}
-                </div>
+                <p className="text-xs text-muted-foreground text-center py-4">{t("returnCreate.noBulkProducts")}</p>
               )}
             </div>
+          )}
 
-            {selectedExportId && (
-              <div className="flex items-center gap-2 pt-1">
-                <Search className="size-3 text-muted-foreground shrink-0" />
-                <Input
-                  value={searchSerialInput}
-                  onChange={(e) => {
-                    setSearchSerialInput(e.target.value)
-                    setSearchSerialResult(null)
-                  }}
-                  onKeyDown={(e) => e.key === "Enter" && doSearchSerial()}
-                  placeholder={t("returnCreate.quickSerialSearch")}
-                  className="h-7 text-xs flex-1"
-                />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-7 text-xs shrink-0"
-                  onClick={doSearchSerial}
-                  disabled={searchSerialLoading || !searchSerialInput.trim()}
-                >
-                  {searchSerialLoading ? t("returnCreate.searching") : t("returnCreate.search")}
-                </Button>
-              </div>
-            )}
-            {searchSerialResult && (
-              <div
-                className={cn(
-                  "rounded-lg border px-3 py-2 text-xs",
-                  searchSerialResult.found && searchSerialResult.inExport
-                    ? "border-green-200 bg-green-50 dark:bg-green-950/20 dark:border-green-800"
-                    : "border-red-200 bg-red-50 dark:bg-red-950/20 dark:border-red-800",
-                )}
-              >
-                {searchSerialResult.found && searchSerialResult.inExport ? (
-                  <div className="flex items-center justify-between gap-2">
-                    <span>
-                      <span className="font-mono font-medium">{searchSerialResult.serialNumber}</span>
-                      {searchSerialResult.productName && (
-                        <span className="ml-2 text-muted-foreground">— {searchSerialResult.productName}</span>
-                      )}
-                      <span className="ml-1 text-green-600">{t("returnCreate.inThisExport")}</span>
-                    </span>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-6 text-xs shrink-0"
-                      onClick={async () => {
-                        const searchResult = searchSerialResult
-                        if (!searchResult) return
-                        setSearchSerialLoading(true)
-                        try {
-                          const exportItem = exportDetail?.items.find((i) => i.productId === searchResult.productId)
-                          if (!exportItem) throw new Error("no export item")
-                          const units = await getExportUnits(selectedExportId!, exportItem.productId)
-                          const unit = units.find((u) => u.serialNumber === searchResult.serialNumber)
-                          if (!unit) throw new Error("unit not found")
-                          const existing = items.serials[exportItem.id] ?? []
-                          dispatch({
-                            type: "setSerials",
-                            exportItemId: exportItem.id,
-                            units: existing.some((u) => u.id === unit.id) ? existing : [...existing, unit],
-                          })
-                          setSearchSerialResult(null)
-                          setSearchSerialInput("")
-                          toast.success(t("returnCreate.serialAdded", { serial: unit.serialNumber }))
-                        } catch {
-                          toast.error(t("returnCreate.serialAddError"))
-                        } finally {
-                          setSearchSerialLoading(false)
-                        }
-                      }}
-                    >
-                      {searchSerialLoading ? t("returnCreate.searching") : t("returnCreate.addSerial")}
-                    </Button>
-                  </div>
-                ) : searchSerialResult.found && !searchSerialResult.inExport ? (
-                  <p>
-                    {t("returnCreate.serialNotInExport", { serial: searchSerialResult.serialNumber })}
-                  </p>
-                ) : (
-                  <p>
-                    {t("returnCreate.serialNotFound", { serial: searchSerialInput })}
-                  </p>
-                )}
-              </div>
+          <div className="flex justify-between">
+            <Button variant="outline" onClick={() => setStep(0)}>
+              {t("returnCreate.back")}
+            </Button>
+            <Button onClick={() => setStep(2)} disabled={!step1Valid}>
+              {t("returnCreate.continue")}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {step === 2 && (
+        <div className="space-y-4 rounded-lg border p-6">
+          <div className="flex items-center justify-between">
+            <Label className="text-base">{t("returnCreate.returnProducts")}</Label>
+            {returnItems.length > 1 && (
+              <Button variant="ghost" size="sm" className="text-xs h-7" onClick={() => setApplyAllOpen(true)}>
+                <Sparkles className="size-3 mr-1" /> {t("returnCreate.applyAll")}
+              </Button>
             )}
           </div>
-        )}
 
-        <div className="space-y-2">
-          <Label>
-            {t("returnCreate.reason")} <span className="text-destructive">*</span>
-          </Label>
-          <div className="flex flex-wrap gap-2">
-            {reasonOptions.map((opt) => {
-              const isChangeMindExpired = opt.value === RETURN_REASON.CHANGE_MIND && changeMindExpired
-              return (
-                <label
-                  key={opt.value}
-                  className={cn(
-                    "flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors",
-                    watchedReason === opt.value
-                      ? "border-primary bg-primary/5"
-                      : "hover:bg-muted/30",
-                    isChangeMindExpired && "opacity-40 cursor-not-allowed",
-                  )}
-                >
-                  <input
-                    type="radio"
-                    name="reason"
-                    value={opt.value}
-                    checked={watchedReason === opt.value}
-                    disabled={isChangeMindExpired}
-                    onChange={(e) => {
-                      if (isChangeMindExpired) return
-                      const value = e.target.value as ReturnReason
-                      if (
-                        value === RETURN_REASON.WARRANTY_CLAIM &&
-                        watchedReason !== RETURN_REASON.WARRANTY_CLAIM &&
-                        returnItems.filter((i) => i.resultingAction !== RETURN_RESULTING_ACTION.WARRANTY_TRANSFER).length > 0
-                      ) {
-                        setPendingWarrantyReason(value)
-                        setWarrantyConfirmOpen(true)
-                        return
-                      }
-                      form.setValue("reason", value)
+          {returnItems.length > 0 ? (
+            <div className="rounded-lg border divide-y text-sm">
+              {returnItems.map((item) => {
+                const validActions = actionsFor(item.trackingType, item.condition)
+                const missingEvidence =
+                  item.condition === RETURN_ITEM_CONDITION.DEFECTIVE &&
+                  (!item.description.trim() || !item.evidenceImage.trim() || !item.defectCategoryId)
+                const unusualCombo = isChangeMind && item.condition === RETURN_ITEM_CONDITION.DEFECTIVE
+                return (
+                  <div
+                    key={item.key}
+                    ref={(el) => {
+                      rowRefs.current[item.key] = el
                     }}
-                    className="size-3.5 text-primary"
-                  />
-                  <span>{opt.label}</span>
-                </label>
-              )
-            })}
-          </div>
-          {changeMindInfo && (
-            <div
-              className={cn(
-                "text-sm mt-2 rounded-lg border px-4 py-3",
-                changeMindInfo.expired
-                  ? "border-red-200 bg-red-50 dark:bg-red-950/20 dark:border-red-800 text-red-600"
-                  : "border-blue-200 bg-blue-50 dark:bg-blue-950/20 dark:border-blue-800 text-blue-600",
-              )}
-            >
-              {changeMindInfo.expired
-                ? t("returnCreate.changeMindExpiredDetail", { days: changeMindInfo.daysSince })
-                : t("returnCreate.changeMindRemainingDetail", { remaining: changeMindInfo.remaining, days: changeMindInfo.daysSince })}
-            </div>
-          )}
-        </div>
-      </div>
-
-      <div className="space-y-4 rounded-lg border p-6">
-        <div className="flex items-center justify-between">
-          <Label className="text-base">{t("returnCreate.returnProducts")}</Label>
-          {returnItems.length > 1 && (
-            <Button variant="ghost" size="sm" className="text-xs h-7" onClick={applyAllConfig}>
-              <Sparkles className="size-3 mr-1" /> {t("returnCreate.applyAll")}
-            </Button>
-          )}
-        </div>
-
-        {returnItems.length > 0 ? (
-          <div className="rounded-lg border divide-y text-sm">
-            {returnItems.map((item) => {
-              const validActions =
-                item.condition === RETURN_ITEM_CONDITION.GOOD
-                  ? [RETURN_RESULTING_ACTION.RESTOCK]
-                  : isWarrantyClaim
-                    ? [
-                        RETURN_RESULTING_ACTION.WARRANTY_TRANSFER,
-                        RETURN_RESULTING_ACTION.SCRAP,
-                        RETURN_RESULTING_ACTION.REJECT,
-                      ]
-                    : [
-                        RETURN_RESULTING_ACTION.SCRAP,
-                        RETURN_RESULTING_ACTION.REJECT,
-                        RETURN_RESULTING_ACTION.WARRANTY_TRANSFER,
-                      ]
-
-              return (
-                <div key={item.key} className="flex flex-wrap items-center gap-2 px-3 py-2">
-                  <TrackingTypeBadge type={item.trackingType} />
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm">{item.productName}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {item.serialNumber && <span className="font-mono">{item.serialNumber}</span>}
-                      {item.productSku && (
-                        <span className="ml-2 text-muted-foreground">SKU: {item.productSku}</span>
-                      )}
-                    </p>
-                  </div>
-                  <span className="text-muted-foreground shrink-0">x{item.quantity}</span>
-                  <div className="flex items-center gap-2">
-                    <select
-                      value={item.condition}
-                      onChange={(e) => {
-                        const newCond = e.target.value
-                        updateItemConfig(item.key, "condition", newCond)
-                        const newValidActions =
-                          newCond === RETURN_ITEM_CONDITION.GOOD
-                            ? [RETURN_RESULTING_ACTION.RESTOCK]
-                            : isWarrantyClaim
-                              ? [
-                                  RETURN_RESULTING_ACTION.WARRANTY_TRANSFER,
-                                  RETURN_RESULTING_ACTION.SCRAP,
-                                  RETURN_RESULTING_ACTION.REJECT,
-                                ]
-                              : [
-                                  RETURN_RESULTING_ACTION.SCRAP,
-                                  RETURN_RESULTING_ACTION.REJECT,
-                                  RETURN_RESULTING_ACTION.WARRANTY_TRANSFER,
-                                ]
-                        if (!(newValidActions as string[]).includes(item.resultingAction)) {
-                          updateItemConfig(item.key, "resultingAction", newValidActions[0])
-                        }
-                      }}
-                      className="h-7 text-xs rounded-md border border-input bg-background px-2"
-                    >
-                      <option value={RETURN_ITEM_CONDITION.GOOD}>{t("returnCondition.good")}</option>
-                      <option value={RETURN_ITEM_CONDITION.DEFECTIVE}>{t("returnCondition.defective")}</option>
-                    </select>
-                    <select
-                      value={item.resultingAction}
-                      onChange={(e) => updateItemConfig(item.key, "resultingAction", e.target.value)}
-                      className="h-7 text-xs rounded-md border border-input bg-background px-2"
-                    >
-                      {validActions.map((act) => (
-                        <option key={act} value={act}>
-                          {act === RETURN_RESULTING_ACTION.RESTOCK && t("returnAction.restock")}
-                          {act === RETURN_RESULTING_ACTION.SCRAP && t("returnAction.scrap")}
-                          {act === RETURN_RESULTING_ACTION.REJECT && t("returnAction.reject")}
-                          {act === RETURN_RESULTING_ACTION.WARRANTY_TRANSFER && t("returnAction.warrantyTransfer")}
-                        </option>
-                      ))}
-                    </select>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="size-6 shrink-0"
-                      onClick={() => removeReturnItem(item.key)}
-                    >
-                      <X className="size-3" />
-                    </Button>
-                  </div>
-                  {item.condition === RETURN_ITEM_CONDITION.DEFECTIVE && (
-                    <div className="w-full space-y-2 pl-8 pt-1">
-                      <Textarea
-                        placeholder={t("returnCreate.descriptionPlaceholder")}
-                        value={item.description}
-                        onChange={(e) => updateItemConfig(item.key, "description", e.target.value)}
-                        className="min-h-16 text-xs"
-                      />
-                      <ImageUpload
-                        value={item.evidenceImage}
-                        onChange={(v) => updateItemConfig(item.key, "evidenceImage", v)}
-                      />
-                    </div>
-                  )}
-                  {isWarrantyClaim &&
-                    item.condition === RETURN_ITEM_CONDITION.DEFECTIVE &&
-                    (!item.description.trim() || !item.evidenceImage.trim()) && (
-                      <p className="w-full pl-8 text-xs text-red-600">
-                        {t("returnCreate.warrantyEvidenceRequired")}
-                      </p>
+                    className={cn(
+                      "grid gap-3 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_auto]",
+                      missingEvidence && "bg-red-50/60 dark:bg-red-950/10 ring-1 ring-inset ring-red-300 dark:ring-red-800",
                     )}
-                </div>
-              )
-            })}
-          </div>
-        ) : (
-          <p className="text-xs text-muted-foreground py-2 text-center">
-            {t("returnCreate.noProductsSelected")}
-          </p>
-        )}
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="note">{t("returnCreate.note")}</Label>
-        <Textarea
-          id="note"
-          {...form.register("note")}
-          placeholder={t("form.notePlaceholder")}
-          rows={2}
-        />
-      </div>
-
-      <div className="flex justify-end gap-3">
-        <Button variant="outline" onClick={() => navigate("/returns-qc/returns")}>
-          {t("common.cancel")}
-        </Button>
-        <Button
-          onClick={onSubmit}
-          disabled={
-            !selectedCustomerId ||
-            !selectedExportId ||
-            returnItems.length === 0 ||
-            createMut.isPending
-          }
-        >
-          {createMut.isPending
-            ? t("returnCreate.creating")
-            : t("returnCreate.create", { count: returnItems.length })}
-        </Button>
-      </div>
-
-      <Dialog
-        open={serialPickerExportItemId !== null}
-        onOpenChange={(open) => {
-          if (!open) closeSerialPicker()
-        }}
-      >
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-base">
-              {t("returnCreate.selectSerialTitle")}
-              {serialPickerExportItemId !== null && (
-                <span className="text-muted-foreground font-normal ml-1">
-                  — {exportDetail?.items.find((i) => i.id === serialPickerExportItemId)?.productName}
-                </span>
-              )}
-            </DialogTitle>
-          </DialogHeader>
-          {serialPickerLoading ? (
-            <p className="text-sm text-muted-foreground py-4 text-center">{t("common.loading")}</p>
-          ) : serialPickerUnits.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-4 text-center">
-              {t("returnCreate.noSerialsAvailable")}
-            </p>
-          ) : (
-            <div className="space-y-3">
-              <Input
-                value={serialSearchQuery}
-                onChange={(e) => setSerialSearchQuery(e.target.value)}
-                placeholder={t("returnCreate.searchSerialPlaceholder")}
-                className="h-8 text-sm"
-              />
-              <div className="max-h-48 overflow-y-auto space-y-1">
-                {serialPickerUnits
-                  .filter((u) => !selectedElsewhere.has(u.id))
-                  .filter(
-                    (u) =>
-                      !serialSearchQuery ||
-                      u.serialNumber.toLowerCase().includes(serialSearchQuery.toLowerCase()),
-                  )
-                  .map((unit) => (
-                    <label
-                      key={unit.id}
-                      className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 hover:bg-muted/30 text-sm"
-                    >
-                      <input
-                        type="checkbox"
-                        className="size-3.5 shrink-0"
-                        checked={serialPickerSelection.has(unit.id)}
-                        disabled={
-                          !serialPickerSelection.has(unit.id) &&
-                          serialPickerSelection.size >= pickerLimit
-                        }
-                        onChange={() => {
-                          setSerialPickerSelection((prev) => {
-                            const next = new Set(prev)
-                            if (next.has(unit.id)) next.delete(unit.id)
-                            else if (next.size < pickerLimit) next.add(unit.id)
-                            return next
-                          })
-                        }}
-                      />
-                      <span className="font-mono">{unit.serialNumber}</span>
-                      {unit.productSku && (
-                        <span className="text-muted-foreground text-xs ml-auto">
-                          {unit.productSku}
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-xs font-medium px-1.5 py-0.5 rounded shrink-0 bg-muted text-muted-foreground">
+                        {item.trackingType === TRACKING_TYPE.SERIALIZED
+                          ? t("trackingType.serialized")
+                          : t("trackingType.bulk")}
+                      </span>
+                      <div className="min-w-0">
+                        <p className="font-medium text-sm truncate">{item.productName}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {item.serialNumber && <span className="font-mono">{item.serialNumber}</span>}
+                          {item.productSku && (
+                            <span className="ml-2 text-muted-foreground">SKU: {item.productSku}</span>
+                          )}
+                        </p>
+                      </div>
+                      <span className="text-muted-foreground shrink-0 ml-auto">x{item.quantity}</span>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                      <select
+                        value={item.condition}
+                        onChange={(e) => updateCondition(item, e.target.value)}
+                        className="h-8 text-xs rounded-md border border-input bg-background px-2"
+                      >
+                        <option value={RETURN_ITEM_CONDITION.GOOD}>{t("returnCondition.good")}</option>
+                        <option value={RETURN_ITEM_CONDITION.DEFECTIVE}>{t("returnCondition.defective")}</option>
+                      </select>
+                      {validActions.length === 1 ? (
+                        <span className="h-8 flex items-center rounded-md bg-muted px-2 text-xs text-muted-foreground">
+                          {t("returnAction.restock")}
                         </span>
+                      ) : (
+                        <select
+                          value={item.resultingAction}
+                          onChange={(e) => updateConfig(item.key, "resultingAction", e.target.value)}
+                          className="h-8 text-xs rounded-md border border-input bg-background px-2"
+                        >
+                          {validActions.map((act) => (
+                            <option key={act} value={act}>
+                              {act === RETURN_RESULTING_ACTION.SCRAP && t("returnAction.scrap")}
+                              {act === RETURN_RESULTING_ACTION.REJECT && t("returnAction.reject")}
+                              {act === RETURN_RESULTING_ACTION.WARRANTY_TRANSFER && t("returnAction.warrantyTransfer")}
+                            </option>
+                          ))}
+                        </select>
                       )}
-                    </label>
-                  ))}
-                {serialPickerUnits.filter(
-                  (u) =>
-                    !serialSearchQuery ||
-                    u.serialNumber.toLowerCase().includes(serialSearchQuery.toLowerCase()),
-                ).length === 0 && (
-                  <p className="text-xs text-muted-foreground text-center py-2">
-                    {t("returnCreate.noSerialMatch")}
-                  </p>
-                )}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {t("returnCreate.selected", {
-                  count: serialPickerSelection.size,
-                  total: serialPickerUnits.filter((u) => !selectedElsewhere.has(u.id)).length,
-                })}
-              </p>
+                      <Button variant="ghost" size="icon" className="size-6 shrink-0" onClick={() => removeReturnItem(item)}>
+                        <X className="size-3" />
+                      </Button>
+                    </div>
+                    {item.condition === RETURN_ITEM_CONDITION.DEFECTIVE && (
+                      <div className="sm:col-span-2 space-y-2">
+                        <div className="grid gap-2 sm:grid-cols-[minmax(0,240px)_1fr]">
+                          <select
+                            value={item.defectCategoryId ?? ""}
+                            onChange={(e) => updateConfig(item.key, "defectCategoryId", e.target.value)}
+                            className="h-8 text-xs rounded-md border border-input bg-background px-2 w-full"
+                          >
+                            <option value="">{t("returnCreate.selectDefect")}</option>
+                            {defectCategories
+                              .filter((d) => d.isActive)
+                              .map((d) => (
+                                <option key={d.id} value={d.id}>
+                                  {d.name} ({d.code})
+                                </option>
+                              ))}
+                          </select>
+                          <Textarea
+                            placeholder={t("returnCreate.descriptionPlaceholder")}
+                            value={item.description}
+                            onChange={(e) => updateConfig(item.key, "description", e.target.value)}
+                            className="min-h-10 text-xs"
+                          />
+                        </div>
+                        <ImageUpload
+                          value={item.evidenceImage}
+                          onChange={(v) => updateConfig(item.key, "evidenceImage", v)}
+                        />
+                        {missingEvidence && (
+                          <p className="text-xs text-red-600">
+                            {t("returnCreate.missingEvidence", { name: item.productName })}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                    {unusualCombo && (
+                      <div className="sm:col-span-2 flex items-center gap-1.5 text-xs text-amber-600">
+                        <AlertTriangle className="size-3.5 shrink-0" />
+                        {t("returnCreate.unusualCombo")}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
             </div>
+          ) : (
+            <p className="text-xs text-muted-foreground py-2 text-center">
+              {t("returnCreate.noProductsSelected")}
+            </p>
           )}
-          <DialogFooter>
-            <Button variant="outline" size="sm" onClick={closeSerialPicker}>
-              {t("common.cancel")}
-            </Button>
-            <Button
-              size="sm"
-              onClick={confirmSerialPicker}
-              disabled={serialPickerSelection.size === 0}
-            >
-              {t("dialog.confirm")}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
-      <Dialog
-        open={warrantyConfirmOpen}
-        onOpenChange={(open) => {
-          if (!open) {
-            setWarrantyConfirmOpen(false)
-            setPendingWarrantyReason(null)
-          }
-        }}
-      >
+          <div className="flex justify-between">
+            <Button variant="outline" onClick={() => setStep(1)}>
+              {t("returnCreate.back")}
+            </Button>
+            <Button onClick={onSubmit} disabled={returnItems.length === 0 || createMut.isPending}>
+              {createMut.isPending
+                ? t("returnCreate.creating")
+                : t("returnCreate.create", { count: returnItems.length })}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      <Dialog open={applyAllOpen} onOpenChange={(v) => { if (!v) setApplyAllOpen(false) }}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle>{t("returnCreate.warrantyConfirmTitle")}</DialogTitle>
-            <DialogDescription>
-              {t("returnCreate.warrantyConfirmDesc", {
-                count: returnItems.filter((i) => i.resultingAction !== RETURN_RESULTING_ACTION.WARRANTY_TRANSFER).length,
-              })}
-            </DialogDescription>
+            <DialogTitle>{t("returnCreate.applyAllConfirm")}</DialogTitle>
           </DialogHeader>
+          <div className="space-y-2 text-sm">
+            <p className="text-muted-foreground">
+              {t("returnCreate.applyAllConfirmDesc", {
+                product: returnItems[0]?.productName,
+                count: returnItems.length,
+              })}
+            </p>
+            {applyAllSkipped > 0 && (
+              <p className="text-xs text-amber-600">{t("returnCreate.applyAllKeep", { count: applyAllSkipped })}</p>
+            )}
+          </div>
           <DialogFooter className="gap-2">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setWarrantyConfirmOpen(false)
-                setPendingWarrantyReason(null)
-              }}
-            >
-              {t("dialog.cancel")}
+            <Button variant="outline" onClick={() => setApplyAllOpen(false)}>
+              {t("dialog.back")}
             </Button>
-            <Button
-              onClick={() => {
-                if (pendingWarrantyReason) form.setValue("reason", pendingWarrantyReason)
-                setWarrantyConfirmOpen(false)
-                setPendingWarrantyReason(null)
-              }}
-            >
-              {t("dialog.confirm")}
-            </Button>
+            <Button onClick={applyAll}>{t("returnCreate.applyAll")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1195,8 +1076,13 @@ export const ReturnCreatePage = () => {
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>{t("returnCreate.restoreTitle")}</DialogTitle>
-            <DialogDescription>{t("returnCreate.restoreDescription")}</DialogDescription>
           </DialogHeader>
+          <p className="text-sm text-muted-foreground">{t("returnCreate.restoreDescription")}</p>
+          {draftState.savedAt && (
+            <p className="text-xs text-muted-foreground">
+              {t("returnCreate.draftSavedAt", { time: new Date(draftState.savedAt).toLocaleTimeString("vi-VN") })}
+            </p>
+          )}
           <DialogFooter className="gap-2">
             <Button
               variant="outline"

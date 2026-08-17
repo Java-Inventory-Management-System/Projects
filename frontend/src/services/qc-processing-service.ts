@@ -17,8 +17,9 @@ export async function disposeConfirmUnits(
   unitIds: number[],
   action: string,
   supplierId?: number | null,
+  note?: string,
 ): Promise<{ receiptCode: string | null; exportReceiptId: number | null }> {
-  return (await http.post("/qc-processing/dispose-confirm", { unitIds, action, supplierId })) as unknown as {
+  return (await http.post("/qc-processing/dispose-confirm", { unitIds, action, supplierId, note })) as unknown as {
     receiptCode: string | null
     exportReceiptId: number | null
   }

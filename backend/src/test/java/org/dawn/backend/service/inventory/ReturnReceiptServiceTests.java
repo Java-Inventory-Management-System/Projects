@@ -43,6 +43,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -60,6 +61,8 @@ class ReturnReceiptServiceTests {
     @Mock UserRepository userRepository;
     @Mock ProductRepository productRepository;
     @Mock ExportReceiptItemUnitRepository exportReceiptItemUnitRepository;
+    @Mock org.dawn.backend.repository.inventory.exports.ExportReceiptItemRepository exportReceiptItemRepository;
+    @Mock org.dawn.backend.repository.catalog.DefectCategoryRepository defectCategoryRepository;
     @Mock org.dawn.backend.repository.inventory.LocationRepository locationRepository;
     @Mock StateMachine<ReturnReceiptStatus> returnReceiptStateMachine;
     @Mock SecurityPolicy securityPolicy;
@@ -203,6 +206,11 @@ class ReturnReceiptServiceTests {
         when(exportReceipt.getCustomerId()).thenReturn(customerId);
         when(productUnitRepository.findById(productUnitId)).thenReturn(Optional.of(pu));
         when(pu.getStatus()).thenReturn(ProductUnitStatus.EXPORTED);
+        when(pu.getId()).thenReturn(productUnitId);
+        when(exportReceiptItemUnitRepository.findProductUnitIdsByReceiptId(exportReceiptId)).thenReturn(Set.of(productUnitId));
+        when(exportReceiptItemRepository.sumQuantityByReceiptAndProduct(anyLong(), anyLong())).thenReturn(BigDecimal.ONE);
+        when(returnReceiptItemRepository.sumBulkReturnedQtyByExportAndProduct(anyLong(), anyLong(), any())).thenReturn(BigDecimal.ZERO);
+        when(returnReceiptItemRepository.countSerialReturnedByExportAndProduct(anyLong(), anyLong(), any())).thenReturn(0L);
         // save returns a receipt with ID (simulates DB generation)
         when(returnReceiptRepository.save(any())).thenAnswer(invocation -> {
             ReturnReceipt r = invocation.getArgument(0);
@@ -253,6 +261,26 @@ class ReturnReceiptServiceTests {
     }
 
     @Test
+    void create_fail_defectCategoryMissingForDefective() {
+        ReturnReceiptRequest request = new ReturnReceiptRequest(
+                customerId, exportReceiptId, ReturnReason.DEFECTIVE.name(), null,
+                List.of(new ReturnItemRequest(null, 20L, BigDecimal.ONE,
+                        ReturnCondition.DEFECTIVE.name(), ResultingAction.SCRAP.name(), "loi man hinh", "img-1.jpg"))
+        );
+        var exportReceipt = mock(ExportReceipt.class);
+        when(exportReceiptRepository.findById(exportReceiptId)).thenReturn(Optional.of(exportReceipt));
+        when(exportReceipt.getCustomerId()).thenReturn(customerId);
+        stubSave();
+
+        try (MockedStatic<ReceiptCodeGenerator> gen = mockStatic(ReceiptCodeGenerator.class)) {
+            when(securityPolicy.requireAuthenticated()).thenReturn(userId);
+            gen.when(() -> ReceiptCodeGenerator.generate(eq("RET-"), any())).thenReturn("RET-001");
+
+            assertThrows(InvalidRequestException.class, () -> returnReceiptService.create(request));
+        }
+    }
+
+    @Test
     void create_fail_evidenceImageMissingForDefective() {
         ReturnReceiptRequest request = new ReturnReceiptRequest(
                 customerId, exportReceiptId, ReturnReason.DEFECTIVE.name(), null,
@@ -278,7 +306,7 @@ class ReturnReceiptServiceTests {
                 customerId, exportReceiptId, ReturnReason.DEFECTIVE.name(), "note",
                 List.of(new ReturnItemRequest(productUnitId, 20L, BigDecimal.ONE,
                         ReturnCondition.DEFECTIVE.name(), ResultingAction.WARRANTY_TRANSFER.name(),
-                        "hỏng màn hình", "img-1.jpg"))
+                        "hỏng màn hình", "img-1.jpg", 99L))
         );
 
         var exportReceipt = mock(ExportReceipt.class);
@@ -287,6 +315,12 @@ class ReturnReceiptServiceTests {
         when(exportReceipt.getCustomerId()).thenReturn(customerId);
         when(productUnitRepository.findById(productUnitId)).thenReturn(Optional.of(pu));
         when(pu.getStatus()).thenReturn(ProductUnitStatus.EXPORTED);
+        when(pu.getId()).thenReturn(productUnitId);
+        when(exportReceiptItemUnitRepository.findProductUnitIdsByReceiptId(exportReceiptId)).thenReturn(Set.of(productUnitId));
+        when(defectCategoryRepository.existsById(99L)).thenReturn(true);
+        when(exportReceiptItemRepository.sumQuantityByReceiptAndProduct(anyLong(), anyLong())).thenReturn(BigDecimal.ONE);
+        when(returnReceiptItemRepository.sumBulkReturnedQtyByExportAndProduct(anyLong(), anyLong(), any())).thenReturn(BigDecimal.ZERO);
+        when(returnReceiptItemRepository.countSerialReturnedByExportAndProduct(anyLong(), anyLong(), any())).thenReturn(0L);
         when(returnReceiptRepository.save(any())).thenAnswer(invocation -> {
             ReturnReceipt r = invocation.getArgument(0);
             return ReturnReceipt.builder()

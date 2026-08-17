@@ -543,7 +543,7 @@ public class ImportConfirmationService {
 
         Long receiptId = receipt.getId();
         BigDecimal totalAmount = BigDecimal.ZERO;
-        if (importReceiptRepository.existsByOriginalWarrantyExportId(export.getId())) {
+        if (importReceiptRepository.existsByOriginalWarrantyExportIdAndIdNot(export.getId(), receiptId)) {
             throw new InvalidRequestException(ErrorCode.WARRANTY_IMPORT_ALREADY_RECEIVED);
         }
         Long returnStagingLocationId = locationRepository.findByFullCode(RETURN_STAGING_LOCATION_FULL_CODE)

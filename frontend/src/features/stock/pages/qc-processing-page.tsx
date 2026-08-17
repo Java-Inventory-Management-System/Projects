@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router-dom"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
@@ -13,11 +13,17 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Empty, EmptyTitle, EmptyDescription } from "@/components/ui/empty"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Input } from "@/components/ui/input"
-import { CheckCircle2, Search, Send, Trash2, Undo2 } from "lucide-react"
+import { Textarea } from "@/components/ui/textarea"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { Skeleton } from "@/components/ui/skeleton"
+import { PaginationBar } from "@/components/ui/pagination-bar"
+import { AlertTriangle, CheckCircle2, RefreshCw, Search, Send, Trash2, Undo2 } from "lucide-react"
 import { toast } from "@/utils/toast"
 import { usePermission } from "@/hooks/use-permission"
 import { ROLES } from "@/utils/permissions"
 import { PRODUCT_UNIT_STATUS, type ProductUnitStatus, type QcUnit } from "@/utils/types"
+
+const PAGE_SIZE = 20
 
 const QC_PASS_STATUSES: ProductUnitStatus[] = [
   PRODUCT_UNIT_STATUS.RETURN_QC_HOLD,
@@ -42,19 +48,19 @@ export const QcProcessingPage = () => {
   const perm = usePermission()
   const canOperate = perm.hasRole(...ROLES.CAN_OPERATE_STOCK)
 
-  useEffect(() => {
-    localStorage.setItem("qc-tab-visits", String(Number(localStorage.getItem("qc-tab-visits") ?? 0) + 1))
-  }, [])
-
   const [passSelected, setPassSelected] = useState<number[]>([])
   const [passConfirmOpen, setPassConfirmOpen] = useState(false)
   const [disposeSelected, setDisposeSelected] = useState<number[]>([])
   const [confirmAction, setConfirmAction] = useState<"DISPOSED" | "RETURN" | "SEND_WARRANTY" | "PENDING_DISPOSAL" | "RETURN_QC_HOLD" | null>(null)
   const [supplierId, setSupplierId] = useState("")
+  const [disposeNote, setDisposeNote] = useState("")
   const [search, setSearch] = useState("")
+  const [tab, setTab] = useState("pass")
+  const [page, setPage] = useState(0)
 
   useEffect(() => {
     setSupplierId("")
+    setDisposeNote("")
   }, [confirmAction])
 
   const suppliers = useQuery({
@@ -78,6 +84,7 @@ export const QcProcessingPage = () => {
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ["qc-processing"] })
     qc.invalidateQueries({ queryKey: ["inventory"] })
+    qc.invalidateQueries({ queryKey: ["work-queue"] })
     invalidateDashboard(qc)
   }
 
@@ -93,7 +100,7 @@ export const QcProcessingPage = () => {
 
   const disposeMut = useMutation({
     mutationFn: (action: string) =>
-      disposeConfirmUnits(disposeSelected, action, supplierId ? Number(supplierId) : null),
+      disposeConfirmUnits(disposeSelected, action, supplierId ? Number(supplierId) : null, disposeNote.trim() || undefined),
     onSuccess: (res) => {
       if (res?.receiptCode && res.exportReceiptId != null) {
         toast.success(t("qcPage.disposeExportCreated", { code: res.receiptCode }), {
@@ -108,6 +115,7 @@ export const QcProcessingPage = () => {
       setDisposeSelected([])
       setConfirmAction(null)
       setSupplierId("")
+      setDisposeNote("")
       invalidate()
     },
     onError: (e: Error) => toast.error(e.message),
@@ -116,6 +124,29 @@ export const QcProcessingPage = () => {
   const toggle = (selected: number[], setSelected: (v: number[]) => void, id: number) => {
     setSelected(selected.includes(id) ? selected.filter((x) => x !== id) : [...selected, id])
   }
+
+  const toggleAll = (selected: number[], setSelected: (v: number[]) => void, units: QcUnit[]) => {
+    const allSelected = units.length > 0 && units.every((u) => selected.includes(u.id))
+    setSelected(
+      allSelected
+        ? selected.filter((id) => !units.some((u) => u.id === id))
+        : [...new Set([...selected, ...units.map((u) => u.id)])],
+    )
+  }
+
+  const TableSkeleton = () => (
+    <div className="rounded-lg border overflow-x-auto">
+      <div className="h-9 bg-muted/50 border-b" />
+      {Array.from({ length: 5 }).map((_, i) => (
+        <div key={i} className="flex items-center gap-3 border-b last:border-0 px-3 py-3">
+          <Skeleton className="size-4" />
+          <Skeleton className="h-4 w-32" />
+          <Skeleton className="h-4 w-24" />
+          <Skeleton className="h-4 w-16" />
+        </div>
+      ))}
+    </div>
+  )
 
   const statusBadge = (status: ProductUnitStatus) => {
     const map: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
@@ -156,12 +187,31 @@ export const QcProcessingPage = () => {
         </Empty>
       )
     }
+    const pageCount = Math.ceil(filtered.length / PAGE_SIZE)
+    const safePage = Math.min(page, pageCount - 1)
+    const paged = filtered.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE)
+    const allOnPageSelected = paged.every((u) => selected.includes(u.id))
+    const someOnPageSelected = paged.some((u) => selected.includes(u.id))
     return (
-      <div className="rounded-lg border overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
-              <th className="w-10 px-3 py-2" />
+      <div className="space-y-2">
+        <div className="rounded-lg border overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
+                <th className="w-10 px-3 py-2">
+                  {selectable && (
+                    <input
+                      type="checkbox"
+                      checked={allOnPageSelected}
+                      ref={(el) => {
+                        if (el) el.indeterminate = someOnPageSelected && !allOnPageSelected
+                      }}
+                      disabled={!canOperate}
+                      onChange={() => toggleAll(selected, setSelected, paged)}
+                      className="size-4"
+                    />
+                  )}
+                </th>
               <th className="px-3 py-2 font-medium">{t("table.product")}</th>
               <th className="px-3 py-2 font-medium">{t("table.serial")}</th>
               <th className="px-3 py-2 font-medium">{t("table.status")}</th>
@@ -177,7 +227,7 @@ export const QcProcessingPage = () => {
             </tr>
           </thead>
           <tbody>
-            {filtered.map((unit) => {
+            {paged.map((unit) => {
               const checked = selected.includes(unit.id)
               return (
                 <tr key={unit.id} className="border-b last:border-0 hover:bg-muted/40">
@@ -226,9 +276,20 @@ export const QcProcessingPage = () => {
             })}
           </tbody>
         </table>
+        </div>
+        {pageCount > 1 && <PaginationBar page={safePage} totalPages={pageCount} onChange={setPage} />}
       </div>
     )
   }
+
+  const loadErrorBox = (retry: () => void) => (
+    <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-6 text-center space-y-2">
+      <p className="text-sm text-destructive">{t("qcPage.loadError")}</p>
+      <Button variant="outline" size="sm" onClick={retry}>
+        <RefreshCw className="size-3 mr-1" /> {t("qcPage.retry")}
+      </Button>
+    </div>
+  )
 
   const hasMixedReturnTargets = (units: QcUnit[] | undefined, selected: number[]) =>
     selected.length > 0 &&
@@ -257,6 +318,19 @@ export const QcProcessingPage = () => {
       : "returnCustomer"
   }
 
+  const disposeBlockReason = (() => {
+    if (disposeSelected.length === 0) return null
+    if (hasWaitingRma(disposeUnits.data, disposeSelected)) return t("qcPage.hintBlockedRma")
+    if (anyRejectedReturn(disposeUnits.data, disposeSelected)) return t("qcPage.hintBlockedRejected")
+    if (hasMixedReturnTargets(disposeUnits.data, disposeSelected)) return t("qcPage.hintBlockedMixed")
+    return null
+  })()
+
+  const needsSupplier =
+    (confirmAction === "RETURN" &&
+      disposeUnits.data?.find((u) => disposeSelected.includes(u.id))?.status === PRODUCT_UNIT_STATUS.RMA_UNREPAIRABLE) ||
+    confirmAction === "SEND_WARRANTY"
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -265,24 +339,45 @@ export const QcProcessingPage = () => {
           <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => { setSearch(e.target.value); setPage(0) }}
             placeholder={t("qcPage.searchPlaceholder")}
             className="w-64 pl-8"
           />
         </div>
       </div>
 
-      <Tabs defaultValue="pass">
+      <Tabs value={tab} onValueChange={(v) => { setTab(v); setPage(0) }}>
         <TabsList>
-          <TabsTrigger value="pass">{t("qcPage.tabQcPass")}</TabsTrigger>
-          <TabsTrigger value="dispose">{t("qcPage.tabDispose")}</TabsTrigger>
-          <TabsTrigger value="done">{t("qcPage.tabDone")}</TabsTrigger>
+          <TabsTrigger value="pass">
+            {t("qcPage.tabQcPass")}
+            {!!passUnits.data?.length && (
+              <span className="ml-1.5 rounded-full bg-muted px-1.5 py-0.5 text-xs font-semibold text-muted-foreground">
+                {passUnits.data.length}
+              </span>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="dispose">
+            {t("qcPage.tabDispose")}
+            {!!disposeUnits.data?.length && (
+              <span className="ml-1.5 rounded-full bg-muted px-1.5 py-0.5 text-xs font-semibold text-muted-foreground">
+                {disposeUnits.data.length}
+              </span>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="done">
+            {t("qcPage.tabDone")}
+            {!!doneUnits.data?.length && (
+              <span className="ml-1.5 rounded-full bg-muted px-1.5 py-0.5 text-xs font-semibold text-muted-foreground">
+                {doneUnits.data.length}
+              </span>
+            )}
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="pass" className="space-y-3 pt-2">
-          {renderRows(passUnits.data, passSelected, setPassSelected, true)}
+          {passUnits.isPending ? <TableSkeleton /> : passUnits.isError ? loadErrorBox(passUnits.refetch) : renderRows(passUnits.data, passSelected, setPassSelected, true)}
           {canOperate && (
-            <div className="flex justify-end">
+            <div className="sticky bottom-3 z-10 flex justify-end rounded-lg border bg-background/95 p-2 shadow-sm">
               <Button
                 onClick={() => setPassConfirmOpen(true)}
                 disabled={passSelected.length === 0 || passMut.isPending}
@@ -295,13 +390,18 @@ export const QcProcessingPage = () => {
         </TabsContent>
 
         <TabsContent value="done" className="space-y-3 pt-2">
-          {renderRows(doneUnits.data, [], () => {}, false)}
+          {doneUnits.isPending ? <TableSkeleton /> : doneUnits.isError ? loadErrorBox(doneUnits.refetch) : renderRows(doneUnits.data, [], () => {}, false)}
         </TabsContent>
 
         <TabsContent value="dispose" className="space-y-3 pt-2">
-          {renderRows(disposeUnits.data, disposeSelected, setDisposeSelected, true)}
+          {disposeUnits.isPending ? <TableSkeleton /> : disposeUnits.isError ? loadErrorBox(disposeUnits.refetch) : renderRows(disposeUnits.data, disposeSelected, setDisposeSelected, true)}
+          {disposeBlockReason && (
+            <p className="flex items-center gap-1.5 text-xs text-amber-600">
+              <AlertTriangle className="size-3.5 shrink-0" /> {disposeBlockReason}
+            </p>
+          )}
           {canOperate && (
-          <div className="flex justify-end gap-2">
+          <div className="sticky bottom-3 z-10 flex justify-end gap-2 rounded-lg border bg-background/95 p-2 shadow-sm">
             <Button
               variant="destructive"
               onClick={() => {
@@ -400,14 +500,13 @@ export const QcProcessingPage = () => {
       </Tabs>
 
       {passConfirmOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-          onClick={() => setPassConfirmOpen(false)}
-        >
-          <div className="w-full max-w-sm rounded-lg bg-background p-6 shadow-lg" onClick={(e) => e.stopPropagation()}>
-            <h2 className="text-base font-semibold mb-1">{t("qcPage.passConfirmTitle")}</h2>
-            <p className="text-sm text-muted-foreground mb-4">{t("qcPage.passConfirmDesc")}</p>
-            <div className="mb-4 max-h-32 overflow-y-auto rounded-md border bg-muted/30 p-2 space-y-1 text-xs">
+        <Dialog open={passConfirmOpen} onOpenChange={(v) => { if (!v) setPassConfirmOpen(false) }}>
+          <DialogContent className="sm:max-w-sm">
+            <DialogHeader>
+              <DialogTitle>{t("qcPage.passConfirmTitle")}</DialogTitle>
+            </DialogHeader>
+            <p className="text-sm text-muted-foreground">{t("qcPage.passConfirmDesc")}</p>
+            <div className="max-h-32 overflow-y-auto rounded-md border bg-muted/30 p-2 space-y-1 text-xs">
               {(passUnits.data ?? [])
                 .filter((u) => passSelected.includes(u.id))
                 .map((u) => (
@@ -417,7 +516,7 @@ export const QcProcessingPage = () => {
                   </div>
                 ))}
             </div>
-            <div className="flex justify-end gap-2">
+            <DialogFooter>
               <Button variant="outline" onClick={() => setPassConfirmOpen(false)}>
                 {t("dialog.cancel")}
               </Button>
@@ -430,29 +529,28 @@ export const QcProcessingPage = () => {
               >
                 {passMut.isPending ? t("common.processing") : t("dialog.confirm")}
               </Button>
-            </div>
-          </div>
-        </div>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       )}
 
       {confirmAction && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-          onClick={() => setConfirmAction(null)}
-        >
-          <div className="w-full max-w-sm rounded-lg bg-background p-6 shadow-lg" onClick={(e) => e.stopPropagation()}>
-            <h2 className="text-base font-semibold mb-1">
-              {confirmAction === "DISPOSED"
-                ? t("qcPage.disposeConfirmTitle")
-                : confirmAction === "SEND_WARRANTY"
-                  ? t("qcPage.sendWarrantyConfirmTitle")
-                  : confirmAction === "RETURN_QC_HOLD"
-                    ? t("qcPage.qcHoldConfirmTitle")
-                    : confirmAction === "PENDING_DISPOSAL"
-                      ? t("qcPage.pendingDisposalConfirmTitle")
-                      : t(`qcPage.${returnTargetKey(disposeUnits.data, disposeSelected)}ConfirmTitle`)}
-            </h2>
-            <p className="text-sm text-muted-foreground mb-4">
+        <Dialog open={!!confirmAction} onOpenChange={(v) => { if (!v) setConfirmAction(null) }}>
+          <DialogContent className="sm:max-w-sm">
+            <DialogHeader>
+              <DialogTitle>
+                {confirmAction === "DISPOSED"
+                  ? t("qcPage.disposeConfirmTitle")
+                  : confirmAction === "SEND_WARRANTY"
+                    ? t("qcPage.sendWarrantyConfirmTitle")
+                    : confirmAction === "RETURN_QC_HOLD"
+                      ? t("qcPage.qcHoldConfirmTitle")
+                      : confirmAction === "PENDING_DISPOSAL"
+                        ? t("qcPage.pendingDisposalConfirmTitle")
+                        : t(`qcPage.${returnTargetKey(disposeUnits.data, disposeSelected)}ConfirmTitle`)}
+              </DialogTitle>
+            </DialogHeader>
+            <p className="text-sm text-muted-foreground">
               {confirmAction === "DISPOSED"
                 ? t("qcPage.disposeConfirmDesc")
                 : confirmAction === "SEND_WARRANTY"
@@ -463,7 +561,7 @@ export const QcProcessingPage = () => {
                       ? t("qcPage.pendingDisposalConfirmDesc")
                       : t(`qcPage.${returnTargetKey(disposeUnits.data, disposeSelected)}ConfirmDesc`)}
             </p>
-            <div className="mb-4 max-h-32 overflow-y-auto rounded-md border bg-muted/30 p-2 space-y-1 text-xs">
+            <div className="max-h-32 overflow-y-auto rounded-md border bg-muted/30 p-2 space-y-1 text-xs">
               {(disposeUnits.data ?? [])
                 .filter((u) => disposeSelected.includes(u.id))
                 .map((u) => (
@@ -476,7 +574,7 @@ export const QcProcessingPage = () => {
             {confirmAction === "RETURN" &&
               disposeUnits.data?.find((u) => disposeSelected.includes(u.id))?.status ===
                 PRODUCT_UNIT_STATUS.RMA_UNREPAIRABLE && (
-                <div className="mb-4 space-y-2">
+                <div className="space-y-2">
                   <Label htmlFor="return-supplier">{t("qcPage.supplier")}</Label>
                   <Select value={supplierId} onValueChange={setSupplierId}>
                     <SelectTrigger id="return-supplier">
@@ -491,7 +589,7 @@ export const QcProcessingPage = () => {
                 </div>
               )}
             {confirmAction === "SEND_WARRANTY" && (
-              <div className="mb-4 space-y-2">
+              <div className="space-y-2">
                 <Label htmlFor="send-supplier">{t("qcPage.supplier")}</Label>
                 <Select value={supplierId} onValueChange={setSupplierId}>
                   <SelectTrigger id="send-supplier">
@@ -505,7 +603,21 @@ export const QcProcessingPage = () => {
                 </Select>
               </div>
             )}
-            <div className="flex justify-end gap-2">
+            <div className="space-y-2">
+              <Label htmlFor="dispose-note">{t("qcPage.disposeNote")}</Label>
+              <Textarea
+                id="dispose-note"
+                value={disposeNote}
+                onChange={(e) => setDisposeNote(e.target.value)}
+                placeholder={t("qcPage.disposeNotePlaceholder")}
+                rows={2}
+                className="text-xs"
+              />
+            </div>
+            {needsSupplier && !supplierId && (
+              <p className="text-xs text-destructive">{t("qcPage.supplierRequired")}</p>
+            )}
+            <DialogFooter>
               <Button variant="outline" onClick={() => setConfirmAction(null)}>
                 {t("dialog.cancel")}
               </Button>
@@ -527,13 +639,13 @@ export const QcProcessingPage = () => {
                                 : PRODUCT_UNIT_STATUS.REJECTED_RETURN,
                             )
                 }
-                disabled={disposeMut.isPending}
+                disabled={disposeMut.isPending || (needsSupplier && !supplierId)}
               >
                 {disposeMut.isPending ? t("common.processing") : t("dialog.confirm")}
               </Button>
-            </div>
-          </div>
-        </div>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   )

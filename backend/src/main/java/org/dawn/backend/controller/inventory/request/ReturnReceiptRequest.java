@@ -17,6 +17,13 @@ public record ReturnReceiptRequest(
             String condition,
             String resultingAction,
             String description,
-            String evidenceImage
-    ) {}
+            String evidenceImage,
+            Long defectCategoryId
+    ) {
+        public ReturnItemRequest(Long productUnitId, Long productId, BigDecimal quantity,
+                                 String condition, String resultingAction,
+                                 String description, String evidenceImage) {
+            this(productUnitId, productId, quantity, condition, resultingAction, description, evidenceImage, null);
+        }
+    }
 }

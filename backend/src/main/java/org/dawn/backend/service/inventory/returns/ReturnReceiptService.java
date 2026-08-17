@@ -28,16 +28,19 @@ import org.dawn.backend.repository.catalog.ProductRepository;
 import org.dawn.backend.repository.inventory.CustomerRepository;
 import org.dawn.backend.repository.inventory.ProductUnitRepository;
 import org.dawn.backend.repository.inventory.ProductUnitStatusLogRepository;
+import org.dawn.backend.repository.inventory.exports.ExportReceiptItemRepository;
 import org.dawn.backend.repository.inventory.exports.ExportReceiptItemUnitRepository;
 import org.dawn.backend.repository.inventory.exports.ExportReceiptRepository;
 import org.dawn.backend.repository.inventory.returns.ReturnReceiptItemRepository;
 import org.dawn.backend.repository.inventory.returns.ReturnReceiptRepository;
 import org.dawn.backend.shared.util.ReceiptCodeGenerator;
 import org.dawn.backend.config.security.SecurityPolicy;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
@@ -58,6 +61,8 @@ public class ReturnReceiptService {
     private final UserRepository userRepository;
     private final ProductRepository productRepository;
     private final ExportReceiptItemUnitRepository exportReceiptItemUnitRepository;
+    private final ExportReceiptItemRepository exportReceiptItemRepository;
+    private final org.dawn.backend.repository.catalog.DefectCategoryRepository defectCategoryRepository;
     private final org.dawn.backend.repository.inventory.LocationRepository locationRepository;
     private final StateMachine<ReturnReceiptStatus> returnReceiptStateMachine;
     private final SecurityPolicy securityPolicy;
@@ -73,19 +78,22 @@ public class ReturnReceiptService {
                                                        String search,
                                                        Long createdBy) {
         ReturnReceiptStatus st = safeParseStatus(status);
-        var page = createdBy != null
-                ? (st != null
-                        ? returnReceiptRepository.findByStatusAndCreatedBy(st, createdBy, pageable)
-                        : returnReceiptRepository.findByCreatedBy(createdBy, pageable))
-                : st != null && reason != null
-                ? returnReceiptRepository.findByStatusAndReason(st, reason, pageable)
-                : st != null
-                    ? returnReceiptRepository.findByStatus(st, pageable)
-                    : reason != null
-                        ? returnReceiptRepository.findByReason(reason, pageable)
-                        : search != null && !search.isBlank()
-                            ? returnReceiptRepository.findByReceiptCodeContainingIgnoreCase(search, pageable)
-                            : returnReceiptRepository.findAll(pageable);
+        Page<ReturnReceipt> page;
+        if (createdBy != null) {
+            page = st != null
+                    ? returnReceiptRepository.findByStatusAndCreatedBy(st, createdBy, pageable)
+                    : returnReceiptRepository.findByCreatedBy(createdBy, pageable);
+        } else if (st != null && reason != null) {
+            page = returnReceiptRepository.findByStatusAndReason(st, reason, pageable);
+        } else if (st != null) {
+            page = returnReceiptRepository.findByStatus(st, pageable);
+        } else if (reason != null) {
+            page = returnReceiptRepository.findByReason(reason, pageable);
+        } else if (search != null && !search.isBlank()) {
+            page = returnReceiptRepository.findByReceiptCodeContainingIgnoreCase(search, pageable);
+        } else {
+            page = returnReceiptRepository.findAll(pageable);
+        }
         var receipts = page.getContent();
         var customerMap = fetchCustomerMap(receipts);
         var userMap = fetchUserMap(receipts);
@@ -146,6 +154,8 @@ public class ReturnReceiptService {
 
         String receiptCode = ReceiptCodeGenerator.generate("RET-", returnReceiptRepository::existsByReceiptCode);
 
+        var exportUnitIds = exportReceiptItemUnitRepository.findProductUnitIdsByReceiptId(request.originalExportReceiptId());
+
         var unitIds = request.items().stream()
                 .map(ReturnReceiptRequest.ReturnItemRequest::productUnitId)
                 .filter(Objects::nonNull).filter(id -> id > 0).toList();
@@ -168,6 +178,13 @@ public class ReturnReceiptService {
 
         lockGuard.assertProductsActive(request.items().stream()
                 .map(ReturnItemRequest::productId).filter(Objects::nonNull).toList());
+
+        boolean hasSerial = request.items().stream()
+                .anyMatch(i -> i.productUnitId() != null && i.productUnitId() > 0);
+        boolean hasBulk = request.items().stream().anyMatch(i -> i.productUnitId() == null);
+        if (hasSerial && hasBulk) {
+            throw new InvalidRequestException(ErrorCode.RETURN_MIXED_ITEM_TYPES);
+        }
 
         ReturnReceipt receipt = ReturnReceipt.builder()
                 .receiptCode(receiptCode)
@@ -202,6 +219,14 @@ public class ReturnReceiptService {
                 throw new InvalidRequestException(ErrorCode.RETURN_EVIDENCE_REQUIRED);
             }
 
+            if (condition == ReturnCondition.DEFECTIVE && itemReq.defectCategoryId() == null) {
+                throw new InvalidRequestException(ErrorCode.DEFECT_CATEGORY_REQUIRED_FOR_DEFECTIVE);
+            }
+            if (itemReq.defectCategoryId() != null
+                    && !defectCategoryRepository.existsById(itemReq.defectCategoryId())) {
+                throw new ResourceNotFoundException(ErrorCode.DEFECT_CATEGORY_NOT_FOUND);
+            }
+
             boolean good = condition == ReturnCondition.GOOD;
             if (good && action != ResultingAction.RESTOCK
                     || !good && action == ResultingAction.RESTOCK) {
@@ -213,11 +238,42 @@ public class ReturnReceiptService {
                 throw new InvalidRequestException(ErrorCode.WARRANTY_BULK_NOT_ALLOWED);
             }
 
+            if (itemReq.productUnitId() == null
+                    && (itemReq.quantity() == null
+                        || itemReq.quantity().compareTo(java.math.BigDecimal.ZERO) <= 0)) {
+                throw new InvalidRequestException(ErrorCode.INVALID_QUANTITY.format( itemReq.quantity()));
+            }
+
             if (itemReq.productUnitId() != null && itemReq.productUnitId() > 0) {
                 var pu = productUnitRepository.findById(itemReq.productUnitId())
                         .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.PRODUCT_UNIT_NOT_FOUND));
                 if (ProductUnitStatus.EXPORTED != pu.getStatus()) {
                     throw new InvalidRequestException(ErrorCode.RETURN_UNIT_NOT_SOLD);
+                }
+                if (!exportUnitIds.contains(pu.getId())) {
+                    throw new InvalidRequestException(ErrorCode.RETURN_UNIT_NOT_IN_EXPORT);
+                }
+            }
+
+            Long capProductId = itemReq.productUnitId() != null && itemReq.productUnitId() > 0
+                    ? itemReq.productId() != null ? itemReq.productId()
+                            : productUnitRepository.findById(itemReq.productUnitId())
+                                    .map(ProductUnit::getProductId).orElse(null)
+                    : itemReq.productId();
+            if (capProductId != null) {
+                BigDecimal soldQty = exportReceiptItemRepository
+                        .sumQuantityByReceiptAndProduct(request.originalExportReceiptId(), capProductId);
+                BigDecimal returnedQty = returnReceiptItemRepository
+                        .sumBulkReturnedQtyByExportAndProduct(
+                                request.originalExportReceiptId(), capProductId, ReturnReceiptStatus.CANCELLED)
+                        .add(BigDecimal.valueOf(returnReceiptItemRepository
+                                .countSerialReturnedByExportAndProduct(
+                                        request.originalExportReceiptId(), capProductId, ReturnReceiptStatus.CANCELLED)));
+                BigDecimal newQty = itemReq.productUnitId() != null && itemReq.productUnitId() > 0
+                        ? BigDecimal.ONE : itemReq.quantity();
+                if (soldQty == null || returnedQty.add(newQty).compareTo(soldQty) > 0) {
+                    throw new InvalidRequestException(ErrorCode.RETURN_EXCEEDS_SOLD.format(
+                            soldQty == null ? BigDecimal.ZERO : soldQty, returnedQty));
                 }
             }
 
@@ -230,6 +286,7 @@ public class ReturnReceiptService {
                     .resultingAction(action.name())
                     .description(itemReq.description())
                     .evidenceImage(itemReq.evidenceImage())
+                    .defectCategoryId(itemReq.defectCategoryId())
                     .build());
         }
 
@@ -257,6 +314,68 @@ public class ReturnReceiptService {
         return new ProductUnitLookup(true, inExport, pu.getId(), pu.getProductId(),
                 productName, productSku, pu.getSerialNumber(), pu.getStatus().name());
     }
+
+    @Transactional(readOnly = true)
+    public ReturnableUnitsInfo returnableUnits(Long exportReceiptId) {
+        exportReceiptRepository.findById(exportReceiptId)
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.EXPORT_RECEIPT_NOT_FOUND));
+        var exportUnitIds = exportReceiptItemUnitRepository.findProductUnitIdsByReceiptId(exportReceiptId);
+        Set<Long> heldUnitIds = exportUnitIds.isEmpty() ? Set.of()
+                : new HashSet<>(returnReceiptItemRepository
+                        .findHeldUnitIdsInNonCancelledReceipts(ReturnReceiptStatus.CANCELLED));
+        var units = exportUnitIds.isEmpty() ? List.<ProductUnit>of()
+                : productUnitRepository.findAllById(exportUnitIds).stream()
+                        .filter(u -> ProductUnitStatus.EXPORTED == u.getStatus())
+                        .toList();
+
+        var soldByProduct = exportReceiptItemRepository
+                .sumQuantityByReceiptGroupByProduct(exportReceiptId).stream()
+                .collect(Collectors.toMap(row -> (Long) row[0], row -> (BigDecimal) row[1]));
+        var productIds = new HashSet<Long>(units.stream().map(ProductUnit::getProductId).toList());
+        productIds.addAll(soldByProduct.keySet());
+        var products = productIds.isEmpty() ? Map.<Long, Product>of()
+                : productRepository.findAllById(productIds).stream()
+                        .collect(Collectors.toMap(Product::getId, Function.identity()));
+
+        List<ReturnableUnit> unitList = units.stream()
+                .map(u -> {
+                    Product p = products.get(u.getProductId());
+                    return new ReturnableUnit(u.getId(), u.getSerialNumber(), u.getProductId(),
+                            p != null ? p.getName() : null, p != null ? p.getSku() : null,
+                            heldUnitIds.contains(u.getId()), u.getWarrantyExpiresAt());
+                })
+                .toList();
+
+        List<BulkSummary> bulkList = soldByProduct.entrySet().stream()
+                .map(e -> {
+                    Long pid = e.getKey();
+                    BigDecimal sold = e.getValue();
+                    BigDecimal returned = returnReceiptItemRepository
+                            .sumBulkReturnedQtyByExportAndProduct(
+                                    exportReceiptId, pid, ReturnReceiptStatus.CANCELLED)
+                            .add(java.math.BigDecimal.valueOf(returnReceiptItemRepository
+                                    .countSerialReturnedByExportAndProduct(
+                                            exportReceiptId, pid, ReturnReceiptStatus.CANCELLED)));
+                    Product p = products.get(pid);
+                    return new BulkSummary(pid,
+                            p != null ? p.getName() : null, p != null ? p.getSku() : null,
+                            p != null ? p.getTrackingType() : null,
+                            sold, returned, sold.subtract(returned));
+                })
+                .sorted(Comparator.comparing(BulkSummary::productName,
+                        Comparator.nullsLast(String::compareTo)))
+                .toList();
+        return new ReturnableUnitsInfo(unitList, bulkList);
+    }
+
+    public record ReturnableUnitsInfo(List<ReturnableUnit> units, List<BulkSummary> bulkSummary) {}
+
+    public record ReturnableUnit(Long unitId, String serialNumber, Long productId,
+                                 String productName, String productSku, boolean held,
+                                 java.time.Instant warrantyExpiresAt) {}
+
+    public record BulkSummary(Long productId, String productName, String productSku, String trackingType,
+                              BigDecimal soldQty, BigDecimal returnedQty, BigDecimal remainingQty) {}
 
     public record ProductUnitLookup(
             boolean found, boolean inExport, Long productUnitId, Long productId,
@@ -447,7 +566,7 @@ public class ReturnReceiptService {
     private ReturnReceiptStatus safeParseStatus(String value) {
         if (value == null || value.isBlank()) return null;
         try { return ReturnReceiptStatus.valueOf(value.toUpperCase()); }
-        catch (IllegalArgumentException e) { return null; }
+        catch (IllegalArgumentException e) { throw new InvalidRequestException(ErrorCode.INVALID_STATUS.format(value)); }
     }
 
     private ReturnReceiptResponse enrich(ReturnReceipt receipt) {

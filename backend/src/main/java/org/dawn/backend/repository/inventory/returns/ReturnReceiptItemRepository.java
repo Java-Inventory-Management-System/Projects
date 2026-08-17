@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.math.BigDecimal;
 import java.util.Collection;
 import java.util.List;
 
@@ -27,4 +28,22 @@ public interface ReturnReceiptItemRepository extends JpaRepository<ReturnReceipt
     boolean existsBulkByExportAndProductInNonCancelled(@Param("exportReceiptId") Long exportReceiptId,
                                                        @Param("productId") Long productId,
                                                        @Param("cancelled") ReturnReceiptStatus cancelled);
+
+    @Query("SELECT i.productUnitId FROM ReturnReceiptItem i, ReturnReceipt r " +
+           "WHERE i.returnReceiptId = r.id AND i.productUnitId IS NOT NULL AND r.status <> :cancelled")
+    List<Long> findHeldUnitIdsInNonCancelledReceipts(@Param("cancelled") ReturnReceiptStatus cancelled);
+
+    @Query("SELECT COALESCE(SUM(i.quantity), 0) FROM ReturnReceiptItem i, ReturnReceipt r " +
+           "WHERE i.returnReceiptId = r.id AND r.originalExportReceiptId = :exportReceiptId " +
+           "AND i.productId = :productId AND i.productUnitId IS NULL AND r.status <> :cancelled")
+    BigDecimal sumBulkReturnedQtyByExportAndProduct(@Param("exportReceiptId") Long exportReceiptId,
+                                                    @Param("productId") Long productId,
+                                                    @Param("cancelled") ReturnReceiptStatus cancelled);
+
+    @Query("SELECT COUNT(i) FROM ReturnReceiptItem i, ReturnReceipt r " +
+           "WHERE i.returnReceiptId = r.id AND r.originalExportReceiptId = :exportReceiptId " +
+           "AND i.productId = :productId AND i.productUnitId IS NOT NULL AND r.status <> :cancelled")
+    Long countSerialReturnedByExportAndProduct(@Param("exportReceiptId") Long exportReceiptId,
+                                               @Param("productId") Long productId,
+                                               @Param("cancelled") ReturnReceiptStatus cancelled);
 }

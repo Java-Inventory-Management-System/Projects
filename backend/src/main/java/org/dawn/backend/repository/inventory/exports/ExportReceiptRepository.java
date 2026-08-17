@@ -31,6 +31,7 @@ public interface ExportReceiptRepository extends JpaRepository<ExportReceipt, Lo
     Page<ExportReceipt> findByStatusAndCreatedBy(ExportReceiptStatus status, Long createdBy, Pageable pageable);
     long countByCustomerId(Long customerId);
     boolean existsByReceiptCode(String receiptCode);
+    boolean existsBySourceReturnReceiptId(Long sourceReturnReceiptId);
     Page<ExportReceipt> findByReceiptCodeStartingWith(String prefix, Pageable pageable);
     List<ExportReceipt> findByCreatedAtBetween(Instant from, Instant to);
     long countByCreatedAtBetween(Instant from, Instant to);

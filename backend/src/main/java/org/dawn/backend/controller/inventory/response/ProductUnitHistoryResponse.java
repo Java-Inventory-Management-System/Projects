@@ -26,6 +26,7 @@ public record ProductUnitHistoryResponse(
             String sourceType,
             Long sourceId,
             String sourceCode,
+            String note,
             String changedByName,
             Instant createdAt
     ) {}

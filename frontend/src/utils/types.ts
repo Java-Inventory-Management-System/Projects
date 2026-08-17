@@ -69,6 +69,16 @@ export interface CatalogResponse {
 export type BrandResponse = CatalogResponse
 export type CategoryResponse = CatalogResponse
 
+export interface DefectCategory {
+  id: number
+  code: string
+  name: string
+  description: string | null
+  isRepairable: boolean
+  isReplaceable: boolean
+  isActive: boolean
+}
+
 export interface CreateCatalogRequest {
   name: string
   code?: string
@@ -239,6 +249,7 @@ export interface ProductUnitHistoryEvent {
   sourceType: string
   sourceId: number | null
   sourceCode: string | null
+  note: string | null
   changedByName: string | null
   createdAt: string
 }
@@ -762,6 +773,7 @@ export interface ReturnReceiptItem {
   quantity: number
   condition: string
   resultingAction: string
+  defectCategoryId: number | null
 }
 
 export interface ReturnReceipt {

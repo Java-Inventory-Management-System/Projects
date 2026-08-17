@@ -59,7 +59,7 @@ class DisposeConfirmServiceTests {
         when(productUnitRepository.findByIdsForUpdate(List.of(1L))).thenReturn(List.of(pu));
         when(securityPolicy.requireAuthenticated()).thenReturn(userId);
 
-        service.confirm(List.of(1L), "DISPOSED", null);
+        service.confirm(List.of(1L), "DISPOSED", null, null);
 
         assertEquals(ProductUnitStatus.DISPOSED, pu.getStatus());
         assertNull(pu.getLocationId());
@@ -73,7 +73,7 @@ class DisposeConfirmServiceTests {
         when(productUnitRepository.findByIdsForUpdate(List.of(2L))).thenReturn(List.of(pu));
         when(securityPolicy.requireAuthenticated()).thenReturn(userId);
 
-        service.confirm(List.of(2L), "REJECTED_RETURN", null);
+        service.confirm(List.of(2L), "REJECTED_RETURN", null, null);
 
         assertEquals(ProductUnitStatus.REJECTED_RETURN, pu.getStatus());
         assertNull(pu.getLocationId());
@@ -91,7 +91,7 @@ class DisposeConfirmServiceTests {
         when(exportReceiptItemUnitRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
         when(exportReceiptStatusHistoryRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-        service.confirm(List.of(3L), "RETURNED_TO_SUPPLIER", null);
+        service.confirm(List.of(3L), "RETURNED_TO_SUPPLIER", null, null);
 
         assertEquals(ProductUnitStatus.RETURNED_TO_SUPPLIER, pu.getStatus());
         assertNull(pu.getLocationId());
@@ -105,7 +105,7 @@ class DisposeConfirmServiceTests {
         when(productUnitRepository.findByIdsForUpdate(List.of(4L))).thenReturn(List.of(pu));
         when(securityPolicy.requireAuthenticated()).thenReturn(userId);
 
-        service.confirm(List.of(4L), "DISPOSED", null);
+        service.confirm(List.of(4L), "DISPOSED", null, null);
 
         assertEquals(ProductUnitStatus.DISPOSED, pu.getStatus());
         assertNull(pu.getLocationId());
@@ -117,7 +117,7 @@ class DisposeConfirmServiceTests {
         when(productUnitRepository.findByIdsForUpdate(List.of(5L))).thenReturn(List.of(pu));
         when(securityPolicy.requireAuthenticated()).thenReturn(userId);
 
-        assertThrows(InvalidRequestException.class, () -> service.confirm(List.of(5L), "REJECTED_RETURN", null));
+        assertThrows(InvalidRequestException.class, () -> service.confirm(List.of(5L), "REJECTED_RETURN", null, null));
         assertEquals(ProductUnitStatus.RMA_UNREPAIRABLE, pu.getStatus());
         verify(statusLogRepository, never()).save(any());
     }
@@ -128,7 +128,7 @@ class DisposeConfirmServiceTests {
         when(productUnitRepository.findByIdsForUpdate(List.of(6L))).thenReturn(List.of(pu));
         when(securityPolicy.requireAuthenticated()).thenReturn(userId);
 
-        assertThrows(InvalidRequestException.class, () -> service.confirm(List.of(6L), "DISPOSED", null));
+        assertThrows(InvalidRequestException.class, () -> service.confirm(List.of(6L), "DISPOSED", null, null));
         verify(statusLogRepository, never()).save(any());
     }
 
@@ -138,7 +138,7 @@ class DisposeConfirmServiceTests {
         when(productUnitRepository.findByIdsForUpdate(List.of(7L))).thenReturn(List.of(pu));
         when(securityPolicy.requireAuthenticated()).thenReturn(userId);
 
-        assertThrows(InvalidRequestException.class, () -> service.confirm(List.of(7L), "IN_STOCK", null));
+        assertThrows(InvalidRequestException.class, () -> service.confirm(List.of(7L), "IN_STOCK", null, null));
         verify(statusLogRepository, never()).save(any());
     }
 
@@ -146,7 +146,7 @@ class DisposeConfirmServiceTests {
     void confirm_emptyIds_rejected() {
         when(securityPolicy.requireAuthenticated()).thenReturn(userId);
 
-        assertThrows(InvalidRequestException.class, () -> service.confirm(List.of(), "DISPOSED", null));
+        assertThrows(InvalidRequestException.class, () -> service.confirm(List.of(), "DISPOSED", null, null));
         verify(productUnitRepository, never()).findByIdsForUpdate(any());
     }
 
@@ -163,7 +163,7 @@ class DisposeConfirmServiceTests {
         when(exportReceiptItemUnitRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
         when(exportReceiptStatusHistoryRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-        service.confirm(List.of(8L), "RETURNED_TO_SUPPLIER", 42L);
+        service.confirm(List.of(8L), "RETURNED_TO_SUPPLIER", 42L, null);
 
         assertEquals(ProductUnitStatus.RETURNED_TO_SUPPLIER, pu.getStatus());
         assertNull(pu.getLocationId());
@@ -177,7 +177,7 @@ class DisposeConfirmServiceTests {
         when(supplierRepository.existsById(99L)).thenReturn(false);
 
         assertThrows(ResourceNotFoundException.class,
-                () -> service.confirm(List.of(9L), "RETURNED_TO_SUPPLIER", 99L));
+                () -> service.confirm(List.of(9L), "RETURNED_TO_SUPPLIER", 99L, null));
         verify(productUnitRepository, never()).findByIdsForUpdate(any());
     }
 }

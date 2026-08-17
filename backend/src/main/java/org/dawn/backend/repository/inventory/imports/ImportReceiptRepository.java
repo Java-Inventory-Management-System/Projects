@@ -36,7 +36,7 @@ public interface ImportReceiptRepository extends JpaRepository<ImportReceipt, Lo
     boolean existsByPurchaseOrderIdAndStatus(Long purchaseOrderId, ImportReceiptStatus status);
     boolean existsByPurchaseOrderIdAndStatusNot(Long purchaseOrderId, ImportReceiptStatus status);
     boolean existsByPurchaseOrderIdAndStatusIn(Long purchaseOrderId, List<ImportReceiptStatus> statuses);
-    boolean existsByOriginalWarrantyExportId(Long originalWarrantyExportId);
+    boolean existsByOriginalWarrantyExportIdAndIdNot(Long originalWarrantyExportId, Long id);
     long countByPurchaseOrderIdAndStatus(Long purchaseOrderId, ImportReceiptStatus status);
 
     interface PurchaseOrderIdCount {
