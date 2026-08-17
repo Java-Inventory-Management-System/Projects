@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import { useTranslation } from "react-i18next"
 import type { LineItem, LocationAllocation } from "@/utils/types"
 import { TRACKING_TYPE } from "@/utils/types"
@@ -67,6 +67,20 @@ export function BinAllocatorDialog({ open, onOpenChange, item, dispatch }: Props
   }
 
   const activeRow = rows.find((r) => r.tempKey === serialModalFor)
+
+  // ponytail: serial chưa nằm ở bin khác (từ PO), seed cho modal của dòng trống — không phải gõ lại
+  const serialsForModal = useMemo(() => {
+    if (!activeRow) return []
+    if (activeRow.serials.length > 0) return activeRow.serials
+    const inOtherRows = new Set(
+      rows
+        .filter((r) => r.tempKey !== activeRow.tempKey)
+        .flatMap((r) => r.serials)
+        .map((s) => s.toLowerCase()),
+    )
+    const unassigned = item.serials.filter((s) => !inOtherRows.has(s.toLowerCase()))
+    return unassigned.length > 0 ? unassigned : item.serials
+  }, [activeRow, rows, item.serials])
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -158,7 +172,7 @@ export function BinAllocatorDialog({ open, onOpenChange, item, dispatch }: Props
             productName={item.productName}
             productSku={item.productSku}
             required={item.quantity}
-            serials={activeRow.serials}
+            serials={serialsForModal}
             onSave={(serials) => updateRow(activeRow.tempKey, { serials })}
           />
         )}
