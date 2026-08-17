@@ -321,6 +321,7 @@ export function mapStockAdjustment(raw: unknown): StockAdjustment {
     approvedBy: r.approvedBy ?? null,
     approvedByName: r.approvedByName ?? null,
     approvalNote: r.approvalNote ?? null,
+    approvedAt: r.approvedAt ?? null,
     updatedAt: r.updatedAt,
   }
 }

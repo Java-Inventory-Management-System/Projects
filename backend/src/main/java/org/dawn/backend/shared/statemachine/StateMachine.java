@@ -24,6 +24,6 @@ public class StateMachine<S extends Enum<S>> {
     public void validate(S from, S to) {
         var allowed = transitions.getOrDefault(from, Set.of());
         if (!allowed.contains(to))
-            throw new InvalidRequestException(ErrorCode.INVALID_STATE_TRANSITION.format( from, to));
+            throw new InvalidRequestException(ErrorCode.INVALID_STATE_TRANSITION, from, to);
     }
 }

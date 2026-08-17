@@ -145,11 +145,15 @@ class PriceAdjustmentServiceTests {
         when(securityPolicy.requireAuthenticated()).thenReturn(2L);
         PriceAdjustment adj = adj(43L, 10L, BigDecimal.valueOf(12000), BigDecimal.valueOf(15000), AdjustmentStatus.PENDING);
         when(priceAdjustmentRepository.findById(43L)).thenReturn(Optional.of(adj));
-        when(priceAdjustmentRepository.optimisticUpdateStatus(43L, AdjustmentStatus.REJECTED, 2L, "Giá chưa hợp lý")).thenReturn(1);
+        when(priceAdjustmentRepository.optimisticUpdateStatus(43L, AdjustmentStatus.REJECTED, 2L, "Giá chưa hợp lý")).thenAnswer(inv -> {
+            adj.setStatus(AdjustmentStatus.REJECTED);
+            return 1;
+        });
 
         PriceAdjustmentResponse res = priceAdjustmentService.reject(43L, "Giá chưa hợp lý");
 
         assertNull(res.approvedAt());
+        assertEquals("REJECTED", res.status());
         assertEquals(AdjustmentStatus.REJECTED, adj.getStatus());
     }
 

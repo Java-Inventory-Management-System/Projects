@@ -1,12 +1,12 @@
-import { useState, useCallback, useEffect, useSyncExternalStore } from "react"
+import { useState, useCallback } from "react"
 import { useTranslation } from "react-i18next"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { useStockAdjustments, useMyStockAdjustments } from "@/hooks/use-stock-adjustments"
-import { approveStockAdjustment, rejectStockAdjustment } from "@/services/stock-adjustment-service"
+import { approveStockAdjustment, rejectStockAdjustment, cancelStockAdjustment } from "@/services/stock-adjustment-service"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Plus, Eye, Check, X, ChevronDown, ChevronUp, Loader2 } from "lucide-react"
+import { Plus, Eye, Check, X, XCircle, ChevronDown, ChevronUp, RefreshCw } from "lucide-react"
 import { usePermission } from "@/hooks/use-permission"
 import { ROLES } from "@/utils/permissions"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
@@ -16,7 +16,6 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import type { StockAdjustment } from "@/utils/types"
 import { ADJUSTMENT_STATUS, ADJUSTMENT_TYPE } from "@/utils/types"
 import { toast } from "@/utils/toast"
-import { backgroundBatch } from "@/utils/background-batch"
 
 const getTypeLabel = (t: (k: string) => string) => ({
   [ADJUSTMENT_TYPE.DAMAGED]: t("adjustmentType.damaged"),
@@ -34,6 +33,7 @@ const getStatusLabel = (t: (k: string) => string) => ({
   PENDING: { label: t("status.pending"), variant: "secondary" as const },
   APPROVED: { label: t("status.approved"), variant: "default" as const },
   REJECTED: { label: t("status.rejected"), variant: "destructive" as const },
+  CANCELLED: { label: t("status.cancelled"), variant: "outline" as const },
 })
 
 export const StockAdjustmentListPage = () => {
@@ -65,6 +65,7 @@ export const StockAdjustmentListPage = () => {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["stock-adjustments"] })
       qc.invalidateQueries({ queryKey: ["my-stock-adjustments"] })
+      qc.invalidateQueries({ queryKey: ["work-queue"] })
       toast.success(t("stockAdjList.approveSuccess"))
     },
     onError: (e: Error) => toast.error(e.message || t("stockAdjList.approveError")),
@@ -74,40 +75,28 @@ export const StockAdjustmentListPage = () => {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["stock-adjustments"] })
       qc.invalidateQueries({ queryKey: ["my-stock-adjustments"] })
+      qc.invalidateQueries({ queryKey: ["work-queue"] })
       toast.success(t("stockAdjList.rejectSuccess"))
     },
     onError: (e: Error) => toast.error(e.message || t("stockAdjList.rejectError")),
   })
-
-  const [batchDone, setBatchDone] = useState(false)
-
-  const batch = useSyncExternalStore(backgroundBatch.subscribe, backgroundBatch.getSnapshot)
-
-  useEffect(() => {
-    if (!batch.running && batch.results.length > 0 && !batchDone) {
-      setBatchDone(true)
-      const ok = batch.results.filter((r) => r.success).length
-      const total = batch.results.length
-      if (ok === total) {
-        toast.success(t("stockAdjList.batchSuccess", { ok, total }))
-      } else {
-        toast.warning(t("stockAdjList.batchWarning", { ok, total, fail: total - ok }))
-      }
-    }
-  }, [batch, batchDone, t])
-
-  const handleClearBatch = useCallback(() => {
-    backgroundBatch.reset()
-    setBatchDone(false)
-    qc.invalidateQueries({ queryKey: ["stock-adjustments"] })
-  }, [qc])
+  const cancelMut = useMutation({
+    mutationFn: (id: number) => cancelStockAdjustment(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["stock-adjustments"] })
+      qc.invalidateQueries({ queryKey: ["my-stock-adjustments"] })
+      qc.invalidateQueries({ queryKey: ["work-queue"] })
+      toast.success(t("stockAdjList.cancelSuccess"))
+    },
+    onError: (e: Error) => toast.error(e.message || t("stockAdjList.cancelError")),
+  })
 
   const canApprove = perm.hasRole(...ROLES.CAN_APPROVE)
 
   const isStock = perm.hasRole("STOCK")
   const myAdj = useMyStockAdjustments(page, pageSize, sortStr, typeFilter || undefined, statusFilter || undefined)
   const allAdj = useStockAdjustments(page, pageSize, sortStr, typeFilter || undefined, statusFilter || undefined)
-  const { data, isLoading } = isStock ? myAdj : allAdj
+  const { data, isLoading, isError, refetch } = isStock ? myAdj : allAdj
 
   const updateParams = useCallback(
     (updates: Record<string, string | undefined>) => {
@@ -184,6 +173,16 @@ export const StockAdjustmentListPage = () => {
               </Tooltip>
             </>
           )}
+          {r.status === ADJUSTMENT_STATUS.PENDING && r.createdBy === perm.user?.id && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" className="text-destructive" onClick={() => cancelMut.mutate(r.id)}>
+                  <XCircle className="size-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{t("stockAdjList.cancel")}</TooltipContent>
+            </Tooltip>
+          )}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button variant="ghost" size="icon" onClick={() => navigate(`/stock/ops/adjustments/${r.id}`)}>
@@ -199,20 +198,6 @@ export const StockAdjustmentListPage = () => {
 
   return (
     <div className="space-y-4">
-      {backgroundBatch.isRunning() && (
-        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-800 dark:border-blue-800 dark:bg-blue-950/20 dark:text-blue-300">
-          <Loader2 className="size-4 animate-spin" />
-          {t("stockAdjList.batchRunning", { current: batch.progress?.current ?? "?", total: batch.progress?.total ?? "?" })}
-        </div>
-      )}
-      {batchDone && batch.results.length > 0 && (
-        <div className="flex items-center justify-between rounded-lg border border-green-200 bg-green-50 px-4 py-2 text-sm text-green-800 dark:border-green-800 dark:bg-green-950/20 dark:text-green-300">
-          <span>
-            {t("stockAdjList.batchDone", { ok: batch.results.filter((r) => r.success).length, total: batch.results.length })}
-          </span>
-          <Button variant="ghost" size="sm" onClick={handleClearBatch}>{t("stockAdjList.hide")}</Button>
-        </div>
-      )}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-semibold tracking-tight">{t("stockAdjList.title")}</h1>
         {perm.hasRole(...ROLES.CAN_OPERATE_STOCK) && (
@@ -246,7 +231,7 @@ export const StockAdjustmentListPage = () => {
             </Select>
             <Select
               value={statusFilter}
-              onValueChange={(v) => updateParams({ status: v || undefined, page: undefined })}
+              onValueChange={(v) => updateParams({ status: v === "all" ? undefined : v, page: undefined })}
             >
               <SelectTrigger className="w-36">
                 <SelectValue placeholder={t("stockAdjList.allStatuses")} />
@@ -256,6 +241,7 @@ export const StockAdjustmentListPage = () => {
                 <SelectItem value={ADJUSTMENT_STATUS.PENDING}>{t("status.pending")}</SelectItem>
                 <SelectItem value={ADJUSTMENT_STATUS.APPROVED}>{t("status.approved")}</SelectItem>
                 <SelectItem value={ADJUSTMENT_STATUS.REJECTED}>{t("status.rejected")}</SelectItem>
+                <SelectItem value={ADJUSTMENT_STATUS.CANCELLED}>{t("status.cancelled")}</SelectItem>
               </SelectContent>
             </Select>
             {(typeFilter || statusFilter) && (
@@ -272,23 +258,32 @@ export const StockAdjustmentListPage = () => {
         </CollapsibleContent>
       </Collapsible>
 
-      <DataTable
-        columns={columns}
-        data={data?.content ?? []}
-        isLoading={isLoading}
-        emptyMessage={t("stockAdjList.empty")}
-        sort={sort}
-        onSort={handleSort}
-        totalElements={data?.pagination.totalElements}
-        page={page}
-        totalPages={data?.pagination.totalPages}
-        pageSize={pageSize}
-        onPageChange={(p) => updateParams({ page: String(p) })}
-        onPageSizeChange={(s) => {
-          setPageSize(s)
-          updateParams({ page: undefined })
-        }}
-      />
+      {isError ? (
+        <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-6 text-center space-y-2">
+          <p className="text-sm text-destructive">{t("stockAdjList.loadError")}</p>
+          <Button variant="outline" size="sm" onClick={() => refetch()}>
+            <RefreshCw className="size-3 mr-1" /> {t("stockAdjList.retry")}
+          </Button>
+        </div>
+      ) : (
+        <DataTable
+          columns={columns}
+          data={data?.content ?? []}
+          isLoading={isLoading}
+          emptyMessage={t("stockAdjList.empty")}
+          sort={sort}
+          onSort={handleSort}
+          totalElements={data?.pagination.totalElements}
+          page={page}
+          totalPages={data?.pagination.totalPages}
+          pageSize={pageSize}
+          onPageChange={(p) => updateParams({ page: String(p) })}
+          onPageSizeChange={(s) => {
+            setPageSize(s)
+            updateParams({ page: undefined })
+          }}
+        />
+      )}
     </div>
   )
 }

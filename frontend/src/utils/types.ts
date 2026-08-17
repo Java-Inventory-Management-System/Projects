@@ -611,6 +611,7 @@ export interface StockAdjustment {
   approvedByName: string | null
   approvalNote: string | null
   createdAt: string
+  approvedAt: string | null
   updatedAt: string
 }
 

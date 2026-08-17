@@ -20,11 +20,14 @@ public record StockAdjustmentResponse(
         String imageUrl,
         Long locationId,
         String status,
+        String sourceType,
+        Long sourceId,
         Long createdBy,
         String createdByName,
         Long approvedBy,
         String approvedByName,
         String approvalNote,
+        Instant approvedAt,
         Instant createdAt,
         Instant updatedAt
 ) {}

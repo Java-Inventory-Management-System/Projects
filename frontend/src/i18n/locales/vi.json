@@ -1129,11 +1129,11 @@
     "rejectSuccess": "Đã từ chối phiếu điều chỉnh",
     "rejectError": "Không thể từ chối",
     "defaultRejectReason": "Manager từ chối",
-    "batchSuccess": "Batch hoàn thành: {{ok}}/{{total}} thành công",
-    "batchWarning": "Batch hoàn thành: {{ok}}/{{total}} thành công, {{fail}} lỗi",
-    "batchRunning": "Batch đang chạy nền: {{current}}/{{total}}",
-    "batchDone": "Batch hoàn thành: {{ok}}/{{total}} phiếu",
-    "hide": "Ẩn"
+    "cancel": "Hủy",
+    "cancelSuccess": "Đã hủy phiếu điều chỉnh",
+    "cancelError": "Không thể hủy phiếu điều chỉnh",
+    "loadError": "Không thể tải danh sách phiếu điều chỉnh",
+    "retry": "Thử lại"
   },
   "productUnit": {
     "tracking": "Theo dõi"
@@ -1394,7 +1394,13 @@
     "approveSuccess": "Đã duyệt phiếu điều chỉnh",
     "approveFail": "Duyệt thất bại",
     "rejectSuccess": "Đã từ chối phiếu điều chỉnh",
-    "rejectFail": "Từ chối thất bại"
+    "rejectFail": "Từ chối thất bại",
+    "cancel": "Hủy phiếu",
+    "cancelDialogTitle": "Hủy phiếu điều chỉnh",
+    "cancelDialogDesc": "Hủy phiếu {{code}}?",
+    "cancelConfirm": "Xác nhận hủy",
+    "cancelSuccess": "Đã hủy phiếu điều chỉnh",
+    "cancelFail": "Hủy thất bại"
   },
   "errorBoundary": {
     "title": "Đã xảy ra lỗi",
@@ -1717,12 +1723,6 @@
     "confirmTitle": "Xác nhận tạo",
     "draftTitle": "Lưu nháp",
     "draftDesc": "Phiếu sẽ ở trạng thái nháp",
-    "batchConfirmTitle": "Xác nhận batch",
-    "batchResultTitle": "Kết quả batch",
-    "batchReasonPlaceholder": "Lý do cho batch...",
-    "batchProgress": "Đang tạo {{current}}/{{total}}...",
-    "batchResultSummary": "Thành công {{success}}/{{total}}",
-    "createBatch": "Tạo hàng loạt ({{count}})",
     "selected": "Đã chọn {{product}}",
     "product": "Sản phẩm",
     "quantity": "Số lượng",
@@ -1755,13 +1755,11 @@
     "productExists": "Sản phẩm đã tồn tại",
     "pendingWarning": "Phiếu này đang chờ duyệt",
     "lostDesc": "Mất / thiếu",
-    "foundDesc2": "Tìm thấy / dư",
     "damagedDesc": "Hỏng / hư hại",
     "unitHistory": "Lịch sử đơn vị",
     "receipts": "Phiếu điều chỉnh",
     "reasonLost1": "Mất trong quá trình kiểm kê",
     "reasonLost2": "Thất lạc trong kho",
-    "reasonLost3": "Không tìm thấy đúng vị trí",
     "reasonFound1": "Kiểm kê phát hiện dư",
     "reasonFound2": "Trả lại kho",
     "reasonFound3": "Nhập thiếu trước đó",

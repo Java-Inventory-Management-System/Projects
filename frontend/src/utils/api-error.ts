@@ -135,6 +135,8 @@ const MESSAGES: Record<string, string> = {
   ADJUSTMENT_PHOTO_REQUIRED_DAMAGED: 'Ảnh là bắt buộc cho điều chỉnh HỎNG',
   ADJUSTMENT_SERIAL_REQUIRED_FOUND: 'Số serial là bắt buộc cho điều chỉnh TÌM THẤY',
   ADJUSTMENT_LOCATION_REQUIRED_FOUND: 'Vị trí là bắt buộc cho điều chỉnh TÌM THẤY',
+  ADJUSTMENT_INVALID_SOURCE_TYPE: 'Loại nguồn điều chỉnh không hợp lệ',
+  ADJUSTMENT_SOURCE_TYPE_NOT_ALLOWED: 'Loại nguồn này không thể thiết lập thủ công',
   REJECTION_REASON_REQUIRED: 'Lý do từ chối là bắt buộc',
   PO_NOT_FOUND: 'Không tìm thấy đơn đặt hàng',
   PO_CODE_EXISTS: 'Mã đơn đặt hàng đã tồn tại',

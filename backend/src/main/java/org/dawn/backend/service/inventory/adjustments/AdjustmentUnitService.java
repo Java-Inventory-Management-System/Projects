@@ -122,7 +122,7 @@ public class AdjustmentUnitService {
      */
     @Transactional
     public void applyBulkQuantity(ProductUnit unit, SourceType sourceType, AdjustmentType type,
-                                  BigDecimal quantity, Long userId) {
+                                  BigDecimal quantity, Long sourceId, Long userId) {
         assertAdjustableFor(unit, type.name().toLowerCase(), sourceType == SourceType.STOCK_ADJUSTMENT);
         BigDecimal remaining = unit.getRemainingQuantity() != null ? unit.getRemainingQuantity() : BigDecimal.ZERO;
         switch (type) {
@@ -138,7 +138,7 @@ public class AdjustmentUnitService {
                             .fromStatus(unit.getStatus().name())
                             .toStatus(to.name())
                             .sourceType(sourceType.name())
-                            .sourceId(unit.getId())
+                            .sourceId(sourceId)
                             .changedBy(userId)
                             .build());
                     unit.setStatus(to);
@@ -147,6 +147,7 @@ public class AdjustmentUnitService {
                 productUnitRepository.save(unit);
             }
             case FOUND -> {
+                capacityValidator.assertCapacity(unit.getLocationId(), quantity);
                 unit.setRemainingQuantity(remaining.add(quantity));
                 productUnitRepository.save(unit);
             }

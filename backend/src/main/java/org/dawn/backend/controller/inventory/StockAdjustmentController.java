@@ -71,4 +71,10 @@ public class StockAdjustmentController {
             @RequestBody(required = false) ApproveAdjustmentRequest request) {
         return ResponseObject.success(adjustmentService.reject(id, request));
     }
+
+    @PutMapping("/{id}/cancel")
+    @PreAuthorize(AuthorizationExpressions.CAN_OPERATE_STOCK)
+    public ResponseObject<StockAdjustmentResponse> cancel(@PathVariable Long id) {
+        return ResponseObject.success(adjustmentService.cancel(id));
+    }
 }

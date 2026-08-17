@@ -194,7 +194,7 @@ class AdjustmentUnitServiceTests {
                 .remainingQuantity(BigDecimal.valueOf(1000))
                 .build();
 
-        service.applyBulkQuantity(pu, SourceType.STOCK_ADJUSTMENT, AdjustmentType.LOST, BigDecimal.valueOf(100), 1L);
+        service.applyBulkQuantity(pu, SourceType.STOCK_ADJUSTMENT, AdjustmentType.LOST, BigDecimal.valueOf(100), 42L, 1L);
 
         assertEquals(0, BigDecimal.valueOf(900).compareTo(pu.getRemainingQuantity()));
         assertEquals(ProductUnitStatus.IN_STOCK, pu.getStatus());
@@ -211,7 +211,7 @@ class AdjustmentUnitServiceTests {
                 .remainingQuantity(BigDecimal.valueOf(1000))
                 .build();
 
-        service.applyBulkQuantity(pu, SourceType.STOCK_ADJUSTMENT, AdjustmentType.LOST, BigDecimal.valueOf(1000), 1L);
+        service.applyBulkQuantity(pu, SourceType.STOCK_ADJUSTMENT, AdjustmentType.LOST, BigDecimal.valueOf(1000), 42L, 1L);
 
         assertEquals(0, BigDecimal.ZERO.compareTo(pu.getRemainingQuantity()));
         assertEquals(ProductUnitStatus.LOST, pu.getStatus());
@@ -228,7 +228,7 @@ class AdjustmentUnitServiceTests {
                 .remainingQuantity(BigDecimal.valueOf(1000))
                 .build();
 
-        service.applyBulkQuantity(pu, SourceType.STOCK_ADJUSTMENT, AdjustmentType.FOUND, BigDecimal.valueOf(50), 1L);
+        service.applyBulkQuantity(pu, SourceType.STOCK_ADJUSTMENT, AdjustmentType.FOUND, BigDecimal.valueOf(50), 42L, 1L);
 
         assertEquals(0, BigDecimal.valueOf(1050).compareTo(pu.getRemainingQuantity()));
         assertEquals(ProductUnitStatus.IN_STOCK, pu.getStatus());

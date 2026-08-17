@@ -34,7 +34,7 @@ public class LocationCapacityValidator {
         Location location = locationRepository.findByIdForUpdate(locationId).orElse(null);
         if (location == null || location.getMaxCapacity() == null) return;
         if (!Boolean.TRUE.equals(location.getIsActive())) {
-            throw new InvalidRequestException(ErrorCode.LOCATION_INACTIVE.format(location.getFullCode()));
+            throw new InvalidRequestException(ErrorCode.LOCATION_INACTIVE, location.getFullCode());
         }
         BigDecimal used = boxCapacity.usageByLocation().getOrDefault(locationId, BigDecimal.ZERO);
         if (excludedUnitIds != null && !excludedUnitIds.isEmpty()) {
@@ -42,8 +42,8 @@ public class LocationCapacityValidator {
             used = used.subtract(excludedAtThisBin);
         }
         if (used.add(incoming).compareTo(location.getMaxCapacity()) > 0) {
-            throw new InvalidRequestException(ErrorCode.LOCATION_CAPACITY_EXCEEDED.format(
-                    location.getFullCode(), used, location.getMaxCapacity()));
+            throw new InvalidRequestException(ErrorCode.LOCATION_CAPACITY_EXCEEDED,
+                    location.getFullCode(), used, location.getMaxCapacity());
         }
     }
 }

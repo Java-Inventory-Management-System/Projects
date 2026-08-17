@@ -435,33 +435,15 @@ export const router = createBrowserRouter([
           },
           {
             path: "stock/price-adjustments",
-            element: (
-              <Lazy>
-                <PageGuard roles={ROLES.CAN_VIEW_INVENTORY}>
-                  <PriceAdjustmentListPage />
-                </PageGuard>
-              </Lazy>
-            ),
+            element: <RedirectTo to="/stock/ops/price-adjustments" />,
           },
           {
             path: "stock/price-adjustments/new",
-            element: (
-              <Lazy>
-                <PageGuard roles={ROLES.CAN_CREATE_PRICE_ADJUSTMENT}>
-                  <PriceAdjustmentCreatePage />
-                </PageGuard>
-              </Lazy>
-            ),
+            element: <RedirectTo to="/stock/ops/price-adjustments/new" />,
           },
           {
             path: "stock/price-adjustments/:id",
-            element: (
-              <Lazy>
-                <PageGuard roles={ROLES.CAN_VIEW_INVENTORY}>
-                  <PriceAdjustmentDetailPage />
-                </PageGuard>
-              </Lazy>
-            ),
+            element: <RedirectTo to="/stock/ops/price-adjustments" />,
           },
           { path: "stock/purchase-orders", element: <RedirectTo to="/stock/imports/purchase-orders" /> },
           { path: "stock/purchase-orders/new", element: <RedirectTo to="/stock/imports/purchase-orders/new" /> },
@@ -527,9 +509,6 @@ export const router = createBrowserRouter([
           { path: "stock/adjustments", element: <RedirectTo to="/stock/ops/adjustments" /> },
           { path: "stock/adjustments/new", element: <RedirectTo to="/stock/ops/adjustments/new" /> },
           { path: "stock/adjustments/:id", element: <RedirectTo to="/stock/ops/adjustments" /> },
-          { path: "stock/price-adjustments", element: <RedirectTo to="/stock/ops/price-adjustments" /> },
-          { path: "stock/price-adjustments/new", element: <RedirectTo to="/stock/ops/price-adjustments/new" /> },
-          { path: "stock/price-adjustments/:id", element: <RedirectTo to="/stock/ops/price-adjustments" /> },
           { path: "returns", element: <RedirectTo to="/returns-qc/returns" /> },
           { path: "returns/new", element: <RedirectTo to="/returns-qc/returns/new" /> },
           { path: "returns/:id", element: <RedirectTo to="/returns-qc/returns" /> },

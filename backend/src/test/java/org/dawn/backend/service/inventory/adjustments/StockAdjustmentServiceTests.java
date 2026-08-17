@@ -150,7 +150,7 @@ class StockAdjustmentServiceTests {
         service.approve(1L, new ApproveAdjustmentRequest("ok"));
 
         verify(adjustmentUnitService).applyBulkQuantity(
-                unit, SourceType.STOCK_ADJUSTMENT, AdjustmentType.LOST, BigDecimal.valueOf(100), 2L);
+                unit, SourceType.STOCK_ADJUSTMENT, AdjustmentType.LOST, BigDecimal.valueOf(100), 1L, 2L);
         verify(adjustmentUnitService, never()).applyLost(any(), any(), any(), any());
     }
 

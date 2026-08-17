@@ -56,7 +56,6 @@ export function PriceAdjustmentDetailPage() {
   const [approvalNote, setApprovalNote] = useState("")
   const [rejectReason, setRejectReason] = useState("")
   const [showConflictDialog, setShowConflictDialog] = useState(false)
-  const [currentPrice, setCurrentPrice] = useState(0)
 
   const { data: adj, isLoading, isError } = useQuery({
     queryKey: ["price-adjustment", id],
@@ -74,6 +73,8 @@ export function PriceAdjustmentDetailPage() {
       qc.invalidateQueries({ queryKey: ["price-adjustment", id] })
       qc.invalidateQueries({ queryKey: ["price-adjustments"] })
       qc.invalidateQueries({ queryKey: ["my-price-adjustments"] })
+      qc.invalidateQueries({ queryKey: ["price-adjustment-history"] })
+      qc.invalidateQueries({ queryKey: ["work-queue"] })
       const msg = actionType.action === "approve" ? t("priceAdjDetail.approveSuccess", { code: adj?.adjustCode }) : t("priceAdjDetail.rejectSuccess", { code: adj?.adjustCode })
       toast.success(msg)
       setConfirmAction(null)
@@ -85,7 +86,6 @@ export function PriceAdjustmentDetailPage() {
       if (err.code === 'PRICE_ADJ_PRICE_CHANGED') {
         setConfirmAction(null)
         setShowConflictDialog(true)
-        setCurrentPrice(Number(err.message?.match(/[\d,]+/)?.[0] ?? 0))
       } else {
         toast.error(err.message || "")
         setConfirmAction(null)
@@ -99,6 +99,8 @@ export function PriceAdjustmentDetailPage() {
       qc.invalidateQueries({ queryKey: ["price-adjustment", id] })
       qc.invalidateQueries({ queryKey: ["price-adjustments"] })
       qc.invalidateQueries({ queryKey: ["my-price-adjustments"] })
+      qc.invalidateQueries({ queryKey: ["price-adjustment-history"] })
+      qc.invalidateQueries({ queryKey: ["work-queue"] })
       toast.success(t("priceAdjDetail.cancelSuccess", { code: adj?.adjustCode }))
       setConfirmAction(null)
     },
@@ -269,6 +271,14 @@ export function PriceAdjustmentDetailPage() {
                 <p className="font-medium">{adj.approvedByName}</p>
               </div>
             )}
+            {adj.approvedAt && (
+              <div>
+                <span className="text-muted-foreground">{t("label.approvedDate")}</span>
+                <p className="font-medium">
+                  {new Date(adj.approvedAt).toLocaleString("vi-VN")}
+                </p>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -398,19 +408,13 @@ export function PriceAdjustmentDetailPage() {
       {/* Conflict Dialog */}
       <AlertDialog
         open={showConflictDialog}
-        onOpenChange={(v) => { if (!v) {
-          setShowConflictDialog(false)
-          rejectPriceAdjustment(Number(id), t("priceAdjDetail.autoRejectReason")).catch(() => {})
-        }}}
+        onOpenChange={(v) => { if (!v) setShowConflictDialog(false) }}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
         <AlertDialogTitle>{t("priceAdjDetail.conflictTitle")}</AlertDialogTitle>
         <AlertDialogDescription>
           {t("priceAdjDetail.conflictDesc")}
-          {currentPrice > 0 && (
-            <> {t("priceAdjDetail.conflictCurrentPrice")} <span className="font-semibold">{(currentPrice).toLocaleString("vi-VN")}₫</span></>
-          )}
           <br />
           {t("priceAdjDetail.conflictNote")}
             </AlertDialogDescription>

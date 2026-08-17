@@ -7,9 +7,11 @@ export async function getPriceAdjustments(
   size = 20,
   sort?: string,
   status?: string,
+  search?: string,
 ): Promise<ResponsePage<PriceAdjustment>> {
   const params: Record<string, string | number> = { page, size, sort: sort ?? "createdAt,desc" }
   if (status) params.status = status
+  if (search) params.search = search
   const res = await http.get("/price-adjustment", { params })
   return mapResponsePage(res, mapPriceAdjustment)
 }
@@ -19,9 +21,11 @@ export async function getMyPriceAdjustments(
   size = 20,
   sort?: string,
   status?: string,
+  search?: string,
 ): Promise<ResponsePage<PriceAdjustment>> {
   const params: Record<string, string | number> = { page, size, sort: sort ?? "createdAt,desc" }
   if (status) params.status = status
+  if (search) params.search = search
   const res = await http.get("/price-adjustment/my", { params })
   return mapResponsePage(res, mapPriceAdjustment)
 }

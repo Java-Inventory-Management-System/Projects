@@ -26,16 +26,18 @@ public class PriceAdjustmentController {
     @PreAuthorize(AuthorizationExpressions.CAN_OPERATE_STOCK)
     public ResponseObject<ResponsePage<PriceAdjustmentResponse>> getMyAdjustments(
             Pageable pageable,
-            @RequestParam(required = false) String status) {
-        return ResponseObject.success(priceAdjustmentService.findMyAdjustments(pageable, status));
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String search) {
+        return ResponseObject.success(priceAdjustmentService.findMyAdjustments(pageable, status, search));
     }
 
     @GetMapping
     @PreAuthorize(AuthorizationExpressions.CAN_VIEW_INVENTORY)
     public ResponseObject<ResponsePage<PriceAdjustmentResponse>> getAll(
             Pageable pageable,
-            @RequestParam(required = false) String status) {
-        return ResponseObject.success(priceAdjustmentService.findAll(pageable, status));
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String search) {
+        return ResponseObject.success(priceAdjustmentService.findAll(pageable, status, search));
     }
 
     @GetMapping("/history/{productId}")

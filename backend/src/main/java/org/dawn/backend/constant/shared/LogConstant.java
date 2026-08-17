@@ -56,8 +56,9 @@ public class LogConstant {
         public static final String MOVE_BOX = "MOVE_BOX";
         public static final String DELETE_BOX = "DELETE_BOX";
         public static final String CREATE_ADJUSTMENT = "CREATE_ADJUSTMENT";
-        public static final String APPROVE_ADJUSTMENT = "APPROVE_ADJUSTMENT";
-        public static final String REJECT_ADJUSTMENT = "REJECT_ADJUSTMENT";
+public static final String APPROVE_ADJUSTMENT = "APPROVE_ADJUSTMENT";
+    public static final String REJECT_ADJUSTMENT = "REJECT_ADJUSTMENT";
+    public static final String CANCEL_ADJUSTMENT = "CANCEL_ADJUSTMENT";
 
         public static final String CREATE_PURCHASE_ORDER = "CREATE_PURCHASE_ORDER";
         public static final String UPDATE_PURCHASE_ORDER = "UPDATE_PURCHASE_ORDER";

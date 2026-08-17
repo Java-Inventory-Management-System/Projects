@@ -85,10 +85,8 @@ export function PriceAdjustmentListPage() {
     })
   }, [])
 
-  // Always fetch all for filtering on FE by search term
-  // The /my endpoint can't be searched by product name on BE, so we use the all endpoint
-  const allAdj = usePriceAdjustments(page, pageSize, sortStr, statusFilter || undefined)
-  const myAdj = useMyPriceAdjustments(page, pageSize, sortStr, statusFilter || undefined)
+  const allAdj = usePriceAdjustments(page, pageSize, sortStr, statusFilter || undefined, searchTerm || undefined)
+  const myAdj = useMyPriceAdjustments(page, pageSize, sortStr, statusFilter || undefined, searchTerm || undefined)
   const { data, isLoading, isError, refetch } = isAdminManager ? allAdj : myAdj
 
   const cancelMutation = useMutation({
@@ -96,6 +94,7 @@ export function PriceAdjustmentListPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["price-adjustments"] })
       qc.invalidateQueries({ queryKey: ["my-price-adjustments"] })
+      qc.invalidateQueries({ queryKey: ["work-queue"] })
       toast.success(t("priceAdjList.cancelSuccess"))
       setCancelTarget(null)
     },
@@ -108,16 +107,6 @@ export function PriceAdjustmentListPage() {
     [ADJUSTMENT_STATUS.REJECTED]: { label: t("priceAdjStatus.rejected"), variant: "destructive" },
     [ADJUSTMENT_STATUS.CANCELLED]: { label: t("priceAdjStatus.cancelled"), variant: "secondary" },
   }
-
-  const filtered = (data?.content ?? []).filter((r) => {
-    if (!searchTerm) return true
-    const q = searchTerm.toLowerCase()
-    return (
-      r.adjustCode.toLowerCase().includes(q) ||
-      (r.productName ?? "").toLowerCase().includes(q) ||
-      (r.productSku ?? "").toLowerCase().includes(q)
-    )
-  })
 
   const clearFilters = useCallback(() => {
     setSearchInput("")
@@ -228,7 +217,7 @@ export function PriceAdjustmentListPage() {
           onValueChange={(v) => {
             const next = new URLSearchParams(searchParams)
             next.set("page", "0")
-            if (v) next.set("status", v)
+            if (v && v !== "all") next.set("status", v)
             else next.delete("status")
             setSearchParams(next)
           }}
@@ -256,7 +245,7 @@ export function PriceAdjustmentListPage() {
       ) : (
         <DataTable
           columns={columns}
-          data={filtered}
+          data={data?.content ?? []}
           isLoading={isLoading}
           emptyMessage={
             searchTerm || statusFilter
@@ -285,7 +274,7 @@ export function PriceAdjustmentListPage() {
         </div>
       )}
 
-      {filtered.length === 0 && !isError && !isLoading && !searchTerm && !statusFilter && perm.hasRole(...ROLES.CAN_CREATE_PRICE_ADJUSTMENT) && (
+      {(data?.content.length ?? 0) === 0 && !isError && !isLoading && !searchTerm && !statusFilter && perm.hasRole(...ROLES.CAN_CREATE_PRICE_ADJUSTMENT) && (
         <div className="text-center py-8">
           <p className="text-muted-foreground mb-3">{t("priceAdjList.empty")}</p>
           <Button onClick={() => navigate("/stock/ops/price-adjustments/new")}>

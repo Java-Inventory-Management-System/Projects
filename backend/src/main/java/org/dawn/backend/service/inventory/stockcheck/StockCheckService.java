@@ -561,13 +561,18 @@ private void applyAdjustments(StockCheck sc, List<StockCheckItem> items, Long us
             }
             if (quantity.signum() <= 0) continue;
 
-            Long locationId = diff == DifferenceType.SURPLUS
-                    ? productUnitRepository.findById(item.getProductUnitId()).map(ProductUnit::getLocationId).orElse(null)
+            ProductUnit unit = item.getProductUnitId() != null
+                    ? productUnitRepository.findById(item.getProductUnitId()).orElse(null)
+                    : null;
+            Long locationId = diff == DifferenceType.SURPLUS && unit != null
+                    ? unit.getLocationId()
                     : null;
             adjustmentRepository.save(StockAdjustment.builder()
                     .adjustCode(ReceiptCodeGenerator.generate("ADJ-", adjustmentRepository::existsByAdjustCode))
                     .type(adjType.name())
                     .productUnitId(item.getProductUnitId())
+                    .productId(unit != null ? unit.getProductId() : null)
+                    .serialNumber(unit != null ? unit.getSerialNumber() : null)
                     .quantity(quantity)
                     .locationId(locationId)
                     .reason("Auto-generated from stock check #" + sc.getCheckCode())
