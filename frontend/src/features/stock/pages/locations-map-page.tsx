@@ -101,6 +101,11 @@ export function LocationsMapPage() {
     highlightBinId,
   } = useLocationMapPage()
 
+  const viewZone = zoomedZone ? (filteredZones.find((z) => z.zoneCode === zoomedZone.zoneCode) ?? null) : null
+  const viewShelf = zoomedShelfData && viewZone
+    ? (viewZone.shelves.find((s) => s.shelfCode === zoomedShelfData.shelfCode) ?? null)
+    : null
+
   useEffect(() => {
     if (highlightBinId) {
       const el = document.getElementById("bin-" + highlightBinId)
@@ -287,7 +292,13 @@ export function LocationsMapPage() {
               </span>
             </div>
             <div className="flex flex-wrap items-center gap-4" onDragOver={(e) => { e.preventDefault() }}>
-              {zoomedShelfData.bins.map((bin) => {
+              {viewShelf && viewShelf.bins.length === 0 ? (
+                <div className="w-full py-8">
+                  <Empty>
+                    <EmptyTitle>{t("locMap.emptySearch")}</EmptyTitle>
+                  </Empty>
+                </div>
+              ) : (viewShelf?.bins ?? []).map((bin) => {
                 const detail = { id: bin.id, zoneCode: zoomedShelf.zoneCode, fullCode: bin.fullCode, binCode: bin.binCode, productCount: bin.productCount, maxCapacity: bin.maxCapacity, productSkuList: bin.productSkuList, boxCount: bin.boxCount, boxCodes: bin.boxCodes, products: bin.products }
                 const active = isBinActive(detail)
                 const color = binColor(bin.productCount, bin.maxCapacity)
@@ -480,11 +491,11 @@ export function LocationsMapPage() {
                 <h2 className="text-base font-semibold">{t("locMap.zoneLabel", { code: zoomedZone.zoneCode })}</h2>
               </div>
               <span className="text-xs text-muted-foreground tabular-nums">
-                {t("locMap.binCount", { count: zoomedZone.shelves.reduce((s: number, sh) => s + sh.bins.length, 0) })}
+                {t("locMap.binCount", { count: (viewZone?.shelves ?? []).reduce((s: number, sh) => s + sh.bins.length, 0) })}
               </span>
             </div>
             <div className="grid gap-4 grid-cols-2 lg:grid-cols-3">
-              {zoomedZone.shelves.map((shelf) => {
+              {(viewZone?.shelves ?? []).map((shelf) => {
                 const occ = shelf.bins.filter((b) => b.productCount > 0).length
                 const pct = shelf.bins.length > 0 ? Math.round((occ / shelf.bins.length) * 100) : 0
                 return (

@@ -112,6 +112,16 @@ export function useLocationMapPage() {
     return () => document.removeEventListener("keydown", handler)
   }, [dragSource, relocateTarget])
 
+  function matchesSearch(bin: DetailBin, q: string) {
+    if (bin.fullCode.toLowerCase().includes(q)) return true
+    if ((bin.productSkuList ?? []).some((s) => s.toLowerCase().includes(q))) return true
+    return (bin.products ?? []).some(
+      (p) =>
+        p.productName.toLowerCase().includes(q) ||
+        (p.serials ?? []).some((s) => s.toLowerCase().includes(q)),
+    )
+  }
+
   const filteredZones = useMemo(() => {
     if (!data) return []
     return data.zones
@@ -127,9 +137,7 @@ export function useLocationMapPage() {
             const bins = shelf.bins.filter((bin) => {
               if (search) {
                 const q = search.toLowerCase()
-                const matchesFullCode = bin.fullCode.toLowerCase().includes(q)
-                const matchesSku = (bin.productSkuList ?? []).some((s) => s.toLowerCase().includes(q))
-                if (!matchesFullCode && !matchesSku) return false
+                if (!matchesSearch(bin, q)) return false
               }
               if (filter === "empty") return bin.productCount === 0
               if (filter === "stocked") return bin.productCount > 0
@@ -156,9 +164,7 @@ export function useLocationMapPage() {
     for (const zone of data?.zones ?? []) {
       for (const shelf of zone.shelves) {
         for (const bin of shelf.bins) {
-          const matchesFullCode = bin.fullCode.toLowerCase().includes(q)
-          const matchesSku = (bin.productSkuList ?? []).some((s) => s.toLowerCase().includes(q))
-          if (matchesFullCode || matchesSku) return bin.id
+          if (matchesSearch(bin, q)) return bin.id
         }
       }
     }

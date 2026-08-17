@@ -659,7 +659,17 @@
     "qcColumn": "QC",
     "qcPassed": "đạt",
     "qcProgress": "QC {done}/{total}",
-    "qcProgressTitle": "Tiến độ kiểm tra chất lượng"
+    "qcProgressTitle": "Tiến độ kiểm tra chất lượng",
+    "reconcileTitle": "Đối chiếu serial",
+    "reconcileCount": "Đối chiếu",
+    "reconcileHint": "Bỏ tick serial không nhận được — phiếu sẽ nhận đúng số serial có tick.",
+    "missingLabel": "Thiếu",
+    "extraLabel": "Ngoài PO",
+    "addExtraSerial": "Serial ngoài PO",
+    "extraPlaceholder": "Nhập serial rồi Enter...",
+    "reconcileSave": "Lưu đối chiếu ({{count}})",
+    "noSerialsToReconcile": "Chưa có serial nào để đối chiếu",
+    "shortageBadge": "Thiếu {{count}}"
   },
   "exportStatus": {
     "new": "Khởi tạo",
@@ -913,7 +923,8 @@
     "empty": "Không có đơn vị nào",
     "emptyDescription": "Chưa có đơn vị nào ở trạng thái này",
     "rejectReason": "Lý do",
-    "exportCode": "Mã xuất",
+    "tabProcessed": "Đã xử lý",
+    "sourceCode": "Đơn nguồn",
     "hintPending": "Trả về → chọn Hủy (hủy bỏ) hoặc Trả lại khách (từ chối nhận trả)",
     "hintRma": "NSX không sửa được → chọn Hủy hoặc Trả NCC (gửi lại cho NSX)",
     "hintWaitingRma": "Chờ gửi NSX → chọn Gửi bảo hành (tự tạo phiếu xuất bảo hành)",
@@ -1634,7 +1645,7 @@
     "colActions": "Thao tác",
     "viewDetail": "Xem chi tiết thay đổi",
     "dialogTitle": "Chi tiết nhật ký",
-    "moreFields": "… + {{count}} field khác",
+    "showMoreFields": "Hiện thêm {{count}} field",
     "error": "LỖI"
   },
   "locMap": {

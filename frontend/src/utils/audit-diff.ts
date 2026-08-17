@@ -83,6 +83,7 @@ export function computeDiffRows(
   oldValue: string | null,
   newValue: string | null,
   extraExclude: string[] = [],
+  limit: number = MAX_DIFF_FIELDS,
 ): DiffResult {
   const oldObj = parseJson(oldValue)
   const newObj = parseJson(newValue)
@@ -143,5 +144,5 @@ export function computeDiffRows(
     else if (newEmpty) rows.push({ key, label, oldDisplay, kind: "removed" })
     else rows.push({ key, label, oldDisplay, newDisplay, kind: "changed" })
   }
-  return { rows: rows.slice(0, MAX_DIFF_FIELDS), truncated: Math.max(0, rows.length - MAX_DIFF_FIELDS) }
+  return { rows: rows.slice(0, limit), truncated: Math.max(0, rows.length - limit) }
 }

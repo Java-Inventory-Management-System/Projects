@@ -535,7 +535,17 @@
     "qcColumn": "QC",
     "qcPassed": "passed",
     "qcProgress": "QC {done}/{total}",
-    "qcProgressTitle": "Quality check progress"
+    "qcProgressTitle": "Quality check progress",
+    "reconcileTitle": "Reconcile serials",
+    "reconcileCount": "Reconciled",
+    "reconcileHint": "Untick serials not physically received - the receipt will record exactly the ticked serials.",
+    "missingLabel": "Missing",
+    "extraLabel": "Outside PO",
+    "addExtraSerial": "Serial outside PO",
+    "extraPlaceholder": "Enter serial then press Enter...",
+    "reconcileSave": "Save reconcile ({{count}})",
+    "noSerialsToReconcile": "No serials to reconcile yet",
+    "shortageBadge": "Short {{count}}"
   },
   "exportStatus": {
     "new": "Created",
@@ -790,7 +800,8 @@
     "empty": "No units",
     "emptyDescription": "No units in this status yet",
     "rejectReason": "Reason",
-    "exportCode": "Export Code",
+    "tabProcessed": "Processed",
+    "sourceCode": "Source Receipt",
     "hintPending": "Returned → choose Dispose or Return to Customer (reject receipt)",
     "hintRma": "Unrepairable by supplier → choose Dispose or Return to Supplier",
     "hintWaitingRma": "Waiting RMA export → choose Send to Manufacturer (auto-creates warranty export)",
@@ -1509,7 +1520,7 @@
     "colActions": "Actions",
     "viewDetail": "View changes",
     "dialogTitle": "Audit Log Details",
-    "moreFields": "+ {{count}} more fields",
+    "showMoreFields": "Show {{count}} more fields",
     "error": "ERROR"
   },
   "dashboard": {

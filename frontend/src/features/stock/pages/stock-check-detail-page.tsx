@@ -106,7 +106,7 @@ export const StockCheckDetailPage = () => {
       items: Array<{ productUnitId: number; actualStatus?: string; countedQuantity?: number; note?: string; photo?: string; suspectSeal?: boolean; damagedPackaging?: boolean }>
     }) => recordStockCheckItems(Number(id!), data),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["stock-check", id] })
+      qc.invalidateQueries({ queryKey: ["stock-check", Number(id)] })
       qc.invalidateQueries({ queryKey: ["stock-checks"] })
       toast.success(t("stockCheckDetail.recordSuccess"))
     },
@@ -118,7 +118,7 @@ export const StockCheckDetailPage = () => {
   }, [])
 
   const invalidateAll = () => {
-    qc.invalidateQueries({ queryKey: ["stock-check", id] })
+    qc.invalidateQueries({ queryKey: ["stock-check", Number(id)] })
     qc.invalidateQueries({ queryKey: ["stock-checks"] })
     qc.invalidateQueries({ queryKey: ["my-stock-checks"] })
     qc.invalidateQueries({ queryKey: ["stock-check-zone-status"] })
@@ -169,6 +169,7 @@ export const StockCheckDetailPage = () => {
   })
 
   const handleStart = () => {
+    if (check?.status !== STOCK_CHECK_STATUS.PENDING) return
     startMut.mutate(Number(id!), {
       onSuccess: () => {
         invalidateAll()
@@ -227,7 +228,14 @@ export const StockCheckDetailPage = () => {
         if (status === PRODUCT_UNIT_STATUS.LOST) {
           return { ...i, actualStatus: status, countedQuantity: 0 }
         }
-        return { ...i, actualStatus: status, countedQuantity: i.trackingType === TRACKING_TYPE.SERIALIZED ? 1 : i.countedQuantity }
+        return {
+          ...i,
+          actualStatus: status,
+          countedQuantity:
+            i.trackingType === TRACKING_TYPE.SERIALIZED
+              ? 1
+              : i.countedQuantity ?? i.expectedQuantity ?? null,
+        }
       }),
     )
   }, [])

@@ -48,11 +48,12 @@ function LogSummary({ log }: { log: AuditLog }) {
 
 function AuditDiffSection({ log }: { log: AuditLog }) {
   const { t } = useTranslation()
-  const result = useMemo(
-    () => computeDiffRows(log.oldValue, log.newValue, log.messageFields),
-    [log.oldValue, log.newValue, log.messageFields],
-  )
   const [open, setOpen] = useState(false)
+  const [expanded, setExpanded] = useState(false)
+  const result = useMemo(
+    () => computeDiffRows(log.oldValue, log.newValue, log.messageFields, expanded ? Number.MAX_SAFE_INTEGER : undefined),
+    [log.oldValue, log.newValue, log.messageFields, expanded],
+  )
   if (result.rows.length === 0) return null
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
@@ -88,12 +89,16 @@ function AuditDiffSection({ log }: { log: AuditLog }) {
               </span>
             </Fragment>
           ))}
-          {result.truncated > 0 && (
+          {result.truncated > 0 && !expanded && (
             <Fragment>
               <span className="min-w-0" />
-              <span className="min-w-0 text-muted-foreground">
-                {t('auditPage.moreFields', { count: result.truncated })}
-              </span>
+              <button
+                type="button"
+                onClick={() => setExpanded(true)}
+                className="min-w-0 text-left text-xs font-medium text-primary hover:underline"
+              >
+                {t("auditPage.showMoreFields", { count: result.truncated })}
+              </button>
             </Fragment>
           )}
         </div>
