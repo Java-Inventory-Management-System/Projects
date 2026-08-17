@@ -496,7 +496,9 @@
     "qtyMismatch": "Total {{actual}} does not match {{expected}}",
     "dupSerials": "A serial cannot be in two bins",
     "editSerials": "Serials ({{count}})",
-    "addSerials": "Add serials"
+    "addSerials": "Add serials",
+    "inOtherBin": "In another bin",
+    "noSerials": "No serials to allocate"
   },
   "importStepSerials": {
     "bulkNoSerial": "Bulk item - no serials",

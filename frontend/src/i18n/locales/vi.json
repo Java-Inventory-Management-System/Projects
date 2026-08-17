@@ -620,7 +620,9 @@
     "qtyMismatch": "Tổng {{actual}} không khớp {{expected}}",
     "dupSerials": "Một serial không thể ở 2 bin",
     "editSerials": "Serial ({{count}})",
-    "addSerials": "Thêm serial"
+    "addSerials": "Thêm serial",
+    "inOtherBin": "Đã ở bin khác",
+    "noSerials": "Chưa có serial nào để chia"
   },
   "importStepSerials": {
     "bulkNoSerial": "Sản phẩm bán lẻ — không cần serial",

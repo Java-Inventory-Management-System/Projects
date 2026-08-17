@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useTranslation } from "react-i18next"
 import type { LineItem, LocationAllocation } from "@/utils/types"
 import { TRACKING_TYPE } from "@/utils/types"
@@ -6,8 +6,8 @@ import type { ItemAction } from "../reducers/import-create-reducer"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Checkbox } from "@/components/ui/checkbox"
 import { LocationPicker } from "./location-picker"
-import { SerialModal } from "./serial-modal"
 import { Plus, Trash2 } from "lucide-react"
 import { toast } from "@/utils/toast"
 
@@ -67,20 +67,16 @@ export function BinAllocatorDialog({ open, onOpenChange, item, dispatch }: Props
   }
 
   const activeRow = rows.find((r) => r.tempKey === serialModalFor)
-
-  // ponytail: serial chưa nằm ở bin khác (từ PO), seed cho modal của dòng trống — không phải gõ lại
-  const serialsForModal = useMemo(() => {
-    if (!activeRow) return []
-    if (activeRow.serials.length > 0) return activeRow.serials
-    const inOtherRows = new Set(
-      rows
-        .filter((r) => r.tempKey !== activeRow.tempKey)
-        .flatMap((r) => r.serials)
-        .map((s) => s.toLowerCase()),
-    )
-    const unassigned = item.serials.filter((s) => !inOtherRows.has(s.toLowerCase()))
-    return unassigned
-  }, [activeRow, rows, item.serials])
+  const takenInOtherRows = useMemo(
+    () =>
+      new Set(
+        rows
+          .filter((r) => r.tempKey !== activeRow?.tempKey)
+          .flatMap((r) => r.serials)
+          .map((s) => s.toLowerCase()),
+      ),
+    [rows, activeRow],
+  )
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -164,18 +160,104 @@ export function BinAllocatorDialog({ open, onOpenChange, item, dispatch }: Props
         </DialogFooter>
 
         {activeRow && (
-          <SerialModal
+          <BinSerialDialog
             open={serialModalFor != null}
             onOpenChange={(open) => {
               if (!open) setSerialModalFor(null)
             }}
-            productName={item.productName}
-            productSku={item.productSku}
-            required={item.quantity}
-            serials={serialsForModal}
+            item={item}
+            allSerials={item.serials}
+            takenInOtherRows={takenInOtherRows}
+            current={activeRow.serials}
             onSave={(serials) => updateRow(activeRow.tempKey, { serials })}
           />
         )}
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+interface BinSerialDialogProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  item: LineItem
+  allSerials: string[]
+  takenInOtherRows: Set<string>
+  current: string[]
+  onSave: (serials: string[]) => void
+}
+
+function BinSerialDialog({ open, onOpenChange, item, allSerials, takenInOtherRows, current, onSave }: BinSerialDialogProps) {
+  const { t } = useTranslation()
+  const [selected, setSelected] = useState<Set<string>>(() => new Set())
+
+  useEffect(() => {
+    if (open) setSelected(new Set(current))
+  }, [open, current])
+
+  const toggle = (serial: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(serial.toLowerCase())) {
+        const toRemove = [...next].find((s) => s.toLowerCase() === serial.toLowerCase())
+        next.delete(toRemove ?? serial)
+      } else {
+        next.add(serial)
+      }
+      return next
+    })
+  }
+
+  const handleSave = () => {
+    onSave(allSerials.filter((s) => selected.has(s.toLowerCase())))
+    onOpenChange(false)
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-xl">
+        <DialogHeader>
+          <DialogTitle className="text-base">{t("binAllocator.title")}</DialogTitle>
+          <p className="text-sm text-muted-foreground mt-1">
+            {item.productName}
+            <span className="font-mono ml-2">{item.productSku}</span>
+            <span className="ml-2">
+              {t("binAllocator.qty")}: {item.quantity}
+            </span>
+          </p>
+        </DialogHeader>
+
+        <p className="text-xs text-muted-foreground">
+          {t("binAllocator.total", { actual: allSerials.length, expected: item.quantity })}
+        </p>
+
+        <div className="max-h-[300px] overflow-y-auto space-y-1 pr-1 border rounded-md p-2">
+          {allSerials.length === 0 && <p className="text-xs text-muted-foreground">{t("binAllocator.noSerials")}</p>}
+          {allSerials.map((serial) => {
+            const inOtherBin = takenInOtherRows.has(serial.toLowerCase())
+            return (
+              <label
+                key={serial}
+                className={`flex items-center gap-2 rounded px-2 py-1 text-xs cursor-pointer ${
+                  inOtherBin ? "opacity-40 pointer-events-none" : "hover:bg-muted/60"
+                }`}
+              >
+                <Checkbox checked={selected.has(serial.toLowerCase())} onCheckedChange={() => toggle(serial)} />
+                <span className="font-mono flex-1 truncate" title={serial}>
+                  {serial}
+                </span>
+                {inOtherBin && <span className="text-[10px] text-muted-foreground shrink-0">{t("binAllocator.inOtherBin")}</span>}
+              </label>
+            )
+          })}
+        </div>
+
+        <DialogFooter className="gap-2">
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            {t("common.cancel")}
+          </Button>
+          <Button onClick={handleSave}>{t("binAllocator.save")}</Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   )
