@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useEffect, useRef } from "react"
+import { useState, useCallback, useMemo, useEffect } from "react"
 import { useTranslation } from "react-i18next"
 import { useNavigate, useParams } from "react-router-dom"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
@@ -7,12 +7,15 @@ import {
   completeStockCheck,
   reopenStockCheck,
   cancelStockCheck,
+  addExtraStockCheckItem,
+  getStockCheckPrintHtml,
 } from "@/services/stock-check-service"
 import { useStockCheck, useStartStockCheck } from "@/hooks/use-stock-checks"
 import { usePermission } from "@/hooks/use-permission"
 import { invalidateDashboard } from "@/hooks/use-reports"
 import { ROLES } from "@/utils/permissions"
-import { STOCK_CHECK_STATUS, STOCK_CHECK_DIFF, PRODUCT_UNIT_STATUS, TRACKING_TYPE, type StockCheckItem } from "@/utils/types"
+import { AUTH_ENABLED } from "@/utils/http-client"
+import { STOCK_CHECK_STATUS, STOCK_CHECK_DIFF, PRODUCT_UNIT_STATUS, TRACKING_TYPE, UNVERIFIED_STATUS, type StockCheckItem } from "@/utils/types"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -26,13 +29,18 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
 import { Empty, EmptyTitle } from "@/components/ui/empty"
-import { PrintReceiptButton } from "../components/print-receipt"
-import { AlertCircle, CheckCircle2, ClipboardCheck, ListChecks, RotateCcw, Ban, Play, Boxes } from "lucide-react"
+import { AlertCircle, ClipboardCheck, RotateCcw, Ban, Play, Boxes, MoreHorizontal, Printer, CheckCircle2 } from "lucide-react"
 import { Progress } from "@/components/ui/progress"
-import { ButtonGroup } from "@/components/ui/button-group"
 import { cn } from "@/utils/cn"
 import { toast } from "@/utils/toast"
 import { StockCheckItemsTable } from "../components/stock-check-items-table"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import {
   Dialog,
   DialogContent,
@@ -50,12 +58,10 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import { Checkbox } from "@/components/ui/checkbox"
 
 export const StockCheckDetailPage = () => {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const { id } = useParams<{ id: string }>()
   const statusLabel: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
     PENDING: { label: t("status.pending"), variant: "secondary" },
@@ -71,11 +77,11 @@ export const StockCheckDetailPage = () => {
 
   const [localItems, setLocalItems] = useState<StockCheckItem[]>([])
   const [searchQuery, setSearchQuery] = useState("")
+  const [itemFilter, setItemFilter] = useState<"all" | "mismatch" | "untouched">("all")
+  const [activeTab, setActiveTab] = useState("info")
   const [cancelDialog, setCancelDialog] = useState(false)
   const [completeModal, setCompleteModal] = useState(false)
   const [reopenDialog, setReopenDialog] = useState(false)
-  const [confirmUntouched, setConfirmUntouched] = useState(false)
-  const localSeqRef = useRef(-1)
 
   const { data: check, isLoading } = useStockCheck(id ? Number(id) : null)
 
@@ -85,14 +91,15 @@ export const StockCheckDetailPage = () => {
 
   const startMut = useStartStockCheck()
 
-  const checkedCount = localItems.filter((i) => i.actualStatus != null).length
+  const checkedCount = localItems.filter((i) => i.actualStatus != null && i.actualStatus !== UNVERIFIED_STATUS).length
   const untouchedCount = localItems.filter((i) => i.actualStatus == null).length
+  const unverifiedCount = localItems.filter((i) => i.actualStatus === UNVERIFIED_STATUS).length
+  const surplusCount = localItems.filter((i) => i.difference === STOCK_CHECK_DIFF.SURPLUS).length
   const bulkMissingCount = localItems.filter((i) => i.actualStatus == null && i.trackingType === TRACKING_TYPE.BULK && i.countedQuantity == null).length
 
   const itemsWithDiff = useMemo(() =>
     localItems.map((i) => {
-      if (i.localOnly) return i
-      if (i.actualStatus == null) return i
+      if (i.actualStatus == null || i.actualStatus === UNVERIFIED_STATUS) return i
       if (i.difference != null) return i
       if (i.trackingType !== TRACKING_TYPE.SERIALIZED) return i
       if (i.expectedStatus === i.actualStatus) return { ...i, difference: STOCK_CHECK_DIFF.MATCH }
@@ -114,10 +121,6 @@ export const StockCheckDetailPage = () => {
   })
 
   const updateItem = useCallback((itemId: number, field: string, value: unknown) => {
-    if (field === "__remove__") {
-      setLocalItems((prev) => prev.filter((i) => i.id !== itemId))
-      return
-    }
     setLocalItems((prev) => prev.map((i) => (i.id === itemId ? { ...i, [field]: value } : i)))
   }, [])
 
@@ -131,7 +134,7 @@ export const StockCheckDetailPage = () => {
   }
 
   const completeMut = useMutation({
-    mutationFn: () => completeStockCheck(Number(id!), confirmUntouched),
+    mutationFn: () => completeStockCheck(Number(id!)),
     onSuccess: () => {
       invalidateAll()
       setCompleteModal(false)
@@ -161,14 +164,38 @@ export const StockCheckDetailPage = () => {
     onError: (err: Error) => toast.error(err.message || t("stockCheckDetail.cancelError")),
   })
 
+  const extraMut = useMutation({
+    mutationFn: (data: { sku: string; serialNumber?: string; countedQuantity?: number; note?: string }) =>
+      addExtraStockCheckItem(Number(id!), data),
+    onSuccess: (res) => {
+      setLocalItems(res.items)
+      invalidateAll()
+      toast.success(t("stockCheckDetail.extraSuccess"))
+    },
+    onError: (err: Error) => { throw err },
+  })
+
   const handleStart = () => {
     startMut.mutate(Number(id!), {
       onSuccess: () => {
         invalidateAll()
+        setActiveTab("results")
         toast.success(t("stockCheckDetail.startSuccess"))
       },
       onError: (err: Error) => toast.error(err.message || t("stockCheckDetail.startError")),
     })
+  }
+
+  const handlePrint = async () => {
+    try {
+      const html = await getStockCheckPrintHtml(Number(id!), i18n.language)
+      const w = window.open("", "_blank")
+      if (!w) return
+      w.document.write(html)
+      w.document.close()
+    } catch {
+      toast.error(t("print.printFailed"))
+    }
   }
 
   const handleSaveAndComplete = async () => {
@@ -177,17 +204,15 @@ export const StockCheckDetailPage = () => {
       setCompleteModal(false)
       return
     }
-    const items = localItems
-      .filter((i) => !i.localOnly)
-      .map((i) => ({
-        productUnitId: i.productUnitId,
-        actualStatus: i.actualStatus ?? undefined,
-        countedQuantity: i.countedQuantity ?? undefined,
-        note: i.note || undefined,
-        photo: i.photo || undefined,
-        suspectSeal: i.suspectSeal ?? undefined,
-        damagedPackaging: i.damagedPackaging ?? undefined,
-      }))
+    const items = localItems.map((i) => ({
+      productUnitId: i.productUnitId,
+      actualStatus: i.actualStatus ?? undefined,
+      countedQuantity: i.countedQuantity ?? undefined,
+      note: i.note || undefined,
+      photo: i.photo || undefined,
+      suspectSeal: i.suspectSeal ?? undefined,
+      damagedPackaging: i.damagedPackaging ?? undefined,
+    }))
     try {
       await recordMut.mutateAsync({ items })
       completeMut.mutate()
@@ -199,8 +224,7 @@ export const StockCheckDetailPage = () => {
   const handleBulkSet = useCallback((status: string) => {
     setLocalItems((prev) =>
       prev.map((i) => {
-        if (i.localOnly) return i
-        if (i.actualStatus != null) return i
+        if (i.difference === STOCK_CHECK_DIFF.SURPLUS) return i
         if (status === PRODUCT_UNIT_STATUS.LOST) {
           return { ...i, actualStatus: status, countedQuantity: 0 }
         }
@@ -209,39 +233,10 @@ export const StockCheckDetailPage = () => {
     )
   }, [])
 
-  const handleAddUnexpected = useCallback(() => {
-    const n = localSeqRef.current--
-    setLocalItems((prev) => [
-      ...prev,
-      {
-        id: n,
-        productUnitId: n,
-        serialNumber: "",
-        productId: 0,
-        productName: t("stockCheckItems.extraItem"),
-        productSku: null,
-        trackingType: "SERIALIZED",
-        boxId: null,
-        boxCode: null,
-        expectedStatus: null,
-        actualStatus: PRODUCT_UNIT_STATUS.IN_STOCK,
-        countedQuantity: 1,
-        difference: STOCK_CHECK_DIFF.UNEXPECTED,
-        note: null,
-        photo: null,
-        autoFilled: false,
-        suspectSeal: null,
-        damagedPackaging: null,
-        touchedAt: null,
-        localOnly: true,
-      },
-    ])
-  }, [t])
-
   const boxGroups = useMemo(() => {
     const groups = new Map<number, StockCheckItem[]>()
     for (const i of localItems) {
-      if (i.localOnly || i.boxId == null) continue
+      if (i.boxId == null) continue
       const list = groups.get(i.boxId) ?? []
       list.push(i)
       groups.set(i.boxId, list)
@@ -250,7 +245,7 @@ export const StockCheckDetailPage = () => {
       boxId,
       boxCode: items[0].boxCode ?? String(boxId),
       items,
-      checked: items.filter((i) => i.actualStatus != null).length,
+      checked: items.filter((i) => i.actualStatus != null && i.actualStatus !== UNVERIFIED_STATUS).length,
       pendingCount: items.filter((i) => i.actualStatus == null).length,
     }))
   }, [localItems])
@@ -278,7 +273,18 @@ export const StockCheckDetailPage = () => {
   const canOperateStock = perm.hasRole(...ROLES.CAN_OPERATE_STOCK)
   const canEdit = canOperateStock && check.status === STOCK_CHECK_STATUS.IN_PROGRESS
   const canStart = canOperateStock && check.status === STOCK_CHECK_STATUS.PENDING
-  const canCancel = canOperateStock && (check.status === STOCK_CHECK_STATUS.PENDING || check.status === STOCK_CHECK_STATUS.IN_PROGRESS)
+  const canCancel = canOperateStock &&
+    (check.status === STOCK_CHECK_STATUS.PENDING || check.status === STOCK_CHECK_STATUS.IN_PROGRESS) &&
+    (!AUTH_ENABLED || (perm.user != null && check.createdBy != null && perm.user.id === check.createdBy))
+  const canReopen = canOperateStock && (check.status === STOCK_CHECK_STATUS.COMPLETED || check.status === STOCK_CHECK_STATUS.EXPIRED)
+
+  const summary = {
+    missing: localItems.filter((i) => i.difference === STOCK_CHECK_DIFF.MISSING).length,
+    unexpected: localItems.filter((i) => i.difference === STOCK_CHECK_DIFF.UNEXPECTED || i.difference === STOCK_CHECK_DIFF.PARTIAL_SHORTAGE).length,
+    surplus: surplusCount,
+    suspectSeal: localItems.filter((i) => i.suspectSeal).length,
+    damagedPackaging: localItems.filter((i) => i.damagedPackaging).length,
+  }
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
@@ -294,150 +300,103 @@ export const StockCheckDetailPage = () => {
         </BreadcrumbList>
       </Breadcrumb>
 
-      {check.status === STOCK_CHECK_STATUS.PENDING && (
-        <div className="flex items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800 px-4 py-3 text-sm">
-          <ListChecks className="size-5 text-amber-600 shrink-0" />
-          <div className="flex-1">
-            <p className="font-medium text-amber-700 dark:text-amber-400">{t("stockCheckDetail.pendingBannerTitle")}</p>
-            <p className="text-amber-600 dark:text-amber-300 mt-0.5">{t("stockCheckDetail.pendingBannerDesc")}</p>
-          </div>
-          {canStart && (
-            <Button onClick={handleStart} disabled={startMut.isPending}>
-              <Play className="size-4 mr-1" />
-              {startMut.isPending ? t("stockCheckDetail.starting") : t("stockCheckDetail.start")}
-            </Button>
+      {(check.status === STOCK_CHECK_STATUS.PENDING || canEdit) && (
+        <div className="rounded-lg border bg-card px-4 py-3.5">
+          {check.status === STOCK_CHECK_STATUS.PENDING ? (
+            <div className="flex items-center gap-3">
+              <AlertCircle className="size-5 text-muted-foreground shrink-0" />
+              <div className="flex-1">
+                <p className="text-sm font-medium">{t("stockCheckDetail.pendingBannerTitle")}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{t("stockCheckDetail.pendingBannerDesc")}</p>
+              </div>
+              {canStart && (
+                <Button onClick={handleStart} disabled={startMut.isPending}>
+                  <Play className="size-4 mr-1" />
+                  {startMut.isPending ? t("stockCheckDetail.starting") : t("stockCheckDetail.start")}
+                </Button>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground flex items-center gap-1.5">
+                  <ClipboardCheck className="size-4" /> {t("stockCheckDetail.checkedProgress", { checked: checkedCount, total: check.totalItems })}
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {check.totalItems > 0 ? Math.round((checkedCount / check.totalItems) * 100) : 0}%
+                </span>
+              </div>
+              <Progress value={check.totalItems > 0 ? (checkedCount / check.totalItems) * 100 : 0} className="h-2" />
+            </div>
           )}
-        </div>
-      )}
-
-      {canEdit && (
-        <div className="space-y-1.5">
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground flex items-center gap-1.5">
-              <ListChecks className="size-4" /> {t("stockCheckDetail.checkedProgress", { checked: checkedCount, total: check.totalItems })}
-            </span>
-            <span className="text-xs text-muted-foreground">
-              {check.totalItems > 0 ? Math.round((checkedCount / check.totalItems) * 100) : 0}%
-            </span>
-          </div>
-          <Progress value={check.totalItems > 0 ? (checkedCount / check.totalItems) * 100 : 0} className="h-2" />
         </div>
       )}
 
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Badge variant={s.variant}>{s.label}</Badge>
-          {check.binFrom || check.binTo ? (
-            <span className="text-xs text-muted-foreground font-mono">
-              {check.binFrom ?? "—"} – {check.binTo ?? "—"}
+          {check.scopeType === "ZONE" && (
+            <span className="text-xs text-muted-foreground">
+              {t("stockCheckDetail.zone")} {check.scopeName ?? check.scopeId}
             </span>
-          ) : null}
-        </div>
-        <div className="flex gap-2">
-          <PrintReceiptButton id={check.id} type="stock-check" />
-          {canEdit && (
-            <ButtonGroup>
-              <Button onClick={() => setCompleteModal(true)} disabled={recordMut.isPending || completeMut.isPending}>
-                <ClipboardCheck className="size-4 mr-1" />
-                {completeMut.isPending ? t("stockCheckDetail.completing") : t("stockCheckDetail.complete")}
-              </Button>
-            </ButtonGroup>
           )}
-          {canOperateStock &&
-            (check.status === STOCK_CHECK_STATUS.COMPLETED || check.status === STOCK_CHECK_STATUS.EXPIRED) && (
-              <AlertDialog open={reopenDialog} onOpenChange={setReopenDialog}>
-                <AlertDialogTrigger asChild>
-                  <Button variant="outline" disabled={reopenMut.isPending}>
-                    <RotateCcw className="size-4 mr-1" />
-                    {reopenMut.isPending ? t("stockCheckDetail.starting") : t("stockCheckDetail.reopen")}
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>{t("stockCheckDetail.reopenConfirmTitle")}</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      {t("stockCheckDetail.reopenConfirmDesc")}
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
-                    <AlertDialogAction onClick={() => reopenMut.mutate()}>{t("stockCheckDetail.reopenConfirm")}</AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            )}
-          {canCancel && (
-            <AlertDialog open={cancelDialog} onOpenChange={setCancelDialog}>
-              <AlertDialogTrigger asChild>
-                <Button variant="outline" className="text-destructive hover:text-destructive">
-                  <Ban className="size-4 mr-1" /> {t("stockCheckDetail.cancel")}
-                </Button>
-              </AlertDialogTrigger>
+          {check.shelfCodes && check.shelfCodes.length > 0 && (
+            <span className="text-xs text-muted-foreground font-mono">
+              {check.shelfCodes.join(", ")}
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          {canEdit && (
+            <Button onClick={() => setCompleteModal(true)} disabled={recordMut.isPending || completeMut.isPending}>
+              <ClipboardCheck className="size-4 mr-1" />
+              {completeMut.isPending ? t("stockCheckDetail.completing") : t("stockCheckDetail.complete")}
+            </Button>
+          )}
+          {canReopen && (
+            <AlertDialog open={reopenDialog} onOpenChange={setReopenDialog}>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogTitle>{t("stockCheckDetail.cancelConfirmTitle")}</AlertDialogTitle>
+                  <AlertDialogTitle>{t("stockCheckDetail.reopenConfirmTitle")}</AlertDialogTitle>
                   <AlertDialogDescription>
-                    {t("stockCheckDetail.cancelConfirmDesc")}
+                    {t("stockCheckDetail.reopenConfirmDesc")}
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
-                  <AlertDialogAction
-                    className="bg-destructive text-white hover:bg-destructive/90"
-                    onClick={() => cancelMut.mutate()}
-                  >
-                    {cancelMut.isPending ? t("stockCheckDetail.cancelling") : t("stockCheckDetail.cancelConfirm")}
-                  </AlertDialogAction>
+                  <AlertDialogAction onClick={() => reopenMut.mutate()}>{t("stockCheckDetail.reopenConfirm")}</AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
+              <Button variant="outline" onClick={() => setReopenDialog(true)} disabled={reopenMut.isPending}>
+                <RotateCcw className="size-4 mr-1" />
+                {reopenMut.isPending ? t("stockCheckDetail.starting") : t("stockCheckDetail.reopen")}
+              </Button>
             </AlertDialog>
           )}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="icon" aria-label={t("stockCheckDetail.moreActions")}>
+                <MoreHorizontal className="size-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem onClick={handlePrint}>
+                <Printer className="size-3.5" /> {t("print.print")}
+              </DropdownMenuItem>
+              {canCancel && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => setCancelDialog(true)}>
+                    <Ban className="size-3.5" /> {t("stockCheckDetail.cancel")}
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
-      {itemsWithDiff.some((i) => i.difference && i.difference !== STOCK_CHECK_DIFF.MATCH) && (
-        <div className="space-y-2">
-          <p className="text-sm font-medium text-muted-foreground">{t("stockCheckDetail.diffSummary")}</p>
-          <div className="grid gap-2">
-            {itemsWithDiff
-              .filter((i) => i.difference && i.difference !== STOCK_CHECK_DIFF.MATCH)
-              .slice(0, 10)
-              .map((i) => (
-                <div
-                  key={i.id}
-                  className={cn(
-                    "flex items-center gap-3 rounded-lg border px-4 py-2.5 text-sm",
-                    i.difference === STOCK_CHECK_DIFF.MISSING && "border-red-200 bg-red-50 dark:bg-red-950/20 dark:border-red-800",
-                    i.difference === STOCK_CHECK_DIFF.UNEXPECTED && "border-blue-200 bg-blue-50 dark:bg-blue-950/20 dark:border-blue-800",
-                  )}
-                >
-                  {i.difference === STOCK_CHECK_DIFF.MISSING ? (
-                    <AlertCircle className="size-4 text-red-500 shrink-0" />
-                  ) : (
-                    <CheckCircle2 className="size-4 text-blue-500 shrink-0" />
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <span className="font-medium">{i.productName}</span>
-                    {i.serialNumber && <span className="text-xs text-muted-foreground ml-1 font-mono">{i.serialNumber}</span>}
-                    {i.boxCode && <span className="text-[10px] ml-1.5 px-1.5 py-0.5 rounded bg-muted font-mono">{i.boxCode}</span>}
-                  </div>
-                  <Badge
-                    variant="outline"
-                    className={cn(
-                      "text-[10px] shrink-0",
-                      i.difference === STOCK_CHECK_DIFF.MISSING && "border-red-200 text-red-600",
-                      i.difference === STOCK_CHECK_DIFF.UNEXPECTED && "border-blue-200 text-blue-600",
-                    )}
-                  >
-                    {i.difference === STOCK_CHECK_DIFF.MISSING ? t("stockCheckDetail.diffMissing") : t("stockCheckDetail.diffUnexpected")}
-                  </Badge>
-                </div>
-              ))}
-          </div>
-        </div>
-      )}
-
-      <Tabs defaultValue="info">
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="info">{t("stockCheckDetail.tabInfo")}</TabsTrigger>
           <TabsTrigger value="results">{t("stockCheckDetail.tabResults")}</TabsTrigger>
@@ -496,47 +455,72 @@ export const StockCheckDetailPage = () => {
               </div>
             )}
           </div>
-          <div className="flex gap-3 text-sm">
-            <Badge variant="outline">{t("stockCheckDetail.total", { count: check.totalItems })}</Badge>
-            <Badge variant="secondary">{t("stockCheckDetail.match", { count: check.matchCount })}</Badge>
-            <Badge variant="outline" className="text-destructive">
-              {t("stockCheckDetail.missing", { count: check.missingCount })}
-            </Badge>
-            <Badge variant="outline" className="text-blue-600 dark:text-blue-400 border-blue-300 dark:border-blue-700">
-              {t("stockCheckDetail.unexpected", { count: check.unexpectedCount })}
-            </Badge>
-          </div>
         </TabsContent>
 
-        <TabsContent value="results">
-          {boxGroups.length > 0 && (
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-muted-foreground">{t("stockCheckDetail.boxesTitle")}</p>
-              <div className="grid gap-2">
-                {boxGroups.map((g) => (
-                  <div
-                    key={g.boxId}
-                    className="flex items-center gap-3 rounded-lg border px-4 py-2.5 text-sm"
-                  >
-                    <Boxes className="size-4 text-muted-foreground shrink-0" />
-                    <span className="font-mono text-xs">{g.boxCode}</span>
-                    <Badge variant="outline" className="text-[10px]">
-                      {t("stockCheckDetail.checkedInBox", { checked: g.checked, total: g.items.length })}
-                    </Badge>
-                  </div>
-                ))}
-              </div>
+        <TabsContent value="results" className="space-y-4">
+          {check.status === STOCK_CHECK_STATUS.PENDING ? (
+            <div className="flex min-h-[30vh] items-center justify-center rounded-lg border">
+              <Empty>
+                <EmptyTitle>{t("stockCheckDetail.pendingEmpty")}</EmptyTitle>
+              </Empty>
             </div>
+          ) : (
+            <>
+              {boxGroups.length > 0 && (
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                  {boxGroups.map((g) => {
+                    const done = g.checked === g.items.length
+                    return (
+                      <div
+                        key={g.boxId}
+                        className={cn(
+                          "rounded-lg border px-4 py-2.5 text-sm",
+                          done && "border-green-200 bg-green-50/50 dark:border-green-800 dark:bg-green-950/10",
+                        )}
+                      >
+                        <div className="flex items-center gap-3">
+                          <Boxes className="size-4 text-muted-foreground shrink-0" />
+                          <span className="font-mono text-xs">{g.boxCode}</span>
+                          <Badge variant="outline" className={cn("text-[10px]", done && "border-green-300 text-green-700 dark:border-green-700 dark:text-green-400")}>
+                            {done && <CheckCircle2 className="size-3 mr-0.5 inline" />}
+                            {t("stockCheckDetail.checkedInBox", { checked: g.checked, total: g.items.length })}
+                          </Badge>
+                        </div>
+                        <ul className="mt-2 space-y-1 border-t pt-2 max-h-40 overflow-y-auto">
+                          {g.items.map((i) => {
+                            const checked = i.actualStatus != null && i.actualStatus !== UNVERIFIED_STATUS
+                            return (
+                              <li key={i.id} className="flex items-center gap-1.5 text-xs">
+                                {checked ? (
+                                  <CheckCircle2 className="size-3 text-green-600 shrink-0 dark:text-green-400" />
+                                ) : (
+                                  <span className="size-2.5 rounded-full bg-amber-400 shrink-0" />
+                                )}
+                                <span className="font-mono truncate">{i.serialNumber || i.productSku || "—"}</span>
+                                <span className="truncate text-muted-foreground">{i.productName}</span>
+                              </li>
+                            )
+                          })}
+                        </ul>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+              <StockCheckItemsTable
+                items={itemsWithDiff}
+                canEdit={canEdit}
+                onUpdate={updateItem}
+                onBulkSet={handleBulkSet}
+                searchQuery={searchQuery}
+                onSearchChange={setSearchQuery}
+                filter={itemFilter}
+                onFilterChange={setItemFilter}
+                onAddExtra={(data) => extraMut.mutateAsync(data)}
+                extraPending={extraMut.isPending}
+              />
+            </>
           )}
-          <StockCheckItemsTable
-            items={itemsWithDiff}
-            canEdit={canEdit}
-            onUpdate={updateItem}
-            onBulkSet={handleBulkSet}
-            searchQuery={searchQuery}
-            onSearchChange={setSearchQuery}
-            onAddUnexpected={handleAddUnexpected}
-          />
         </TabsContent>
       </Tabs>
 
@@ -544,33 +528,79 @@ export const StockCheckDetailPage = () => {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t("stockCheckDetail.completeDialogTitle")}</DialogTitle>
-            <DialogDescription>
-              {untouchedCount > 0 && (
-                <span className="block text-amber-600 dark:text-amber-400 font-medium">
-                  {t("stockCheckDetail.completeDialogUntouched", { count: untouchedCount })}
+            <DialogDescription className="space-y-2">
+              {unverifiedCount > 0 && (
+                <span className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800 px-3 py-2 text-sm font-medium text-amber-700 dark:text-amber-400">
+                  <AlertCircle className="size-4 shrink-0 mt-0.5" />
+                  {t("stockCheckDetail.completeDialogUnverified", { count: unverifiedCount })}
                 </span>
               )}
-              <span className="block">{t("stockCheckDetail.completeDialogAdjustment")}</span>
+              {surplusCount > 0 && (
+                <span className="flex items-start gap-2 rounded-md border border-green-200 bg-green-50 dark:bg-green-950/10 dark:border-green-800 px-3 py-2 text-sm text-green-700 dark:text-green-400">
+                  <CheckCircle2 className="size-4 shrink-0 mt-0.5" />
+                  {t("stockCheckDetail.completeDialogSurplus", { count: surplusCount })}
+                </span>
+              )}
+              <span className="block text-xs text-muted-foreground">{t("stockCheckDetail.completeDialogAdjustment")}</span>
             </DialogDescription>
           </DialogHeader>
-          {untouchedCount > 0 && (
-            <label className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800 px-3 py-2.5 text-sm cursor-pointer">
-              <Checkbox
-                checked={confirmUntouched}
-                onCheckedChange={(v) => setConfirmUntouched(v === true)}
-                className="mt-0.5"
-              />
-              <span className="text-amber-700 dark:text-amber-300">{t("stockCheckDetail.completeDialogUntouchedConfirm")}</span>
-            </label>
-          )}
-          <DialogFooter>
+          <div className="grid grid-cols-3 gap-2 text-center">
+            <SummaryCell label={t("stockCheckDetail.sumChecked")} value={checkedCount} className="text-foreground" />
+            <SummaryCell label={t("stockCheckDetail.sumMissing")} value={summary.missing} className="text-red-600 dark:text-red-400" />
+            <SummaryCell label={t("stockCheckDetail.sumUnexpected")} value={summary.unexpected} className="text-blue-600 dark:text-blue-400" />
+            <SummaryCell label={t("stockCheckDetail.sumSurplus")} value={summary.surplus} className="text-violet-600 dark:text-violet-400" />
+            <SummaryCell label={t("stockCheckDetail.sumSuspectSeal")} value={summary.suspectSeal} className="text-amber-600 dark:text-amber-400" />
+            <SummaryCell label={t("stockCheckDetail.sumDamagedPackaging")} value={summary.damagedPackaging} className="text-amber-600 dark:text-amber-400" />
+          </div>
+          <DialogFooter className="flex-wrap gap-2">
             <Button variant="outline" onClick={() => setCompleteModal(false)}>{t("common.cancel")}</Button>
-            <Button onClick={handleSaveAndComplete} disabled={completeMut.isPending || (untouchedCount > 0 && !confirmUntouched)}>
+            {untouchedCount > 0 && (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setCompleteModal(false)
+                  setItemFilter("untouched")
+                  setActiveTab("results")
+                }}
+              >
+                {t("stockCheckDetail.viewUntouched", { count: untouchedCount })}
+              </Button>
+            )}
+            <Button onClick={handleSaveAndComplete} disabled={completeMut.isPending}>
               {completeMut.isPending ? t("stockCheckDetail.completing") : t("stockCheckDetail.complete")}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={cancelDialog} onOpenChange={setCancelDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("stockCheckDetail.cancelConfirmTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("stockCheckDetail.cancelConfirmDesc")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-white hover:bg-destructive/90"
+              onClick={() => cancelMut.mutate()}
+            >
+              {cancelMut.isPending ? t("stockCheckDetail.cancelling") : t("stockCheckDetail.cancelConfirm")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  )
+}
+
+function SummaryCell({ label, value, className }: { label: string; value: number; className?: string }) {
+  return (
+    <div className="rounded-lg border bg-muted/20 px-2 py-2">
+      <p className={cn("text-lg font-semibold leading-none", className)}>{value}</p>
+      <p className="mt-1 text-[10px] leading-tight text-muted-foreground">{label}</p>
     </div>
   )
 }

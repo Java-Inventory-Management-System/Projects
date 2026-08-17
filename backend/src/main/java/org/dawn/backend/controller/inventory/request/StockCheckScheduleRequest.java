@@ -2,8 +2,8 @@ package org.dawn.backend.controller.inventory.request;
 
 public record StockCheckScheduleRequest(
         String zoneCode,
-        String binFrom,
-        String binTo,
+        String shelfFrom,
+        String shelfTo,
         Integer frequencyDays,
         Boolean isActive,
         Long defaultAssigneeId,

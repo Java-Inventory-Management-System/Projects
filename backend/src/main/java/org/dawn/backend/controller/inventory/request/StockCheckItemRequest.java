@@ -15,4 +15,12 @@ public record StockCheckItemRequest(
     public record BatchRequest(
             List<StockCheckItemRequest> items
     ) {}
+
+    public record ExtraItemRequest(
+            String sku,
+            String serialNumber,
+            BigDecimal countedQuantity,
+            String note,
+            String photo
+    ) {}
 }

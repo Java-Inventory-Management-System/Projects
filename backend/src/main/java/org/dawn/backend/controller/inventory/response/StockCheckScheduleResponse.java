@@ -6,8 +6,8 @@ import lombok.Builder;
 public record StockCheckScheduleResponse(
         Long id,
         String zoneCode,
-        String binFrom,
-        String binTo,
+        String shelfFrom,
+        String shelfTo,
         Integer frequencyDays,
         Boolean isActive,
         Long defaultAssigneeId,

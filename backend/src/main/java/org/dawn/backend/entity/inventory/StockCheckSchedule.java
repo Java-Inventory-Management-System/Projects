@@ -20,11 +20,11 @@ public class StockCheckSchedule extends AuditableEntity {
     @Column(name = "zone_code", nullable = false, length = 10)
     private String zoneCode;
 
-    @Column(name = "bin_from", length = 10)
-    private String binFrom;
+    @Column(name = "shelf_from", length = 10)
+    private String shelfFrom;
 
-    @Column(name = "bin_to", length = 10)
-    private String binTo;
+    @Column(name = "shelf_to", length = 10)
+    private String shelfTo;
 
     @Column(name = "frequency_days", nullable = false)
     private Integer frequencyDays;

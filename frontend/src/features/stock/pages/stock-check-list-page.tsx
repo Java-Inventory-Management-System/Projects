@@ -113,9 +113,9 @@ export const StockCheckListPage = () => {
       render: (r) => (
         <div className="min-w-[120px]">
           <span className="text-xs">{r.scopeName ?? `${r.scopeType} #${r.scopeId}`}</span>
-          {(r.binFrom || r.binTo) && (
+          {(r.shelfCodes && r.shelfCodes.length > 0) && (
             <span className="block font-mono text-[10px] text-muted-foreground">
-              {r.binFrom ?? "—"} – {r.binTo ?? "—"}
+              {r.shelfCodes.join(", ")}
             </span>
           )}
         </div>

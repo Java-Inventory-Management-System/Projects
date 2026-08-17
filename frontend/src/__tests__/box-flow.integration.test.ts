@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterEach } from "vitest"
 import { api, loginAsManager, ensureImport, cancelOpenStockChecks } from "./api-client"
 async function unitIdsOfSerials(serials: string[]) {
   const check = await api.post("/stock-check", { scopeType: "ZONE", scopeId: 1 })
+  await api.put(`/stock-check/${check.data.data.id}/start`)
   const detail = await api.get(`/stock-check/${check.data.data.id}`)
   const ids = detail.data.data.items
     .filter((i: any) => serials.includes(i.serialNumber))
@@ -91,6 +92,7 @@ describe("Box Flow", () => {
     expect(moveRes.data.data.locationId).toBe(36)
 
     const zoneCheck = await api.post("/stock-check", { scopeType: "ZONE", scopeId: 1 })
+    await api.put(`/stock-check/${zoneCheck.data.data.id}/start`)
     const zoneDetail = await api.get(`/stock-check/${zoneCheck.data.data.id}`)
     expect(zoneDetail.data.data.items.some((i: any) => i.serialNumber === serialNumbers[0])).toBe(true)
     await api.put(`/stock-check/${zoneCheck.data.data.id}/cancel`)
@@ -100,12 +102,13 @@ describe("Box Flow", () => {
 
     const print = await api.get(`/box/${boxId}/print`)
     expect(print.status).toBe(200)
-    expect(print.data).toContain(serialNumbers[0])
+    expect(print.headers["content-type"] ?? print.headers["Content-Type"]).toContain("pdf")
 
     const unsealRes = await api.post(`/box/${boxId}/unseal`)
     expect(unsealRes.data.data.status).toBe("UNSEALED")
 
     const zoneCheck2 = await api.post("/stock-check", { scopeType: "ZONE", scopeId: 1 })
+    await api.put(`/stock-check/${zoneCheck2.data.data.id}/start`)
     const zoneDetail2 = await api.get(`/stock-check/${zoneCheck2.data.data.id}`)
     expect(zoneDetail2.data.data.items.some((i: any) => i.serialNumber === serialNumbers[0])).toBe(true)
     await api.put(`/stock-check/${zoneCheck2.data.data.id}/cancel`)

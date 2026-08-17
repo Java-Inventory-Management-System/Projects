@@ -20,6 +20,7 @@ describe("Stock Check Flow", () => {
     const { serialNumbers } = await ensureImport(1, 1)
     const created = await api.post("/stock-check", { scopeType: "ZONE", scopeId: 1, note: "Phase2 test" })
     const checkId = created.data.data.id
+    await api.put(`/stock-check/${checkId}/start`)
 
     const detail = await api.get(`/stock-check/${checkId}`)
     const item = detail.data.data.items.find((i: any) => i.serialNumber === serialNumbers[0])

@@ -9,6 +9,7 @@ import org.dawn.backend.entity.inventory.StockCheck;
 import org.dawn.backend.entity.inventory.StockCheckItem;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -74,12 +75,14 @@ public interface StockCheckMappingHelper {
                     .productId(p != null ? p.getId() : null)
                     .productName(p != null ? p.getName() : null)
                     .productSku(p != null ? p.getSku() : null)
+                    .unit(p != null ? p.getUnit() : null)
                     .trackingType(item.getTrackingType())
                     .boxId(pu != null ? pu.getBoxId() : null)
                     .boxCode(pu != null && pu.getBoxId() != null ? boxCodeById.get(pu.getBoxId()) : null)
                     .expectedStatus(item.getExpectedStatus())
                     .actualStatus(item.getActualStatus())
                     .countedQuantity(item.getCountedQuantity())
+                    .expectedQuantity(item.getExpectedQuantity())
                     .difference(item.getDifference())
                     .note(item.getNote())
                     .photo(item.getPhoto())
@@ -97,8 +100,11 @@ public interface StockCheckMappingHelper {
                 .scopeType(sc.getScopeType())
                 .scopeId(sc.getScopeId())
                 .scopeName(scopeName)
-                .binFrom(sc.getBinFrom())
-                .binTo(sc.getBinTo())
+                .shelfCodes(sc.getShelfCodes() == null ? null
+                        : Arrays.stream(sc.getShelfCodes().split(","))
+                                .map(String::trim)
+                                .filter(s -> !s.isEmpty())
+                                .toList())
                 .note(sc.getNote())
                 .createdBy(sc.getCreatedBy())
                 .createdByName(createdByName)

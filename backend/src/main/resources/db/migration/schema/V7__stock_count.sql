@@ -14,8 +14,7 @@ CREATE TABLE stock_checks (
     approval_note  TEXT,
     checked_by     BIGINT NULL,
     entered_by     BIGINT NULL,
-    bin_from       VARCHAR(10) NULL,
-    bin_to         VARCHAR(10) NULL,
+    shelf_codes    VARCHAR(255) NULL,                 -- comma-separated shelves, NULL = whole zone
     box_status_snapshot TEXT NULL,
     created_at     TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at     TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -72,8 +71,8 @@ CREATE TABLE stock_check_item_histories (
 CREATE TABLE stock_check_schedules (
     id                  BIGINT AUTO_INCREMENT PRIMARY KEY,
     zone_code           VARCHAR(10) NOT NULL,
-    bin_from            VARCHAR(10) NULL,
-    bin_to              VARCHAR(10) NULL,
+    shelf_from          VARCHAR(10) NULL,
+    shelf_to            VARCHAR(10) NULL,
     frequency_days      INT         NOT NULL,
     is_active           BOOLEAN     NOT NULL DEFAULT TRUE,
     default_assignee_id BIGINT      NULL,

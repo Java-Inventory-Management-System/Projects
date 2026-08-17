@@ -63,12 +63,11 @@ public class StockCheckController {
 
     @GetMapping("/stock-check/scope-unit-count")
     @PreAuthorize(AuthorizationExpressions.CAN_VIEW_INVENTORY)
-    public ResponseObject<Integer> countUnitsInScope(
+public ResponseObject<Integer> countUnitsInScope(
             @RequestParam String scopeType,
             @RequestParam Long scopeId,
-            @RequestParam(required = false) String binFrom,
-            @RequestParam(required = false) String binTo) {
-        return ResponseObject.success(stockCheckService.countUnitsInScope(scopeType, scopeId, binFrom, binTo));
+            @RequestParam(required = false) String shelfCodes) {
+        return ResponseObject.success(stockCheckService.countUnitsInScope(scopeType, scopeId, shelfCodes));
     }
 
     @GetMapping("/stock-check/{id}")
@@ -89,12 +88,20 @@ public class StockCheckController {
         return ResponseObject.success(stockCheckService.start(id));
     }
 
-    @PutMapping("/stock-check/{id}/items")
+@PutMapping("/stock-check/{id}/items")
     @PreAuthorize(AuthorizationExpressions.CAN_OPERATE_STOCK)
     public ResponseObject<StockCheckResponse> recordItems(
             @PathVariable Long id,
             @RequestBody StockCheckItemRequest.BatchRequest request) {
         return ResponseObject.success(stockCheckService.recordItems(id, request));
+    }
+
+    @PostMapping("/stock-check/{id}/extra-items")
+    @PreAuthorize(AuthorizationExpressions.CAN_OPERATE_STOCK)
+    public ResponseObject<StockCheckResponse> addExtraItem(
+            @PathVariable Long id,
+            @RequestBody StockCheckItemRequest.ExtraItemRequest request) {
+        return ResponseObject.created(stockCheckService.addExtraItem(id, request));
     }
 
     @PutMapping("/stock-check/{id}/reopen")
@@ -103,12 +110,10 @@ public class StockCheckController {
         return ResponseObject.success(stockCheckService.reopen(id));
     }
 
-    @PutMapping("/stock-check/{id}/complete")
+@PutMapping("/stock-check/{id}/complete")
     @PreAuthorize(AuthorizationExpressions.CAN_OPERATE_STOCK)
-    public ResponseObject<StockCheckResponse> complete(
-            @PathVariable Long id,
-            @RequestParam(defaultValue = "false") boolean confirmUntouched) {
-        return ResponseObject.success(stockCheckService.complete(id, confirmUntouched));
+    public ResponseObject<StockCheckResponse> complete(@PathVariable Long id) {
+        return ResponseObject.success(stockCheckService.complete(id));
     }
 
     @PutMapping("/stock-check/{id}/cancel")

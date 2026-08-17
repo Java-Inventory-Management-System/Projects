@@ -1,5 +1,5 @@
 import http from "@/utils/http-client"
-import type { ResponsePage, StockCheck, StockCheckScopeType, StockCheckZoneStatus } from "@/utils/types"
+import type { ResponsePage, StockCheck, StockCheckSchedule, StockCheckScopeType, StockCheckZoneStatus } from "@/utils/types"
 import { mapResponsePage, mapStockCheck } from "@/utils/mappers"
 
 export async function getStockChecks(
@@ -40,18 +40,22 @@ export async function getStockCheckZoneStatus(): Promise<StockCheckZoneStatus> {
   return res as StockCheckZoneStatus
 }
 
+export async function getStockCheckSchedules(): Promise<StockCheckSchedule[]> {
+  const res = await http.get("/stock-check/schedules")
+  return res as StockCheckSchedule[]
+}
+
 export async function countUnitsInScope(
-  scopeType: string, scopeId: number, binFrom?: string, binTo?: string,
+  scopeType: string, scopeId: number, shelfCodes?: string[],
 ): Promise<number> {
   const params: Record<string, string | number> = { scopeType, scopeId }
-  if (binFrom) params.binFrom = binFrom
-  if (binTo) params.binTo = binTo
+  if (shelfCodes && shelfCodes.length > 0) params.shelfCodes = shelfCodes.join(",")
   const res = await http.get("/stock-check/scope-unit-count", { params })
   return res as number
 }
 
 export async function createStockCheck(data: {
-  scopeType: StockCheckScopeType; scopeId: number; binFrom?: string; binTo?: string; note?: string
+  scopeType: StockCheckScopeType; scopeId: number; shelfCodes?: string[]; note?: string
 }): Promise<StockCheck> {
   const res = await http.post("/stock-check", data)
   return mapStockCheck(res)
@@ -80,8 +84,16 @@ export async function recordStockCheckItems(
   return mapStockCheck(res)
 }
 
-export async function completeStockCheck(id: number, confirmUntouched = false): Promise<StockCheck> {
-  const res = await http.put(`/stock-check/${id}/complete`, null, { params: { confirmUntouched } })
+export async function completeStockCheck(id: number): Promise<StockCheck> {
+  const res = await http.put(`/stock-check/${id}/complete`)
+  return mapStockCheck(res)
+}
+
+export async function addExtraStockCheckItem(
+  id: number,
+  data: { sku: string; serialNumber?: string; countedQuantity?: number; note?: string; photo?: string },
+): Promise<StockCheck> {
+  const res = await http.post(`/stock-check/${id}/extra-items`, data)
   return mapStockCheck(res)
 }
 

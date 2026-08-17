@@ -99,7 +99,8 @@ public class ReceiptPrintService {
                      String serial, String condition, String resultingAction, String expected, String actual, String difference,
                      String total, String note, String footer, String signCreator, String signStock, String signApprover,
                      String stockCheckSummary, String importReceipt, String boxType,
-                     String stockCheckOk, String stockCheckSuspect, String stockCheckDamaged, String stockCheckLost) {}
+                     String stockCheckOk, String stockCheckSuspect, String stockCheckDamaged, String stockCheckLost,
+                     String no) {}
 
     private L labels(String lang) {
         boolean en = "en".equalsIgnoreCase(lang);
@@ -147,7 +148,8 @@ public class ReceiptPrintService {
                  en ? "OK" : "Có",
                  en ? "Suspect seal" : "Nghi seal",
                  en ? "Damaged packaging" : "Hư bao bì",
-                 en ? "Lost" : "Mất");
+                 en ? "Lost" : "Mất",
+                 en ? "No." : "STT");
     }
 
     public String printImport(Long id, String lang) {
@@ -276,14 +278,15 @@ public class ReceiptPrintService {
         }
         String summary = "<div class=\"summary\">" + esc(fmtLabel(l.stockCheckSummary, r.totalItems(), r.matchCount(), r.missingCount(), r.unexpectedCount())) + "</div>";
         String scope = r.scopeName() == null ? "-" : r.scopeName()
-                + (r.binFrom() != null || r.binTo() != null ? " (" + (r.binFrom() == null ? "-" : r.binFrom()) + " – " + (r.binTo() == null ? "-" : r.binTo()) + ")" : "");
+                + (r.shelfCodes() != null && !r.shelfCodes().isEmpty()
+        ? " (" + (en ? "Shelves: " : "K\u1ec7: ") + String.join(", ", r.shelfCodes()) + ")" : "");
         String meta = metaRow(l.location, esc(scope))
                 + metaRow(l.date, fmt(r.createdAt()))
                 + metaRow(l.creator, esc(r.createdByName()))
                 + (r.checkedByName() == null ? "" : metaRow(l.signStock, esc(r.checkedByName())))
                 + (r.note() == null || r.note().isBlank() ? "" : metaRow(l.note, esc(r.note())));
         return page(l, l.stockCheckTitle, r.checkCode(), status(lang, r.status()), meta,
-                th(l.product, l.serial, l.stockCheckOk, l.stockCheckSuspect, l.stockCheckDamaged, l.stockCheckLost), rows.toString(),
+                th(l.no, l.product, l.serial, l.stockCheckOk, l.stockCheckSuspect, l.stockCheckDamaged, l.stockCheckLost), rows.toString(),
                 null, summary, null);
     }
 
@@ -313,7 +316,7 @@ public class ReceiptPrintService {
         String extra = r.unsealedAt() == null ? ""
                 : "<div class=\"unsealed\">" + esc(fmtLabel(l.unsealedBy, r.unsealedByName(), fmt(r.unsealedAt()))) + "</div>";
         return labelPage(l.boxTitle, r.boxCode(), status(lang, r.status()), meta,
-                th(l.product, l.serial, l.qty), rows.toString(), extra);
+                th(l.no, l.product, l.serial, l.qty), rows.toString(), extra);
     }
 
     private String labelPage(String title, String code, String status, String meta, String head, String rows, String extra) {

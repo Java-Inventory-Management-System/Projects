@@ -195,6 +195,7 @@ export interface LocationResponse {
   description: string | null
   isActive: boolean
   maxCapacity: number | null
+  lastCheckedAt: string | null
   createdAt: string
   updatedAt: string
 }
@@ -446,7 +447,9 @@ export interface ExportReceiptItem {
 
 export type StockCheckStatus = "PENDING" | "IN_PROGRESS" | "COMPLETED" | "APPROVED" | "CANCELLED" | "EXPIRED"
 export type StockCheckScopeType = "ZONE" | "CATEGORY" | "BOX"
-export type DifferenceType = "MATCH" | "MISSING" | "UNEXPECTED" | "PARTIAL_SHORTAGE"
+export type DifferenceType = "MATCH" | "MISSING" | "UNEXPECTED" | "PARTIAL_SHORTAGE" | "SURPLUS"
+
+export const UNVERIFIED_STATUS = "UNVERIFIED"
 
 export interface StockCheckItem {
   id: number
@@ -455,12 +458,14 @@ export interface StockCheckItem {
   productId: number
   productName: string
   productSku: string | null
+  unit: string | null
   trackingType: "SERIALIZED" | "BULK" | null
   boxId: number | null
   boxCode: string | null
   expectedStatus: string | null
   actualStatus: string | null
   countedQuantity: number | null
+  expectedQuantity: number | null
   difference: DifferenceType | null
   note: string | null
   photo: string | null
@@ -478,8 +483,7 @@ export interface StockCheck {
   scopeType: StockCheckScopeType | null
   scopeId: number | null
   scopeName: string | null
-  binFrom: string | null
-  binTo: string | null
+  shelfCodes: string[] | null
   note: string | null
   createdBy: number | null
   createdByName: string | null
@@ -512,8 +516,8 @@ export interface StockCheckZoneStatus {
 export interface StockCheckSchedule {
   id: number
   zoneCode: string
-  binFrom: string | null
-  binTo: string | null
+  shelfFrom: string | null
+  shelfTo: string | null
   frequencyDays: number
   isActive: boolean
   defaultAssigneeId: number | null
@@ -1013,6 +1017,7 @@ export const STOCK_CHECK_DIFF = {
   MISSING: "MISSING",
   UNEXPECTED: "UNEXPECTED",
   PARTIAL_SHORTAGE: "PARTIAL_SHORTAGE",
+  SURPLUS: "SURPLUS",
 } as const
 
 export const ADJUSTMENT_TYPE = {
