@@ -39,7 +39,8 @@ public record ExportReceiptResponse(
             String fromStatus,
             String toStatus,
             Instant createdAt,
-            Long changedBy
+            Long changedBy,
+            String changedByName
     ) {}
 
     @Builder
@@ -50,6 +51,7 @@ public record ExportReceiptResponse(
             String productSku,
             BigDecimal quantity,
             BigDecimal unitPrice,
-            String trackingType
+            String trackingType,
+            List<String> serialNumbers
     ) {}
 }

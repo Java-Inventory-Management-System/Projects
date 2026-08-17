@@ -18,6 +18,7 @@ import org.dawn.backend.entity.catalog.Product;
 import org.dawn.backend.entity.inventory.Customer;
 import org.dawn.backend.entity.inventory.ExportReceipt;
 import org.dawn.backend.entity.inventory.ExportReceiptItem;
+import org.dawn.backend.entity.inventory.ExportReceiptItemUnit;
 import org.dawn.backend.entity.inventory.ExportReceiptStatusHistory;
 import org.dawn.backend.entity.inventory.Location;
 import org.dawn.backend.entity.inventory.ProductUnit;
@@ -291,20 +292,22 @@ private final LocationRepository locationRepository;
                     .map(Customer::getName).orElse(null);
         }
 
-        var createdByName = userRepository.findById(receipt.getCreatedBy())
-                .map(User::getFullName).orElse(null);
-        var approvedByName = receipt.getApprovedBy() != null
-                ? userRepository.findById(receipt.getApprovedBy()).map(User::getFullName).orElse(null)
-                : null;
-        var fulfilledByName = receipt.getFulfilledBy() != null
-                ? userRepository.findById(receipt.getFulfilledBy()).map(User::getFullName).orElse(null)
-                : null;
-        var rejectedByName = receipt.getRejectedBy() != null
-                ? userRepository.findById(receipt.getRejectedBy()).map(User::getFullName).orElse(null)
-                : null;
         var history = statusHistoryRepository.findByReceiptIdOrderByCreatedAtAsc(receipt.getId());
-        return ExportReceiptMappingHelper.map(receipt, customerName, createdByName, approvedByName,
-                fulfilledByName, rejectedByName, items, products, trackingTypeMap, history);
+        var userIds = new java.util.ArrayList<Long>();
+        userIds.add(receipt.getCreatedBy());
+        if (receipt.getApprovedBy() != null) userIds.add(receipt.getApprovedBy());
+        if (receipt.getFulfilledBy() != null) userIds.add(receipt.getFulfilledBy());
+        if (receipt.getRejectedBy() != null) userIds.add(receipt.getRejectedBy());
+        history.stream().map(ExportReceiptStatusHistory::getChangedBy).filter(java.util.Objects::nonNull)
+                .forEach(userIds::add);
+        var userNames = userRepository.findAllById(userIds.stream().distinct().toList()).stream()
+                .collect(Collectors.toMap(User::getId, User::getFullName));
+        return ExportReceiptMappingHelper.map(receipt, customerName,
+                userNames.get(receipt.getCreatedBy()),
+                receipt.getApprovedBy() != null ? userNames.get(receipt.getApprovedBy()) : null,
+                receipt.getFulfilledBy() != null ? userNames.get(receipt.getFulfilledBy()) : null,
+                receipt.getRejectedBy() != null ? userNames.get(receipt.getRejectedBy()) : null,
+                items, products, trackingTypeMap, history, userNames, fetchSerials(items));
     }
 
     private ExportReceiptResponse toResponse(ExportReceipt receipt, Map<Long, String> customers, Map<Long, String> users,
@@ -321,7 +324,21 @@ private final LocationRepository locationRepository;
                 receipt.getApprovedBy() != null ? users.get(receipt.getApprovedBy()) : null,
                 receipt.getFulfilledBy() != null ? users.get(receipt.getFulfilledBy()) : null,
                 receipt.getRejectedBy() != null ? users.get(receipt.getRejectedBy()) : null,
-                items, products, trackingTypeMap, history);
+                items, products, trackingTypeMap, history, users, fetchSerials(items));
+    }
+
+    private Map<Long, List<String>> fetchSerials(List<ExportReceiptItem> items) {
+        var itemIds = items.stream().map(ExportReceiptItem::getId).toList();
+        if (itemIds.isEmpty()) return Map.of();
+        var links = exportReceiptItemUnitRepository.findByExportReceiptItemIdIn(itemIds);
+        var unitIds = links.stream().map(ExportReceiptItemUnit::getProductUnitId).distinct().toList();
+        var serials = unitIds.isEmpty() ? Map.<Long, String>of()
+                : productUnitRepository.findAllById(unitIds).stream()
+                        .filter(u -> u.getSerialNumber() != null)
+                        .collect(Collectors.toMap(ProductUnit::getId, ProductUnit::getSerialNumber));
+        return links.stream().collect(Collectors.groupingBy(
+                ExportReceiptItemUnit::getExportReceiptItemId,
+                Collectors.mapping(l -> serials.getOrDefault(l.getProductUnitId(), ""), Collectors.toList())));
     }
 
     private String generateReceiptCode() {

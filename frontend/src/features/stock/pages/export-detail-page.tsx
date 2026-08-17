@@ -174,6 +174,7 @@ export function ExportDetailPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>{t("table.product")}</TableHead>
+                <TableHead>{t("table.serial")}</TableHead>
                 <TableHead className="w-16 text-right">{t("table.qty")}</TableHead>
                 <TableHead className="w-24 text-right">{t("table.unitPrice")}</TableHead>
                 <TableHead className="w-24 text-right">{t("table.total")}</TableHead>
@@ -185,6 +186,11 @@ export function ExportDetailPage() {
                   <TableCell>
                     <span className="font-medium">{item.productName}</span>
                     <span className="text-xs text-muted-foreground ml-2">{item.productSku}</span>
+                  </TableCell>
+                  <TableCell>
+                    <span className="font-mono text-xs break-all">
+                      {item.serialNumbers?.length ? item.serialNumbers.join(", ") : "—"}
+                    </span>
                   </TableCell>
                   <TableCell className="text-right tabular-nums">{item.quantity}</TableCell>
                   <TableCell className="text-right tabular-nums">{formatMoney(item.unitPrice ?? 0)}</TableCell>
@@ -216,7 +222,9 @@ export function ExportDetailPage() {
                         {historyStatusLabel[h.toStatus] ?? h.toStatus}
                       </Badge>
                     </p>
-                    <p className="text-xs text-muted-foreground mt-0.5">{formatDateTime(h.createdAt)}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {h.changedByName ? `${h.changedByName} · ` : ""}{formatDateTime(h.createdAt)}
+                    </p>
                   </div>
                 </li>
               ))}

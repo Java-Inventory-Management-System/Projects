@@ -22,7 +22,9 @@ public interface ExportReceiptMappingHelper {
                                       List<ExportReceiptItem> items,
                                       Map<Long, Product> productMap,
                                       Map<Long, String> trackingTypeMap,
-                                      List<ExportReceiptStatusHistory> statusHistory) {
+                                      List<ExportReceiptStatusHistory> statusHistory,
+                                      Map<Long, String> userNames,
+                                      Map<Long, List<String>> serialsByItemId) {
         return ExportReceiptResponse.builder()
                 .id(receipt.getId())
                 .receiptCode(receipt.getReceiptCode())
@@ -57,6 +59,9 @@ public interface ExportReceiptMappingHelper {
                             .quantity(item.getQuantity())
                             .unitPrice(item.getUnitPrice())
                             .trackingType(trackingTypeMap != null ? trackingTypeMap.get(item.getProductId()) : null)
+                            .serialNumbers(serialsByItemId != null
+                                    ? serialsByItemId.getOrDefault(item.getId(), List.of())
+                                    : List.of())
                             .build();
                 }).toList())
                 .statusHistory(statusHistory == null ? List.of() : statusHistory.stream()
@@ -65,6 +70,8 @@ public interface ExportReceiptMappingHelper {
                                 .toStatus(h.getToStatus())
                                 .createdAt(h.getCreatedAt())
                                 .changedBy(h.getChangedBy())
+                                .changedByName(userNames != null && h.getChangedBy() != null
+                                        ? userNames.get(h.getChangedBy()) : null)
                                 .build())
                         .toList())
                 .createdAt(receipt.getCreatedAt())

@@ -15,6 +15,7 @@ import java.util.Set;
 @Repository
 public interface ExportReceiptItemUnitRepository extends JpaRepository<ExportReceiptItemUnit, Long> {
     List<ExportReceiptItemUnit> findByExportReceiptItemId(Long exportReceiptItemId);
+    List<ExportReceiptItemUnit> findByExportReceiptItemIdIn(Collection<Long> exportReceiptItemIds);
     List<ExportReceiptItemUnit> findByProductUnitId(Long productUnitId);
     List<ExportReceiptItemUnit> findByProductUnitIdIn(Collection<Long> productUnitIds);
 
