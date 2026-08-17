@@ -64,7 +64,6 @@ public class LocationService {
     @Transactional(readOnly = true)
     public LocationMapResponse getMap() {
         var locations = locationRepository.findAllByOrderByZoneCodeAscShelfCodeAscBinCodeAsc();
-        var counts = boxCapacity.usageByLocation();
         var skuMap = productUnitRepository.findSkuByLocationId();
         var sealedBoxes = boxRepository.findByLocationIdInAndStatus(locations.stream().map(Location::getId).toList(), BoxStatus.SEALED);
         var boxMap = sealedBoxes.stream()
@@ -72,6 +71,10 @@ public class LocationService {
         var boxById = sealedBoxes.stream().collect(Collectors.toMap(Box::getId, b -> b, (a, b) -> a));
 
         var units = productUnitRepository.findInStockUnitsByLocationIdIn(locations.stream().map(Location::getId).toList());
+        var countByLoc = units.stream()
+                .collect(Collectors.groupingBy(ProductUnit::getLocationId,
+                        Collectors.summingLong(u -> "BULK".equals(u.getTrackingType())
+                                && u.getRemainingQuantity() != null ? u.getRemainingQuantity().longValue() : 1L)));
         var products = productRepository.findAllById(units.stream().map(ProductUnit::getProductId).distinct().toList()).stream()
                 .collect(Collectors.toMap(Product::getId, p -> p));
         Map<Long, List<BinProduct>> productMap = units.stream()
@@ -117,7 +120,7 @@ public class LocationService {
                     List<String> boxCodes = boxMap.getOrDefault(loc.getId(), Collections.emptyList()).stream()
                             .map(Box::getBoxCode).toList();
                     List<BinProduct> binProducts = productMap.getOrDefault(loc.getId(), Collections.emptyList());
-                    return new BinData(loc.getId(), loc.getBinCode(), loc.getFullCode(), counts.getOrDefault(loc.getId(), BigDecimal.ZERO).longValue(), mc, loc.getIsActive(), skus, boxCodes.size(), boxCodes, binProducts);
+                    return new BinData(loc.getId(), loc.getBinCode(), loc.getFullCode(), countByLoc.getOrDefault(loc.getId(), 0L), mc, loc.getIsActive(), skus, boxCodes.size(), boxCodes, binProducts);
                 }).toList();
                 return new ShelfData(shelfEntry.getKey(), bins);
             }).toList();

@@ -215,7 +215,7 @@ public interface ProductUnitRepository extends JpaRepository<ProductUnit, Long> 
             """, nativeQuery = true)
     List<Object[]> aggregateInStockByProductIdIn(@Param("productIds") List<Long> productIds);
 
-    @Query(value = "SELECT pu.location_id, p.sku FROM product_units pu JOIN products p ON pu.product_id = p.id WHERE pu.status = 'IN_STOCK' AND pu.location_id IS NOT NULL", nativeQuery = true)
+    @Query(value = "SELECT pu.location_id, p.sku FROM product_units pu JOIN products p ON pu.product_id = p.id WHERE pu.location_id IS NOT NULL AND pu.status NOT IN ('EXPORTED','RETURNED_TO_SUPPLIER','SENT_TO_MANUFACTURER','DISPOSED','REMOVED','LOST')", nativeQuery = true)
     List<Object[]> findSkuByLocationIdRaw();
 
     default Map<Long, List<String>> findSkuByLocationId() {
@@ -226,7 +226,9 @@ public interface ProductUnitRepository extends JpaRepository<ProductUnit, Long> 
             ));
     }
 
-@Query("SELECT p FROM ProductUnit p WHERE p.status = 'IN_STOCK' AND p.locationId IN :locationIds ORDER BY p.productId, p.importedAt ASC")
+@Query("SELECT p FROM ProductUnit p WHERE p.locationId IN :locationIds "
+        + "AND p.status NOT IN ('EXPORTED','RETURNED_TO_SUPPLIER','SENT_TO_MANUFACTURER','DISPOSED','REMOVED','LOST') "
+        + "ORDER BY p.productId, p.importedAt ASC")
 List<ProductUnit> findInStockUnitsByLocationIdIn(@Param("locationIds") Collection<Long> locationIds);
 
     default Map<Long, Long> countByLocation() {
